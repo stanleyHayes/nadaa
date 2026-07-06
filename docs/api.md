@@ -388,6 +388,9 @@ Response:
   "status": "reported",
   "severity": "high",
   "priorityReview": false,
+  "abuseSignals": [],
+  "abuseScore": 0,
+  "abuseReviewRequired": false,
   "duplicateCandidates": [
     {
       "incidentId": "inc_...",
@@ -416,12 +419,14 @@ Rules:
 - Anonymous reports do not retain `reportedBy` in standard incident records.
 - If `contactPermission` is false, reporter phone is not retained in the incident record.
 - Starter service rate-limits repeated reports by client address.
+- Suspicious report signals are stored as transparent `abuseSignals` with a weighted `abuseScore` and `abuseReviewRequired` flag for dispatchers.
+- Automated suspicion does not block report creation or suppress life-threatening reports.
 - Duplicate candidates are review hints only. The starter baseline compares same-hazard reports within 750 meters and 3 hours using distance, time, and description similarity.
 - No duplicate candidate is automatically merged, hidden, deleted, or downgraded.
 
 `GET /api/v1/incidents`
 
-Starter list endpoint for development and authority command-map wiring. Incident records include `location`, `severity`, `status`, `type`, `createdAt`, `duplicateCandidates`, `mergedIncidentIds`, `mergedIntoId`, `verifiedBy`, `verifiedAt`, `statusReason`, `resolutionNotes`, and `closedAt` so the dashboard can render map markers, synchronized queue rows, filters, status controls, assignment controls, and duplicate review prompts.
+Starter list endpoint for development and authority command-map wiring. Incident records include `location`, `severity`, `status`, `type`, `createdAt`, `abuseSignals`, `abuseScore`, `abuseReviewRequired`, `duplicateCandidates`, `mergedIncidentIds`, `mergedIntoId`, `verifiedBy`, `verifiedAt`, `statusReason`, `resolutionNotes`, and `closedAt` so the dashboard can render map markers, synchronized queue rows, filters, status controls, assignment controls, safety review controls, and duplicate review prompts.
 
 ### Media Upload
 
@@ -513,6 +518,17 @@ Rules:
 - `closed` and `false_report` are terminal.
 - `resolutionNotes` are required for `closed` and `false_report`.
 - Every accepted status change writes an incident audit event with before/after snapshots.
+
+`POST /api/v1/incidents/{id}/abuse-review`
+
+```json
+{
+  "decision": "clear",
+  "note": "Dispatcher confirmed caller and location details"
+}
+```
+
+Allowed review decisions are `clear`, `monitor`, and `false_report`. Allowed review roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`; MFA is required. `false_report` requires `resolutionNotes`, moves the incident to terminal `false_report`, and writes an `incident.false_reported` audit event. `clear` and `monitor` update review metadata and write `incident.abuse_cleared` or `incident.abuse_monitored` audit events.
 
 `GET /api/v1/incidents/audit?limit=50`
 

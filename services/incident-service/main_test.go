@@ -234,6 +234,130 @@ func TestLifeThreateningIncidentIsPriorityReview(t *testing.T) {
 	}
 }
 
+func TestCreateIncidentFlagsSuspiciousReportSignalsWithoutBlocking(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.Urgency = "life_threatening"
+	body.Description = "Free money promo click here https://example.test emergency emergency emergency"
+
+	payload := createIncidentForTest(t, srv, body)
+
+	if payload.Status != "reported" || !payload.PriorityReview {
+		t.Fatalf("expected suspicious life-threatening report to remain live, got %#v", payload)
+	}
+	if !payload.AbuseReviewRequired || payload.AbuseScore < abuseReviewThreshold {
+		t.Fatalf("expected abuse review flag over threshold, got %#v", payload)
+	}
+	if !containsAbuseSignal(payload.AbuseSignals, "external_link") ||
+		!containsAbuseSignal(payload.AbuseSignals, "promotional_language") {
+		t.Fatalf("expected link and promotional abuse signals, got %#v", payload.AbuseSignals)
+	}
+
+	incidents := srv.store.listIncidents("")
+	if !containsTimelineType(incidents[0].Timeline, "incident.abuse_flagged") {
+		t.Fatalf("expected abuse flag timeline event, got %#v", incidents[0].Timeline)
+	}
+}
+
+func TestCreateIncidentFlagsReporterBurst(t *testing.T) {
+	srv := newTestServer()
+	first := validIncidentRequest()
+	first.Description = "Flood water blocking roadside shops near the bridge."
+	createIncidentForTest(t, srv, first)
+
+	second := validIncidentRequest()
+	second.Description = "Tree branches fell near the flooded road entrance."
+	createIncidentForTest(t, srv, second)
+
+	third := validIncidentRequest()
+	third.Description = "Drain cover washed away near the same flooded road."
+	payload := createIncidentForTest(t, srv, third)
+
+	if !payload.AbuseReviewRequired || !containsAbuseSignal(payload.AbuseSignals, "reporter_burst") {
+		t.Fatalf("expected reporter burst abuse signal, got %#v", payload)
+	}
+}
+
+func TestAbuseReviewCanClearSuspiciousReport(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.Description = "Promo link https://example.test but caller confirmed active flood"
+	incident := createIncidentForTest(t, srv, body)
+
+	payload := reviewAbuseForTest(t, srv, incident.ID, abuseReviewRequest{
+		Decision: "clear",
+		Note:     "Dispatcher confirmed caller and live flood conditions.",
+	})
+
+	if payload.AbuseReviewRequired || payload.AbuseReviewDecision != "clear" || payload.AbuseReviewedBy != "usr_dispatcher_001" || payload.AbuseReviewedAt == nil {
+		t.Fatalf("expected cleared abuse review metadata, got %#v", payload)
+	}
+	if !containsTimelineType(payload.Timeline, "incident.abuse_cleared") {
+		t.Fatalf("expected abuse cleared timeline event, got %#v", payload.Timeline)
+	}
+
+	logs := srv.store.listAudit(10)
+	if len(logs) != 1 || logs[0].Action != "incident.abuse_cleared" {
+		t.Fatalf("expected abuse cleared audit event, got %#v", logs)
+	}
+}
+
+func TestAbuseReviewCanMarkFalseReportWithResolution(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.Description = "Free money promo click here https://example.test"
+	incident := createIncidentForTest(t, srv, body)
+
+	missingResolution := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/abuse-review",
+		jsonBody(abuseReviewRequest{Decision: "false_report", Note: "Dispatcher confirmed no emergency."}),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.reviewAbuseHandler(missingResolution, request)
+	if missingResolution.Code != http.StatusBadRequest {
+		t.Fatalf("expected missing resolution status %d, got %d", http.StatusBadRequest, missingResolution.Code)
+	}
+
+	payload := reviewAbuseForTest(t, srv, incident.ID, abuseReviewRequest{
+		Decision:        "false_report",
+		Note:            "Dispatcher confirmed no emergency at the reported location.",
+		ResolutionNotes: "Field callback and district desk confirmed no active incident.",
+	})
+
+	if payload.Status != "false_report" || payload.AbuseReviewRequired || payload.ResolutionNotes == "" || payload.ClosedAt == nil {
+		t.Fatalf("expected false report closure metadata, got %#v", payload)
+	}
+	if !containsTimelineType(payload.Timeline, "incident.false_reported") {
+		t.Fatalf("expected false report timeline event, got %#v", payload.Timeline)
+	}
+
+	logs := srv.store.listAudit(10)
+	if len(logs) != 1 || logs[0].Action != "incident.false_reported" || logs[0].After["status"] != "false_report" {
+		t.Fatalf("expected false report abuse audit event, got %#v", logs)
+	}
+}
+
+func TestAbuseReviewRequiresWorkflowRole(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/abuse-review",
+		jsonBody(abuseReviewRequest{Decision: "clear", Note: "Viewer should not clear moderation."}),
+	)
+	request.Header.Set("X-NADAA-Actor-Role", "agency_viewer")
+	request.SetPathValue("id", incident.ID)
+	srv.reviewAbuseHandler(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, response.Code, response.Body.String())
+	}
+}
+
 func TestDuplicateCandidatesIncludeSameLocationReport(t *testing.T) {
 	srv := newTestServer()
 	first := createIncidentForTest(t, srv, validIncidentRequest())
@@ -930,9 +1054,38 @@ func mergeIncidentsForTest(t *testing.T, srv *server, incidentID string, body me
 	return payload
 }
 
+func reviewAbuseForTest(t *testing.T, srv *server, incidentID string, body abuseReviewRequest) incidentRecord {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incidentID+"/abuse-review",
+		jsonBody(body),
+	)
+	request.SetPathValue("id", incidentID)
+	srv.reviewAbuseHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected abuse review status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload incidentRecord
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
 func containsString(values []string, needle string) bool {
 	for _, value := range values {
 		if value == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func containsAbuseSignal(values []abuseSignal, needle string) bool {
+	for _, value := range values {
+		if value.Code == needle {
 			return true
 		}
 	}

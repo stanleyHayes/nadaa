@@ -406,6 +406,15 @@ export interface DuplicateIncidentCandidate {
   reasons: string[];
 }
 
+export interface IncidentAbuseSignal {
+  code: string;
+  label: string;
+  detail: string;
+  weight: number;
+}
+
+export type IncidentAbuseReviewDecision = "clear" | "monitor" | "false_report";
+
 export type IncidentAssignmentPriority = "low" | "normal" | "high" | "urgent";
 
 export interface IncidentAssignmentRecord {
@@ -462,6 +471,13 @@ export interface IncidentRecord {
   accessibilityNeeds?: string;
   media: string[];
   priorityReview: boolean;
+  abuseSignals: IncidentAbuseSignal[];
+  abuseScore: number;
+  abuseReviewRequired: boolean;
+  abuseReviewReason?: string;
+  abuseReviewDecision?: IncidentAbuseReviewDecision;
+  abuseReviewedBy?: string;
+  abuseReviewedAt?: string;
   duplicateCandidates: DuplicateIncidentCandidate[];
   mergedIncidentIds: string[];
   assignments: IncidentAssignmentRecord[];
@@ -487,6 +503,9 @@ export interface CreateIncidentResponse {
   status: "reported";
   severity: RiskLevel;
   priorityReview: boolean;
+  abuseSignals: IncidentAbuseSignal[];
+  abuseScore: number;
+  abuseReviewRequired: boolean;
   duplicateCandidates: DuplicateIncidentCandidate[];
 }
 
@@ -521,6 +540,10 @@ export interface MergeIncidentsResponse {
 
 export interface IncidentStatusUpdateRequest extends IncidentWorkflowRequest {
   status: IncidentStatus;
+}
+
+export interface IncidentAbuseReviewRequest extends IncidentWorkflowRequest {
+  decision: IncidentAbuseReviewDecision;
 }
 
 export interface AssignIncidentRequest {

@@ -58,6 +58,8 @@ import type {
   AlertStatus,
   AuthorityAlertRecord,
   CreateAlertRequest,
+  IncidentAbuseReviewDecision,
+  IncidentAbuseReviewRequest,
   DuplicateReviewCandidate,
   DuplicateReviewResponse,
   HazardType,
@@ -161,6 +163,12 @@ type IncidentStatusFormState = {
   resolutionNotes: string;
 };
 
+type AbuseReviewFormState = {
+  decision: IncidentAbuseReviewDecision;
+  note: string;
+  resolutionNotes: string;
+};
+
 type AssignmentFormState = {
   agencyId: string;
   agencyName: string;
@@ -227,6 +235,17 @@ const fallbackIncidents: CommandIncident[] = [
     contactPermission: true,
     media: ["media_flood_photo_001"],
     priorityReview: true,
+    abuseSignals: [
+      {
+        code: "reporter_burst",
+        label: "Reporter burst",
+        detail: "Reporter has submitted multiple nearby reports today.",
+        weight: 0.55,
+      },
+    ],
+    abuseScore: 0.55,
+    abuseReviewRequired: true,
+    abuseReviewReason: "Review requested: Reporter burst",
     duplicateCandidates: [
       {
         incidentId: "inc_accra_flood_0237",
@@ -271,6 +290,9 @@ const fallbackIncidents: CommandIncident[] = [
     contactPermission: true,
     media: [],
     priorityReview: true,
+    abuseSignals: [],
+    abuseScore: 0,
+    abuseReviewRequired: false,
     duplicateCandidates: [
       {
         incidentId: "inc_accra_flood_0241",
@@ -314,6 +336,9 @@ const fallbackIncidents: CommandIncident[] = [
     contactPermission: true,
     media: ["media_crash_photo_002"],
     priorityReview: true,
+    abuseSignals: [],
+    abuseScore: 0,
+    abuseReviewRequired: false,
     duplicateCandidates: [],
     mergedIncidentIds: [],
     assignments: [
@@ -360,6 +385,9 @@ const fallbackIncidents: CommandIncident[] = [
     contactPermission: false,
     media: [],
     priorityReview: false,
+    abuseSignals: [],
+    abuseScore: 0,
+    abuseReviewRequired: false,
     duplicateCandidates: [],
     mergedIncidentIds: [],
     assignments: [],
@@ -393,6 +421,9 @@ const fallbackIncidents: CommandIncident[] = [
     contactPermission: true,
     media: ["media_fire_photo_003"],
     priorityReview: true,
+    abuseSignals: [],
+    abuseScore: 0,
+    abuseReviewRequired: false,
     duplicateCandidates: [],
     mergedIncidentIds: [],
     assignments: [
@@ -540,6 +571,11 @@ function App() {
   const [statusFeedback, setStatusFeedback] = useState("");
   const [statusForm, setStatusForm] = useState<IncidentStatusFormState>(
     buildDefaultStatusForm(fallbackIncidents[0]),
+  );
+  const [abuseBusy, setAbuseBusy] = useState(false);
+  const [abuseFeedback, setAbuseFeedback] = useState("");
+  const [abuseForm, setAbuseForm] = useState<AbuseReviewFormState>(
+    buildDefaultAbuseReviewForm(fallbackIncidents[0]),
   );
   const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [assignmentFeedback, setAssignmentFeedback] = useState("");
@@ -690,6 +726,7 @@ function App() {
   useEffect(() => {
     setAlertForm(buildDefaultAlertForm(selectedIncident));
     setStatusForm(buildDefaultStatusForm(selectedIncident));
+    setAbuseForm(buildDefaultAbuseReviewForm(selectedIncident));
     setAssignmentForm(buildDefaultAssignmentForm(selectedIncident));
     const localCandidates = duplicateReviewCandidatesFor(
       selectedIncident,
@@ -700,6 +737,7 @@ function App() {
       localCandidates.map((candidate) => candidate.incident.id),
     );
     setStatusFeedback("");
+    setAbuseFeedback("");
     setAssignmentFeedback("");
     setMergeFeedback("");
 
@@ -741,6 +779,15 @@ function App() {
         ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
     ) => {
       setStatusForm((current) => ({ ...current, [key]: event.target.value }));
+    };
+
+  const updateAbuseForm =
+    (key: keyof AbuseReviewFormState) =>
+    (
+      event:
+        ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+    ) => {
+      setAbuseForm((current) => ({ ...current, [key]: event.target.value }));
     };
 
   const updateAssignmentForm =
@@ -810,6 +857,7 @@ function App() {
     if (enrichedUpdates[0]) {
       setSelectedIncidentId(enrichedUpdates[0].id);
       setStatusForm(buildDefaultStatusForm(enrichedUpdates[0]));
+      setAbuseForm(buildDefaultAbuseReviewForm(enrichedUpdates[0]));
       setAssignmentForm(buildDefaultAssignmentForm(enrichedUpdates[0]));
     }
     setLoadState("ready");
@@ -884,6 +932,45 @@ function App() {
       );
     } finally {
       setStatusBusy(false);
+    }
+  };
+
+  const reviewSelectedIncidentAbuse = async () => {
+    if (!selectedIncident) {
+      return;
+    }
+
+    const request: IncidentAbuseReviewRequest = {
+      decision: abuseForm.decision,
+      note: abuseForm.note,
+      resolutionNotes: abuseForm.resolutionNotes,
+    };
+
+    setAbuseBusy(true);
+    setAbuseFeedback("");
+    try {
+      const response = await fetch(
+        `${INCIDENT_API_BASE}/incidents/${selectedIncident.id}/abuse-review`,
+        {
+          method: "POST",
+          headers: authorityHeaders(),
+          body: JSON.stringify(request),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`incident API returned ${response.status}`);
+      }
+      const incident = (await response.json()) as IncidentRecord;
+      applyIncidentUpdate(incident);
+      setAbuseFeedback(
+        `${abuseDecisionLabel(request.decision)} review saved for ${incident.reference}.`,
+      );
+    } catch (error) {
+      setAbuseFeedback(
+        "Report safety review needs a live incident-service API and valid authority transition.",
+      );
+    } finally {
+      setAbuseBusy(false);
     }
   };
 
@@ -1421,6 +1508,9 @@ function App() {
           <Grid size={{ xs: 12, lg: 4 }}>
             <Stack spacing={2.5}>
               <IncidentDetailPanel
+                abuseBusy={abuseBusy}
+                abuseFeedback={abuseFeedback}
+                abuseForm={abuseForm}
                 assignmentBusy={assignmentBusy}
                 assignmentFeedback={assignmentFeedback}
                 assignmentForm={assignmentForm}
@@ -1433,7 +1523,9 @@ function App() {
                 mergeFeedback={mergeFeedback}
                 onAssign={assignSelectedIncident}
                 onMergeDuplicates={mergeSelectedDuplicates}
+                onReviewAbuse={reviewSelectedIncidentAbuse}
                 onToggleDuplicate={toggleDuplicateSelection}
+                onUpdateAbuseForm={updateAbuseForm}
                 onUpdateAssignmentForm={updateAssignmentForm}
                 onUpdateForm={updateStatusForm}
                 onUpdateStatus={updateIncidentStatus}
@@ -1908,6 +2000,9 @@ function AlertWorkflowPanel({
 }
 
 function IncidentDetailPanel({
+  abuseBusy,
+  abuseFeedback,
+  abuseForm,
   assignmentBusy,
   assignmentFeedback,
   assignmentForm,
@@ -1920,13 +2015,18 @@ function IncidentDetailPanel({
   mergeFeedback,
   onAssign,
   onMergeDuplicates,
+  onReviewAbuse,
   onToggleDuplicate,
+  onUpdateAbuseForm,
   onUpdateAssignmentForm,
   onUpdateForm,
   onUpdateStatus,
   onVerify,
   selectedDuplicateIds,
 }: {
+  abuseBusy: boolean;
+  abuseFeedback: string;
+  abuseForm: AbuseReviewFormState;
   assignmentBusy: boolean;
   assignmentFeedback: string;
   assignmentForm: AssignmentFormState;
@@ -1939,7 +2039,14 @@ function IncidentDetailPanel({
   mergeFeedback: string;
   onAssign: () => void;
   onMergeDuplicates: () => void;
+  onReviewAbuse: () => void;
   onToggleDuplicate: (incidentId: string) => void;
+  onUpdateAbuseForm: (
+    key: keyof AbuseReviewFormState,
+  ) => (
+    event:
+      ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+  ) => void;
   onUpdateAssignmentForm: (
     key: keyof AssignmentFormState,
   ) => (
@@ -1975,6 +2082,11 @@ function IncidentDetailPanel({
   const activeAssignments = incident.assignments.filter(
     (assignment) => assignment.status === "active",
   );
+  const canReviewAbuse =
+    incident.source === "api" &&
+    incident.status !== "closed" &&
+    incident.status !== "false_report";
+  const abuseResolutionRequired = abuseForm.decision === "false_report";
   const canMerge =
     incident.source === "api" && selectedDuplicateIds.length > 0 && !mergeBusy;
 
@@ -2025,6 +2137,142 @@ function IncidentDetailPanel({
           <Fact label="Assigned agency" value={incident.assignedAgency} />
         </Grid>
       </Grid>
+
+      <Divider className="detail-divider" />
+
+      <Stack spacing={1.25}>
+        <Stack direction="row" justifyContent="space-between" gap={1}>
+          <Box>
+            <Typography variant="subtitle2">Report safety review</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {incident.abuseReviewRequired
+                ? "Dispatcher review required"
+                : "No active safety hold"}
+            </Typography>
+          </Box>
+          <Chip
+            size="small"
+            label={abuseScoreLabel(incident.abuseScore)}
+            color={incident.abuseReviewRequired ? "warning" : "default"}
+          />
+        </Stack>
+
+        {incident.abuseReviewRequired ? (
+          <Alert
+            severity={incident.priorityReview ? "error" : "warning"}
+            icon={<ShieldAlert size={18} />}
+          >
+            {incident.abuseReviewReason ||
+              "Suspicious report signals need dispatcher review."}
+          </Alert>
+        ) : null}
+
+        {incident.abuseSignals.length ? (
+          <Stack spacing={1}>
+            {incident.abuseSignals.map((signal) => (
+              <Box className="abuse-signal-row" key={signal.code}>
+                <Box>
+                  <Typography variant="subtitle2">{signal.label}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {signal.detail}
+                  </Typography>
+                </Box>
+                <Chip
+                  size="small"
+                  label={`${Math.round(signal.weight * 100)}%`}
+                  color="warning"
+                />
+              </Box>
+            ))}
+          </Stack>
+        ) : (
+          <Alert severity="info">No suspicious report signals recorded.</Alert>
+        )}
+
+        {incident.abuseReviewDecision ? (
+          <Alert severity="success">
+            Last review: {abuseDecisionLabel(incident.abuseReviewDecision)}
+            {incident.abuseReviewedAt
+              ? ` at ${formatShortTime(incident.abuseReviewedAt)}`
+              : ""}
+          </Alert>
+        ) : null}
+
+        {abuseFeedback ? (
+          <Alert
+            severity={
+              abuseFeedback.includes("needs") || abuseFeedback.includes("valid")
+                ? "warning"
+                : "success"
+            }
+          >
+            {abuseFeedback}
+          </Alert>
+        ) : null}
+
+        <Grid container spacing={1}>
+          <Grid size={{ xs: 12, sm: 5 }}>
+            <FormControl fullWidth size="small" disabled={!canReviewAbuse}>
+              <InputLabel>Decision</InputLabel>
+              <Select
+                label="Decision"
+                value={abuseForm.decision}
+                onChange={onUpdateAbuseForm("decision")}
+              >
+                {(["clear", "monitor", "false_report"] as const).map(
+                  (decision) => (
+                    <MenuItem value={decision} key={decision}>
+                      {abuseDecisionLabel(decision)}
+                    </MenuItem>
+                  ),
+                )}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 7 }}>
+            <TextField
+              size="small"
+              label="Review note"
+              value={abuseForm.note}
+              onChange={onUpdateAbuseForm("note")}
+              disabled={!canReviewAbuse}
+              fullWidth
+            />
+          </Grid>
+        </Grid>
+
+        {abuseResolutionRequired ? (
+          <TextField
+            size="small"
+            label="False report resolution"
+            value={abuseForm.resolutionNotes}
+            onChange={onUpdateAbuseForm("resolutionNotes")}
+            disabled={!canReviewAbuse}
+            multiline
+            minRows={3}
+          />
+        ) : null}
+
+        <Button
+          variant="outlined"
+          disabled={
+            abuseBusy ||
+            !canReviewAbuse ||
+            !abuseForm.note.trim() ||
+            (abuseResolutionRequired && !abuseForm.resolutionNotes.trim())
+          }
+          onClick={onReviewAbuse}
+          startIcon={<ShieldAlert size={17} />}
+        >
+          Save safety review
+        </Button>
+
+        {incident.source !== "api" ? (
+          <Alert severity="info">
+            Start incident-service to save fixture safety reviews.
+          </Alert>
+        ) : null}
+      </Stack>
 
       <Divider className="detail-divider" />
 
@@ -2545,6 +2793,9 @@ function enrichIncidentFromAPI(incident: IncidentRecord): CommandIncident {
     assignments: incident.assignments ?? [],
     timeline: incident.timeline ?? [],
     media: incident.media ?? [],
+    abuseSignals: incident.abuseSignals ?? [],
+    abuseScore: incident.abuseScore ?? 0,
+    abuseReviewRequired: incident.abuseReviewRequired ?? false,
   };
   const district = districtFromCoordinates(incident.location);
   return {
@@ -2636,6 +2887,9 @@ function timelineEntriesForIncident(incident: IncidentRecord) {
       : "",
     incident.statusReason ? `Latest note: ${incident.statusReason}` : "",
     incident.resolutionNotes ? `Resolution: ${incident.resolutionNotes}` : "",
+    incident.abuseReviewRequired
+      ? `Safety review: ${incident.abuseReviewReason || "dispatcher review required"}`
+      : "",
     incident.priorityReview
       ? "Priority review flag is active"
       : "Dispatcher monitoring normal queue",
@@ -2673,6 +2927,19 @@ function buildDefaultStatusForm(
     note: incident
       ? `${statusLabel(status)} update for ${incident.reference}.`
       : "Authority status update.",
+    resolutionNotes: "",
+  };
+}
+
+function buildDefaultAbuseReviewForm(
+  incident?: CommandIncident,
+): AbuseReviewFormState {
+  const decision = incident?.abuseReviewRequired ? "clear" : "monitor";
+  return {
+    decision,
+    note: incident
+      ? `${abuseDecisionLabel(decision)} safety review for ${incident.reference}.`
+      : "Dispatcher safety review.",
     resolutionNotes: "",
   };
 }
@@ -2839,6 +3106,20 @@ function statusLabel(status: IncidentStatus) {
     .split("_")
     .map((word) => word[0].toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function abuseDecisionLabel(decision: IncidentAbuseReviewDecision) {
+  if (decision === "false_report") {
+    return "False report";
+  }
+  return decision[0].toUpperCase() + decision.slice(1);
+}
+
+function abuseScoreLabel(score: number) {
+  if (!score) {
+    return "0% score";
+  }
+  return `${Math.round(score * 100)}% score`;
 }
 
 function alertStatusLabel(status: AlertStatus) {

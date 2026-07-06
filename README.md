@@ -88,7 +88,7 @@ cd services/incident-service
 go run .
 ```
 
-With the incident service running on `:8084`, verify the status workflow with `pnpm smoke:incident-workflow`, agency assignment with `pnpm smoke:incident-assignment`, and duplicate merge review with `pnpm smoke:incident-merge`.
+With the incident service running on `:8084`, verify the status workflow with `pnpm smoke:incident-workflow`, abuse/false-report review with `pnpm smoke:incident-abuse`, agency assignment with `pnpm smoke:incident-assignment`, and duplicate merge review with `pnpm smoke:incident-merge`.
 
 Run the Go alert service:
 

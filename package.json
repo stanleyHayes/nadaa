@@ -17,6 +17,7 @@
     "validate:docs": "pnpm validate:dashboard && pnpm validate:database",
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:alert": "node scripts/smoke-alert.mjs",
+    "smoke:incident-abuse": "node scripts/smoke-incident-abuse.mjs",
     "smoke:incident-assignment": "node scripts/smoke-incident-assignment.mjs",
     "smoke:incident-merge": "node scripts/smoke-incident-merge.mjs",
     "smoke:incident-workflow": "node scripts/smoke-incident-workflow.mjs",

@@ -80,6 +80,13 @@ type incidentRecord struct {
 	AccessibilityNeeds  string               `json:"accessibilityNeeds,omitempty"`
 	Media               []string             `json:"media"`
 	PriorityReview      bool                 `json:"priorityReview"`
+	AbuseSignals        []abuseSignal        `json:"abuseSignals"`
+	AbuseScore          float64              `json:"abuseScore"`
+	AbuseReviewRequired bool                 `json:"abuseReviewRequired"`
+	AbuseReviewReason   string               `json:"abuseReviewReason,omitempty"`
+	AbuseReviewDecision string               `json:"abuseReviewDecision,omitempty"`
+	AbuseReviewedBy     string               `json:"abuseReviewedBy,omitempty"`
+	AbuseReviewedAt     *time.Time           `json:"abuseReviewedAt,omitempty"`
 	DuplicateCandidates []duplicateCandidate `json:"duplicateCandidates"`
 	MergedIncidentIDs   []string             `json:"mergedIncidentIds"`
 	ReportedBy          *reporterRef         `json:"reportedBy,omitempty"`
@@ -108,12 +115,22 @@ type duplicateCandidate struct {
 	Reasons        []string `json:"reasons"`
 }
 
+type abuseSignal struct {
+	Code   string  `json:"code"`
+	Label  string  `json:"label"`
+	Detail string  `json:"detail"`
+	Weight float64 `json:"weight"`
+}
+
 type createIncidentResponse struct {
 	ID                  string               `json:"id"`
 	Reference           string               `json:"reference"`
 	Status              string               `json:"status"`
 	Severity            string               `json:"severity"`
 	PriorityReview      bool                 `json:"priorityReview"`
+	AbuseSignals        []abuseSignal        `json:"abuseSignals"`
+	AbuseScore          float64              `json:"abuseScore"`
+	AbuseReviewRequired bool                 `json:"abuseReviewRequired"`
 	DuplicateCandidates []duplicateCandidate `json:"duplicateCandidates"`
 }
 
@@ -181,6 +198,12 @@ type incidentWorkflowRequest struct {
 
 type incidentStatusRequest struct {
 	Status          string `json:"status"`
+	Note            string `json:"note"`
+	ResolutionNotes string `json:"resolutionNotes"`
+}
+
+type abuseReviewRequest struct {
+	Decision        string `json:"decision"`
 	Note            string `json:"note"`
 	ResolutionNotes string `json:"resolutionNotes"`
 }
@@ -373,6 +396,13 @@ var (
 		"district_officer": true,
 		"dispatcher":       true,
 	}
+	abuseReviewRoles = map[string]bool{
+		"system_admin":     true,
+		"agency_admin":     true,
+		"nadmo_officer":    true,
+		"district_officer": true,
+		"dispatcher":       true,
+	}
 	incidentReadRoles = map[string]bool{
 		"system_admin":     true,
 		"agency_admin":     true,
@@ -401,6 +431,11 @@ var (
 		"high":   true,
 		"urgent": true,
 	}
+	allowedAbuseReviewDecisions = map[string]bool{
+		"clear":        true,
+		"monitor":      true,
+		"false_report": true,
+	}
 	mediaRefPattern   = regexp.MustCompile(`^[A-Za-z0-9_-]{3,128}$`)
 	wordPattern       = regexp.MustCompile(`[a-z0-9]+`)
 	allowedMediaTypes = map[string]int64{
@@ -422,6 +457,9 @@ const (
 	duplicateMinimumScore    = 0.45
 	similarDescriptionCutoff = 0.25
 	earthRadiusMeters        = 6371000.0
+	abuseReviewThreshold     = 0.55
+	reporterBurstWindow      = 30 * time.Minute
+	reporterBurstPreviousMin = 2
 )
 
 func main() {
@@ -434,6 +472,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/incidents/{id}/duplicates", srv.duplicateReviewHandler)
 	mux.HandleFunc("GET /api/v1/incidents/audit", srv.listIncidentAuditHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/merge", srv.mergeIncidentHandler)
+	mux.HandleFunc("POST /api/v1/incidents/{id}/abuse-review", srv.reviewAbuseHandler)
 	mux.HandleFunc("PATCH /api/v1/incidents/{id}/status", srv.updateIncidentStatusHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/verify", srv.verifyIncidentHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/assignments", srv.assignIncidentHandler)
@@ -522,6 +561,9 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		Status:              record.Status,
 		Severity:            record.Severity,
 		PriorityReview:      record.PriorityReview,
+		AbuseSignals:        record.AbuseSignals,
+		AbuseScore:          record.AbuseScore,
+		AbuseReviewRequired: record.AbuseReviewRequired,
 		DuplicateCandidates: record.DuplicateCandidates,
 	})
 }
@@ -662,6 +704,32 @@ func (s *server) mergeIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, payload)
 }
 
+func (s *server) reviewAbuseHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, abuseReviewRoles)
+	if !ok {
+		return
+	}
+
+	var request abuseReviewRequest
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+
+	normalized, code, message := normalizeAbuseReviewRequest(request)
+	if code != "" {
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	incident, code, message := s.store.reviewAbuse(r.PathValue("id"), normalized, ctx, s.now())
+	if code != "" {
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	writeJSON(w, http.StatusOK, incident)
+}
+
 func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, ok := requireAuthority(w, r, assignmentRoles)
 	if !ok {
@@ -756,6 +824,16 @@ func (m *memoryStore) createIncident(request createIncidentRequest, now time.Tim
 		UpdatedAt: timestamp,
 	}
 	record.DuplicateCandidates = m.duplicateCandidatesLocked(record)
+	record.AbuseSignals = m.abuseSignalsLocked(record)
+	record.AbuseScore = abuseScore(record.AbuseSignals)
+	record.AbuseReviewRequired = record.AbuseScore >= abuseReviewThreshold
+	if record.AbuseReviewRequired {
+		record.AbuseReviewReason = abuseReviewReason(record.AbuseSignals)
+		record.Timeline = append(record.Timeline, newTimelineEvent("incident.abuse_flagged", "Suspicious report signals flagged for dispatcher review", authorityContext{}, map[string]string{
+			"score":   fmt.Sprintf("%.2f", record.AbuseScore),
+			"signals": strings.Join(abuseSignalCodes(record.AbuseSignals), ","),
+		}, timestamp))
+	}
 	m.incidents[record.ID] = record
 	m.linkReverseDuplicateCandidatesLocked(record)
 	return record
@@ -849,10 +927,15 @@ func (m *memoryStore) transitionIncident(id string, nextStatus string, ctx autho
 	if requiresResolutionNotes(nextStatus) {
 		incident.ResolutionNotes = resolutionNotes
 		incident.ClosedAt = &timestamp
+		incident.AbuseReviewRequired = false
 		if nextStatus == "closed" {
 			action = "incident.closed"
 		} else {
 			action = "incident.false_reported"
+			incident.AbuseReviewDecision = "false_report"
+			incident.AbuseReviewReason = note
+			incident.AbuseReviewedBy = ctx.ActorUserID
+			incident.AbuseReviewedAt = &timestamp
 		}
 	}
 
@@ -949,6 +1032,60 @@ func (m *memoryStore) mergeIncidents(primaryID string, request mergeIncidentsReq
 	m.incidents[primary.ID] = primary
 	m.appendAuditLocked("incident.merged", ctx, primary.ID, beforePrimary, snapshotIncident(primary), timestamp)
 	return mergeIncidentsResponse{Incident: primary, MergedIncidents: mergedIncidents}, "", ""
+}
+
+func (m *memoryStore) reviewAbuse(id string, request abuseReviewRequest, ctx authorityContext, now time.Time) (incidentRecord, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	incident, ok := m.incidents[id]
+	if !ok {
+		return incidentRecord{}, "not_found", "incident was not found"
+	}
+	if incident.Status == "closed" || incident.Status == "false_report" {
+		return incidentRecord{}, "invalid_transition", "closed and false-report incidents are terminal"
+	}
+
+	before := snapshotIncident(incident)
+	timestamp := now.UTC()
+	incident.AbuseReviewDecision = request.Decision
+	incident.AbuseReviewReason = request.Note
+	incident.AbuseReviewedBy = ctx.ActorUserID
+	incident.AbuseReviewedAt = &timestamp
+	incident.StatusReason = request.Note
+	incident.UpdatedAt = timestamp
+
+	action := "incident.abuse_reviewed"
+	message := "Suspicious report review updated"
+	metadata := map[string]string{"decision": request.Decision}
+
+	switch request.Decision {
+	case "clear":
+		incident.AbuseReviewRequired = false
+		action = "incident.abuse_cleared"
+		message = "Suspicious report signals cleared"
+	case "monitor":
+		incident.AbuseReviewRequired = true
+		action = "incident.abuse_monitored"
+		message = "Suspicious report kept under dispatcher monitoring"
+	case "false_report":
+		if !allowedIncidentTransitions[incident.Status]["false_report"] {
+			return incidentRecord{}, "invalid_transition", fmt.Sprintf("cannot move incident from %s to false_report", incident.Status)
+		}
+		incident.Status = "false_report"
+		incident.StatusUpdatedBy = ctx.ActorUserID
+		incident.ResolutionNotes = request.ResolutionNotes
+		incident.ClosedAt = &timestamp
+		incident.AbuseReviewRequired = false
+		action = "incident.false_reported"
+		message = "Incident marked as false report after abuse review"
+		metadata["resolutionNotes"] = request.ResolutionNotes
+	}
+
+	incident.Timeline = append(incident.Timeline, newTimelineEvent(action, message, ctx, metadata, timestamp))
+	m.incidents[incident.ID] = incident
+	m.appendAuditLocked(action, ctx, incident.ID, before, snapshotIncident(incident), timestamp)
+	return incident, "", ""
 }
 
 func (m *memoryStore) assignIncident(id string, request assignmentRequest, ctx authorityContext, now time.Time) (incidentRecord, string, string) {
@@ -1161,6 +1298,86 @@ func (m *memoryStore) linkReverseDuplicateCandidatesLocked(record incidentRecord
 	}
 }
 
+func (m *memoryStore) abuseSignalsLocked(record incidentRecord) []abuseSignal {
+	signals := abuseSignalsForDescription(record.Description)
+
+	reporterKey := reporterAbuseKey(record.ReportedBy)
+	if reporterKey != "" {
+		recentReports := 0
+		cutoff := record.CreatedAt.Add(-reporterBurstWindow)
+		for _, existing := range m.incidents {
+			if existing.ID == record.ID || existing.CreatedAt.Before(cutoff) {
+				continue
+			}
+			if reporterAbuseKey(existing.ReportedBy) == reporterKey {
+				recentReports++
+			}
+		}
+		if recentReports >= reporterBurstPreviousMin {
+			signals = append(signals, abuseSignal{
+				Code:   "reporter_burst",
+				Label:  "Reporter burst",
+				Detail: fmt.Sprintf("Reporter submitted %d other report(s) in the last %d minutes.", recentReports, int(reporterBurstWindow.Minutes())),
+				Weight: 0.55,
+			})
+		}
+	}
+
+	sort.Slice(signals, func(i, j int) bool {
+		if signals[i].Weight == signals[j].Weight {
+			return signals[i].Code < signals[j].Code
+		}
+		return signals[i].Weight > signals[j].Weight
+	})
+	return signals
+}
+
+func abuseSignalsForDescription(description string) []abuseSignal {
+	lower := strings.ToLower(description)
+	signals := []abuseSignal{}
+
+	if strings.Contains(lower, "http://") ||
+		strings.Contains(lower, "https://") ||
+		strings.Contains(lower, "www.") ||
+		strings.Contains(lower, "bit.ly") {
+		signals = append(signals, abuseSignal{
+			Code:   "external_link",
+			Label:  "External link",
+			Detail: "Description includes a public link, which can indicate spam in citizen reporting.",
+			Weight: 0.45,
+		})
+	}
+
+	if containsAny(lower, []string{"free money", "promo", "promotion", "discount", "loan offer", "click here", "whatsapp me"}) {
+		signals = append(signals, abuseSignal{
+			Code:   "promotional_language",
+			Label:  "Promotional wording",
+			Detail: "Description includes marketing or solicitation language uncommon in emergency reports.",
+			Weight: 0.35,
+		})
+	}
+
+	if repeatedTokenRatio(lower) >= 0.50 {
+		signals = append(signals, abuseSignal{
+			Code:   "repeated_language",
+			Label:  "Repeated language",
+			Detail: "Description repeats the same terms unusually often.",
+			Weight: 0.25,
+		})
+	}
+
+	if len([]rune(strings.TrimSpace(description))) < 24 {
+		signals = append(signals, abuseSignal{
+			Code:   "low_detail",
+			Label:  "Low detail",
+			Detail: "Description is very short and may need dispatcher confirmation.",
+			Weight: 0.20,
+		})
+	}
+
+	return signals
+}
+
 func scoreDuplicateCandidate(record incidentRecord, existing incidentRecord) (duplicateCandidate, bool) {
 	if record.ID == existing.ID || record.Type != existing.Type || existing.Status == "false_report" {
 		return duplicateCandidate{}, false
@@ -1263,6 +1480,78 @@ func tokenSet(value string) map[string]bool {
 		set[token] = true
 	}
 	return set
+}
+
+func repeatedTokenRatio(value string) float64 {
+	tokens := wordPattern.FindAllString(strings.ToLower(value), -1)
+	if len(tokens) < 6 {
+		return 0
+	}
+
+	counts := map[string]int{}
+	maxCount := 0
+	for _, token := range tokens {
+		if len(token) < 3 {
+			continue
+		}
+		counts[token]++
+		if counts[token] > maxCount {
+			maxCount = counts[token]
+		}
+	}
+	if len(counts) == 0 {
+		return 0
+	}
+	return float64(maxCount) / float64(len(tokens))
+}
+
+func containsAny(value string, needles []string) bool {
+	for _, needle := range needles {
+		if strings.Contains(value, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func reporterAbuseKey(reporter *reporterRef) string {
+	if reporter == nil {
+		return ""
+	}
+	if reporter.UserID != "" {
+		return "user:" + strings.ToLower(reporter.UserID)
+	}
+	if reporter.Phone != "" {
+		return "phone:" + strings.ToLower(reporter.Phone)
+	}
+	return ""
+}
+
+func abuseScore(signals []abuseSignal) float64 {
+	score := 0.0
+	for _, signal := range signals {
+		score += signal.Weight
+	}
+	return roundScore(clamp01(score))
+}
+
+func abuseReviewReason(signals []abuseSignal) string {
+	if len(signals) == 0 {
+		return ""
+	}
+	labels := make([]string, 0, len(signals))
+	for _, signal := range signals {
+		labels = append(labels, signal.Label)
+	}
+	return "Review requested: " + strings.Join(labels, ", ")
+}
+
+func abuseSignalCodes(signals []abuseSignal) []string {
+	codes := make([]string, 0, len(signals))
+	for _, signal := range signals {
+		codes = append(codes, signal.Code)
+	}
+	return codes
 }
 
 func degreesToRadians(value float64) float64 {
@@ -1467,6 +1756,27 @@ func normalizeMergeRequest(request mergeIncidentsRequest) (mergeIncidentsRequest
 	}
 
 	request.DuplicateIncidentIDs = normalizedIDs
+	return request, "", ""
+}
+
+func normalizeAbuseReviewRequest(request abuseReviewRequest) (abuseReviewRequest, string, string) {
+	request.Decision = incidentStatusSlug(request.Decision)
+	request.Note = strings.TrimSpace(request.Note)
+	request.ResolutionNotes = strings.TrimSpace(request.ResolutionNotes)
+
+	if !allowedAbuseReviewDecisions[request.Decision] {
+		return request, "invalid_decision", "decision must be clear, monitor, or false_report"
+	}
+	if len(request.Note) < 5 || len(request.Note) > 1000 || unsafeText(request.Note) {
+		return request, "invalid_note", "note must be 5 to 1000 safe characters"
+	}
+	if len(request.ResolutionNotes) > 2000 || unsafeText(request.ResolutionNotes) {
+		return request, "invalid_resolution_notes", "resolutionNotes must be 2000 safe characters or fewer"
+	}
+	if request.Decision == "false_report" && request.ResolutionNotes == "" {
+		return request, "missing_resolution_notes", "resolutionNotes are required when an abuse review marks a false report"
+	}
+
 	return request, "", ""
 }
 
@@ -1694,22 +2004,25 @@ func reportedByFor(request createIncidentRequest) *reporterRef {
 
 func snapshotIncident(incident incidentRecord) map[string]any {
 	return map[string]any{
-		"id":                incident.ID,
-		"reference":         incident.Reference,
-		"type":              incident.Type,
-		"severity":          incident.Severity,
-		"status":            incident.Status,
-		"priorityReview":    incident.PriorityReview,
-		"verifiedBy":        incident.VerifiedBy,
-		"statusUpdatedBy":   incident.StatusUpdatedBy,
-		"statusReason":      incident.StatusReason,
-		"resolutionNotes":   incident.ResolutionNotes,
-		"mergedIncidentIds": append([]string{}, incident.MergedIncidentIDs...),
-		"mergedIntoId":      incident.MergedIntoID,
-		"mergeReason":       incident.MergeReason,
-		"duplicateCount":    len(incident.DuplicateCandidates),
-		"assignmentCount":   len(incident.Assignments),
-		"assignedAgencyIds": assignmentAgencyIDs(incident.Assignments),
+		"id":                  incident.ID,
+		"reference":           incident.Reference,
+		"type":                incident.Type,
+		"severity":            incident.Severity,
+		"status":              incident.Status,
+		"priorityReview":      incident.PriorityReview,
+		"verifiedBy":          incident.VerifiedBy,
+		"statusUpdatedBy":     incident.StatusUpdatedBy,
+		"statusReason":        incident.StatusReason,
+		"resolutionNotes":     incident.ResolutionNotes,
+		"abuseScore":          incident.AbuseScore,
+		"abuseReviewRequired": incident.AbuseReviewRequired,
+		"abuseReviewDecision": incident.AbuseReviewDecision,
+		"mergedIncidentIds":   append([]string{}, incident.MergedIncidentIDs...),
+		"mergedIntoId":        incident.MergedIntoID,
+		"mergeReason":         incident.MergeReason,
+		"duplicateCount":      len(incident.DuplicateCandidates),
+		"assignmentCount":     len(incident.Assignments),
+		"assignedAgencyIds":   assignmentAgencyIDs(incident.Assignments),
 	}
 }
 

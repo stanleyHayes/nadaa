@@ -197,6 +197,16 @@ body {
   border-top: 6px solid #118d4e;
 }
 
+.abuse-signal-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  border-radius: 8px;
+  background: #fff9e6;
+}
+
 .detail-divider {
   margin: 16px 0 !important;
 }
