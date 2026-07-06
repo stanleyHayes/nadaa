@@ -75,6 +75,8 @@ cd services/auth-service
 NADAA_AUTH_MOCK_OTP=123456 NADAA_AUTH_EXPOSE_DEV_OTP=true go run .
 ```
 
+For local agency-user testing, seed an in-memory bootstrap admin with environment variables such as `NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL`, `NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD`, and `NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE`. Do not commit real bootstrap credentials.
+
 Run the Go incident service:
 
 ```bash

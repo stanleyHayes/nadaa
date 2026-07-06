@@ -37,6 +37,15 @@ cd services/auth-service
 NADAA_AUTH_MOCK_OTP=123456 NADAA_AUTH_EXPOSE_DEV_OTP=true go run .
 ```
 
+Optional local-only in-memory agency admin bootstrap:
+
+```bash
+NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL=admin@nadaa.local
+NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD=change-me-locally
+NADAA_AUTH_BOOTSTRAP_ADMIN_PHONE=+233200000001
+NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE=123456
+```
+
 Run incident service:
 
 ```bash
@@ -83,6 +92,7 @@ Initial expected groups:
 - `OBJECT_STORAGE_SECRET_KEY`
 - `JWT_SECRET`
 - `MFA_ISSUER`
+- `NADAA_AUTH_TOKEN_SECRET`
 - `SMS_PROVIDER`
 - `SMS_API_KEY`
 - `WHATSAPP_PROVIDER`
@@ -94,6 +104,13 @@ Initial expected groups:
 - `ML_SERVICE_URL`
 
 Do not commit real values. Use `.env.example` when a service needs a template. Use `infra/staging/staging.env.example` as the staging environment checklist.
+
+Optional in-memory auth-service bootstrap variables for local/staging fixture environments:
+
+- `NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL`
+- `NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD`
+- `NADAA_AUTH_BOOTSTRAP_ADMIN_PHONE`
+- `NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE`
 
 ## CI/CD Expectations
 

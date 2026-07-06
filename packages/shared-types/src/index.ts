@@ -26,6 +26,21 @@ export type UserRole =
   | "agency_admin"
   | "system_admin";
 
+export type AgencyUserRole = Exclude<UserRole, "citizen">;
+
+export type AgencyType =
+  | "nadmo"
+  | "district_assembly"
+  | "police"
+  | "fire"
+  | "ambulance"
+  | "meteorological"
+  | "hydrological"
+  | "hospital"
+  | "utility"
+  | "ngo"
+  | "other";
+
 export type IncidentStatus =
   | "reported"
   | "under_review"
@@ -85,6 +100,79 @@ export interface LoginCitizenResponse {
   tokenType: "Bearer";
   expiresAt: string;
   user: CitizenProfile;
+}
+
+export interface AgencySummary {
+  id: string;
+  name: string;
+  type: AgencyType;
+  region: string;
+  district: string;
+  contactNumber?: string;
+}
+
+export interface AgencyUserProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: AgencyUserRole;
+  agency: AgencySummary;
+  mfaRequired: boolean;
+  mfaEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAgencyUserRequest {
+  name: string;
+  email: string;
+  phone: string;
+  agencyId: string;
+  role: AgencyUserRole;
+}
+
+export interface CreateAgencyUserResponse {
+  user: AgencyUserProfile;
+  temporaryPassword: string;
+  mfaSetupRequired: true;
+}
+
+export interface AgencyMFASetupRequest {
+  email: string;
+  temporaryPassword: string;
+}
+
+export interface AgencyMFASetupResponse {
+  userId: string;
+  challengeId: string;
+  method: "mock_totp";
+  secret: string;
+  expiresAt: string;
+  devCode?: string;
+}
+
+export interface AgencyMFAVerifyRequest {
+  email: string;
+  temporaryPassword: string;
+  code: string;
+}
+
+export interface AgencyMFAVerifyResponse {
+  user: AgencyUserProfile;
+}
+
+export interface LoginAgencyRequest {
+  email: string;
+  password: string;
+  mfaCode?: string;
+}
+
+export interface LoginAgencyResponse {
+  accessToken: string;
+  tokenType: "Bearer";
+  expiresAt: string;
+  user: AgencyUserProfile;
 }
 
 export interface IncidentReporterRef {

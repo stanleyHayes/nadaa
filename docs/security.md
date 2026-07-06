@@ -37,6 +37,14 @@ Sensitive actions require authority authentication, RBAC, MFA where applicable, 
 - Export damage, missing persons, or open data records.
 - Create alert drafts from ML predictions.
 
+## Authority Authentication Baseline
+
+- Agency users must belong to an agency and use one of the authority roles.
+- Agency tokens include user type, role, agency id, and MFA-completed state.
+- Agency-user creation is limited to `system_admin` and `agency_admin`; agency admins are scoped to their own agency.
+- Agency users cannot log in until MFA setup and verification are complete.
+- Mock MFA is acceptable only for local development and automated tests until the production MFA provider is connected.
+
 ## MVP Controls
 
 - Role-based access control for authority workflows.
@@ -129,4 +137,3 @@ Use environment variables and deployment secret stores.
 - Official approval policy for anonymous reports and identity disclosure.
 - Telecom and government requirements for future cell broadcast.
 - Agency-by-agency access boundaries for shared incidents.
-

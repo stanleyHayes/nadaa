@@ -170,27 +170,151 @@ Response:
 
 `GET /api/v1/auth/me`
 
-Requires `Authorization: Bearer <token>` and returns the citizen profile.
+Requires `Authorization: Bearer <token>` and returns the citizen or agency-user profile for the token.
 
 ### Agency Auth
 
 `POST /api/v1/auth/agency-users`
 
-Authority/admin only.
+Requires an agency `system_admin` or `agency_admin` bearer token with MFA completed. Agency admins can create users only inside their own agency.
 
 ```json
 {
   "name": "Dispatcher One",
   "email": "dispatcher@nadaa.example",
   "phone": "+233200000001",
-  "agencyId": "agency_nadmo_ama",
+  "agencyId": "00000000-0000-0000-0000-000000000101",
   "role": "dispatcher"
+}
+```
+
+Response:
+
+```json
+{
+  "user": {
+    "id": "usr_...",
+    "name": "Dispatcher One",
+    "email": "dispatcher@nadaa.example",
+    "phone": "+233200000001",
+    "role": "dispatcher",
+    "agency": {
+      "id": "00000000-0000-0000-0000-000000000101",
+      "name": "NADMO Accra Metro",
+      "type": "nadmo",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "contactNumber": "112"
+    },
+    "mfaRequired": true,
+    "mfaEnabled": false,
+    "createdAt": "2026-07-06T12:00:00Z",
+    "updatedAt": "2026-07-06T12:00:00Z"
+  },
+  "temporaryPassword": "tmp_...",
+  "mfaSetupRequired": true
 }
 ```
 
 `POST /api/v1/auth/agency-users/{id}/mfa/setup`
 
+```json
+{
+  "email": "dispatcher@nadaa.example",
+  "temporaryPassword": "tmp_..."
+}
+```
+
+Response:
+
+```json
+{
+  "userId": "usr_...",
+  "challengeId": "mfa_...",
+  "method": "mock_totp",
+  "secret": "mfa_secret_...",
+  "expiresAt": "2026-07-06T12:10:00Z"
+}
+```
+
+In local development, `NADAA_AUTH_MOCK_OTP=123456` can force the MFA challenge code and `NADAA_AUTH_EXPOSE_DEV_OTP=true` includes `devCode` in the setup response.
+
 `POST /api/v1/auth/agency-users/{id}/mfa/verify`
+
+```json
+{
+  "email": "dispatcher@nadaa.example",
+  "temporaryPassword": "tmp_...",
+  "code": "123456"
+}
+```
+
+Response:
+
+```json
+{
+  "user": {
+    "id": "usr_...",
+    "name": "Dispatcher One",
+    "email": "dispatcher@nadaa.example",
+    "phone": "+233200000001",
+    "role": "dispatcher",
+    "agency": {
+      "id": "00000000-0000-0000-0000-000000000101",
+      "name": "NADMO Accra Metro",
+      "type": "nadmo",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "contactNumber": "112"
+    },
+    "mfaRequired": true,
+    "mfaEnabled": true,
+    "createdAt": "2026-07-06T12:00:00Z",
+    "updatedAt": "2026-07-06T12:03:00Z"
+  }
+}
+```
+
+`POST /api/v1/auth/agency/login`
+
+```json
+{
+  "email": "dispatcher@nadaa.example",
+  "password": "tmp_...",
+  "mfaCode": "123456"
+}
+```
+
+Response:
+
+```json
+{
+  "accessToken": "nadaa....",
+  "tokenType": "Bearer",
+  "expiresAt": "2026-07-07T00:00:00Z",
+  "user": {
+    "id": "usr_...",
+    "name": "Dispatcher One",
+    "email": "dispatcher@nadaa.example",
+    "phone": "+233200000001",
+    "role": "dispatcher",
+    "agency": {
+      "id": "00000000-0000-0000-0000-000000000101",
+      "name": "NADMO Accra Metro",
+      "type": "nadmo",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "contactNumber": "112"
+    },
+    "mfaRequired": true,
+    "mfaEnabled": true,
+    "createdAt": "2026-07-06T12:00:00Z",
+    "updatedAt": "2026-07-06T12:03:00Z"
+  }
+}
+```
+
+Agency login returns `mfa_setup_required` until setup and verification are complete, and `mfa_required` when a verified agency user omits the MFA code.
 
 ### Incident Reporting
 
