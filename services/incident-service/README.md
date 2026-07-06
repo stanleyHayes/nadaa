@@ -2,7 +2,7 @@
 
 The incident service owns citizen disaster reports, media references, verification workflow, duplicate candidates, and incident timelines.
 
-Current NADAA-030/NADAA-031 endpoints:
+Current NADAA-030/NADAA-033 endpoints:
 
 - `GET /healthz`
 - `POST /api/v1/incidents`
@@ -19,6 +19,16 @@ Supported content types and limits:
 - Images: `image/jpeg`, `image/png`, `image/webp`, up to 10 MB.
 - Video: `video/mp4`, `video/quicktime`, up to 100 MB.
 - Audio: `audio/mpeg`, `audio/mp4`, `audio/wav`, up to 25 MB.
+
+## Duplicate Candidate Baseline
+
+When a report is created, the service compares it against existing same-hazard reports. Candidates are scored with:
+
+- Location distance within 750 meters.
+- Report time within 3 hours.
+- Description token similarity.
+
+The top candidates are stored on incident records and returned by `POST /api/v1/incidents` and `GET /api/v1/incidents`. This is a dispatcher review aid only: the service does not automatically merge, hide, delete, or downgrade any report.
 
 ## Run
 
@@ -45,4 +55,4 @@ go test ./...
 
 ## Notes
 
-The current implementation uses an in-memory store to lock in the public API contract and validation behavior. PostGIS persistence, media upload storage, duplicate detection, and verification workflow are planned in later stories.
+The current implementation uses an in-memory store to lock in the public API contract and validation behavior. PostGIS persistence, media upload storage, duplicate merge review, and verification workflow are planned in later stories.

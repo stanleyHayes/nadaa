@@ -241,5 +241,33 @@
       "Live citizen incident UI/API smoke on localhost:8084"
     ],
     "notes": "Citizen incident form integrated with media upload initiation, GPS/manual location, validation, anonymous/contact controls, offline retry messaging, and API success/error states."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 2",
+    "epic": "EPIC 3: Citizen Incident Reporting",
+    "story": "Add Incident Deduplication Baseline",
+    "jiraKey": "NADAA-033",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 1.5,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-030"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:docs",
+      "pnpm typecheck",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm smoke:web",
+      "Live duplicate candidate HTTP smoke on localhost:8084"
+    ],
+    "notes": "Incident-service now stores same-hazard duplicate candidates scored by distance, time window, and description similarity without automatic merge or deletion."
   }
 ]

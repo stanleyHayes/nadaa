@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -63,33 +64,43 @@ type reporterRef struct {
 }
 
 type incidentRecord struct {
-	ID                 string       `json:"id"`
-	Reference          string       `json:"reference"`
-	Type               string       `json:"type"`
-	Severity           string       `json:"severity"`
-	Status             string       `json:"status"`
-	Description        string       `json:"description"`
-	Location           coordinates  `json:"location"`
-	PeopleAffected     int          `json:"peopleAffected"`
-	InjuriesReported   bool         `json:"injuriesReported"`
-	Urgency            string       `json:"urgency"`
-	Anonymous          bool         `json:"anonymous"`
-	ContactPermission  bool         `json:"contactPermission"`
-	AccessibilityNeeds string       `json:"accessibilityNeeds,omitempty"`
-	Media              []string     `json:"media"`
-	PriorityReview     bool         `json:"priorityReview"`
-	ReportedBy         *reporterRef `json:"reportedBy,omitempty"`
-	CreatedAt          time.Time    `json:"createdAt"`
-	UpdatedAt          time.Time    `json:"updatedAt"`
+	ID                  string               `json:"id"`
+	Reference           string               `json:"reference"`
+	Type                string               `json:"type"`
+	Severity            string               `json:"severity"`
+	Status              string               `json:"status"`
+	Description         string               `json:"description"`
+	Location            coordinates          `json:"location"`
+	PeopleAffected      int                  `json:"peopleAffected"`
+	InjuriesReported    bool                 `json:"injuriesReported"`
+	Urgency             string               `json:"urgency"`
+	Anonymous           bool                 `json:"anonymous"`
+	ContactPermission   bool                 `json:"contactPermission"`
+	AccessibilityNeeds  string               `json:"accessibilityNeeds,omitempty"`
+	Media               []string             `json:"media"`
+	PriorityReview      bool                 `json:"priorityReview"`
+	DuplicateCandidates []duplicateCandidate `json:"duplicateCandidates"`
+	ReportedBy          *reporterRef         `json:"reportedBy,omitempty"`
+	CreatedAt           time.Time            `json:"createdAt"`
+	UpdatedAt           time.Time            `json:"updatedAt"`
+}
+
+type duplicateCandidate struct {
+	IncidentID     string   `json:"incidentId"`
+	Reference      string   `json:"reference"`
+	Score          float64  `json:"score"`
+	DistanceMeters float64  `json:"distanceMeters"`
+	MinutesApart   int      `json:"minutesApart"`
+	Reasons        []string `json:"reasons"`
 }
 
 type createIncidentResponse struct {
-	ID                  string   `json:"id"`
-	Reference           string   `json:"reference"`
-	Status              string   `json:"status"`
-	Severity            string   `json:"severity"`
-	PriorityReview      bool     `json:"priorityReview"`
-	DuplicateCandidates []string `json:"duplicateCandidates"`
+	ID                  string               `json:"id"`
+	Reference           string               `json:"reference"`
+	Status              string               `json:"status"`
+	Severity            string               `json:"severity"`
+	PriorityReview      bool                 `json:"priorityReview"`
+	DuplicateCandidates []duplicateCandidate `json:"duplicateCandidates"`
 }
 
 type incidentListResponse struct {
@@ -167,6 +178,7 @@ var (
 		"life_threatening": true,
 	}
 	mediaRefPattern   = regexp.MustCompile(`^[A-Za-z0-9_-]{3,128}$`)
+	wordPattern       = regexp.MustCompile(`[a-z0-9]+`)
 	allowedMediaTypes = map[string]int64{
 		"image/jpeg":      10 * 1024 * 1024,
 		"image/png":       10 * 1024 * 1024,
@@ -177,6 +189,15 @@ var (
 		"audio/mp4":       25 * 1024 * 1024,
 		"audio/wav":       25 * 1024 * 1024,
 	}
+)
+
+const (
+	duplicateCandidateLimit  = 5
+	duplicateDistanceMeters  = 750.0
+	duplicateReviewWindow    = 3 * time.Hour
+	duplicateMinimumScore    = 0.45
+	similarDescriptionCutoff = 0.25
+	earthRadiusMeters        = 6371000.0
 )
 
 func main() {
@@ -270,7 +291,7 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		Status:              record.Status,
 		Severity:            record.Severity,
 		PriorityReview:      record.PriorityReview,
-		DuplicateCandidates: []string{},
+		DuplicateCandidates: record.DuplicateCandidates,
 	})
 }
 
@@ -336,7 +357,9 @@ func (m *memoryStore) createIncident(request createIncidentRequest, now time.Tim
 		CreatedAt:          timestamp,
 		UpdatedAt:          timestamp,
 	}
+	record.DuplicateCandidates = m.duplicateCandidatesLocked(record)
 	m.incidents[record.ID] = record
+	m.linkReverseDuplicateCandidatesLocked(record)
 	return record
 }
 
@@ -431,6 +454,180 @@ func (m *memoryStore) listMedia() []mediaRecord {
 		return media[i].CreatedAt.After(media[j].CreatedAt)
 	})
 	return media
+}
+
+func (m *memoryStore) duplicateCandidatesLocked(record incidentRecord) []duplicateCandidate {
+	candidates := make([]duplicateCandidate, 0, duplicateCandidateLimit)
+	for _, existing := range m.incidents {
+		candidate, ok := scoreDuplicateCandidate(record, existing)
+		if !ok {
+			continue
+		}
+		candidates = append(candidates, candidate)
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].Score == candidates[j].Score {
+			return candidates[i].DistanceMeters < candidates[j].DistanceMeters
+		}
+		return candidates[i].Score > candidates[j].Score
+	})
+
+	if len(candidates) > duplicateCandidateLimit {
+		return candidates[:duplicateCandidateLimit]
+	}
+	return candidates
+}
+
+func (m *memoryStore) linkReverseDuplicateCandidatesLocked(record incidentRecord) {
+	for _, candidate := range record.DuplicateCandidates {
+		existing := m.incidents[candidate.IncidentID]
+		if hasDuplicateCandidate(existing.DuplicateCandidates, record.ID) {
+			continue
+		}
+
+		existing.DuplicateCandidates = append(existing.DuplicateCandidates, reverseDuplicateCandidate(record, candidate))
+		sort.Slice(existing.DuplicateCandidates, func(i, j int) bool {
+			if existing.DuplicateCandidates[i].Score == existing.DuplicateCandidates[j].Score {
+				return existing.DuplicateCandidates[i].DistanceMeters < existing.DuplicateCandidates[j].DistanceMeters
+			}
+			return existing.DuplicateCandidates[i].Score > existing.DuplicateCandidates[j].Score
+		})
+		if len(existing.DuplicateCandidates) > duplicateCandidateLimit {
+			existing.DuplicateCandidates = existing.DuplicateCandidates[:duplicateCandidateLimit]
+		}
+		existing.UpdatedAt = record.UpdatedAt
+		m.incidents[existing.ID] = existing
+	}
+}
+
+func scoreDuplicateCandidate(record incidentRecord, existing incidentRecord) (duplicateCandidate, bool) {
+	if record.ID == existing.ID || record.Type != existing.Type || existing.Status == "false_report" {
+		return duplicateCandidate{}, false
+	}
+
+	timeApart := absoluteDuration(record.CreatedAt.Sub(existing.CreatedAt))
+	if timeApart > duplicateReviewWindow {
+		return duplicateCandidate{}, false
+	}
+
+	distance := haversineMeters(record.Location, existing.Location)
+	if distance > duplicateDistanceMeters {
+		return duplicateCandidate{}, false
+	}
+
+	descriptionScore := descriptionSimilarity(record.Description, existing.Description)
+	distanceScore := clamp01(1 - distance/duplicateDistanceMeters)
+	timeScore := clamp01(1 - timeApart.Seconds()/duplicateReviewWindow.Seconds())
+	score := roundScore(0.50*distanceScore + 0.30*timeScore + 0.20*descriptionScore)
+	if score < duplicateMinimumScore {
+		return duplicateCandidate{}, false
+	}
+
+	reasons := []string{"same_hazard", "nearby_location", "recent_report"}
+	if descriptionScore >= similarDescriptionCutoff {
+		reasons = append(reasons, "similar_description")
+	}
+
+	return duplicateCandidate{
+		IncidentID:     existing.ID,
+		Reference:      existing.Reference,
+		Score:          score,
+		DistanceMeters: math.Round(distance),
+		MinutesApart:   int(math.Round(timeApart.Minutes())),
+		Reasons:        reasons,
+	}, true
+}
+
+func reverseDuplicateCandidate(record incidentRecord, candidate duplicateCandidate) duplicateCandidate {
+	return duplicateCandidate{
+		IncidentID:     record.ID,
+		Reference:      record.Reference,
+		Score:          candidate.Score,
+		DistanceMeters: candidate.DistanceMeters,
+		MinutesApart:   candidate.MinutesApart,
+		Reasons:        append([]string{}, candidate.Reasons...),
+	}
+}
+
+func hasDuplicateCandidate(candidates []duplicateCandidate, incidentID string) bool {
+	for _, candidate := range candidates {
+		if candidate.IncidentID == incidentID {
+			return true
+		}
+	}
+	return false
+}
+
+func haversineMeters(a coordinates, b coordinates) float64 {
+	lat1 := degreesToRadians(a.Lat)
+	lat2 := degreesToRadians(b.Lat)
+	deltaLat := degreesToRadians(b.Lat - a.Lat)
+	deltaLng := degreesToRadians(b.Lng - a.Lng)
+
+	sinLat := math.Sin(deltaLat / 2)
+	sinLng := math.Sin(deltaLng / 2)
+	h := sinLat*sinLat + math.Cos(lat1)*math.Cos(lat2)*sinLng*sinLng
+	return earthRadiusMeters * 2 * math.Atan2(math.Sqrt(h), math.Sqrt(1-h))
+}
+
+func descriptionSimilarity(a string, b string) float64 {
+	aTokens := tokenSet(a)
+	bTokens := tokenSet(b)
+	if len(aTokens) == 0 || len(bTokens) == 0 {
+		return 0
+	}
+
+	intersection := 0
+	union := map[string]bool{}
+	for token := range aTokens {
+		union[token] = true
+		if bTokens[token] {
+			intersection++
+		}
+	}
+	for token := range bTokens {
+		union[token] = true
+	}
+
+	return float64(intersection) / float64(len(union))
+}
+
+func tokenSet(value string) map[string]bool {
+	tokens := wordPattern.FindAllString(strings.ToLower(value), -1)
+	set := map[string]bool{}
+	for _, token := range tokens {
+		if len(token) < 3 {
+			continue
+		}
+		set[token] = true
+	}
+	return set
+}
+
+func degreesToRadians(value float64) float64 {
+	return value * math.Pi / 180
+}
+
+func absoluteDuration(value time.Duration) time.Duration {
+	if value < 0 {
+		return -value
+	}
+	return value
+}
+
+func clamp01(value float64) float64 {
+	if value < 0 {
+		return 0
+	}
+	if value > 1 {
+		return 1
+	}
+	return value
+}
+
+func roundScore(value float64) float64 {
+	return math.Round(value*100) / 100
 }
 
 func (r *rateLimiter) Allow(key string) bool {

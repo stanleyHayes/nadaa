@@ -91,6 +91,15 @@ export interface IncidentReporterRef {
   phone?: string;
 }
 
+export interface DuplicateIncidentCandidate {
+  incidentId: string;
+  reference: string;
+  score: number;
+  distanceMeters: number;
+  minutesApart: number;
+  reasons: string[];
+}
+
 export interface CreateIncidentRequest {
   type: HazardType;
   description: string;
@@ -121,6 +130,7 @@ export interface IncidentRecord {
   accessibilityNeeds?: string;
   media: string[];
   priorityReview: boolean;
+  duplicateCandidates: DuplicateIncidentCandidate[];
   reportedBy?: IncidentReporterRef;
   createdAt: string;
   updatedAt: string;
@@ -132,7 +142,7 @@ export interface CreateIncidentResponse {
   status: "reported";
   severity: RiskLevel;
   priorityReview: boolean;
-  duplicateCandidates: string[];
+  duplicateCandidates: DuplicateIncidentCandidate[];
 }
 
 export interface IncidentListResponse {

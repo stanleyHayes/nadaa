@@ -223,6 +223,98 @@ func TestLifeThreateningIncidentIsPriorityReview(t *testing.T) {
 	}
 }
 
+func TestDuplicateCandidatesIncludeSameLocationReport(t *testing.T) {
+	srv := newTestServer()
+	first := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Description = "Vehicles are trapped on the same flooded road"
+	body.Reporter = &reporterRef{UserID: "usr_002", Phone: "+233200000002"}
+	second := createIncidentForTest(t, srv, body)
+
+	if len(second.DuplicateCandidates) != 1 {
+		t.Fatalf("expected one duplicate candidate, got %#v", second.DuplicateCandidates)
+	}
+	candidate := second.DuplicateCandidates[0]
+	if candidate.IncidentID != first.ID || candidate.Reference != first.Reference {
+		t.Fatalf("expected first incident as duplicate candidate, got %#v", candidate)
+	}
+	if candidate.Score < duplicateMinimumScore || candidate.DistanceMeters != 0 || candidate.MinutesApart != 0 {
+		t.Fatalf("expected strong same-location candidate, got %#v", candidate)
+	}
+	if !containsString(candidate.Reasons, "same_hazard") || !containsString(candidate.Reasons, "similar_description") {
+		t.Fatalf("expected duplicate reasons to include same hazard and similar description, got %#v", candidate.Reasons)
+	}
+
+	incidents := srv.store.listIncidents()
+	var original incidentRecord
+	for _, incident := range incidents {
+		if incident.ID == first.ID {
+			original = incident
+			break
+		}
+	}
+	if len(original.DuplicateCandidates) != 1 || original.DuplicateCandidates[0].IncidentID != second.ID {
+		t.Fatalf("expected reverse duplicate candidate on original incident, got %#v", original.DuplicateCandidates)
+	}
+}
+
+func TestDuplicateCandidatesIncludeNearbyReport(t *testing.T) {
+	srv := newTestServer()
+	createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Description = "Flood water is rising near the same trapped vehicles"
+	body.Location = coordinates{Lat: 5.581, Lng: -0.211}
+	body.Reporter = &reporterRef{UserID: "usr_003", Phone: "+233200000003"}
+	second := createIncidentForTest(t, srv, body)
+
+	if len(second.DuplicateCandidates) != 1 {
+		t.Fatalf("expected nearby duplicate candidate, got %#v", second.DuplicateCandidates)
+	}
+	candidate := second.DuplicateCandidates[0]
+	if candidate.DistanceMeters <= 0 || candidate.DistanceMeters > duplicateDistanceMeters {
+		t.Fatalf("expected candidate within dedupe distance, got %#v", candidate)
+	}
+	if candidate.Score < duplicateMinimumScore {
+		t.Fatalf("expected candidate score over threshold, got %#v", candidate)
+	}
+}
+
+func TestDuplicateCandidatesIgnoreDifferentHazard(t *testing.T) {
+	srv := newTestServer()
+	createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Type = "fire"
+	body.Description = "Vehicles are trapped beside a roadside fire"
+	second := createIncidentForTest(t, srv, body)
+
+	if len(second.DuplicateCandidates) != 0 {
+		t.Fatalf("expected different hazard not to be a duplicate, got %#v", second.DuplicateCandidates)
+	}
+}
+
+func TestDuplicateCandidatesIgnoreReportsOutsideTimeWindow(t *testing.T) {
+	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+	srv := &server{
+		store:       newMemoryStore(),
+		rateLimiter: newRateLimiter(100, time.Minute, func() time.Time { return now }),
+		now:         func() time.Time { return now },
+	}
+
+	createIncidentForTest(t, srv, validIncidentRequest())
+
+	now = now.Add(duplicateReviewWindow + time.Minute)
+	body := validIncidentRequest()
+	body.Description = "Vehicles are trapped on the same flooded road"
+	second := createIncidentForTest(t, srv, body)
+
+	if len(second.DuplicateCandidates) != 0 {
+		t.Fatalf("expected old report outside duplicate window to be ignored, got %#v", second.DuplicateCandidates)
+	}
+}
+
 func TestRateLimit(t *testing.T) {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
 	srv := &server{
@@ -292,4 +384,27 @@ func initiateMediaUpload(t *testing.T, srv *server) string {
 	var payload mediaUploadResponse
 	decodeResponse(t, response, &payload)
 	return payload.MediaID
+}
+
+func createIncidentForTest(t *testing.T, srv *server, body createIncidentRequest) createIncidentResponse {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	srv.createIncidentHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected incident status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+
+	var payload createIncidentResponse
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
+func containsString(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }

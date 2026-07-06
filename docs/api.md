@@ -192,7 +192,16 @@ Response:
   "status": "reported",
   "severity": "high",
   "priorityReview": false,
-  "duplicateCandidates": []
+  "duplicateCandidates": [
+    {
+      "incidentId": "inc_...",
+      "reference": "INC-000001",
+      "score": 0.92,
+      "distanceMeters": 48,
+      "minutesApart": 12,
+      "reasons": ["same_hazard", "nearby_location", "recent_report", "similar_description"]
+    }
+  ]
 }
 ```
 
@@ -206,10 +215,12 @@ Rules:
 - Anonymous reports do not retain `reportedBy` in standard incident records.
 - If `contactPermission` is false, reporter phone is not retained in the incident record.
 - Starter service rate-limits repeated reports by client address.
+- Duplicate candidates are review hints only. The starter baseline compares same-hazard reports within 750 meters and 3 hours using distance, time, and description similarity.
+- No duplicate candidate is automatically merged, hidden, deleted, or downgraded.
 
 `GET /api/v1/incidents`
 
-Starter list endpoint for development and dashboard wiring. Authority filtering and RBAC land in later stories.
+Starter list endpoint for development and dashboard wiring. Incident records include `duplicateCandidates` so authority review screens can surface possible duplicate clusters. Authority filtering and RBAC land in later stories.
 
 ### Media Upload
 
