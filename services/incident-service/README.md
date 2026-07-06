@@ -2,13 +2,15 @@
 
 The incident service owns citizen disaster reports, media references, verification workflow, duplicate candidates, agency assignments, and incident timelines.
 
-Current NADAA-030/NADAA-033/NADAA-041/NADAA-042 endpoints:
+Current NADAA-030/NADAA-033/NADAA-041/NADAA-042/NADAA-043 endpoints:
 
 - `GET /healthz`
 - `POST /api/v1/incidents`
 - `GET /api/v1/incidents`
+- `GET /api/v1/incidents/{id}/duplicates`
 - `POST /api/v1/incidents/{id}/verify`
 - `PATCH /api/v1/incidents/{id}/status`
+- `POST /api/v1/incidents/{id}/merge`
 - `POST /api/v1/incidents/{id}/assignments`
 - `GET /api/v1/incidents/audit`
 - `POST /api/v1/media/uploads`
@@ -54,6 +56,10 @@ When a report is created, the service compares it against existing same-hazard r
 
 The top candidates are stored on incident records and returned by `POST /api/v1/incidents` and `GET /api/v1/incidents`. This is a dispatcher review aid only: the service does not automatically merge, hide, delete, or downgrade any report.
 
+`GET /api/v1/incidents/{id}/duplicates` returns the selected incident with full records for open duplicate candidates so the dashboard can compare reports side by side.
+
+`POST /api/v1/incidents/{id}/merge` accepts `duplicateIncidentIds` plus a required `note`. The primary incident remains the operational record, merged duplicates are closed with `mergedIntoId`, `mergedBy`, `mergedAt`, and `mergeReason`, and the service appends timeline plus audit events for traceability.
+
 ## Run
 
 ```bash
@@ -82,8 +88,9 @@ Run a live local workflow smoke after starting the service on `:8084`:
 ```bash
 pnpm smoke:incident-workflow
 pnpm smoke:incident-assignment
+pnpm smoke:incident-merge
 ```
 
 ## Notes
 
-The current implementation uses an in-memory store to lock in the public API contract, validation behavior, duplicate candidate baseline, incident workflow contract, agency assignment contract, and timeline event shape. PostGIS persistence, media upload storage, duplicate merge review, and dispatch-service extraction land in later stories.
+The current implementation uses an in-memory store to lock in the public API contract, validation behavior, duplicate candidate baseline, duplicate merge contract, incident workflow contract, agency assignment contract, and timeline event shape. PostGIS persistence, media upload storage, and dispatch-service extraction land in later stories.

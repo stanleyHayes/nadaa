@@ -463,8 +463,13 @@ export interface IncidentRecord {
   media: string[];
   priorityReview: boolean;
   duplicateCandidates: DuplicateIncidentCandidate[];
+  mergedIncidentIds: string[];
   assignments: IncidentAssignmentRecord[];
   timeline: IncidentTimelineEvent[];
+  mergedIntoId?: string;
+  mergedBy?: string;
+  mergedAt?: string;
+  mergeReason?: string;
   reportedBy?: IncidentReporterRef;
   verifiedBy?: string;
   verifiedAt?: string;
@@ -489,9 +494,29 @@ export interface IncidentListResponse {
   incidents: IncidentRecord[];
 }
 
+export interface DuplicateReviewCandidate {
+  candidate: DuplicateIncidentCandidate;
+  incident: IncidentRecord;
+}
+
+export interface DuplicateReviewResponse {
+  incident: IncidentRecord;
+  candidates: DuplicateReviewCandidate[];
+}
+
 export interface IncidentWorkflowRequest {
   note?: string;
   resolutionNotes?: string;
+}
+
+export interface MergeIncidentsRequest {
+  duplicateIncidentIds: string[];
+  note: string;
+}
+
+export interface MergeIncidentsResponse {
+  incident: IncidentRecord;
+  mergedIncidents: IncidentRecord[];
 }
 
 export interface IncidentStatusUpdateRequest extends IncidentWorkflowRequest {

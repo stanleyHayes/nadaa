@@ -240,6 +240,29 @@ body {
   background: #f8fafc;
 }
 
+.duplicate-review-row {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  background: #f8fafc;
+}
+
+.duplicate-review-row .MuiFormControlLabel-root {
+  margin: 0;
+}
+
+.duplicate-comparison {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.duplicate-comparison > * {
+  min-width: 0;
+}
+
 .empty-state {
   min-height: 160px;
   padding: 22px;
@@ -267,6 +290,10 @@ body {
 @media (max-width: 760px) {
   .dashboard-shell {
     padding-top: 18px;
+  }
+
+  .duplicate-comparison {
+    grid-template-columns: 1fr;
   }
 
   .surface,

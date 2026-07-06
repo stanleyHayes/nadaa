@@ -421,7 +421,7 @@ Rules:
 
 `GET /api/v1/incidents`
 
-Starter list endpoint for development and authority command-map wiring. Incident records include `location`, `severity`, `status`, `type`, `createdAt`, `duplicateCandidates`, `verifiedBy`, `verifiedAt`, `statusReason`, `resolutionNotes`, and `closedAt` so the dashboard can render map markers, synchronized queue rows, filters, status controls, and duplicate review prompts. Backend authority filtering and agency scoping land in later service stories; the current dashboard applies client-side command filters while the API contract stabilizes.
+Starter list endpoint for development and authority command-map wiring. Incident records include `location`, `severity`, `status`, `type`, `createdAt`, `duplicateCandidates`, `mergedIncidentIds`, `mergedIntoId`, `verifiedBy`, `verifiedAt`, `statusReason`, `resolutionNotes`, and `closedAt` so the dashboard can render map markers, synchronized queue rows, filters, status controls, assignment controls, and duplicate review prompts.
 
 ### Media Upload
 
@@ -535,14 +535,20 @@ Allowed assignment roles are `system_admin`, `agency_admin`, `nadmo_officer`, `d
 
 Accepted assignments append an active assignment record, move a `verified` incident to `assigned`, preserve later operational statuses, append an `incident.assigned` timeline event, and write an `incident.assigned` audit event with assignment counts and assigned agency ids.
 
+`GET /api/v1/incidents/{id}/duplicates`
+
+Returns the selected incident plus full incident records for open duplicate candidates. Allowed reader roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`, `responder`, and `agency_viewer`; MFA is required.
+
 `POST /api/v1/incidents/{id}/merge`
 
 ```json
 {
   "duplicateIncidentIds": ["inc_02H...", "inc_03H..."],
-  "reason": "Same flood location and reports within 10 minutes"
+  "note": "Same flood location and reports within 10 minutes"
 }
 ```
+
+Allowed merge roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. Each duplicate id must already be a duplicate candidate for the primary incident. The primary incident remains the operational record; merged duplicate records are closed with `mergedIntoId`, `mergedBy`, `mergedAt`, and `mergeReason` trace fields. Accepted merges append `incident.merged` and `incident.merged_into` timeline events and create audit events for the primary and duplicate records.
 
 ### Alerts
 

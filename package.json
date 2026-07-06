@@ -18,6 +18,7 @@
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:alert": "node scripts/smoke-alert.mjs",
     "smoke:incident-assignment": "node scripts/smoke-incident-assignment.mjs",
+    "smoke:incident-merge": "node scripts/smoke-incident-merge.mjs",
     "smoke:incident-workflow": "node scripts/smoke-incident-workflow.mjs",
     "smoke:risk": "node scripts/smoke-risk.mjs",
     "smoke:guide": "node scripts/smoke-guide.mjs",

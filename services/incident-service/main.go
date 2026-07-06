@@ -81,9 +81,14 @@ type incidentRecord struct {
 	Media               []string             `json:"media"`
 	PriorityReview      bool                 `json:"priorityReview"`
 	DuplicateCandidates []duplicateCandidate `json:"duplicateCandidates"`
+	MergedIncidentIDs   []string             `json:"mergedIncidentIds"`
 	ReportedBy          *reporterRef         `json:"reportedBy,omitempty"`
 	Assignments         []incidentAssignment `json:"assignments"`
 	Timeline            []timelineEvent      `json:"timeline"`
+	MergedIntoID        string               `json:"mergedIntoId,omitempty"`
+	MergedBy            string               `json:"mergedBy,omitempty"`
+	MergedAt            *time.Time           `json:"mergedAt,omitempty"`
+	MergeReason         string               `json:"mergeReason,omitempty"`
 	VerifiedBy          string               `json:"verifiedBy,omitempty"`
 	VerifiedAt          *time.Time           `json:"verifiedAt,omitempty"`
 	StatusUpdatedBy     string               `json:"statusUpdatedBy,omitempty"`
@@ -114,6 +119,26 @@ type createIncidentResponse struct {
 
 type incidentListResponse struct {
 	Incidents []incidentRecord `json:"incidents"`
+}
+
+type duplicateReviewResponse struct {
+	Incident   incidentRecord             `json:"incident"`
+	Candidates []duplicateReviewCandidate `json:"candidates"`
+}
+
+type duplicateReviewCandidate struct {
+	Candidate duplicateCandidate `json:"candidate"`
+	Incident  incidentRecord     `json:"incident"`
+}
+
+type mergeIncidentsRequest struct {
+	DuplicateIncidentIDs []string `json:"duplicateIncidentIds"`
+	Note                 string   `json:"note"`
+}
+
+type mergeIncidentsResponse struct {
+	Incident        incidentRecord   `json:"incident"`
+	MergedIncidents []incidentRecord `json:"mergedIncidents"`
 }
 
 type assignmentRequest struct {
@@ -341,6 +366,13 @@ var (
 		"district_officer": true,
 		"dispatcher":       true,
 	}
+	mergeRoles = map[string]bool{
+		"system_admin":     true,
+		"agency_admin":     true,
+		"nadmo_officer":    true,
+		"district_officer": true,
+		"dispatcher":       true,
+	}
 	incidentReadRoles = map[string]bool{
 		"system_admin":     true,
 		"agency_admin":     true,
@@ -399,7 +431,9 @@ func main() {
 	mux.HandleFunc("GET /healthz", srv.healthHandler)
 	mux.HandleFunc("POST /api/v1/incidents", srv.createIncidentHandler)
 	mux.HandleFunc("GET /api/v1/incidents", srv.listIncidentsHandler)
+	mux.HandleFunc("GET /api/v1/incidents/{id}/duplicates", srv.duplicateReviewHandler)
 	mux.HandleFunc("GET /api/v1/incidents/audit", srv.listIncidentAuditHandler)
+	mux.HandleFunc("POST /api/v1/incidents/{id}/merge", srv.mergeIncidentHandler)
 	mux.HandleFunc("PATCH /api/v1/incidents/{id}/status", srv.updateIncidentStatusHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/verify", srv.verifyIncidentHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/assignments", srv.assignIncidentHandler)
@@ -511,6 +545,19 @@ func (s *server) listIncidentsHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, incidentListResponse{Incidents: s.store.listIncidents(assignedAgencyID)})
 }
 
+func (s *server) duplicateReviewHandler(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireAuthority(w, r, incidentReadRoles); !ok {
+		return
+	}
+
+	payload, code, message := s.store.duplicateReview(r.PathValue("id"))
+	if code != "" {
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	writeJSON(w, http.StatusOK, payload)
+}
+
 func (s *server) listIncidentAuditHandler(w http.ResponseWriter, r *http.Request) {
 	if _, ok := requireAuthority(w, r, incidentAuditRoles); !ok {
 		return
@@ -587,6 +634,32 @@ func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeJSON(w, http.StatusOK, incident)
+}
+
+func (s *server) mergeIncidentHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, mergeRoles)
+	if !ok {
+		return
+	}
+
+	var request mergeIncidentsRequest
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+
+	normalized, code, message := normalizeMergeRequest(request)
+	if code != "" {
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	payload, code, message := s.store.mergeIncidents(r.PathValue("id"), normalized, ctx, s.now())
+	if code != "" {
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	writeJSON(w, http.StatusOK, payload)
 }
 
 func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
@@ -670,6 +743,8 @@ func (m *memoryStore) createIncident(request createIncidentRequest, now time.Tim
 		Media:              append([]string{}, request.Media...),
 		PriorityReview:     priorityReview(request),
 		ReportedBy:         reportedByFor(request),
+		MergedIncidentIDs:  []string{},
+		Assignments:        []incidentAssignment{},
 		Timeline: []timelineEvent{
 			newTimelineEvent("incident.reported", "Citizen report received", authorityContext{}, map[string]string{
 				"reference": reference,
@@ -701,6 +776,30 @@ func (m *memoryStore) listIncidents(assignedAgencyID string) []incidentRecord {
 		return incidents[i].CreatedAt.After(incidents[j].CreatedAt)
 	})
 	return incidents
+}
+
+func (m *memoryStore) duplicateReview(id string) (duplicateReviewResponse, string, string) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	incident, ok := m.incidents[id]
+	if !ok {
+		return duplicateReviewResponse{}, "not_found", "incident was not found"
+	}
+
+	candidates := make([]duplicateReviewCandidate, 0, len(incident.DuplicateCandidates))
+	for _, candidate := range incident.DuplicateCandidates {
+		candidateIncident, exists := m.incidents[candidate.IncidentID]
+		if !exists || candidateIncident.MergedIntoID != "" || candidateIncident.Status == "false_report" {
+			continue
+		}
+		candidates = append(candidates, duplicateReviewCandidate{
+			Candidate: candidate,
+			Incident:  candidateIncident,
+		})
+	}
+
+	return duplicateReviewResponse{Incident: incident, Candidates: candidates}, "", ""
 }
 
 func (m *memoryStore) transitionIncident(id string, nextStatus string, ctx authorityContext, request incidentWorkflowRequest, now time.Time) (incidentRecord, string, string) {
@@ -764,6 +863,92 @@ func (m *memoryStore) transitionIncident(id string, nextStatus string, ctx autho
 	m.incidents[incident.ID] = incident
 	m.appendAuditLocked(action, ctx, incident.ID, before, snapshotIncident(incident), timestamp)
 	return incident, "", ""
+}
+
+func (m *memoryStore) mergeIncidents(primaryID string, request mergeIncidentsRequest, ctx authorityContext, now time.Time) (mergeIncidentsResponse, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	primary, ok := m.incidents[primaryID]
+	if !ok {
+		return mergeIncidentsResponse{}, "not_found", "incident was not found"
+	}
+	if primary.MergedIntoID != "" {
+		return mergeIncidentsResponse{}, "invalid_merge", "primary incident is already merged into another incident"
+	}
+	if primary.Status == "closed" || primary.Status == "false_report" {
+		return mergeIncidentsResponse{}, "invalid_merge", "closed and false-report incidents cannot receive duplicate merges"
+	}
+
+	duplicates := make([]incidentRecord, 0, len(request.DuplicateIncidentIDs))
+	for _, duplicateID := range request.DuplicateIncidentIDs {
+		duplicate, exists := m.incidents[duplicateID]
+		if !exists {
+			return mergeIncidentsResponse{}, "not_found", fmt.Sprintf("duplicate incident %s was not found", duplicateID)
+		}
+		if duplicate.ID == primary.ID {
+			return mergeIncidentsResponse{}, "invalid_merge", "primary incident cannot be merged into itself"
+		}
+		if duplicate.MergedIntoID != "" {
+			return mergeIncidentsResponse{}, "invalid_merge", fmt.Sprintf("duplicate incident %s is already merged", duplicate.Reference)
+		}
+		if duplicate.Status == "closed" || duplicate.Status == "false_report" {
+			return mergeIncidentsResponse{}, "invalid_merge", fmt.Sprintf("duplicate incident %s is terminal", duplicate.Reference)
+		}
+		if _, ok := duplicateCandidateBetween(primary, duplicate); !ok {
+			return mergeIncidentsResponse{}, "invalid_duplicate", fmt.Sprintf("incident %s is not a duplicate candidate for %s", duplicate.Reference, primary.Reference)
+		}
+		duplicates = append(duplicates, duplicate)
+	}
+
+	beforePrimary := snapshotIncident(primary)
+	timestamp := now.UTC()
+	mergedIDs := make([]string, 0, len(duplicates))
+	mergedIncidents := make([]incidentRecord, 0, len(duplicates))
+	removeIDs := map[string]bool{}
+	for _, duplicate := range duplicates {
+		removeIDs[duplicate.ID] = true
+		mergedIDs = append(mergedIDs, duplicate.ID)
+	}
+
+	for _, duplicate := range duplicates {
+		beforeDuplicate := snapshotIncident(duplicate)
+		duplicate.MergedIntoID = primary.ID
+		duplicate.MergedBy = ctx.ActorUserID
+		duplicate.MergedAt = &timestamp
+		duplicate.MergeReason = request.Note
+		duplicate.Status = "closed"
+		duplicate.StatusUpdatedBy = ctx.ActorUserID
+		duplicate.StatusReason = fmt.Sprintf("Merged into %s", primary.Reference)
+		duplicate.ResolutionNotes = request.Note
+		duplicate.ClosedAt = &timestamp
+		duplicate.UpdatedAt = timestamp
+		duplicate.DuplicateCandidates = filterDuplicateCandidates(duplicate.DuplicateCandidates, map[string]bool{primary.ID: true})
+		duplicate.Timeline = append(duplicate.Timeline, newTimelineEvent("incident.merged_into", fmt.Sprintf("Merged into %s", primary.Reference), ctx, map[string]string{
+			"primaryIncidentId": primary.ID,
+			"primaryReference":  primary.Reference,
+			"note":              request.Note,
+		}, timestamp))
+
+		m.incidents[duplicate.ID] = duplicate
+		m.appendAuditLocked("incident.merged_into", ctx, duplicate.ID, beforeDuplicate, snapshotIncident(duplicate), timestamp)
+		mergedIncidents = append(mergedIncidents, duplicate)
+	}
+
+	primary.MergedIncidentIDs = appendUniqueStrings(primary.MergedIncidentIDs, mergedIDs...)
+	sort.Strings(primary.MergedIncidentIDs)
+	primary.DuplicateCandidates = filterDuplicateCandidates(primary.DuplicateCandidates, removeIDs)
+	primary.StatusUpdatedBy = ctx.ActorUserID
+	primary.StatusReason = fmt.Sprintf("Merged %d duplicate report(s)", len(mergedIDs))
+	primary.UpdatedAt = timestamp
+	primary.Timeline = append(primary.Timeline, newTimelineEvent("incident.merged", fmt.Sprintf("Merged %d duplicate report(s)", len(mergedIDs)), ctx, map[string]string{
+		"duplicateIncidentIds": strings.Join(mergedIDs, ","),
+		"note":                 request.Note,
+	}, timestamp))
+
+	m.incidents[primary.ID] = primary
+	m.appendAuditLocked("incident.merged", ctx, primary.ID, beforePrimary, snapshotIncident(primary), timestamp)
+	return mergeIncidentsResponse{Incident: primary, MergedIncidents: mergedIncidents}, "", ""
 }
 
 func (m *memoryStore) assignIncident(id string, request assignmentRequest, ctx authorityContext, now time.Time) (incidentRecord, string, string) {
@@ -1253,6 +1438,38 @@ func normalizeIncidentStatusRequest(request incidentStatusRequest) (incidentStat
 	return request, "", ""
 }
 
+func normalizeMergeRequest(request mergeIncidentsRequest) (mergeIncidentsRequest, string, string) {
+	request.Note = strings.TrimSpace(request.Note)
+
+	if len(request.DuplicateIncidentIDs) == 0 {
+		return request, "missing_duplicates", "duplicateIncidentIds must include at least one incident"
+	}
+	if len(request.DuplicateIncidentIDs) > duplicateCandidateLimit {
+		return request, "too_many_duplicates", fmt.Sprintf("duplicateIncidentIds can include at most %d incidents", duplicateCandidateLimit)
+	}
+
+	normalizedIDs := make([]string, 0, len(request.DuplicateIncidentIDs))
+	seen := map[string]bool{}
+	for _, incidentID := range request.DuplicateIncidentIDs {
+		incidentID = strings.TrimSpace(incidentID)
+		if incidentID == "" || !mediaRefPattern.MatchString(incidentID) {
+			return request, "invalid_duplicate_id", "duplicateIncidentIds must contain safe incident references"
+		}
+		if seen[incidentID] {
+			return request, "duplicate_duplicate_id", "duplicateIncidentIds must not contain the same incident more than once"
+		}
+		seen[incidentID] = true
+		normalizedIDs = append(normalizedIDs, incidentID)
+	}
+
+	if len(request.Note) < 5 || len(request.Note) > 1000 || unsafeText(request.Note) {
+		return request, "invalid_note", "note must be 5 to 1000 safe characters"
+	}
+
+	request.DuplicateIncidentIDs = normalizedIDs
+	return request, "", ""
+}
+
 func normalizeAssignmentRequest(request assignmentRequest) (assignmentRequest, string, string) {
 	request.AgencyID = strings.TrimSpace(request.AgencyID)
 	request.AgencyName = strings.TrimSpace(request.AgencyName)
@@ -1314,6 +1531,54 @@ func assignmentAgencyIDs(assignments []incidentAssignment) []string {
 	}
 	sort.Strings(ids)
 	return ids
+}
+
+func duplicateCandidateBetween(primary incidentRecord, duplicate incidentRecord) (duplicateCandidate, bool) {
+	for _, candidate := range primary.DuplicateCandidates {
+		if candidate.IncidentID == duplicate.ID {
+			return candidate, true
+		}
+	}
+	for _, candidate := range duplicate.DuplicateCandidates {
+		if candidate.IncidentID == primary.ID {
+			return reverseDuplicateCandidate(duplicate, candidate), true
+		}
+	}
+	return duplicateCandidate{}, false
+}
+
+func filterDuplicateCandidates(candidates []duplicateCandidate, removeIDs map[string]bool) []duplicateCandidate {
+	if len(candidates) == 0 || len(removeIDs) == 0 {
+		return candidates
+	}
+	filtered := make([]duplicateCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if removeIDs[candidate.IncidentID] {
+			continue
+		}
+		filtered = append(filtered, candidate)
+	}
+	return filtered
+}
+
+func appendUniqueStrings(values []string, additions ...string) []string {
+	seen := map[string]bool{}
+	next := make([]string, 0, len(values)+len(additions))
+	for _, value := range values {
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		next = append(next, value)
+	}
+	for _, value := range additions {
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		next = append(next, value)
+	}
+	return next
 }
 
 func newTimelineEvent(eventType string, message string, ctx authorityContext, metadata map[string]string, now time.Time) timelineEvent {
@@ -1439,6 +1704,10 @@ func snapshotIncident(incident incidentRecord) map[string]any {
 		"statusUpdatedBy":   incident.StatusUpdatedBy,
 		"statusReason":      incident.StatusReason,
 		"resolutionNotes":   incident.ResolutionNotes,
+		"mergedIncidentIds": append([]string{}, incident.MergedIncidentIDs...),
+		"mergedIntoId":      incident.MergedIntoID,
+		"mergeReason":       incident.MergeReason,
+		"duplicateCount":    len(incident.DuplicateCandidates),
 		"assignmentCount":   len(incident.Assignments),
 		"assignedAgencyIds": assignmentAgencyIDs(incident.Assignments),
 	}

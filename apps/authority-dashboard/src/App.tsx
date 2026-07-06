@@ -4,6 +4,7 @@ import {
   AppBar,
   Box,
   Button,
+  Checkbox,
   Chip,
   Container,
   CssBaseline,
@@ -39,6 +40,7 @@ import {
   Crosshair,
   Eye,
   Filter,
+  GitMerge,
   LocateFixed,
   MapPinned,
   RadioTower,
@@ -56,6 +58,8 @@ import type {
   AlertStatus,
   AuthorityAlertRecord,
   CreateAlertRequest,
+  DuplicateReviewCandidate,
+  DuplicateReviewResponse,
   HazardType,
   IncidentAssignmentPriority,
   IncidentStatusUpdateRequest,
@@ -63,6 +67,8 @@ import type {
   IncidentRecord,
   IncidentStatus,
   IncidentTimelineEvent,
+  MergeIncidentsRequest,
+  MergeIncidentsResponse,
   RiskLevel,
 } from "@nadaa/shared-types";
 
@@ -231,6 +237,7 @@ const fallbackIncidents: CommandIncident[] = [
         reasons: ["same_hazard", "nearby_location", "recent_report"],
       },
     ],
+    mergedIncidentIds: [],
     assignments: [],
     timeline: [],
     reportedBy: { userId: "usr_ama", phone: "+233200000003" },
@@ -245,6 +252,50 @@ const fallbackIncidents: CommandIncident[] = [
       "Citizen report received with photo evidence",
       "Duplicate reports grouped near Accra Central",
       "NADMO AMA dispatcher reviewing severity",
+    ],
+    source: "fixture",
+  },
+  {
+    id: "inc_accra_flood_0237",
+    reference: "INC-0237",
+    type: "flood",
+    severity: "high",
+    status: "reported",
+    description:
+      "Resident reports the same market road flooding with stranded taxis.",
+    location: { lat: 5.579, lng: -0.212 },
+    peopleAffected: 9,
+    injuriesReported: false,
+    urgency: "high",
+    anonymous: false,
+    contactPermission: true,
+    media: [],
+    priorityReview: true,
+    duplicateCandidates: [
+      {
+        incidentId: "inc_accra_flood_0241",
+        reference: "INC-0241",
+        score: 0.82,
+        distanceMeters: 214,
+        minutesApart: 16,
+        reasons: ["same_hazard", "nearby_location", "recent_report"],
+      },
+    ],
+    mergedIncidentIds: [],
+    assignments: [],
+    timeline: [],
+    reportedBy: { userId: "usr_kofi", phone: "+233200000004" },
+    createdAt: "2026-07-06T18:26:00Z",
+    updatedAt: "2026-07-06T18:43:00Z",
+    region: "Greater Accra",
+    district: "Accra Metropolitan",
+    locality: "Accra Central",
+    assignedAgency: "Unassigned",
+    responderEta: "12 min",
+    timelineEntries: [
+      "Citizen report received near market road",
+      "Matched as likely duplicate of INC-0241",
+      "Awaiting dispatcher merge review",
     ],
     source: "fixture",
   },
@@ -264,6 +315,7 @@ const fallbackIncidents: CommandIncident[] = [
     media: ["media_crash_photo_002"],
     priorityReview: true,
     duplicateCandidates: [],
+    mergedIncidentIds: [],
     assignments: [
       {
         id: "asg_fixture_tema",
@@ -309,6 +361,7 @@ const fallbackIncidents: CommandIncident[] = [
     media: [],
     priorityReview: false,
     duplicateCandidates: [],
+    mergedIncidentIds: [],
     assignments: [],
     timeline: [],
     createdAt: "2026-07-06T17:58:00Z",
@@ -341,6 +394,7 @@ const fallbackIncidents: CommandIncident[] = [
     media: ["media_fire_photo_003"],
     priorityReview: true,
     duplicateCandidates: [],
+    mergedIncidentIds: [],
     assignments: [
       {
         id: "asg_fixture_fire",
@@ -492,6 +546,16 @@ function App() {
   const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(
     buildDefaultAssignmentForm(fallbackIncidents[0]),
   );
+  const [duplicateReviewCandidates, setDuplicateReviewCandidates] = useState<
+    DuplicateReviewCandidate[]
+  >(duplicateReviewCandidatesFor(fallbackIncidents[0], fallbackIncidents));
+  const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<string[]>(
+    duplicateReviewCandidatesFor(fallbackIncidents[0], fallbackIncidents).map(
+      (candidate) => candidate.incident.id,
+    ),
+  );
+  const [mergeBusy, setMergeBusy] = useState(false);
+  const [mergeFeedback, setMergeFeedback] = useState("");
   const [alerts, setAlerts] = useState<AuthorityAlertRecord[]>(fallbackAlerts);
   const [alertLoadState, setAlertLoadState] =
     useState<AlertLoadState>("loading");
@@ -627,8 +691,29 @@ function App() {
     setAlertForm(buildDefaultAlertForm(selectedIncident));
     setStatusForm(buildDefaultStatusForm(selectedIncident));
     setAssignmentForm(buildDefaultAssignmentForm(selectedIncident));
+    const localCandidates = duplicateReviewCandidatesFor(
+      selectedIncident,
+      incidents,
+    );
+    setDuplicateReviewCandidates(localCandidates);
+    setSelectedDuplicateIds(
+      localCandidates.map((candidate) => candidate.incident.id),
+    );
     setStatusFeedback("");
     setAssignmentFeedback("");
+    setMergeFeedback("");
+
+    if (
+      !selectedIncident ||
+      selectedIncident.source !== "api" ||
+      !selectedIncident.duplicateCandidates.length
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    void refreshDuplicateReview(selectedIncident.id, controller.signal);
+    return () => controller.abort();
   }, [selectedIncident?.id]);
 
   const updateFilter =
@@ -685,19 +770,53 @@ function App() {
       });
     };
 
-  const applyIncidentUpdate = (incident: IncidentRecord) => {
-    const enriched = enrichIncidentFromAPI(incident);
-    setIncidents((current) => {
-      const exists = current.some((item) => item.id === incident.id);
-      if (!exists) {
-        return [enriched, ...current];
+  const refreshDuplicateReview = async (
+    incidentId: string,
+    signal?: AbortSignal,
+  ) => {
+    try {
+      const response = await fetch(
+        `${INCIDENT_API_BASE}/incidents/${incidentId}/duplicates`,
+        {
+          headers: authorityHeaders(),
+          signal,
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`incident API returned ${response.status}`);
       }
-      return current.map((item) => (item.id === incident.id ? enriched : item));
+      const payload = (await response.json()) as DuplicateReviewResponse;
+      setDuplicateReviewCandidates(payload.candidates);
+      setSelectedDuplicateIds(
+        payload.candidates.map((candidate) => candidate.incident.id),
+      );
+    } catch (error) {
+      if (!signal?.aborted) {
+        setMergeFeedback("Duplicate review details need a live incident API.");
+      }
+    }
+  };
+
+  const applyIncidentUpdates = (updates: IncidentRecord[]) => {
+    const enrichedUpdates = updates.map(enrichIncidentFromAPI);
+    const updateIds = new Set(enrichedUpdates.map((incident) => incident.id));
+    setIncidents((current) => {
+      const remaining = current.filter((item) => !updateIds.has(item.id));
+      return [...enrichedUpdates, ...remaining].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
     });
-    setSelectedIncidentId(incident.id);
-    setStatusForm(buildDefaultStatusForm(enriched));
-    setAssignmentForm(buildDefaultAssignmentForm(enriched));
+    if (enrichedUpdates[0]) {
+      setSelectedIncidentId(enrichedUpdates[0].id);
+      setStatusForm(buildDefaultStatusForm(enrichedUpdates[0]));
+      setAssignmentForm(buildDefaultAssignmentForm(enrichedUpdates[0]));
+    }
     setLoadState("ready");
+  };
+
+  const applyIncidentUpdate = (incident: IncidentRecord) => {
+    applyIncidentUpdates([incident]);
   };
 
   const verifySelectedIncident = async () => {
@@ -805,6 +924,56 @@ function App() {
       );
     } finally {
       setAssignmentBusy(false);
+    }
+  };
+
+  const toggleDuplicateSelection = (incidentId: string) => {
+    setSelectedDuplicateIds((current) =>
+      current.includes(incidentId)
+        ? current.filter((id) => id !== incidentId)
+        : [...current, incidentId],
+    );
+  };
+
+  const mergeSelectedDuplicates = async () => {
+    if (!selectedIncident || !selectedDuplicateIds.length) {
+      return;
+    }
+
+    const request: MergeIncidentsRequest = {
+      duplicateIncidentIds: selectedDuplicateIds,
+      note: `Merged duplicate reports into ${selectedIncident.reference}.`,
+    };
+
+    setMergeBusy(true);
+    setMergeFeedback("");
+    try {
+      const response = await fetch(
+        `${INCIDENT_API_BASE}/incidents/${selectedIncident.id}/merge`,
+        {
+          method: "POST",
+          headers: authorityHeaders(),
+          body: JSON.stringify(request),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`incident API returned ${response.status}`);
+      }
+      const payload = (await response.json()) as MergeIncidentsResponse;
+      applyIncidentUpdates([payload.incident, ...payload.mergedIncidents]);
+      setDuplicateReviewCandidates([]);
+      setSelectedDuplicateIds([]);
+      setMergeFeedback(
+        `${payload.mergedIncidents.length} duplicate report${
+          payload.mergedIncidents.length === 1 ? "" : "s"
+        } merged into ${payload.incident.reference}.`,
+      );
+    } catch (error) {
+      setMergeFeedback(
+        "Merge needs a live duplicate candidate and incident-service API.",
+      );
+    } finally {
+      setMergeBusy(false);
     }
   };
 
@@ -1256,14 +1425,20 @@ function App() {
                 assignmentFeedback={assignmentFeedback}
                 assignmentForm={assignmentForm}
                 busy={statusBusy}
+                duplicateCandidates={duplicateReviewCandidates}
                 feedback={statusFeedback}
                 form={statusForm}
                 incident={selectedIncident}
+                mergeBusy={mergeBusy}
+                mergeFeedback={mergeFeedback}
                 onAssign={assignSelectedIncident}
+                onMergeDuplicates={mergeSelectedDuplicates}
+                onToggleDuplicate={toggleDuplicateSelection}
                 onUpdateAssignmentForm={updateAssignmentForm}
                 onUpdateForm={updateStatusForm}
                 onUpdateStatus={updateIncidentStatus}
                 onVerify={verifySelectedIncident}
+                selectedDuplicateIds={selectedDuplicateIds}
               />
 
               <AlertWorkflowPanel
@@ -1737,23 +1912,34 @@ function IncidentDetailPanel({
   assignmentFeedback,
   assignmentForm,
   busy,
+  duplicateCandidates,
   feedback,
   form,
   incident,
+  mergeBusy,
+  mergeFeedback,
   onAssign,
+  onMergeDuplicates,
+  onToggleDuplicate,
   onUpdateAssignmentForm,
   onUpdateForm,
   onUpdateStatus,
   onVerify,
+  selectedDuplicateIds,
 }: {
   assignmentBusy: boolean;
   assignmentFeedback: string;
   assignmentForm: AssignmentFormState;
   busy: boolean;
+  duplicateCandidates: DuplicateReviewCandidate[];
   feedback: string;
   form: IncidentStatusFormState;
   incident?: CommandIncident;
+  mergeBusy: boolean;
+  mergeFeedback: string;
   onAssign: () => void;
+  onMergeDuplicates: () => void;
+  onToggleDuplicate: (incidentId: string) => void;
   onUpdateAssignmentForm: (
     key: keyof AssignmentFormState,
   ) => (
@@ -1768,6 +1954,7 @@ function IncidentDetailPanel({
   ) => void;
   onUpdateStatus: () => void;
   onVerify: () => void;
+  selectedDuplicateIds: string[];
 }) {
   if (!incident) {
     return (
@@ -1788,6 +1975,8 @@ function IncidentDetailPanel({
   const activeAssignments = incident.assignments.filter(
     (assignment) => assignment.status === "active",
   );
+  const canMerge =
+    incident.source === "api" && selectedDuplicateIds.length > 0 && !mergeBusy;
 
   return (
     <Paper className="surface detail-panel">
@@ -1848,13 +2037,121 @@ function IncidentDetailPanel({
         ))}
       </Stack>
 
-      {incident.duplicateCandidates.length ? (
+      {incident.duplicateCandidates.length ||
+      duplicateCandidates.length ||
+      incident.mergedIncidentIds.length ||
+      incident.mergedIntoId ? (
         <>
           <Divider className="detail-divider" />
-          <Alert severity="warning">
-            {incident.duplicateCandidates.length} possible duplicate
-            {incident.duplicateCandidates.length > 1 ? "s" : ""} need review.
-          </Alert>
+          <Stack spacing={1.25}>
+            <Stack direction="row" justifyContent="space-between" gap={1}>
+              <Box>
+                <Typography variant="subtitle2">Duplicate review</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {duplicateCandidates.length
+                    ? "Side-by-side candidate check"
+                    : "No open candidates"}
+                </Typography>
+              </Box>
+              <Chip
+                size="small"
+                label={`${duplicateCandidates.length} candidate${
+                  duplicateCandidates.length === 1 ? "" : "s"
+                }`}
+                color={duplicateCandidates.length ? "warning" : "default"}
+              />
+            </Stack>
+
+            {incident.mergedIntoId ? (
+              <Alert severity="info">
+                This report was merged into another incident and remains
+                traceable in audit and timeline history.
+              </Alert>
+            ) : null}
+
+            {incident.mergedIncidentIds.length ? (
+              <Alert severity="success">
+                {incident.mergedIncidentIds.length} duplicate report
+                {incident.mergedIncidentIds.length === 1 ? "" : "s"} already
+                merged into this incident.
+              </Alert>
+            ) : null}
+
+            {mergeFeedback ? (
+              <Alert
+                severity={
+                  mergeFeedback.includes("needs") ? "warning" : "success"
+                }
+              >
+                {mergeFeedback}
+              </Alert>
+            ) : null}
+
+            {duplicateCandidates.map((item) => (
+              <Box className="duplicate-review-row" key={item.incident.id}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={selectedDuplicateIds.includes(item.incident.id)}
+                      onChange={() => onToggleDuplicate(item.incident.id)}
+                      disabled={incident.source !== "api" || mergeBusy}
+                    />
+                  }
+                  label={item.incident.reference}
+                />
+                <Box className="duplicate-comparison">
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Selected
+                    </Typography>
+                    <Typography variant="body2">
+                      {incident.description}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Candidate
+                    </Typography>
+                    <Typography variant="body2">
+                      {item.incident.description}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Stack direction="row" spacing={0.75} flexWrap="wrap">
+                  <Chip
+                    size="small"
+                    label={`${Math.round(item.candidate.score * 100)}%`}
+                  />
+                  <Chip
+                    size="small"
+                    label={`${Math.round(item.candidate.distanceMeters)}m`}
+                  />
+                  <Chip
+                    size="small"
+                    label={`${item.candidate.minutesApart}m`}
+                  />
+                </Stack>
+              </Box>
+            ))}
+
+            {incident.source !== "api" && duplicateCandidates.length ? (
+              <Alert severity="info">
+                Start incident-service to merge fixture duplicate reports.
+              </Alert>
+            ) : null}
+
+            {duplicateCandidates.length ? (
+              <Button
+                variant="outlined"
+                disabled={!canMerge}
+                onClick={onMergeDuplicates}
+                startIcon={<GitMerge size={17} />}
+              >
+                Merge selected
+              </Button>
+            ) : null}
+          </Stack>
         </>
       ) : null}
 
@@ -2213,16 +2510,51 @@ function withinTimeWindow(createdAt: string, timeFilter: FilterState["time"]) {
   return latestFixtureTime - incidentTime <= hours * 60 * 60 * 1000;
 }
 
+function duplicateReviewCandidatesFor(
+  incident: CommandIncident | undefined,
+  incidents: CommandIncident[],
+): DuplicateReviewCandidate[] {
+  if (!incident?.duplicateCandidates.length) {
+    return [];
+  }
+
+  const reviewCandidates: DuplicateReviewCandidate[] = [];
+  for (const candidate of incident.duplicateCandidates) {
+    const candidateIncident = incidents.find(
+      (item) =>
+        item.id === candidate.incidentId &&
+        !item.mergedIntoId &&
+        item.status !== "false_report",
+    );
+    if (!candidateIncident) {
+      continue;
+    }
+    reviewCandidates.push({
+      candidate,
+      incident: candidateIncident,
+    });
+  }
+  return reviewCandidates;
+}
+
 function enrichIncidentFromAPI(incident: IncidentRecord): CommandIncident {
+  const normalizedIncident: IncidentRecord = {
+    ...incident,
+    duplicateCandidates: incident.duplicateCandidates ?? [],
+    mergedIncidentIds: incident.mergedIncidentIds ?? [],
+    assignments: incident.assignments ?? [],
+    timeline: incident.timeline ?? [],
+    media: incident.media ?? [],
+  };
   const district = districtFromCoordinates(incident.location);
   return {
-    ...incident,
+    ...normalizedIncident,
     region: district.region,
     district: district.district,
     locality: district.locality,
-    assignedAgency: assignmentForIncident(incident),
-    responderEta: etaForIncident(incident),
-    timelineEntries: timelineEntriesForIncident(incident),
+    assignedAgency: assignmentForIncident(normalizedIncident),
+    responderEta: etaForIncident(normalizedIncident),
+    timelineEntries: timelineEntriesForIncident(normalizedIncident),
     source: "api",
   };
 }

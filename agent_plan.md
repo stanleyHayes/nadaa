@@ -98,11 +98,14 @@ Coordination rules:
 | NADAA-050 | MVP Sprint 4   | Implement Alert Creation And Approval Workflow         | Done   | Codex | main      | NADAA-011, NADAA-012, NADAA-020 | 2026-07-06  | Alert-service draft/update/submit/approve/reject/emergency override API, RBAC/MFA/audit hooks, authority dashboard form/queue, shared types, docs, smoke, CI, tests, and Docker build added.                               |
 | NADAA-041 | MVP Sprint 3   | Implement Verification And Status Workflow             | Done   | Codex | main      | NADAA-040, NADAA-012            | 2026-07-06  | Incident-service status transition rules, verification endpoint, RBAC/MFA gates, audit events, authority dashboard status controls, shared types, docs, smoke, tests, and Docker build added.                              |
 | NADAA-042 | MVP Sprint 3   | Implement Agency Assignment And Incident Timeline      | Done   | Codex | main      | NADAA-041                       | 2026-07-06  | Incident-service assignment endpoint/model, timeline events, assigned-agency filtering, RBAC/MFA gates, authority dashboard assignment controls, shared types, docs, smoke, tests, and Docker build added.                 |
+| NADAA-043 | MVP Sprint 3   | Implement Duplicate Merge Review                       | Done   | Codex | main      | NADAA-033, NADAA-041            | 2026-07-06  | Incident-service duplicate review and merge endpoints, merge trace fields, audit/timeline events, authority dashboard side-by-side review UI, shared types, docs, smoke, tests, and Docker build added.                   |
 
 ### Agent Handoff Log
 
 | Date       | Agent | Item                | Status      | Handoff Notes                                                                                                                                                                                                                                                                                                                                                           |
 | ---------- | ----- | ------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-06 | Codex | NADAA-043           | Done        | Verified `services/incident-service go test ./...`, `pnpm smoke:incident-merge`, `pnpm smoke:incident-assignment`, `pnpm smoke:incident-workflow`, `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, incident-service Docker build, and `git diff --check`.                                                                 |
+| 2026-07-06 | Codex | NADAA-043           | In Progress | Claimed incident-service duplicate review endpoint, merge endpoint, duplicate candidate traceability, merge audit events, authority dashboard side-by-side review controls, shared types, docs, smoke, and tests.                                                                                                                                                       |
 | 2026-07-06 | Codex | NADAA-042           | Done        | Verified `services/incident-service go test ./...`, `pnpm smoke:incident-assignment`, `pnpm smoke:incident-workflow`, `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, incident-service Docker build, and live assigned-agency filtering on `localhost:8084`.                                                                |
 | 2026-07-06 | Codex | NADAA-042           | In Progress | Claimed incident-service assignment model, incident timeline model, assignment endpoint, assigned-agency incident filtering, assignment permission tests, authority dashboard assignment controls, shared types, docs, smoke, and tests.                                                                                                                                  |
 | 2026-07-06 | Codex | NADAA-041           | Done        | Verified `services/incident-service go test ./...`, `pnpm --filter @nadaa/authority-dashboard typecheck`, `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, live `pnpm smoke:incident-workflow` on `localhost:8084`, local `pnpm smoke:staging`, incident-service Docker build, and `git diff --check`. |
@@ -1498,7 +1501,7 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-040 | MVP   | Sprint 3   | Build Incident Command Map                                  | Done   | Codex      | main      | Leaflet command map, API-backed incident feed with fixture fallback, map/list sync, filters, selected-incident detail, role-protected framing, docs, and UI states added.                                     |
 | NADAA-041 | MVP   | Sprint 3   | Implement Verification And Status Workflow                  | Done   | Codex      | main      | Incident-service transition rules, verification/status endpoints, audited status changes, closure/false-report notes, authority dashboard controls, shared types, docs, smoke, tests, and Docker build added. |
 | NADAA-042 | MVP   | Sprint 3   | Implement Agency Assignment And Incident Timeline           | Done   | Codex      | main      | Incident-service assignment/timeline models, assignment endpoint, assigned-agency filtering, authority dashboard assignment controls, docs, smoke, tests, and Docker build added.              |
-| NADAA-043 | MVP   | Sprint 3   | Implement Duplicate Merge Review                            | Todo   | Unassigned | TBD       | Depends on NADAA-033, NADAA-041.                                                                                                                                                                              |
+| NADAA-043 | MVP   | Sprint 3   | Implement Duplicate Merge Review                            | Done   | Codex      | main      | Duplicate review and merge endpoints, traceability fields, audit/timeline events, side-by-side authority dashboard UI, shared types, docs, smoke, tests, and Docker build added.              |
 | NADAA-050 | MVP   | Sprint 4   | Implement Alert Creation And Approval Workflow              | Done   | Codex      | main      | Alert-service workflow API, emergency override path, RBAC/MFA/audit hooks, authority dashboard alert form/queue, shared types, docs, smoke, CI, tests, and Docker build added.                                |
 | NADAA-051 | MVP   | Sprint 4   | Implement Geofenced Alert Targeting                         | Todo   | Unassigned | TBD       | Depends on NADAA-050.                                                                                                                                                                                         |
 | NADAA-052 | MVP   | Sprint 4   | Implement In-App Alert Feed And Push/SMS Abstraction        | Todo   | Unassigned | TBD       | Depends on NADAA-050, NADAA-051.                                                                                                                                                                              |
@@ -1553,11 +1556,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 
 Start here:
 
-1. NADAA-043 Implement Duplicate Merge Review.
-2. NADAA-091 Implement Abuse, Spam, And False Report Handling.
-3. NADAA-051 Implement Geofenced Alert Targeting.
-4. NADAA-061 Build Offline-First Citizen Guidance UI.
-5. NADAA-081 Implement Weather And Hydrology Import Skeleton.
+1. NADAA-091 Implement Abuse, Spam, And False Report Handling.
+2. NADAA-051 Implement Geofenced Alert Targeting.
+3. NADAA-061 Build Offline-First Citizen Guidance UI.
+4. NADAA-081 Implement Weather And Hydrology Import Skeleton.
+5. NADAA-090 Implement Location Privacy And Anonymous Reporting Controls.
 
 ## Key Risks And Early Decisions
 

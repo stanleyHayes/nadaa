@@ -326,6 +326,130 @@ func TestDuplicateCandidatesIgnoreReportsOutsideTimeWindow(t *testing.T) {
 	}
 }
 
+func TestDuplicateReviewReturnsSideBySideCandidates(t *testing.T) {
+	srv := newTestServer()
+	primary := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Description = "Vehicles are trapped on the same flooded road"
+	body.Reporter = &reporterRef{UserID: "usr_002", Phone: "+233200000002"}
+	duplicate := createIncidentForTest(t, srv, body)
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodGet, "/api/v1/incidents/"+primary.ID+"/duplicates", nil)
+	request.SetPathValue("id", primary.ID)
+	srv.duplicateReviewHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload duplicateReviewResponse
+	decodeResponse(t, response, &payload)
+	if payload.Incident.ID != primary.ID || len(payload.Candidates) != 1 {
+		t.Fatalf("expected primary with one duplicate candidate, got %#v", payload)
+	}
+	if payload.Candidates[0].Incident.ID != duplicate.ID || payload.Candidates[0].Candidate.Reference != duplicate.Reference {
+		t.Fatalf("expected duplicate incident details in review response, got %#v", payload.Candidates[0])
+	}
+}
+
+func TestMergeDuplicateIncidentsClosesDuplicateAndAudits(t *testing.T) {
+	srv := newTestServer()
+	primary := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Description = "Vehicles are trapped on the same flooded road"
+	body.Reporter = &reporterRef{UserID: "usr_002", Phone: "+233200000002"}
+	duplicate := createIncidentForTest(t, srv, body)
+
+	payload := mergeIncidentsForTest(t, srv, primary.ID, mergeIncidentsRequest{
+		DuplicateIncidentIDs: []string{duplicate.ID},
+		Note:                 "Same flooded road confirmed from duplicate calls.",
+	})
+
+	if !containsString(payload.Incident.MergedIncidentIDs, duplicate.ID) {
+		t.Fatalf("expected primary to keep merged duplicate id, got %#v", payload.Incident.MergedIncidentIDs)
+	}
+	if hasDuplicateCandidate(payload.Incident.DuplicateCandidates, duplicate.ID) {
+		t.Fatalf("expected merged duplicate to be removed from primary candidates, got %#v", payload.Incident.DuplicateCandidates)
+	}
+	if len(payload.MergedIncidents) != 1 {
+		t.Fatalf("expected one merged incident, got %#v", payload.MergedIncidents)
+	}
+	merged := payload.MergedIncidents[0]
+	if merged.ID != duplicate.ID || merged.MergedIntoID != primary.ID || merged.Status != "closed" || merged.ResolutionNotes == "" {
+		t.Fatalf("expected duplicate to close as traceable merge, got %#v", merged)
+	}
+	if !containsTimelineType(payload.Incident.Timeline, "incident.merged") ||
+		!containsTimelineType(merged.Timeline, "incident.merged_into") {
+		t.Fatalf("expected merge timeline events, primary=%#v duplicate=%#v", payload.Incident.Timeline, merged.Timeline)
+	}
+
+	logs := srv.store.listAudit(10)
+	if len(logs) != 2 {
+		t.Fatalf("expected primary and duplicate merge audit events, got %#v", logs)
+	}
+	if logs[0].Action != "incident.merged" || logs[0].TargetID != primary.ID {
+		t.Fatalf("expected latest audit event to capture primary merge, got %#v", logs[0])
+	}
+	if logs[0].After["mergedIncidentIds"] == nil || logs[1].Action != "incident.merged_into" {
+		t.Fatalf("expected merge trace fields in audit snapshots, got %#v", logs)
+	}
+}
+
+func TestMergeDuplicateIncidentsRejectsNonCandidate(t *testing.T) {
+	srv := newTestServer()
+	primary := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Type = "fire"
+	body.Description = "Roadside kiosk fire away from the flooded road."
+	nonCandidate := createIncidentForTest(t, srv, body)
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+primary.ID+"/merge",
+		jsonBody(mergeIncidentsRequest{
+			DuplicateIncidentIDs: []string{nonCandidate.ID},
+			Note:                 "Trying to merge unrelated incidents.",
+		}),
+	)
+	request.SetPathValue("id", primary.ID)
+	srv.mergeIncidentHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+}
+
+func TestMergeDuplicateIncidentsRequiresWorkflowRole(t *testing.T) {
+	srv := newTestServer()
+	primary := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Description = "Vehicles are trapped on the same flooded road"
+	duplicate := createIncidentForTest(t, srv, body)
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+primary.ID+"/merge",
+		jsonBody(mergeIncidentsRequest{
+			DuplicateIncidentIDs: []string{duplicate.ID},
+			Note:                 "Viewer should not merge duplicate reports.",
+		}),
+	)
+	request.Header.Set("X-NADAA-Actor-Role", "agency_viewer")
+	request.SetPathValue("id", primary.ID)
+	srv.mergeIncidentHandler(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, response.Code, response.Body.String())
+	}
+}
+
 func TestRateLimit(t *testing.T) {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
 	srv := &server{
@@ -782,6 +906,26 @@ func assignIncidentForTest(t *testing.T, srv *server, incidentID string, body as
 	}
 
 	var payload incidentRecord
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
+func mergeIncidentsForTest(t *testing.T, srv *server, incidentID string, body mergeIncidentsRequest) mergeIncidentsResponse {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incidentID+"/merge",
+		jsonBody(body),
+	)
+	request.SetPathValue("id", incidentID)
+	srv.mergeIncidentHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected merge status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload mergeIncidentsResponse
 	decodeResponse(t, response, &payload)
 	return payload
 }

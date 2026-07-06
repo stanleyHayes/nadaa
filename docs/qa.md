@@ -24,7 +24,7 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 | Citizen incident report      | NADAA-030, NADAA-032                       | API, E2E           | GPS, hazard type, description, urgency, affected people, contact permission                       | MVP API/UI smoke covered                   |
 | Media upload                 | NADAA-031                                  | API, security      | File type/size validation, private storage, incident linkage                                      | MVP API/UI smoke covered                   |
 | Anonymous report privacy     | NADAA-090                                  | API, security      | Identity hidden where policy allows, contact permission honored                                   | Todo                                       |
-| Duplicate detection          | NADAA-033, NADAA-043                       | Unit, API          | Nearby/time-window duplicate candidates are reviewable, not deleted                               | MVP baseline covered; merge review pending |
+| Duplicate detection          | NADAA-033, NADAA-043                       | Unit, API          | Nearby/time-window duplicate candidates are reviewable, mergeable, and traceable                  | MVP API/UI smoke covered                   |
 | Authority incident map       | NADAA-040                                  | E2E                | Filters, map/list sync, role-protected access, loading/empty/error fallback                       | MVP UI smoke covered                       |
 | Incident verification/status | NADAA-041                                  | API, E2E, audit    | Valid transitions, invalid transition rejection, closure notes                                    | MVP API/UI smoke covered                   |
 | Agency assignment/timeline   | NADAA-042                                  | API, E2E, audit    | Assignment permissions, assigned-agency filtering, timeline event creation                         | MVP API/UI smoke covered                   |
@@ -47,6 +47,7 @@ pnpm go:test
 pnpm smoke:web
 pnpm smoke:alert
 pnpm smoke:incident-assignment
+pnpm smoke:incident-merge
 pnpm smoke:incident-workflow
 pnpm smoke:risk
 pnpm smoke:guide
@@ -56,6 +57,7 @@ pnpm smoke:integration
 `pnpm smoke:web` expects the citizen app on port `5173` and the authority dashboard on port `5174`.
 `pnpm smoke:alert` expects the alert service on port `8089`.
 `pnpm smoke:incident-assignment` expects the incident service on port `8084`.
+`pnpm smoke:incident-merge` expects the incident service on port `8084`.
 `pnpm smoke:incident-workflow` expects the incident service on port `8084`.
 `pnpm smoke:risk` expects the risk service on port `8081`.
 `pnpm smoke:guide` expects the guide service on port `8086`.
@@ -77,14 +79,15 @@ Agency auth, RBAC, mock MFA, and audit foundation coverage currently run through
 
 1. Citizen checks flood risk for Accra Central.
 2. Citizen reports a flood with location, description, affected people, and photo metadata.
-3. Dispatcher verifies the report and changes status to verified.
-4. Dispatcher assigns NADMO/district response.
-5. Officer drafts a district-targeted flood alert.
-6. Approver reviews and approves the alert.
-7. Citizen sees the alert in the app.
-8. Citizen views nearest shelter and flood guidance.
-9. Authority closes incident with resolution notes.
-10. Assigned agency can filter its incident queue with `assignedToMe=true`.
+3. Dispatcher reviews and merges confirmed duplicate reports.
+4. Dispatcher verifies the report and changes status to verified.
+5. Dispatcher assigns NADMO/district response.
+6. Officer drafts a district-targeted flood alert.
+7. Approver reviews and approves the alert.
+8. Citizen sees the alert in the app.
+9. Citizen views nearest shelter and flood guidance.
+10. Authority closes incident with resolution notes.
+11. Assigned agency can filter its incident queue with `assignedToMe=true`.
 
 ## Defect Severity
 

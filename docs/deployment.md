@@ -84,6 +84,7 @@ pnpm go:test
 pnpm smoke:web
 pnpm smoke:alert
 pnpm smoke:incident-assignment
+pnpm smoke:incident-merge
 pnpm smoke:incident-workflow
 pnpm smoke:risk
 pnpm smoke:guide
