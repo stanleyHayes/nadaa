@@ -48,17 +48,21 @@ import {
 } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
+  AgencyType,
   AgencyUserRole,
+  AssignIncidentRequest,
   AlertListResponse,
   AlertSeverity,
   AlertStatus,
   AuthorityAlertRecord,
   CreateAlertRequest,
   HazardType,
+  IncidentAssignmentPriority,
   IncidentStatusUpdateRequest,
   IncidentListResponse,
   IncidentRecord,
   IncidentStatus,
+  IncidentTimelineEvent,
   RiskLevel,
 } from "@nadaa/shared-types";
 
@@ -118,7 +122,7 @@ type CommandIncident = IncidentRecord & {
   locality: string;
   assignedAgency: string;
   responderEta: string;
-  timeline: string[];
+  timelineEntries: string[];
   source: "api" | "fixture";
 };
 
@@ -151,6 +155,55 @@ type IncidentStatusFormState = {
   resolutionNotes: string;
 };
 
+type AssignmentFormState = {
+  agencyId: string;
+  agencyName: string;
+  agencyType: AgencyType;
+  priority: IncidentAssignmentPriority;
+  instructions: string;
+  responderLead: string;
+};
+
+type AssignmentAgencyOption = {
+  id: string;
+  name: string;
+  type: AgencyType;
+  responderLead: string;
+};
+
+const assignmentAgencyOptions: AssignmentAgencyOption[] = [
+  {
+    id: "00000000-0000-0000-0000-000000000101",
+    name: "NADMO Accra Metro",
+    type: "nadmo",
+    responderLead: "NADMO Duty Officer",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000201",
+    name: "Ghana National Fire Service",
+    type: "fire",
+    responderLead: "Station Officer Mensah",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000202",
+    name: "National Ambulance Service",
+    type: "ambulance",
+    responderLead: "Ambulance Control Lead",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000203",
+    name: "Ghana Police Service",
+    type: "police",
+    responderLead: "Motor Traffic Lead",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000204",
+    name: "Accra Metropolitan Assembly",
+    type: "district_assembly",
+    responderLead: "Metro Works Supervisor",
+  },
+];
+
 const fallbackIncidents: CommandIncident[] = [
   {
     id: "inc_accra_flood_0241",
@@ -178,15 +231,17 @@ const fallbackIncidents: CommandIncident[] = [
         reasons: ["same_hazard", "nearby_location", "recent_report"],
       },
     ],
+    assignments: [],
+    timeline: [],
     reportedBy: { userId: "usr_ama", phone: "+233200000003" },
     createdAt: "2026-07-06T18:42:00Z",
     updatedAt: "2026-07-06T18:48:00Z",
     region: "Greater Accra",
     district: "Accra Metropolitan",
     locality: "Accra Central",
-    assignedAgency: "NADMO AMA",
+    assignedAgency: "Unassigned",
     responderEta: "7 min",
-    timeline: [
+    timelineEntries: [
       "Citizen report received with photo evidence",
       "Duplicate reports grouped near Accra Central",
       "NADMO AMA dispatcher reviewing severity",
@@ -209,14 +264,29 @@ const fallbackIncidents: CommandIncident[] = [
     media: ["media_crash_photo_002"],
     priorityReview: true,
     duplicateCandidates: [],
+    assignments: [
+      {
+        id: "asg_fixture_tema",
+        agencyId: "00000000-0000-0000-0000-000000000202",
+        agencyName: "National Ambulance Service",
+        agencyType: "ambulance",
+        priority: "high",
+        instructions: "Attend crash scene and coordinate casualty transport.",
+        responderLead: "Ambulance Control Lead",
+        status: "active",
+        assignedBy: "usr_dispatcher_fixture",
+        assignedAt: "2026-07-06T18:33:00Z",
+      },
+    ],
+    timeline: [],
     createdAt: "2026-07-06T18:25:00Z",
     updatedAt: "2026-07-06T18:39:00Z",
     region: "Greater Accra",
     district: "Tema Metropolitan",
     locality: "Tema Motorway",
-    assignedAgency: "Ambulance + Police",
+    assignedAgency: "National Ambulance Service",
     responderEta: "12 min",
-    timeline: [
+    timelineEntries: [
       "Dispatcher verified multiple injured persons",
       "Ambulance and police units assigned",
       "Motorway patrol requested lane control",
@@ -239,14 +309,16 @@ const fallbackIncidents: CommandIncident[] = [
     media: [],
     priorityReview: false,
     duplicateCandidates: [],
+    assignments: [],
+    timeline: [],
     createdAt: "2026-07-06T17:58:00Z",
     updatedAt: "2026-07-06T18:12:00Z",
     region: "Greater Accra",
     district: "Ablekuma West",
     locality: "Dansoman",
-    assignedAgency: "District Assembly",
+    assignedAgency: "Ready for assignment",
     responderEta: "31 min",
-    timeline: [
+    timelineEntries: [
       "District officer verified blocked drain",
       "Sanitation crew notified",
       "Resident contact hidden due anonymous report",
@@ -269,6 +341,21 @@ const fallbackIncidents: CommandIncident[] = [
     media: ["media_fire_photo_003"],
     priorityReview: true,
     duplicateCandidates: [],
+    assignments: [
+      {
+        id: "asg_fixture_fire",
+        agencyId: "00000000-0000-0000-0000-000000000201",
+        agencyName: "Ghana National Fire Service",
+        agencyType: "fire",
+        priority: "urgent",
+        instructions: "Dispatch engine crew and secure hydrant access.",
+        responderLead: "Station Officer Mensah",
+        status: "active",
+        assignedBy: "usr_dispatcher_fixture",
+        assignedAt: "2026-07-06T18:05:00Z",
+      },
+    ],
+    timeline: [],
     createdAt: "2026-07-06T17:41:00Z",
     updatedAt: "2026-07-06T18:19:00Z",
     region: "Greater Accra",
@@ -276,7 +363,7 @@ const fallbackIncidents: CommandIncident[] = [
     locality: "Korle Gonno",
     assignedAgency: "Ghana National Fire Service",
     responderEta: "5 min",
-    timeline: [
+    timelineEntries: [
       "Fire service call confirmed smoke visible",
       "Hydrant access checked by dispatcher",
       "Engine crew en route",
@@ -399,6 +486,11 @@ function App() {
   const [statusFeedback, setStatusFeedback] = useState("");
   const [statusForm, setStatusForm] = useState<IncidentStatusFormState>(
     buildDefaultStatusForm(fallbackIncidents[0]),
+  );
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [assignmentFeedback, setAssignmentFeedback] = useState("");
+  const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(
+    buildDefaultAssignmentForm(fallbackIncidents[0]),
   );
   const [alerts, setAlerts] = useState<AuthorityAlertRecord[]>(fallbackAlerts);
   const [alertLoadState, setAlertLoadState] =
@@ -534,7 +626,9 @@ function App() {
   useEffect(() => {
     setAlertForm(buildDefaultAlertForm(selectedIncident));
     setStatusForm(buildDefaultStatusForm(selectedIncident));
+    setAssignmentForm(buildDefaultAssignmentForm(selectedIncident));
     setStatusFeedback("");
+    setAssignmentFeedback("");
   }, [selectedIncident?.id]);
 
   const updateFilter =
@@ -564,6 +658,33 @@ function App() {
       setStatusForm((current) => ({ ...current, [key]: event.target.value }));
     };
 
+  const updateAssignmentForm =
+    (key: keyof AssignmentFormState) =>
+    (
+      event:
+        ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+    ) => {
+      const value = event.target.value;
+      setAssignmentForm((current) => {
+        if (key === "agencyId") {
+          const agency = assignmentAgencyOptions.find(
+            (item) => item.id === value,
+          );
+          if (!agency) {
+            return current;
+          }
+          return {
+            ...current,
+            agencyId: agency.id,
+            agencyName: agency.name,
+            agencyType: agency.type,
+            responderLead: agency.responderLead,
+          };
+        }
+        return { ...current, [key]: value };
+      });
+    };
+
   const applyIncidentUpdate = (incident: IncidentRecord) => {
     const enriched = enrichIncidentFromAPI(incident);
     setIncidents((current) => {
@@ -575,6 +696,7 @@ function App() {
     });
     setSelectedIncidentId(incident.id);
     setStatusForm(buildDefaultStatusForm(enriched));
+    setAssignmentForm(buildDefaultAssignmentForm(enriched));
     setLoadState("ready");
   };
 
@@ -643,6 +765,46 @@ function App() {
       );
     } finally {
       setStatusBusy(false);
+    }
+  };
+
+  const assignSelectedIncident = async () => {
+    if (!selectedIncident) {
+      return;
+    }
+
+    const request: AssignIncidentRequest = {
+      agencyId: assignmentForm.agencyId,
+      agencyName: assignmentForm.agencyName,
+      agencyType: assignmentForm.agencyType,
+      priority: assignmentForm.priority,
+      instructions: assignmentForm.instructions.trim(),
+      responderLead: assignmentForm.responderLead.trim() || undefined,
+    };
+
+    setAssignmentBusy(true);
+    setAssignmentFeedback("");
+    try {
+      const response = await fetch(
+        `${INCIDENT_API_BASE}/incidents/${selectedIncident.id}/assignments`,
+        {
+          method: "POST",
+          headers: authorityHeaders(),
+          body: JSON.stringify(request),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`incident API returned ${response.status}`);
+      }
+      const incident = (await response.json()) as IncidentRecord;
+      applyIncidentUpdate(incident);
+      setAssignmentFeedback(`Assigned to ${assignmentForIncident(incident)}.`);
+    } catch (error) {
+      setAssignmentFeedback(
+        "Assignment needs a verified live incident and incident-service API.",
+      );
+    } finally {
+      setAssignmentBusy(false);
     }
   };
 
@@ -1090,10 +1252,15 @@ function App() {
           <Grid size={{ xs: 12, lg: 4 }}>
             <Stack spacing={2.5}>
               <IncidentDetailPanel
+                assignmentBusy={assignmentBusy}
+                assignmentFeedback={assignmentFeedback}
+                assignmentForm={assignmentForm}
                 busy={statusBusy}
                 feedback={statusFeedback}
                 form={statusForm}
                 incident={selectedIncident}
+                onAssign={assignSelectedIncident}
+                onUpdateAssignmentForm={updateAssignmentForm}
                 onUpdateForm={updateStatusForm}
                 onUpdateStatus={updateIncidentStatus}
                 onVerify={verifySelectedIncident}
@@ -1566,18 +1733,33 @@ function AlertWorkflowPanel({
 }
 
 function IncidentDetailPanel({
+  assignmentBusy,
+  assignmentFeedback,
+  assignmentForm,
   busy,
   feedback,
   form,
   incident,
+  onAssign,
+  onUpdateAssignmentForm,
   onUpdateForm,
   onUpdateStatus,
   onVerify,
 }: {
+  assignmentBusy: boolean;
+  assignmentFeedback: string;
+  assignmentForm: AssignmentFormState;
   busy: boolean;
   feedback: string;
   form: IncidentStatusFormState;
   incident?: CommandIncident;
+  onAssign: () => void;
+  onUpdateAssignmentForm: (
+    key: keyof AssignmentFormState,
+  ) => (
+    event:
+      ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+  ) => void;
   onUpdateForm: (
     key: keyof IncidentStatusFormState,
   ) => (
@@ -1602,6 +1784,10 @@ function IncidentDetailPanel({
   const terminal = nextStatuses.length === 0;
   const resolutionRequired = requiresIncidentResolution(form.status);
   const canVerify = nextStatuses.includes("verified");
+  const canAssign = canAssignIncident(incident.status);
+  const activeAssignments = incident.assignments.filter(
+    (assignment) => assignment.status === "active",
+  );
 
   return (
     <Paper className="surface detail-panel">
@@ -1655,7 +1841,7 @@ function IncidentDetailPanel({
 
       <Stack spacing={1}>
         <Typography variant="subtitle2">Response timeline</Typography>
-        {incident.timeline.map((event) => (
+        {incident.timelineEntries.map((event) => (
           <Box className="timeline-row" key={event}>
             <Typography variant="body2">{event}</Typography>
           </Box>
@@ -1671,6 +1857,122 @@ function IncidentDetailPanel({
           </Alert>
         </>
       ) : null}
+
+      <Divider className="detail-divider" />
+
+      <Stack spacing={1.25}>
+        <Stack direction="row" justifyContent="space-between" gap={1}>
+          <Box>
+            <Typography variant="subtitle2">Agency assignment</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {canAssign ? "Dispatch coordination" : "Verification required"}
+            </Typography>
+          </Box>
+          <Chip
+            size="small"
+            label={activeAssignments.length ? "Assigned" : "Unassigned"}
+            color={activeAssignments.length ? "success" : "default"}
+          />
+        </Stack>
+
+        {activeAssignments.length ? (
+          <Stack spacing={1}>
+            {activeAssignments.map((assignment) => (
+              <Box className="assignment-row" key={assignment.id}>
+                <Box>
+                  <Typography variant="subtitle2">
+                    {assignment.agencyName}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {assignment.responderLead || "Response lead pending"}
+                  </Typography>
+                </Box>
+                <Chip
+                  size="small"
+                  label={assignment.priority}
+                  color={assignment.priority === "urgent" ? "error" : "warning"}
+                />
+              </Box>
+            ))}
+          </Stack>
+        ) : null}
+
+        {assignmentFeedback ? (
+          <Alert
+            severity={
+              assignmentFeedback.includes("needs") ? "warning" : "success"
+            }
+          >
+            {assignmentFeedback}
+          </Alert>
+        ) : null}
+
+        <Grid container spacing={1}>
+          <Grid size={{ xs: 12, sm: 7 }}>
+            <FormControl fullWidth size="small" disabled={!canAssign}>
+              <InputLabel>Agency</InputLabel>
+              <Select
+                label="Agency"
+                value={assignmentForm.agencyId}
+                onChange={onUpdateAssignmentForm("agencyId")}
+              >
+                {assignmentAgencyOptions.map((agency) => (
+                  <MenuItem value={agency.id} key={agency.id}>
+                    {agency.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 5 }}>
+            <FormControl fullWidth size="small" disabled={!canAssign}>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                label="Priority"
+                value={assignmentForm.priority}
+                onChange={onUpdateAssignmentForm("priority")}
+              >
+                {(["low", "normal", "high", "urgent"] as const).map(
+                  (priority) => (
+                    <MenuItem value={priority} key={priority}>
+                      {priority}
+                    </MenuItem>
+                  ),
+                )}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+
+        <TextField
+          size="small"
+          label="Instructions"
+          value={assignmentForm.instructions}
+          onChange={onUpdateAssignmentForm("instructions")}
+          disabled={!canAssign}
+          multiline
+          minRows={2}
+        />
+
+        <TextField
+          size="small"
+          label="Responder lead"
+          value={assignmentForm.responderLead}
+          onChange={onUpdateAssignmentForm("responderLead")}
+          disabled={!canAssign}
+        />
+
+        <Button
+          variant="outlined"
+          disabled={
+            assignmentBusy || !canAssign || !assignmentForm.instructions.trim()
+          }
+          onClick={onAssign}
+          startIcon={<Truck size={17} />}
+        >
+          Assign agency
+        </Button>
+      </Stack>
 
       <Divider className="detail-divider" />
 
@@ -1920,18 +2222,7 @@ function enrichIncidentFromAPI(incident: IncidentRecord): CommandIncident {
     locality: district.locality,
     assignedAgency: assignmentForIncident(incident),
     responderEta: etaForIncident(incident),
-    timeline: [
-      `${hazardLabel(incident.type)} report received from incident service`,
-      `${statusLabel(incident.status)} status synchronized`,
-      incident.verifiedAt
-        ? `Verified by ${incident.verifiedBy || "authority user"}`
-        : "",
-      incident.statusReason ? `Latest note: ${incident.statusReason}` : "",
-      incident.resolutionNotes ? `Resolution: ${incident.resolutionNotes}` : "",
-      incident.priorityReview
-        ? "Priority review flag is active"
-        : "Dispatcher monitoring normal queue",
-    ].filter(Boolean),
+    timelineEntries: timelineEntriesForIncident(incident),
     source: "api",
   };
 }
@@ -1966,6 +2257,23 @@ function districtFromCoordinates(location: { lat: number; lng: number }) {
 }
 
 function assignmentForIncident(incident: IncidentRecord) {
+  const activeAssignments = (incident.assignments ?? []).filter(
+    (assignment) => assignment.status === "active",
+  );
+  if (activeAssignments.length) {
+    return activeAssignments
+      .map((assignment) => assignment.agencyName)
+      .join(" + ");
+  }
+  if (
+    incident.status === "reported" ||
+    incident.status === "under_review" ||
+    incident.status === "verified"
+  ) {
+    return incident.status === "verified"
+      ? "Ready for assignment"
+      : "Unassigned";
+  }
   if (incident.type === "fire") {
     return "Ghana National Fire Service";
   }
@@ -1976,6 +2284,35 @@ function assignmentForIncident(incident: IncidentRecord) {
     return "District Assembly";
   }
   return "NADMO District Desk";
+}
+
+function timelineEntriesForIncident(incident: IncidentRecord) {
+  if (incident.timeline?.length) {
+    return [...incident.timeline]
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      )
+      .map(formatTimelineEvent);
+  }
+
+  return [
+    `${hazardLabel(incident.type)} report received from incident service`,
+    `${statusLabel(incident.status)} status synchronized`,
+    incident.verifiedAt
+      ? `Verified by ${incident.verifiedBy || "authority user"}`
+      : "",
+    incident.statusReason ? `Latest note: ${incident.statusReason}` : "",
+    incident.resolutionNotes ? `Resolution: ${incident.resolutionNotes}` : "",
+    incident.priorityReview
+      ? "Priority review flag is active"
+      : "Dispatcher monitoring normal queue",
+  ].filter(Boolean);
+}
+
+function formatTimelineEvent(event: IncidentTimelineEvent) {
+  const actor = event.actorRole ? ` / ${roleLabel(event.actorRole)}` : "";
+  return `${formatShortTime(event.createdAt)} ${event.message}${actor}`;
 }
 
 function etaForIncident(incident: IncidentRecord) {
@@ -2008,12 +2345,93 @@ function buildDefaultStatusForm(
   };
 }
 
+function buildDefaultAssignmentForm(
+  incident?: CommandIncident,
+): AssignmentFormState {
+  const activeAssignment = latestActiveAssignment(incident);
+  if (activeAssignment) {
+    return {
+      agencyId: activeAssignment.agencyId,
+      agencyName: activeAssignment.agencyName,
+      agencyType: activeAssignment.agencyType,
+      priority: activeAssignment.priority,
+      instructions: activeAssignment.instructions,
+      responderLead: activeAssignment.responderLead ?? "",
+    };
+  }
+
+  const agency = suggestedAgencyForIncident(incident);
+  const priority = assignmentPriorityForIncident(incident);
+  return {
+    agencyId: agency.id,
+    agencyName: agency.name,
+    agencyType: agency.type,
+    priority,
+    instructions: incident
+      ? `Respond to ${hazardLabel(incident.type).toLowerCase()} incident ${incident.reference}. ${incident.description}`
+      : "Respond to the selected incident and report field status.",
+    responderLead: agency.responderLead,
+  };
+}
+
+function latestActiveAssignment(incident?: IncidentRecord) {
+  const assignments = incident?.assignments ?? [];
+  for (let index = assignments.length - 1; index >= 0; index -= 1) {
+    const assignment = assignments[index];
+    if (assignment?.status === "active") {
+      return assignment;
+    }
+  }
+  return undefined;
+}
+
+function suggestedAgencyForIncident(incident?: IncidentRecord) {
+  if (incident?.type === "fire" || incident?.type === "electrical_hazard") {
+    return agencyOptionByType("fire");
+  }
+  if (
+    incident?.type === "road_crash" ||
+    incident?.type === "medical_emergency"
+  ) {
+    return agencyOptionByType("ambulance");
+  }
+  if (incident?.type === "blocked_drain") {
+    return agencyOptionByType("district_assembly");
+  }
+  return assignmentAgencyOptions[0]!;
+}
+
+function agencyOptionByType(type: AgencyType) {
+  return (
+    assignmentAgencyOptions.find((agency) => agency.type === type) ??
+    assignmentAgencyOptions[0]!
+  );
+}
+
+function assignmentPriorityForIncident(
+  incident?: IncidentRecord,
+): IncidentAssignmentPriority {
+  if (incident?.severity === "emergency" || incident?.severity === "severe") {
+    return "urgent";
+  }
+  if (incident?.priorityReview || incident?.severity === "high") {
+    return "high";
+  }
+  return "normal";
+}
+
 function nextIncidentStatus(status: IncidentStatus): IncidentStatus {
   return incidentTransitionOptions[status][0] ?? status;
 }
 
 function requiresIncidentResolution(status: IncidentStatus) {
   return status === "closed" || status === "false_report";
+}
+
+function canAssignIncident(status: IncidentStatus) {
+  return !["reported", "under_review", "closed", "false_report"].includes(
+    status,
+  );
 }
 
 function buildDefaultAlertForm(incident?: CommandIncident): AlertFormState {
@@ -2096,6 +2514,20 @@ function alertStatusLabel(status: AlertStatus) {
     .split("_")
     .map((word) => word[0].toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function roleLabel(role: AgencyUserRole) {
+  return role
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatShortTime(createdAt: string) {
+  return new Intl.DateTimeFormat("en-GH", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(createdAt));
 }
 
 function alertStatusColor(

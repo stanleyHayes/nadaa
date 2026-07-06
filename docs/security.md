@@ -138,6 +138,8 @@ Use environment variables and deployment secret stores.
 
 - Verification is limited to `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`.
 - Operational status updates are limited to authority workflow roles and require completed MFA.
+- Agency assignment is limited to `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`; agency admins can assign only to their own agency.
+- Assigned-agency queue filters require an authority reader role and completed MFA.
 - `closed` and `false_report` are terminal incident states.
 - `resolutionNotes` are mandatory for `closed` and `false_report`.
 - Accepted status changes create before/after audit events.

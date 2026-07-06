@@ -44,6 +44,17 @@ func validMediaUploadRequest() initiateMediaUploadRequest {
 	}
 }
 
+func validAssignmentRequest() assignmentRequest {
+	return assignmentRequest{
+		AgencyID:      "00000000-0000-0000-0000-000000000201",
+		AgencyName:    "Ghana National Fire Service",
+		AgencyType:    "fire",
+		Priority:      "high",
+		Instructions:  "Dispatch rescue team to flooded road.",
+		ResponderLead: "Station Officer Mensah",
+	}
+}
+
 func TestCreateIncident(t *testing.T) {
 	srv := newTestServer()
 	mediaID := initiateMediaUpload(t, srv)
@@ -135,7 +146,7 @@ func TestCreateAnonymousIncidentHidesReporter(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, response.Code)
 	}
 
-	incidents := srv.store.listIncidents()
+	incidents := srv.store.listIncidents("")
 	if len(incidents) != 1 {
 		t.Fatalf("expected one incident, got %d", len(incidents))
 	}
@@ -246,7 +257,7 @@ func TestDuplicateCandidatesIncludeSameLocationReport(t *testing.T) {
 		t.Fatalf("expected duplicate reasons to include same hazard and similar description, got %#v", candidate.Reasons)
 	}
 
-	incidents := srv.store.listIncidents()
+	incidents := srv.store.listIncidents("")
 	var original incidentRecord
 	for _, incident := range incidents {
 		if incident.ID == first.ID {
@@ -389,6 +400,136 @@ func TestVerifyIncidentAuditsStatusChange(t *testing.T) {
 	}
 }
 
+func TestAssignIncidentCreatesAssignmentTimelineAndAudit(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+	verifyIncidentForTest(t, srv, incident.ID)
+
+	payload := assignIncidentForTest(t, srv, incident.ID, validAssignmentRequest())
+
+	if payload.Status != "assigned" || len(payload.Assignments) != 1 {
+		t.Fatalf("expected assigned incident with one assignment, got %#v", payload)
+	}
+	assignment := payload.Assignments[0]
+	if assignment.AgencyID != "00000000-0000-0000-0000-000000000201" || assignment.Priority != "high" || assignment.AssignedBy != "usr_dispatcher_001" {
+		t.Fatalf("expected assignment metadata to be stored, got %#v", assignment)
+	}
+	if !containsTimelineType(payload.Timeline, "incident.reported") ||
+		!containsTimelineType(payload.Timeline, "incident.verified") ||
+		!containsTimelineType(payload.Timeline, "incident.assigned") {
+		t.Fatalf("expected report, verification, and assignment timeline events, got %#v", payload.Timeline)
+	}
+
+	logs := srv.store.listAudit(10)
+	if len(logs) != 2 {
+		t.Fatalf("expected verification and assignment audit events, got %#v", logs)
+	}
+	if logs[0].Action != "incident.assigned" || logs[0].Before["status"] != "verified" || logs[0].After["status"] != "assigned" {
+		t.Fatalf("expected latest audit to capture assignment, got %#v", logs[0])
+	}
+	if logs[0].After["assignmentCount"] != 1 {
+		t.Fatalf("expected assignment count in audit snapshot, got %#v", logs[0].After)
+	}
+}
+
+func TestAssignIncidentRequiresVerifiedIncident(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/assignments",
+		jsonBody(validAssignmentRequest()),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.assignIncidentHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+
+	incidents := srv.store.listIncidents("")
+	if len(incidents[0].Assignments) != 0 || incidents[0].Status != "reported" {
+		t.Fatalf("expected reported incident to remain unassigned, got %#v", incidents[0])
+	}
+}
+
+func TestAgencyAdminCanAssignOnlyOwnAgency(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+	verifyIncidentForTest(t, srv, incident.ID)
+
+	forbidden := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/assignments",
+		jsonBody(validAssignmentRequest()),
+	)
+	request.Header.Set("X-NADAA-Actor-Role", "agency_admin")
+	request.Header.Set("X-NADAA-Agency-ID", "00000000-0000-0000-0000-000000000101")
+	request.SetPathValue("id", incident.ID)
+	srv.assignIncidentHandler(forbidden, request)
+
+	if forbidden.Code != http.StatusForbidden {
+		t.Fatalf("expected cross-agency assignment status %d, got %d", http.StatusForbidden, forbidden.Code)
+	}
+
+	ownAgency := validAssignmentRequest()
+	ownAgency.AgencyID = "00000000-0000-0000-0000-000000000101"
+	ownAgency.AgencyName = "NADMO Accra Metro"
+	ownAgency.AgencyType = "nadmo"
+
+	response := httptest.NewRecorder()
+	request = authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/assignments",
+		jsonBody(ownAgency),
+	)
+	request.Header.Set("X-NADAA-Actor-Role", "agency_admin")
+	request.Header.Set("X-NADAA-Agency-ID", "00000000-0000-0000-0000-000000000101")
+	request.SetPathValue("id", incident.ID)
+	srv.assignIncidentHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected own-agency assignment status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+}
+
+func TestListIncidentsAssignedToMe(t *testing.T) {
+	srv := newTestServer()
+	first := createIncidentForTest(t, srv, validIncidentRequest())
+	verifyIncidentForTest(t, srv, first.ID)
+
+	ownAgency := validAssignmentRequest()
+	ownAgency.AgencyID = "00000000-0000-0000-0000-000000000101"
+	ownAgency.AgencyName = "NADMO Accra Metro"
+	ownAgency.AgencyType = "nadmo"
+	assignIncidentForTest(t, srv, first.ID, ownAgency)
+
+	secondBody := validIncidentRequest()
+	secondBody.Description = "Smoke is visible from a roadside electrical kiosk"
+	secondBody.Type = "electrical_hazard"
+	second := createIncidentForTest(t, srv, secondBody)
+	verifyIncidentForTest(t, srv, second.ID)
+	otherAgency := validAssignmentRequest()
+	otherAgency.AgencyID = "00000000-0000-0000-0000-000000000202"
+	assignIncidentForTest(t, srv, second.ID, otherAgency)
+
+	response := httptest.NewRecorder()
+	srv.listIncidentsHandler(response, authorityRequest(http.MethodGet, "/api/v1/incidents?assignedToMe=true", nil))
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload incidentListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Incidents) != 1 || payload.Incidents[0].ID != first.ID {
+		t.Fatalf("expected only own assigned incident, got %#v", payload.Incidents)
+	}
+}
+
 func TestStatusWorkflowAllowsValidOperationalTransitions(t *testing.T) {
 	srv := newTestServer()
 	incident := createIncidentForTest(t, srv, validIncidentRequest())
@@ -447,7 +588,7 @@ func TestStatusWorkflowRejectsInvalidTransition(t *testing.T) {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
 	}
 
-	incidents := srv.store.listIncidents()
+	incidents := srv.store.listIncidents("")
 	if incidents[0].Status != "reported" {
 		t.Fatalf("expected incident to remain reported, got %#v", incidents[0])
 	}
@@ -605,9 +746,58 @@ func createIncidentForTest(t *testing.T, srv *server, body createIncidentRequest
 	return payload
 }
 
+func verifyIncidentForTest(t *testing.T, srv *server, incidentID string) incidentRecord {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incidentID+"/verify",
+		jsonBody(incidentWorkflowRequest{Note: "Confirmed by test dispatcher."}),
+	)
+	request.SetPathValue("id", incidentID)
+	srv.verifyIncidentHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected verify status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload incidentRecord
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
+func assignIncidentForTest(t *testing.T, srv *server, incidentID string, body assignmentRequest) incidentRecord {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incidentID+"/assignments",
+		jsonBody(body),
+	)
+	request.SetPathValue("id", incidentID)
+	srv.assignIncidentHandler(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected assignment status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+
+	var payload incidentRecord
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
 func containsString(values []string, needle string) bool {
 	for _, value := range values {
 		if value == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func containsTimelineType(values []timelineEvent, needle string) bool {
+	for _, value := range values {
+		if value.Type == needle {
 			return true
 		}
 	}

@@ -27,7 +27,7 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 | Duplicate detection          | NADAA-033, NADAA-043                       | Unit, API          | Nearby/time-window duplicate candidates are reviewable, not deleted                               | MVP baseline covered; merge review pending |
 | Authority incident map       | NADAA-040                                  | E2E                | Filters, map/list sync, role-protected access, loading/empty/error fallback                       | MVP UI smoke covered                       |
 | Incident verification/status | NADAA-041                                  | API, E2E, audit    | Valid transitions, invalid transition rejection, closure notes                                    | MVP API/UI smoke covered                   |
-| Agency assignment/timeline   | NADAA-042                                  | API, E2E, audit    | Assignment permissions, timeline event creation                                                   | Todo                                       |
+| Agency assignment/timeline   | NADAA-042                                  | API, E2E, audit    | Assignment permissions, assigned-agency filtering, timeline event creation                         | MVP API/UI smoke covered                   |
 | Alert draft/approval         | NADAA-050                                  | API, E2E, security | Draft, submit, approve/reject, emergency override audit                                           | MVP API/UI smoke covered                   |
 | Geofenced targeting          | NADAA-051                                  | API, geospatial    | District/radius/custom geometry stored and previewable                                            | Todo                                       |
 | Alert feed/delivery logs     | NADAA-052                                  | API, E2E           | Current alerts visible, mock delivery attempts logged                                             | Todo                                       |
@@ -46,6 +46,7 @@ pnpm build
 pnpm go:test
 pnpm smoke:web
 pnpm smoke:alert
+pnpm smoke:incident-assignment
 pnpm smoke:incident-workflow
 pnpm smoke:risk
 pnpm smoke:guide
@@ -54,6 +55,7 @@ pnpm smoke:integration
 
 `pnpm smoke:web` expects the citizen app on port `5173` and the authority dashboard on port `5174`.
 `pnpm smoke:alert` expects the alert service on port `8089`.
+`pnpm smoke:incident-assignment` expects the incident service on port `8084`.
 `pnpm smoke:incident-workflow` expects the incident service on port `8084`.
 `pnpm smoke:risk` expects the risk service on port `8081`.
 `pnpm smoke:guide` expects the guide service on port `8086`.
@@ -82,6 +84,7 @@ Agency auth, RBAC, mock MFA, and audit foundation coverage currently run through
 7. Citizen sees the alert in the app.
 8. Citizen views nearest shelter and flood guidance.
 9. Authority closes incident with resolution notes.
+10. Assigned agency can filter its incident queue with `assignedToMe=true`.
 
 ## Defect Severity
 

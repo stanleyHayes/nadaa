@@ -82,6 +82,8 @@ type incidentRecord struct {
 	PriorityReview      bool                 `json:"priorityReview"`
 	DuplicateCandidates []duplicateCandidate `json:"duplicateCandidates"`
 	ReportedBy          *reporterRef         `json:"reportedBy,omitempty"`
+	Assignments         []incidentAssignment `json:"assignments"`
+	Timeline            []timelineEvent      `json:"timeline"`
 	VerifiedBy          string               `json:"verifiedBy,omitempty"`
 	VerifiedAt          *time.Time           `json:"verifiedAt,omitempty"`
 	StatusUpdatedBy     string               `json:"statusUpdatedBy,omitempty"`
@@ -112,6 +114,39 @@ type createIncidentResponse struct {
 
 type incidentListResponse struct {
 	Incidents []incidentRecord `json:"incidents"`
+}
+
+type assignmentRequest struct {
+	AgencyID      string `json:"agencyId"`
+	AgencyName    string `json:"agencyName"`
+	AgencyType    string `json:"agencyType"`
+	Priority      string `json:"priority"`
+	Instructions  string `json:"instructions"`
+	ResponderLead string `json:"responderLead"`
+}
+
+type incidentAssignment struct {
+	ID            string    `json:"id"`
+	AgencyID      string    `json:"agencyId"`
+	AgencyName    string    `json:"agencyName"`
+	AgencyType    string    `json:"agencyType"`
+	Priority      string    `json:"priority"`
+	Instructions  string    `json:"instructions"`
+	ResponderLead string    `json:"responderLead,omitempty"`
+	Status        string    `json:"status"`
+	AssignedBy    string    `json:"assignedBy"`
+	AssignedAt    time.Time `json:"assignedAt"`
+}
+
+type timelineEvent struct {
+	ID            string            `json:"id"`
+	Type          string            `json:"type"`
+	Message       string            `json:"message"`
+	ActorUserID   string            `json:"actorUserId,omitempty"`
+	ActorAgencyID string            `json:"actorAgencyId,omitempty"`
+	ActorRole     string            `json:"actorRole,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
+	CreatedAt     time.Time         `json:"createdAt"`
 }
 
 type incidentWorkflowRequest struct {
@@ -299,6 +334,41 @@ var (
 		"agency_admin":  true,
 		"nadmo_officer": true,
 	}
+	assignmentRoles = map[string]bool{
+		"system_admin":     true,
+		"agency_admin":     true,
+		"nadmo_officer":    true,
+		"district_officer": true,
+		"dispatcher":       true,
+	}
+	incidentReadRoles = map[string]bool{
+		"system_admin":     true,
+		"agency_admin":     true,
+		"nadmo_officer":    true,
+		"district_officer": true,
+		"dispatcher":       true,
+		"responder":        true,
+		"agency_viewer":    true,
+	}
+	allowedAgencyTypes = map[string]bool{
+		"nadmo":             true,
+		"district_assembly": true,
+		"police":            true,
+		"fire":              true,
+		"ambulance":         true,
+		"meteorological":    true,
+		"hydrological":      true,
+		"hospital":          true,
+		"utility":           true,
+		"ngo":               true,
+		"other":             true,
+	}
+	allowedAssignmentPriorities = map[string]bool{
+		"low":    true,
+		"normal": true,
+		"high":   true,
+		"urgent": true,
+	}
 	mediaRefPattern   = regexp.MustCompile(`^[A-Za-z0-9_-]{3,128}$`)
 	wordPattern       = regexp.MustCompile(`[a-z0-9]+`)
 	allowedMediaTypes = map[string]int64{
@@ -332,6 +402,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/incidents/audit", srv.listIncidentAuditHandler)
 	mux.HandleFunc("PATCH /api/v1/incidents/{id}/status", srv.updateIncidentStatusHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/verify", srv.verifyIncidentHandler)
+	mux.HandleFunc("POST /api/v1/incidents/{id}/assignments", srv.assignIncidentHandler)
 	mux.HandleFunc("POST /api/v1/media/uploads", srv.initiateMediaUploadHandler)
 	mux.HandleFunc("GET /api/v1/media", srv.listMediaHandler)
 
@@ -421,8 +492,23 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *server) listIncidentsHandler(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, incidentListResponse{Incidents: s.store.listIncidents()})
+func (s *server) listIncidentsHandler(w http.ResponseWriter, r *http.Request) {
+	assignedToMe := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("assignedToMe"))) == "true"
+	assignedAgencyID := strings.TrimSpace(r.URL.Query().Get("assignedAgencyId"))
+
+	if assignedToMe {
+		ctx, ok := requireAuthority(w, r, incidentReadRoles)
+		if !ok {
+			return
+		}
+		assignedAgencyID = ctx.ActorAgencyID
+	} else if assignedAgencyID != "" {
+		if _, ok := requireAuthority(w, r, incidentReadRoles); !ok {
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, incidentListResponse{Incidents: s.store.listIncidents(assignedAgencyID)})
 }
 
 func (s *server) listIncidentAuditHandler(w http.ResponseWriter, r *http.Request) {
@@ -503,6 +589,32 @@ func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, incident)
 }
 
+func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, assignmentRoles)
+	if !ok {
+		return
+	}
+
+	var request assignmentRequest
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+
+	normalized, code, message := normalizeAssignmentRequest(request)
+	if code != "" {
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	incident, code, message := s.store.assignIncident(r.PathValue("id"), normalized, ctx, s.now())
+	if code != "" {
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	writeJSON(w, http.StatusCreated, incident)
+}
+
 func (s *server) initiateMediaUploadHandler(w http.ResponseWriter, r *http.Request) {
 	var request initiateMediaUploadRequest
 	if err := decodeJSON(r, &request); err != nil {
@@ -558,8 +670,15 @@ func (m *memoryStore) createIncident(request createIncidentRequest, now time.Tim
 		Media:              append([]string{}, request.Media...),
 		PriorityReview:     priorityReview(request),
 		ReportedBy:         reportedByFor(request),
-		CreatedAt:          timestamp,
-		UpdatedAt:          timestamp,
+		Timeline: []timelineEvent{
+			newTimelineEvent("incident.reported", "Citizen report received", authorityContext{}, map[string]string{
+				"reference": reference,
+				"hazard":    request.Type,
+				"urgency":   request.Urgency,
+			}, timestamp),
+		},
+		CreatedAt: timestamp,
+		UpdatedAt: timestamp,
 	}
 	record.DuplicateCandidates = m.duplicateCandidatesLocked(record)
 	m.incidents[record.ID] = record
@@ -567,12 +686,15 @@ func (m *memoryStore) createIncident(request createIncidentRequest, now time.Tim
 	return record
 }
 
-func (m *memoryStore) listIncidents() []incidentRecord {
+func (m *memoryStore) listIncidents(assignedAgencyID string) []incidentRecord {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	incidents := make([]incidentRecord, 0, len(m.incidents))
 	for _, incident := range m.incidents {
+		if assignedAgencyID != "" && !incidentAssignedToAgency(incident, assignedAgencyID) {
+			continue
+		}
 		incidents = append(incidents, incident)
 	}
 	sort.Slice(incidents, func(i, j int) bool {
@@ -635,8 +757,65 @@ func (m *memoryStore) transitionIncident(id string, nextStatus string, ctx autho
 		}
 	}
 
+	incident.Timeline = append(incident.Timeline, newTimelineEvent(action, timelineMessageForStatus(nextStatus, note, resolutionNotes), ctx, map[string]string{
+		"fromStatus": before["status"].(string),
+		"toStatus":   nextStatus,
+	}, timestamp))
 	m.incidents[incident.ID] = incident
 	m.appendAuditLocked(action, ctx, incident.ID, before, snapshotIncident(incident), timestamp)
+	return incident, "", ""
+}
+
+func (m *memoryStore) assignIncident(id string, request assignmentRequest, ctx authorityContext, now time.Time) (incidentRecord, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	incident, ok := m.incidents[id]
+	if !ok {
+		return incidentRecord{}, "not_found", "incident was not found"
+	}
+	if incident.Status == "reported" || incident.Status == "under_review" {
+		return incidentRecord{}, "invalid_transition", "incident must be verified before assignment"
+	}
+	if incident.Status == "closed" || incident.Status == "false_report" {
+		return incidentRecord{}, "invalid_transition", "closed and false-report incidents cannot be assigned"
+	}
+	if ctx.ActorRole == "agency_admin" && ctx.ActorAgencyID != request.AgencyID {
+		return incidentRecord{}, "forbidden", "agency admins can assign only to their own agency"
+	}
+
+	before := snapshotIncident(incident)
+	timestamp := now.UTC()
+	assignment := incidentAssignment{
+		ID:            fmt.Sprintf("asg_%06d", len(incident.Assignments)+1),
+		AgencyID:      request.AgencyID,
+		AgencyName:    request.AgencyName,
+		AgencyType:    request.AgencyType,
+		Priority:      request.Priority,
+		Instructions:  request.Instructions,
+		ResponderLead: request.ResponderLead,
+		Status:        "active",
+		AssignedBy:    ctx.ActorUserID,
+		AssignedAt:    timestamp,
+	}
+
+	incident.Assignments = append(incident.Assignments, assignment)
+	if incident.Status == "verified" {
+		incident.Status = "assigned"
+	}
+	incident.StatusUpdatedBy = ctx.ActorUserID
+	incident.StatusReason = fmt.Sprintf("Assigned to %s", assignment.AgencyName)
+	incident.UpdatedAt = timestamp
+	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.assigned", fmt.Sprintf("Assigned to %s", assignment.AgencyName), ctx, map[string]string{
+		"assignmentId": assignment.ID,
+		"agencyId":     assignment.AgencyID,
+		"agencyName":   assignment.AgencyName,
+		"agencyType":   assignment.AgencyType,
+		"priority":     assignment.Priority,
+	}, timestamp))
+
+	m.incidents[incident.ID] = incident
+	m.appendAuditLocked("incident.assigned", ctx, incident.ID, before, snapshotIncident(incident), timestamp)
 	return incident, "", ""
 }
 
@@ -1074,12 +1253,99 @@ func normalizeIncidentStatusRequest(request incidentStatusRequest) (incidentStat
 	return request, "", ""
 }
 
+func normalizeAssignmentRequest(request assignmentRequest) (assignmentRequest, string, string) {
+	request.AgencyID = strings.TrimSpace(request.AgencyID)
+	request.AgencyName = strings.TrimSpace(request.AgencyName)
+	request.AgencyType = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(request.AgencyType)), "-", "_"), " ", "_")
+	request.Priority = strings.TrimSpace(strings.ToLower(request.Priority))
+	request.Instructions = strings.TrimSpace(request.Instructions)
+	request.ResponderLead = strings.TrimSpace(request.ResponderLead)
+
+	if request.AgencyID == "" || !mediaRefPattern.MatchString(request.AgencyID) {
+		return request, "invalid_agency_id", "agencyId is required and must be a safe agency reference"
+	}
+	if len(request.AgencyName) < 2 || len(request.AgencyName) > 140 || unsafeText(request.AgencyName) {
+		return request, "invalid_agency_name", "agencyName must be 2 to 140 safe characters"
+	}
+	if !allowedAgencyTypes[request.AgencyType] {
+		return request, "invalid_agency_type", "agencyType must be police, fire, ambulance, nadmo, district_assembly, or another supported agency type"
+	}
+	if request.Priority == "" {
+		request.Priority = "normal"
+	}
+	if !allowedAssignmentPriorities[request.Priority] {
+		return request, "invalid_priority", "priority must be low, normal, high, or urgent"
+	}
+	if len(request.Instructions) < 5 || len(request.Instructions) > 1000 || unsafeText(request.Instructions) {
+		return request, "invalid_instructions", "instructions must be 5 to 1000 safe characters"
+	}
+	if len(request.ResponderLead) > 140 || unsafeText(request.ResponderLead) {
+		return request, "invalid_responder_lead", "responderLead must be 140 safe characters or fewer"
+	}
+	return request, "", ""
+}
+
 func incidentStatusSlug(status string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(status)), "-", "_"), " ", "_")
 }
 
 func requiresResolutionNotes(status string) bool {
 	return status == "closed" || status == "false_report"
+}
+
+func incidentAssignedToAgency(incident incidentRecord, agencyID string) bool {
+	for _, assignment := range incident.Assignments {
+		if assignment.AgencyID == agencyID && assignment.Status == "active" {
+			return true
+		}
+	}
+	return false
+}
+
+func assignmentAgencyIDs(assignments []incidentAssignment) []string {
+	ids := make([]string, 0, len(assignments))
+	seen := map[string]bool{}
+	for _, assignment := range assignments {
+		if assignment.AgencyID == "" || seen[assignment.AgencyID] {
+			continue
+		}
+		seen[assignment.AgencyID] = true
+		ids = append(ids, assignment.AgencyID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func newTimelineEvent(eventType string, message string, ctx authorityContext, metadata map[string]string, now time.Time) timelineEvent {
+	return timelineEvent{
+		ID:            newID("tle"),
+		Type:          eventType,
+		Message:       message,
+		ActorUserID:   ctx.ActorUserID,
+		ActorAgencyID: ctx.ActorAgencyID,
+		ActorRole:     ctx.ActorRole,
+		Metadata:      metadata,
+		CreatedAt:     now,
+	}
+}
+
+func timelineMessageForStatus(status string, note string, resolutionNotes string) string {
+	switch status {
+	case "verified":
+		return "Incident verified"
+	case "closed":
+		if resolutionNotes != "" {
+			return "Incident closed with resolution notes"
+		}
+		return "Incident closed"
+	case "false_report":
+		return "Incident marked as false report"
+	default:
+		if note != "" {
+			return fmt.Sprintf("Status changed to %s: %s", status, note)
+		}
+		return fmt.Sprintf("Status changed to %s", status)
+	}
 }
 
 func validationCode(request createIncidentRequest) string {
@@ -1163,16 +1429,18 @@ func reportedByFor(request createIncidentRequest) *reporterRef {
 
 func snapshotIncident(incident incidentRecord) map[string]any {
 	return map[string]any{
-		"id":              incident.ID,
-		"reference":       incident.Reference,
-		"type":            incident.Type,
-		"severity":        incident.Severity,
-		"status":          incident.Status,
-		"priorityReview":  incident.PriorityReview,
-		"verifiedBy":      incident.VerifiedBy,
-		"statusUpdatedBy": incident.StatusUpdatedBy,
-		"statusReason":    incident.StatusReason,
-		"resolutionNotes": incident.ResolutionNotes,
+		"id":                incident.ID,
+		"reference":         incident.Reference,
+		"type":              incident.Type,
+		"severity":          incident.Severity,
+		"status":            incident.Status,
+		"priorityReview":    incident.PriorityReview,
+		"verifiedBy":        incident.VerifiedBy,
+		"statusUpdatedBy":   incident.StatusUpdatedBy,
+		"statusReason":      incident.StatusReason,
+		"resolutionNotes":   incident.ResolutionNotes,
+		"assignmentCount":   len(incident.Assignments),
+		"assignedAgencyIds": assignmentAgencyIDs(incident.Assignments),
 	}
 }
 

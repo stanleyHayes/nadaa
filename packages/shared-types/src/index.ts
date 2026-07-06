@@ -406,6 +406,32 @@ export interface DuplicateIncidentCandidate {
   reasons: string[];
 }
 
+export type IncidentAssignmentPriority = "low" | "normal" | "high" | "urgent";
+
+export interface IncidentAssignmentRecord {
+  id: string;
+  agencyId: string;
+  agencyName: string;
+  agencyType: AgencyType;
+  priority: IncidentAssignmentPriority;
+  instructions: string;
+  responderLead?: string;
+  status: "active" | "completed" | "cancelled";
+  assignedBy: string;
+  assignedAt: string;
+}
+
+export interface IncidentTimelineEvent {
+  id: string;
+  type: string;
+  message: string;
+  actorUserId?: string;
+  actorAgencyId?: string;
+  actorRole?: AgencyUserRole;
+  metadata?: Record<string, string>;
+  createdAt: string;
+}
+
 export interface CreateIncidentRequest {
   type: HazardType;
   description: string;
@@ -437,6 +463,8 @@ export interface IncidentRecord {
   media: string[];
   priorityReview: boolean;
   duplicateCandidates: DuplicateIncidentCandidate[];
+  assignments: IncidentAssignmentRecord[];
+  timeline: IncidentTimelineEvent[];
   reportedBy?: IncidentReporterRef;
   verifiedBy?: string;
   verifiedAt?: string;
@@ -468,6 +496,15 @@ export interface IncidentWorkflowRequest {
 
 export interface IncidentStatusUpdateRequest extends IncidentWorkflowRequest {
   status: IncidentStatus;
+}
+
+export interface AssignIncidentRequest {
+  agencyId: string;
+  agencyName: string;
+  agencyType: AgencyType;
+  priority?: IncidentAssignmentPriority;
+  instructions: string;
+  responderLead?: string;
 }
 
 export interface IncidentAuditEvent {

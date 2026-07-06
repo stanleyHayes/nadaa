@@ -73,13 +73,13 @@ Primary dependencies:
 
 ### Incident Service
 
-Owns citizen reports, agency reports, media metadata, duplicate candidates, incident verification, audited status transitions, severity, and incident record lifecycle.
+Owns citizen reports, agency reports, media metadata, duplicate candidates, incident verification, audited status transitions, starter agency assignments, timeline events, severity, and incident record lifecycle.
 
 Primary dependencies:
 
 - PostGIS incidents.
 - Object storage for media.
-- Dispatch service for assignments.
+- Dispatch service for future assignment orchestration and responder visibility.
 - Audit logging.
 
 ### Alert Service

@@ -471,6 +471,12 @@ Starter development endpoint for inspecting private media metadata and incident 
 
 `GET /api/v1/incidents?hazard=flood&district=ama&status=reported`
 
+Authority actors can filter to incidents assigned to their agency:
+
+`GET /api/v1/incidents?assignedToMe=true`
+
+`GET /api/v1/incidents?assignedAgencyId=00000000-0000-0000-0000-000000000201`
+
 Authority workflow endpoints require these headers:
 
 - `X-NADAA-Actor-ID`
@@ -516,11 +522,18 @@ Returns latest incident workflow audit events for `system_admin`, `agency_admin`
 
 ```json
 {
-  "agencyId": "agency_fire_ama",
+  "agencyId": "00000000-0000-0000-0000-000000000201",
+  "agencyName": "Ghana National Fire Service",
+  "agencyType": "fire",
   "priority": "high",
-  "instructions": "Check trapped vehicles near the market road"
+  "instructions": "Check trapped vehicles near the market road",
+  "responderLead": "Station Officer Mensah"
 }
 ```
+
+Allowed assignment roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. `agency_admin` actors can assign only to their own agency. Incidents must be at least `verified`; `reported`, `under_review`, `closed`, and `false_report` incidents reject assignment.
+
+Accepted assignments append an active assignment record, move a `verified` incident to `assigned`, preserve later operational statuses, append an `incident.assigned` timeline event, and write an `incident.assigned` audit event with assignment counts and assigned agency ids.
 
 `POST /api/v1/incidents/{id}/merge`
 
