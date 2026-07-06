@@ -65,6 +65,13 @@ cd services/risk-service
 go run .
 ```
 
+Run the Go auth service:
+
+```bash
+cd services/auth-service
+NADAA_AUTH_MOCK_OTP=123456 NADAA_AUTH_EXPOSE_DEV_OTP=true go run .
+```
+
 ## Project Coordination
 
 Use `agent_plan.md` as the living project board. Before starting work, agents should claim a row in the Active Work Board, update the Master Story Tracker, and record handoff notes when finished or blocked.

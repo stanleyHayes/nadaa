@@ -30,6 +30,13 @@ cd services/risk-service
 go run .
 ```
 
+Run auth service with a development OTP:
+
+```bash
+cd services/auth-service
+NADAA_AUTH_MOCK_OTP=123456 NADAA_AUTH_EXPOSE_DEV_OTP=true go run .
+```
+
 Run checks:
 
 ```bash

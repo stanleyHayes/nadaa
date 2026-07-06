@@ -82,11 +82,14 @@ Coordination rules:
 | NADAA-003 | MVP Sprint 0 | Create Delivery Dashboard Data Contract | Done | Codex | main | NADAA-001 | 2026-07-06 | Dashboard schema, sample records, README, and validation script added under `docs/project-dashboard/`. |
 | NADAA-100 | MVP Sprint 0 | Build Test Strategy And QA Matrix | Done | Codex | main | NADAA-002 | 2026-07-06 | QA strategy, MVP test matrix, release checklist, UAT outline, severity model, and web smoke script added. |
 | NADAA-020 | MVP Sprint 1 | Set Up PostGIS And Core Geospatial Models | Done | Codex | main | NADAA-001 | 2026-07-06 | Core PostGIS schema, geospatial indexes, seed data, database docs, configurable compose ports, and asset validation added. |
+| NADAA-010 | MVP Sprint 1 | Implement Citizen Authentication | Done | Codex | main | NADAA-001 | 2026-07-06 | Auth service citizen register/login/profile API, mock OTP flow, signed bearer token, shared auth types, docs, and tests added. |
 
 ### Agent Handoff Log
 
 | Date | Agent | Item | Status | Handoff Notes |
 | --- | --- | --- | --- | --- |
+| 2026-07-06 | Codex | NADAA-010 | Done | Verified `pnpm validate:docs`, `pnpm typecheck`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live auth HTTP smoke on `localhost:8082`. |
+| 2026-07-06 | Codex | NADAA-010 | In Progress | Claimed citizen authentication service slice; agency MFA remains NADAA-011. |
 | 2026-07-06 | Codex | NADAA-100/NADAA-020 | Done | Verified `pnpm validate:docs`, `pnpm typecheck`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and PostGIS migration/seed on `localhost:55432`. |
 | 2026-07-06 | Codex | NADAA-100/NADAA-020 | In Progress | Claimed QA matrix and PostGIS geospatial foundation. |
 | 2026-07-06 | Codex | NADAA-002/NADAA-003 | Done | Verified `pnpm validate:dashboard`, `pnpm typecheck`, `pnpm build`, and `pnpm go:test`. |
@@ -1437,7 +1440,7 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-001 | MVP | Sprint 0 | Create Repository And Monorepo Foundation | Done | Codex | main | Monorepo foundation, starter apps, risk service, infra, and docs created. |
 | NADAA-002 | MVP | Sprint 0 | Define Product, API, Security, ML, And Deployment Docs | Done | Codex | main | Docs expanded and linked from README. |
 | NADAA-003 | MVP | Sprint 0 | Create Delivery Dashboard Data Contract | Done | Codex | main | Schema, sample records, and validation script added. |
-| NADAA-010 | MVP | Sprint 1 | Implement Citizen Authentication | Todo | Unassigned | TBD | Depends on NADAA-001. |
+| NADAA-010 | MVP | Sprint 1 | Implement Citizen Authentication | Done | Codex | main | Citizen register/login/profile API and tests added in auth-service. |
 | NADAA-011 | MVP | Sprint 1 | Implement Agency Users, Roles, And MFA | Todo | Unassigned | TBD | Depends on NADAA-010. |
 | NADAA-012 | MVP | Sprint 1 | Implement Audit Logging Foundation | Todo | Unassigned | TBD | Depends on NADAA-011. |
 | NADAA-020 | MVP | Sprint 1 | Set Up PostGIS And Core Geospatial Models | Done | Codex | main | Migration and seed verified against local PostGIS on port 55432. |
@@ -1505,11 +1508,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 
 Start here:
 
-1. NADAA-010 Implement Citizen Authentication.
-2. NADAA-030 Implement Incident Reporting API.
-3. NADAA-101 Set Up CI/CD And Staging Environment.
-4. NADAA-021 Implement Area Risk API.
-5. NADAA-011 Implement Agency Users, Roles, And MFA.
+1. NADAA-030 Implement Incident Reporting API.
+2. NADAA-101 Set Up CI/CD And Staging Environment.
+3. NADAA-021 Implement Area Risk API.
+4. NADAA-011 Implement Agency Users, Roles, And MFA.
+5. NADAA-031 Implement Media Upload Flow.
 
 ## Key Risks And Early Decisions
 
@@ -1537,6 +1540,7 @@ Start here:
 
 | Date | Update | Owner | Status |
 | --- | --- | --- | --- |
+| 2026-07-06 | Completed NADAA-010 with auth-service citizen registration, mock OTP login, signed bearer token profile access, shared auth types, API docs, and tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-100 and NADAA-020 with QA strategy, MVP test matrix, smoke script, PostGIS schema, geospatial indexes, seed data, database docs, configurable local ports, and database validation. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-002 and NADAA-003 with expanded product/API/security/ML/deployment docs, dashboard tracking schema, sample records, and validation script. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-001 initial monorepo foundation with React/Vite citizen and authority apps, shared brand/types packages, Go risk service, local infra, docs, dependency lockfile, and Git remote setup. | Codex | Complete |

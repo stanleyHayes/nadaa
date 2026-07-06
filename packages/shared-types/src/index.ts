@@ -16,6 +16,16 @@ export type HazardType =
 
 export type RiskLevel = "low" | "moderate" | "high" | "severe" | "emergency";
 
+export type UserRole =
+  | "citizen"
+  | "agency_viewer"
+  | "dispatcher"
+  | "responder"
+  | "nadmo_officer"
+  | "district_officer"
+  | "agency_admin"
+  | "system_admin";
+
 export type IncidentStatus =
   | "reported"
   | "under_review"
@@ -33,6 +43,45 @@ export type AlertSeverity = "advisory" | "watch" | "warning" | "severe_warning" 
 export interface Coordinates {
   lat: number;
   lng: number;
+}
+
+export interface CitizenProfile {
+  id: string;
+  name: string;
+  phone: string;
+  role: "citizen";
+  preferredLanguage: string;
+  homeLocation?: Coordinates;
+  contactPermission: boolean;
+  createdAt: string;
+}
+
+export interface RegisterCitizenRequest {
+  name: string;
+  phone: string;
+  preferredLanguage?: string;
+  homeLocation?: Coordinates;
+  contactPermission: boolean;
+}
+
+export interface RegisterCitizenResponse {
+  userId: string;
+  phone: string;
+  challengeId: string;
+  otpDelivery: "mock" | "sms" | "voice" | "whatsapp";
+  devOtp?: string;
+}
+
+export interface LoginCitizenRequest {
+  phone: string;
+  otp: string;
+}
+
+export interface LoginCitizenResponse {
+  accessToken: string;
+  tokenType: "Bearer";
+  expiresAt: string;
+  user: CitizenProfile;
 }
 
 export interface RiskSummary {
@@ -58,4 +107,3 @@ export interface AreaRiskResponse {
   nearestShelters: ShelterSummary[];
   recommendedActions: string[];
 }
-

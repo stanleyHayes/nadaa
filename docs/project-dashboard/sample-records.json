@@ -129,5 +129,33 @@
       "PostGIS/table count query passed"
     ],
     "notes": "Core PostGIS schema, indexes, seed data, database docs, configurable compose ports, and database asset validator added."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 1",
+    "epic": "EPIC 1: Identity, Access Control, And Agency Model",
+    "story": "Implement Citizen Authentication",
+    "jiraKey": "NADAA-010",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-001"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:docs",
+      "pnpm typecheck",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm smoke:web",
+      "Live auth HTTP smoke on localhost:8082"
+    ],
+    "notes": "Auth service citizen register/login/profile API, mock OTP flow, signed bearer token, shared auth types, docs, and tests added."
   }
 ]

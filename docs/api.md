@@ -88,6 +88,19 @@ Returns:
 }
 ```
 
+Response:
+
+```json
+{
+  "userId": "usr_...",
+  "phone": "+233200000000",
+  "challengeId": "otp_...",
+  "otpDelivery": "mock"
+}
+```
+
+In local development, `NADAA_AUTH_MOCK_OTP=123456` can force a known OTP. `NADAA_AUTH_EXPOSE_DEV_OTP=true` includes `devOtp` in the registration response and must not be enabled in production.
+
 `POST /api/v1/auth/citizens/login`
 
 ```json
@@ -96,6 +109,33 @@ Returns:
   "otp": "123456"
 }
 ```
+
+Response:
+
+```json
+{
+  "accessToken": "nadaa....",
+  "tokenType": "Bearer",
+  "expiresAt": "2026-07-07T12:00:00Z",
+  "user": {
+    "id": "usr_...",
+    "name": "Ama Mensah",
+    "phone": "+233200000000",
+    "role": "citizen",
+    "preferredLanguage": "en",
+    "homeLocation": {
+      "lat": 5.6037,
+      "lng": -0.187
+    },
+    "contactPermission": true,
+    "createdAt": "2026-07-06T12:00:00Z"
+  }
+}
+```
+
+`GET /api/v1/auth/me`
+
+Requires `Authorization: Bearer <token>` and returns the citizen profile.
 
 ### Agency Auth
 
@@ -295,4 +335,3 @@ Creates an alert draft only. It must still pass approval.
 - Campaign publishing.
 - Open data catalog and exports.
 - Cell broadcast adapter and simulator.
-
