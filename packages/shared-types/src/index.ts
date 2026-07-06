@@ -40,7 +40,8 @@ export type IncidentStatus =
 
 export type IncidentUrgency = "low" | "moderate" | "high" | "life_threatening";
 
-export type AlertSeverity = "advisory" | "watch" | "warning" | "severe_warning" | "emergency";
+export type AlertSeverity =
+  "advisory" | "watch" | "warning" | "severe_warning" | "emergency";
 
 export interface Coordinates {
   lat: number;
@@ -213,6 +214,20 @@ export interface ShelterSummary {
   capacity?: number;
   currentOccupancy?: number;
   contact?: string;
+  distanceMeters?: number;
+  status?: "open" | "full" | "closed" | "unknown";
+  facilities?: string[];
+}
+
+export interface EmergencyFacilitySummary {
+  id: string;
+  name: string;
+  type: string;
+  location: Coordinates;
+  region?: string;
+  district?: string;
+  contact?: string;
+  distanceMeters?: number;
 }
 
 export interface AreaRiskResponse {
@@ -220,5 +235,6 @@ export interface AreaRiskResponse {
   overallRisk: RiskLevel;
   risks: RiskSummary[];
   nearestShelters: ShelterSummary[];
+  nearbyFacilities: EmergencyFacilitySummary[];
   recommendedActions: string[];
 }

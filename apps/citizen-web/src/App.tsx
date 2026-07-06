@@ -96,6 +96,15 @@ const sampleRisk: AreaRiskResponse = {
       contact: "112"
     }
   ],
+  nearbyFacilities: [
+    {
+      id: "agency-nadmo-ama",
+      name: "NADMO Accra Metro",
+      type: "nadmo",
+      location: { lat: 5.56, lng: -0.2 },
+      contact: "112"
+    }
+  ],
   recommendedActions: [
     "Avoid low-lying roads and open drains.",
     "Move valuables above ground level.",

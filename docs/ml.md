@@ -46,10 +46,18 @@ Inputs:
 - Rainfall fixture/import.
 - Elevation or low-lying area fixture.
 - Recent citizen reports.
+- Nearby shelter and response facility fixtures for preparedness context.
 
 Output:
 
 - Low, moderate, high, severe, or emergency risk level.
+- Recommended citizen actions and nearest response resources.
+
+Current MVP implementation:
+
+- `services/risk-service` serves `GET /api/v1/risk`.
+- The baseline mirrors the development seed data with in-memory fixtures until service-level PostGIS persistence is added.
+- Severe risk is returned inside the Accra flood fixture, high risk near the flood fixture and recent report, moderate risk near only recent reports, and low risk outside fixture coverage.
 
 ### Stage 1: Baseline ML
 
@@ -139,4 +147,3 @@ Every prediction should include:
 5. Prediction logs in `ml_predictions`.
 6. Risk API integration.
 7. Authority review UI before alert drafting or approval.
-

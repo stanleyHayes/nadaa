@@ -88,11 +88,14 @@ Coordination rules:
 | NADAA-032 | MVP Sprint 2 | Build Citizen Incident Reporting UI | Done | Codex | main | NADAA-030, NADAA-031 | 2026-07-06 | Citizen report form now supports GPS/manual coordinates, hazard, urgency, people affected, injuries, anonymous/contact controls, accessibility needs, media initiation, offline retry messaging, and success/error states. |
 | NADAA-033 | MVP Sprint 2 | Add Incident Deduplication Baseline | Done | Codex | main | NADAA-030 | 2026-07-06 | Incident-service now stores same-hazard duplicate candidates scored by distance, time window, and description similarity without merging or deleting reports. |
 | NADAA-101 | MVP Sprint 1/7 | Set Up CI/CD And Staging Environment | Done | Codex | main | NADAA-001 | 2026-07-06 | GitHub Actions CI, manual staging smoke workflow, Docker build validation, staging env template, and staging runbook added; registry push/deploy credentials remain environment-owned. |
+| NADAA-021 | MVP Sprint 5 | Implement Area Risk API | Done | Codex | main | NADAA-020 | 2026-07-06 | Risk service now returns fixture-backed geospatial risk lookup with low/high/severe flood scoring, nearby shelters, nearby facilities, recommended actions, validation, docs, and tests. |
 
 ### Agent Handoff Log
 
 | Date | Agent | Item | Status | Handoff Notes |
 | --- | --- | --- | --- | --- |
+| 2026-07-06 | Codex | NADAA-021 | Done | Verified `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live risk HTTP smoke on `localhost:8081`. |
+| 2026-07-06 | Codex | NADAA-021 | In Progress | Claimed area risk API; using seed-aligned fixtures until PostGIS persistence is wired into services. |
 | 2026-07-06 | Codex | NADAA-101 | Done | Verified `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, local `pnpm smoke:staging`, and local Docker builds for five deployable images. |
 | 2026-07-06 | Codex | NADAA-101 | In Progress | Claimed CI/CD and staging foundation; credentials and provider deployment remain environment-owned, not committed. |
 | 2026-07-06 | Codex | NADAA-033 | Done | Verified `pnpm validate:docs`, `pnpm typecheck`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live duplicate candidate HTTP smoke on `localhost:8084`. |
@@ -1459,7 +1462,7 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-011 | MVP | Sprint 1 | Implement Agency Users, Roles, And MFA | Todo | Unassigned | TBD | Depends on NADAA-010. |
 | NADAA-012 | MVP | Sprint 1 | Implement Audit Logging Foundation | Todo | Unassigned | TBD | Depends on NADAA-011. |
 | NADAA-020 | MVP | Sprint 1 | Set Up PostGIS And Core Geospatial Models | Done | Codex | main | Migration and seed verified against local PostGIS on port 55432. |
-| NADAA-021 | MVP | Sprint 5 | Implement Area Risk API | Todo | Unassigned | TBD | Depends on NADAA-020. |
+| NADAA-021 | MVP | Sprint 5 | Implement Area Risk API | Done | Codex | main | Fixture-backed API returns low/high/severe flood scoring, nearby shelters, nearby facilities, recommended actions, and coordinate validation. |
 | NADAA-022 | MVP | Sprint 5 | Build Citizen Risk Checker UI | Todo | Unassigned | TBD | Depends on NADAA-021. |
 | NADAA-030 | MVP | Sprint 2 | Implement Incident Reporting API | Done | Codex | main | Incident intake API and tests added in incident-service. |
 | NADAA-031 | MVP | Sprint 2 | Implement Media Upload Flow | Done | Codex | main | Controlled upload initiation and private media linkage added in incident-service. |
@@ -1523,7 +1526,7 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 
 Start here:
 
-1. NADAA-021 Implement Area Risk API.
+1. NADAA-022 Build Citizen Risk Checker UI.
 2. NADAA-011 Implement Agency Users, Roles, And MFA.
 3. NADAA-060 Implement Emergency Guide Content Model.
 4. NADAA-080 Define Agency Integration Contracts.
@@ -1555,6 +1558,7 @@ Start here:
 
 | Date | Update | Owner | Status |
 | --- | --- | --- | --- |
+| 2026-07-06 | Completed NADAA-021 with fixture-backed risk-service area lookup, baseline flood scoring, nearby shelter/facility aggregation, coordinate validation, shared response types, API docs, and tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-101 with GitHub Actions CI, Docker build validation for deployable apps/services, manual staging smoke workflow, staging smoke script, staging environment template, and staging runbook. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-031 with controlled media upload initiation, private metadata, content-type and size validation, incident media linkage, shared media types, API docs, and tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-030 with incident-service report intake API, validation, anonymous/contact-permission behavior, media references, priority review flag, rate limiting, shared types, API docs, and tests. | Codex | Complete |

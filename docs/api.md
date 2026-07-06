@@ -54,20 +54,55 @@ Returns:
 
 ```json
 {
-  "location": "Accra Central",
+  "location": "Accra Metropolitan",
   "overallRisk": "high",
   "risks": [
     {
       "type": "flood",
-      "level": "severe",
-      "probability": 0.82,
-      "reason": "Heavy rainfall forecast, low elevation, and historical flood reports nearby."
+      "level": "high",
+      "probability": 0.72,
+      "reason": "Within 1523m of a severe flood zone and 0m of a recent high flood report."
     }
   ],
-  "nearestShelters": [],
-  "recommendedActions": []
+  "nearestShelters": [
+    {
+      "id": "00000000-0000-0000-0000-000000000301",
+      "name": "Accra Metro Assembly Shelter",
+      "location": { "lat": 5.56, "lng": -0.2 },
+      "capacity": 450,
+      "currentOccupancy": 116,
+      "contact": "112",
+      "distanceMeters": 5068,
+      "status": "open",
+      "facilities": ["water", "first_aid", "accessible_entry", "family_area"]
+    }
+  ],
+  "nearbyFacilities": [
+    {
+      "id": "00000000-0000-0000-0000-000000000102",
+      "name": "Ghana National Fire Service Accra",
+      "type": "fire",
+      "location": { "lat": 5.565, "lng": -0.185 },
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "contact": "112",
+      "distanceMeters": 4308
+    }
+  ],
+  "recommendedActions": [
+    "Avoid known flood-prone roads and monitor official NADMO updates.",
+    "Check the route to the nearest open shelter before rainfall intensifies.",
+    "Keep phones charged and report blocked drains or rising water early."
+  ]
 }
 ```
+
+Rules:
+
+- `lat` and `lng` are required and must be valid coordinates.
+- The MVP baseline uses seed-aligned fixtures for flood zones, fire zones, shelters, facilities, and one recent flood report.
+- Flood scoring is rule-based: inside the flood zone returns `severe`, near both the flood zone and recent report returns `high`, near only a recent report returns `moderate`, and locations outside fixture coverage return `low`.
+- Nearby shelters and facilities are returned within 30 km and sorted by distance.
 
 ## MVP API Contracts
 
@@ -199,7 +234,12 @@ Response:
       "score": 0.92,
       "distanceMeters": 48,
       "minutesApart": 12,
-      "reasons": ["same_hazard", "nearby_location", "recent_report", "similar_description"]
+      "reasons": [
+        "same_hazard",
+        "nearby_location",
+        "recent_report",
+        "similar_description"
+      ]
     }
   ]
 }
