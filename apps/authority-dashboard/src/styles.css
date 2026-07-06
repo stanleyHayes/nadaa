@@ -1,0 +1,179 @@
+:root {
+  color: #101828;
+  background: #f3f6fa;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.topbar {
+  background: #0d1b3d;
+  border-bottom: 4px solid #118d4e;
+}
+
+.toolbar {
+  min-height: 76px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand-logo {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.dashboard-shell {
+  padding-top: 24px;
+  padding-bottom: 40px;
+}
+
+.metric-card,
+.surface {
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  border-radius: 8px !important;
+  box-shadow: 0 18px 48px rgba(13, 27, 61, 0.08) !important;
+}
+
+.metric-card {
+  padding: 18px;
+}
+
+.metric-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #f5f8fc;
+}
+
+.main-grid {
+  margin-top: 2px;
+}
+
+.surface {
+  padding: 20px;
+}
+
+.section-heading {
+  margin-bottom: 16px !important;
+}
+
+.map-surface {
+  margin-bottom: 20px;
+}
+
+.map-panel {
+  position: relative;
+  height: 430px;
+  margin-top: 18px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(13, 27, 61, 0.12);
+  background:
+    radial-gradient(circle at 24% 35%, rgba(229, 57, 53, 0.18), transparent 12%),
+    radial-gradient(circle at 68% 54%, rgba(17, 141, 78, 0.2), transparent 14%),
+    linear-gradient(135deg, #eaf3f8 0%, #d7e6ef 48%, #eef3e7 100%);
+}
+
+.map-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(13, 27, 61, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(13, 27, 61, 0.08) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.map-marker {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 14px 28px rgba(13, 27, 61, 0.2);
+}
+
+.marker-one {
+  top: 28%;
+  left: 22%;
+  background: #e53935;
+}
+
+.marker-two {
+  top: 50%;
+  left: 63%;
+  background: #118d4e;
+}
+
+.marker-three {
+  top: 70%;
+  left: 42%;
+  background: #0d1b3d;
+}
+
+.incident-table {
+  overflow-x: auto;
+}
+
+.alert-panel {
+  border-top: 6px solid #e53935;
+}
+
+.timeline-row {
+  position: relative;
+  padding-left: 18px;
+}
+
+.timeline-row::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #118d4e;
+}
+
+@media (max-width: 760px) {
+  .toolbar {
+    align-items: flex-start;
+    min-height: 118px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    flex-direction: column;
+  }
+
+  .toolbar .MuiStack-root:last-child {
+    width: 100%;
+  }
+
+  .toolbar .MuiButton-root {
+    flex: 1;
+  }
+
+  .map-panel {
+    height: 340px;
+  }
+}
+

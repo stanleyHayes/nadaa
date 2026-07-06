@@ -1,0 +1,24 @@
+{
+  "name": "nadaa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NADAA Ghana National Disaster Alert and Response Platform monorepo.",
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @nadaa/citizen-web --filter @nadaa/authority-dashboard dev",
+    "dev:citizen": "pnpm --filter @nadaa/citizen-web dev",
+    "dev:authority": "pnpm --filter @nadaa/authority-dashboard dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "go:test": "cd services/risk-service && go test ./...",
+    "format": "prettier --write \"**/*.{md,json,ts,tsx,css,yml,yaml}\""
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0"
+  }
+}

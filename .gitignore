@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Runtime
+.env
+.env.*
+!.env.example
+*.log
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Go
+bin/
+*.test
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+
