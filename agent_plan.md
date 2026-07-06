@@ -85,11 +85,14 @@ Coordination rules:
 | NADAA-010 | MVP Sprint 1 | Implement Citizen Authentication | Done | Codex | main | NADAA-001 | 2026-07-06 | Auth service citizen register/login/profile API, mock OTP flow, signed bearer token, shared auth types, docs, and tests added. |
 | NADAA-030 | MVP Sprint 2 | Implement Incident Reporting API | Done | Codex | main | NADAA-020, NADAA-010 | 2026-07-06 | Incident-service report intake API, validation, anonymous/contact-permission behavior, media references, priority review flag, rate limiting, shared types, docs, and tests added. |
 | NADAA-031 | MVP Sprint 2 | Implement Media Upload Flow | Done | Codex | main | NADAA-030 | 2026-07-06 | Controlled media upload initiation, private metadata, content-type and size validation, incident media linkage, shared types, docs, and tests added. |
+| NADAA-032 | MVP Sprint 2 | Build Citizen Incident Reporting UI | Done | Codex | main | NADAA-030, NADAA-031 | 2026-07-06 | Citizen report form now supports GPS/manual coordinates, hazard, urgency, people affected, injuries, anonymous/contact controls, accessibility needs, media initiation, offline retry messaging, and success/error states. |
 
 ### Agent Handoff Log
 
 | Date | Agent | Item | Status | Handoff Notes |
 | --- | --- | --- | --- | --- |
+| 2026-07-06 | Codex | NADAA-032 | Done | Verified `pnpm validate:docs`, `pnpm typecheck`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live citizen incident UI/API smoke on `localhost:8084`. |
+| 2026-07-06 | Codex | NADAA-032 | In Progress | Claimed citizen incident reporting UI; integrating report submission with media upload initiation and existing incident-service API. |
 | 2026-07-06 | Codex | NADAA-031 | Done | Verified `pnpm validate:docs`, `pnpm typecheck`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live media upload/link smoke on `localhost:8084`. |
 | 2026-07-06 | Codex | NADAA-031 | In Progress | Claimed media upload flow; using controlled dev upload URLs and private in-memory metadata for this slice. |
 | 2026-07-06 | Codex | NADAA-030 | Done | Verified `pnpm validate:docs`, `pnpm typecheck`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live incident HTTP smoke on `localhost:8084`. |
@@ -1454,7 +1457,7 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-022 | MVP | Sprint 5 | Build Citizen Risk Checker UI | Todo | Unassigned | TBD | Depends on NADAA-021. |
 | NADAA-030 | MVP | Sprint 2 | Implement Incident Reporting API | Done | Codex | main | Incident intake API and tests added in incident-service. |
 | NADAA-031 | MVP | Sprint 2 | Implement Media Upload Flow | Done | Codex | main | Controlled upload initiation and private media linkage added in incident-service. |
-| NADAA-032 | MVP | Sprint 2 | Build Citizen Incident Reporting UI | Todo | Unassigned | TBD | Depends on NADAA-030, NADAA-031. |
+| NADAA-032 | MVP | Sprint 2 | Build Citizen Incident Reporting UI | Done | Codex | main | Citizen incident form integrated with media upload initiation, GPS/manual location, validation, offline retry messaging, and API success/error states. |
 | NADAA-033 | MVP | Sprint 2 | Add Incident Deduplication Baseline | Todo | Unassigned | TBD | Depends on NADAA-030. |
 | NADAA-040 | MVP | Sprint 3 | Build Incident Command Map | Todo | Unassigned | TBD | Depends on NADAA-011, NADAA-030. |
 | NADAA-041 | MVP | Sprint 3 | Implement Verification And Status Workflow | Todo | Unassigned | TBD | Depends on NADAA-040, NADAA-012. |
@@ -1514,11 +1517,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 
 Start here:
 
-1. NADAA-032 Build Citizen Incident Reporting UI.
-2. NADAA-033 Add Incident Deduplication Baseline.
-3. NADAA-101 Set Up CI/CD And Staging Environment.
-4. NADAA-021 Implement Area Risk API.
-5. NADAA-011 Implement Agency Users, Roles, And MFA.
+1. NADAA-033 Add Incident Deduplication Baseline.
+2. NADAA-101 Set Up CI/CD And Staging Environment.
+3. NADAA-021 Implement Area Risk API.
+4. NADAA-011 Implement Agency Users, Roles, And MFA.
+5. NADAA-040 Build Incident Command Map.
 
 ## Key Risks And Early Decisions
 

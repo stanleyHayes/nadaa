@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import {
   Alert,
   AppBar,
@@ -27,7 +27,10 @@ import {
   Bell,
   CheckCircle2,
   Cross,
+  ImagePlus,
   LifeBuoy,
+  Loader2,
+  LocateFixed,
   MapPin,
   Megaphone,
   Phone,
@@ -36,7 +39,19 @@ import {
   Waves
 } from "lucide-react";
 import { featurePillars, nadaaBrand } from "@nadaa/brand";
-import type { AreaRiskResponse, HazardType, RiskLevel } from "@nadaa/shared-types";
+import type {
+  AreaRiskResponse,
+  CreateIncidentRequest,
+  CreateIncidentResponse,
+  HazardType,
+  IncidentMediaContentType,
+  IncidentUrgency,
+  InitiateMediaUploadRequest,
+  MediaUploadResponse,
+  RiskLevel
+} from "@nadaa/shared-types";
+
+const INCIDENT_API_BASE = import.meta.env.VITE_INCIDENT_API_URL ?? "http://localhost:8084/api/v1";
 
 const riskTone: Record<RiskLevel, "success" | "warning" | "error" | "info"> = {
   low: "success",
@@ -115,6 +130,69 @@ const hazardOptions: { label: string; value: HazardType }[] = [
   { label: "Other", value: "other" }
 ];
 
+const urgencyOptions: { label: string; value: IncidentUrgency }[] = [
+  { label: "Moderate", value: "moderate" },
+  { label: "High", value: "high" },
+  { label: "Life threatening", value: "life_threatening" },
+  { label: "Low", value: "low" }
+];
+
+const supportedMediaTypes: IncidentMediaContentType[] = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "video/quicktime",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/wav"
+];
+
+const mediaSizeLimits: Record<IncidentMediaContentType, number> = {
+  "image/jpeg": 10 * 1024 * 1024,
+  "image/png": 10 * 1024 * 1024,
+  "image/webp": 10 * 1024 * 1024,
+  "video/mp4": 100 * 1024 * 1024,
+  "video/quicktime": 100 * 1024 * 1024,
+  "audio/mpeg": 25 * 1024 * 1024,
+  "audio/mp4": 25 * 1024 * 1024,
+  "audio/wav": 25 * 1024 * 1024
+};
+
+type ReportForm = {
+  hazard: HazardType;
+  lat: string;
+  lng: string;
+  description: string;
+  peopleAffected: string;
+  injuriesReported: boolean;
+  urgency: IncidentUrgency;
+  anonymous: boolean;
+  contactPermission: boolean;
+  accessibilityNeeds: string;
+  files: File[];
+};
+
+type ReportState =
+  | { status: "idle" }
+  | { status: "loading"; message: string }
+  | { status: "success"; reference: string; priorityReview: boolean }
+  | { status: "error"; message: string };
+
+const initialReportForm: ReportForm = {
+  hazard: "flood",
+  lat: "5.579",
+  lng: "-0.212",
+  description: "",
+  peopleAffected: "0",
+  injuriesReported: false,
+  urgency: "moderate",
+  anonymous: false,
+  contactPermission: true,
+  accessibilityNeeds: "",
+  files: []
+};
+
 const theme = createTheme({
   palette: {
     primary: { main: nadaaBrand.colors.navy },
@@ -156,9 +234,143 @@ const theme = createTheme({
 
 function App() {
   const [area, setArea] = useState("Accra Central");
-  const [hazard, setHazard] = useState<HazardType>("flood");
-  const [anonymous, setAnonymous] = useState(false);
+  const [reportForm, setReportForm] = useState<ReportForm>(initialReportForm);
+  const [reportState, setReportState] = useState<ReportState>({ status: "idle" });
   const risk = useMemo(() => ({ ...sampleRisk, location: area || "Selected area" }), [area]);
+
+  const updateReportForm = <Key extends keyof ReportForm>(key: Key, value: ReportForm[Key]) => {
+    setReportForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setReportState({ status: "error", message: "Location is not available on this device." });
+      return;
+    }
+
+    setReportState({ status: "loading", message: "Getting location" });
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setReportForm((current) => ({
+          ...current,
+          lat: position.coords.latitude.toFixed(6),
+          lng: position.coords.longitude.toFixed(6)
+        }));
+        setReportState({ status: "idle" });
+      },
+      () => {
+        setReportState({ status: "error", message: "Location permission was not granted." });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleFileSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    event.currentTarget.value = "";
+
+    if (selectedFiles.length > 10) {
+      setReportState({ status: "error", message: "Attach at most 10 media files to one report." });
+      return;
+    }
+
+    const invalidFile = selectedFiles.find((file) => {
+      if (!supportedMediaTypes.includes(file.type as IncidentMediaContentType)) {
+        return true;
+      }
+
+      return file.size <= 0 || file.size > mediaSizeLimits[file.type as IncidentMediaContentType];
+    });
+
+    if (invalidFile) {
+      setReportState({
+        status: "error",
+        message: `${invalidFile.name} is not supported or is too large for this report.`
+      });
+      return;
+    }
+
+    updateReportForm("files", selectedFiles);
+    setReportState({ status: "idle" });
+  };
+
+  const submitReport = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const lat = Number(reportForm.lat);
+    const lng = Number(reportForm.lng);
+    const peopleAffected = Number(reportForm.peopleAffected || 0);
+
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      setReportState({ status: "error", message: "Enter valid coordinates before sending the report." });
+      return;
+    }
+
+    if (reportForm.description.trim().length < 5) {
+      setReportState({ status: "error", message: "Add a short description of what happened." });
+      return;
+    }
+
+    if (!Number.isInteger(peopleAffected) || peopleAffected < 0) {
+      setReportState({ status: "error", message: "People affected must be zero or more." });
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setReportState({
+        status: "error",
+        message: "You appear to be offline. Keep this report open and try again when the connection returns."
+      });
+      return;
+    }
+
+    setReportState({ status: "loading", message: "Sending report" });
+
+    try {
+      const mediaIds = await initiateMediaUploads(reportForm.files);
+      const payload: CreateIncidentRequest = {
+        type: reportForm.hazard,
+        description: reportForm.description.trim(),
+        location: { lat, lng },
+        peopleAffected,
+        injuriesReported: reportForm.injuriesReported,
+        urgency: reportForm.urgency,
+        anonymous: reportForm.anonymous,
+        contactPermission: reportForm.anonymous ? false : reportForm.contactPermission,
+        accessibilityNeeds: reportForm.accessibilityNeeds.trim() || undefined,
+        media: mediaIds,
+        reporter: reportForm.anonymous
+          ? undefined
+          : {
+              userId: "usr_demo_citizen",
+              phone: reportForm.contactPermission ? "+233200000000" : undefined
+            }
+      };
+
+      const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(await extractAPIError(response));
+      }
+
+      const incident = (await response.json()) as CreateIncidentResponse;
+      setReportState({
+        status: "success",
+        reference: incident.reference,
+        priorityReview: incident.priorityReview
+      });
+      setReportForm(initialReportForm);
+    } catch (error) {
+      setReportState({
+        status: "error",
+        message: error instanceof Error ? error.message : "Could not send report."
+      });
+    }
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -275,15 +487,19 @@ function App() {
               </Grid>
 
               <Grid size={{ xs: 12, md: 6 }}>
-                <Paper className="surface">
+                <Paper className="surface report-surface">
                   <Stack direction="row" spacing={1} alignItems="center" className="section-heading">
                     <Siren size={21} color={nadaaBrand.colors.gold} />
                     <Typography variant="h6">Report incident</Typography>
                   </Stack>
-                  <Stack spacing={1.5}>
+                  <Stack component="form" spacing={1.5} onSubmit={submitReport} noValidate>
                     <FormControl fullWidth>
                       <InputLabel>Hazard type</InputLabel>
-                      <Select value={hazard} label="Hazard type" onChange={(event) => setHazard(event.target.value as HazardType)}>
+                      <Select
+                        value={reportForm.hazard}
+                        label="Hazard type"
+                        onChange={(event) => updateReportForm("hazard", event.target.value as HazardType)}
+                      >
                         {hazardOptions.map((option) => (
                           <MenuItem key={option.value} value={option.value}>
                             {option.label}
@@ -291,14 +507,155 @@ function App() {
                         ))}
                       </Select>
                     </FormControl>
-                    <TextField label="Location" defaultValue="Use GPS or enter nearby landmark" />
-                    <TextField label="What happened?" multiline minRows={3} />
+                    <Grid container spacing={1.25}>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="Latitude"
+                          value={reportForm.lat}
+                          onChange={(event) => updateReportForm("lat", event.target.value)}
+                          fullWidth
+                          inputMode="decimal"
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="Longitude"
+                          value={reportForm.lng}
+                          onChange={(event) => updateReportForm("lng", event.target.value)}
+                          fullWidth
+                          inputMode="decimal"
+                        />
+                      </Grid>
+                    </Grid>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      startIcon={<LocateFixed size={18} />}
+                      onClick={useCurrentLocation}
+                      disabled={reportState.status === "loading"}
+                    >
+                      Use GPS
+                    </Button>
+                    <TextField
+                      label="What happened?"
+                      value={reportForm.description}
+                      onChange={(event) => updateReportForm("description", event.target.value)}
+                      multiline
+                      minRows={3}
+                      inputProps={{ maxLength: 2000 }}
+                    />
+                    <Grid container spacing={1.25}>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="People affected"
+                          value={reportForm.peopleAffected}
+                          onChange={(event) => updateReportForm("peopleAffected", event.target.value)}
+                          fullWidth
+                          inputMode="numeric"
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 6 }}>
+                        <FormControl fullWidth>
+                          <InputLabel>Urgency</InputLabel>
+                          <Select
+                            value={reportForm.urgency}
+                            label="Urgency"
+                            onChange={(event) => updateReportForm("urgency", event.target.value as IncidentUrgency)}
+                          >
+                            {urgencyOptions.map((option) => (
+                              <MenuItem key={option.value} value={option.value}>
+                                {option.label}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                    {reportForm.urgency === "life_threatening" ? (
+                      <Alert severity="error" className="warning-alert">
+                        <Typography variant="body2">Call 112 immediately after sending this report.</Typography>
+                      </Alert>
+                    ) : null}
+                    <TextField
+                      label="Accessibility needs"
+                      value={reportForm.accessibilityNeeds}
+                      onChange={(event) => updateReportForm("accessibilityNeeds", event.target.value)}
+                      inputProps={{ maxLength: 500 }}
+                    />
+                    <Button component="label" variant="outlined" startIcon={<ImagePlus size={18} />}>
+                      Add media
+                      <input
+                        type="file"
+                        hidden
+                        multiple
+                        accept={supportedMediaTypes.join(",")}
+                        onChange={handleFileSelection}
+                      />
+                    </Button>
+                    {reportForm.files.length > 0 ? (
+                      <Stack spacing={0.75}>
+                        {reportForm.files.map((file) => (
+                          <Chip
+                            key={`${file.name}-${file.size}`}
+                            label={`${file.name} · ${formatFileSize(file.size)}`}
+                            className="media-chip"
+                          />
+                        ))}
+                      </Stack>
+                    ) : null}
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography>Injuries reported</Typography>
+                      <Switch
+                        checked={reportForm.injuriesReported}
+                        onChange={(event) => updateReportForm("injuriesReported", event.target.checked)}
+                      />
+                    </Stack>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Typography>Report anonymously</Typography>
-                      <Switch checked={anonymous} onChange={(event) => setAnonymous(event.target.checked)} />
+                      <Switch
+                        checked={reportForm.anonymous}
+                        onChange={(event) =>
+                          setReportForm((current) => ({
+                            ...current,
+                            anonymous: event.target.checked,
+                            contactPermission: event.target.checked ? false : current.contactPermission
+                          }))
+                        }
+                      />
                     </Stack>
-                    <Button variant="contained" color="error" startIcon={<Siren size={18} />}>
-                      Send report
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography>Allow contact</Typography>
+                      <Switch
+                        checked={!reportForm.anonymous && reportForm.contactPermission}
+                        onChange={(event) => updateReportForm("contactPermission", event.target.checked)}
+                        disabled={reportForm.anonymous}
+                      />
+                    </Stack>
+                    {reportState.status === "error" ? (
+                      <Alert severity="error" className="warning-alert">
+                        {reportState.message}
+                      </Alert>
+                    ) : null}
+                    {reportState.status === "success" ? (
+                      <Alert severity={reportState.priorityReview ? "warning" : "success"} className="warning-alert">
+                        <Typography variant="subtitle2">Report {reportState.reference} received</Typography>
+                        <Typography variant="body2">Call 112 if anyone is in immediate danger.</Typography>
+                      </Alert>
+                    ) : null}
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="error"
+                      disabled={reportState.status === "loading"}
+                      startIcon={
+                        reportState.status === "loading" ? (
+                          <Loader2 size={18} className="spin-icon" />
+                        ) : (
+                          <Siren size={18} />
+                        )
+                      }
+                    >
+                      {reportState.status === "loading" ? reportState.message : "Send report"}
                     </Button>
                   </Stack>
                 </Paper>
@@ -375,5 +732,54 @@ function App() {
   );
 }
 
-export default App;
+async function initiateMediaUploads(files: File[]): Promise<string[]> {
+  const mediaIds: string[] = [];
 
+  for (const file of files) {
+    if (!supportedMediaTypes.includes(file.type as IncidentMediaContentType)) {
+      throw new Error(`${file.name} is not a supported media type.`);
+    }
+
+    const payload: InitiateMediaUploadRequest = {
+      purpose: "incident_media",
+      fileName: file.name,
+      contentType: file.type as IncidentMediaContentType,
+      sizeBytes: file.size,
+      uploadedBy: "usr_demo_citizen"
+    };
+
+    const response = await fetch(`${INCIDENT_API_BASE}/media/uploads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(await extractAPIError(response));
+    }
+
+    const upload = (await response.json()) as MediaUploadResponse;
+    mediaIds.push(upload.mediaId);
+  }
+
+  return mediaIds;
+}
+
+async function extractAPIError(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: { message?: string } };
+    return payload.error?.message ?? `Request failed with status ${response.status}`;
+  } catch {
+    return `Request failed with status ${response.status}`;
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export default App;

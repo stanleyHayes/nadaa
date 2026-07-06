@@ -19,8 +19,8 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 | Flow | Primary Stories | Test Type | Acceptance Focus | Status |
 | --- | --- | --- | --- | --- |
 | Citizen risk check | NADAA-021, NADAA-022 | API, E2E | Location lookup returns risk, shelters, guidance, loading/error states | Todo |
-| Citizen incident report | NADAA-030, NADAA-032 | API, E2E | GPS, hazard type, description, urgency, affected people, contact permission | Todo |
-| Media upload | NADAA-031 | API, security | File type/size validation, private storage, incident linkage | Todo |
+| Citizen incident report | NADAA-030, NADAA-032 | API, E2E | GPS, hazard type, description, urgency, affected people, contact permission | MVP API/UI smoke covered |
+| Media upload | NADAA-031 | API, security | File type/size validation, private storage, incident linkage | MVP API/UI smoke covered |
 | Anonymous report privacy | NADAA-090 | API, security | Identity hidden where policy allows, contact permission honored | Todo |
 | Duplicate detection | NADAA-033, NADAA-043 | Unit, API | Nearby/time-window duplicate candidates are reviewable, not deleted | Todo |
 | Authority incident map | NADAA-040 | E2E | Filters, map/list sync, role-protected access | Todo |
@@ -77,4 +77,3 @@ pnpm smoke:web
 | High | Breaks a core MVP workflow or authority action | Fix before QA pass |
 | Medium | Degrades workflow but has workaround | Fix before release candidate if feasible |
 | Low | Cosmetic, copy, or minor non-blocking issue | Track and schedule |
-

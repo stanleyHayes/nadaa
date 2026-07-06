@@ -114,6 +114,24 @@ body {
   margin-bottom: 16px !important;
 }
 
+.report-surface {
+  min-height: 100%;
+}
+
+.media-chip {
+  justify-content: flex-start !important;
+  max-width: 100%;
+}
+
+.media-chip .MuiChip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spin-icon {
+  animation: spin 0.9s linear infinite;
+}
+
 .warning-alert {
   border-radius: 8px;
 }
@@ -164,3 +182,8 @@ body {
   }
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
