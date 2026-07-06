@@ -109,6 +109,7 @@ Run staging smoke checks against configured URLs:
 ```bash
 STAGING_CITIZEN_URL=http://127.0.0.1:5173 \
 STAGING_AUTHORITY_URL=http://127.0.0.1:5174 \
+STAGING_DISPATCHER_URL=http://127.0.0.1:5175 \
 STAGING_NOTIFICATION_SERVICE_URL=http://127.0.0.1:8090 \
 pnpm smoke:staging
 ```
@@ -172,12 +173,13 @@ The first-pass GitHub Actions workflows live in `.github/workflows/`.
 - Workspace tests.
 - App and package builds.
 - Go tests for `alert-service`, `auth-service`, `incident-service`, `guide-service`, `integration-service`, `notification-service`, and `risk-service`.
-- Docker build validation for citizen web, authority dashboard, alert service, auth service, incident service, guide service, integration service, notification service, and risk service images.
+- Docker build validation for citizen web, authority dashboard, dispatcher web, alert service, auth service, incident service, guide service, integration service, notification service, and risk service images.
 
 `Staging Smoke` runs manually against the GitHub `staging` environment:
 
 - `STAGING_CITIZEN_URL` must serve the NADAA Citizen app.
 - `STAGING_AUTHORITY_URL` must serve the NADAA Authority Dashboard.
+- `STAGING_DISPATCHER_URL` must serve the NADAA Dispatch Command app.
 - Optional service URLs are checked at `/healthz` when configured.
 
 Staging deployment should require:

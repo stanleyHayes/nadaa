@@ -14,7 +14,8 @@ NADAA is the Ghana National Disaster Alert and Response Platform. It is designed
 ## Current Foundation
 
 - `apps/citizen-web` - React/Vite citizen PWA starter.
-- `apps/authority-dashboard` - React/Vite authority dashboard starter.
+- `apps/dispatcher-web` - React/Vite dispatcher command console for incident triage, verification, assignment, alerts, duplicate review, abuse review, timelines, and maps.
+- `apps/authority-dashboard` - React/Vite compatibility shell retained while authority workflows split into dispatcher, agency, and admin apps.
 - `packages/brand` - brand constants, slogan, palette, and feature pillars.
 - `packages/shared-types` - shared TypeScript domain contracts.
 - `services/auth-service` - Go citizen and agency authentication starter with mock OTP/MFA, signed bearer tokens, RBAC, and audit events.
@@ -44,7 +45,7 @@ API Gateway / Edge Routing
         +--> Guide Service
         +--> Integration Service -> GMet, Hydro, NADMO, Police, Fire, Ambulance, Hospitals
 
-Authority Dashboard
+Dispatcher Web / Agency Web / Admin Web
         |
         +--> Incident, Alert, Dispatch, Risk, ML, Integration APIs
 ```

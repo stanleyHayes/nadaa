@@ -11,7 +11,8 @@ The platform helps citizens, NADMO, district assemblies, dispatchers, and respon
 ```text
 apps/
   citizen-web/            Citizen PWA for alerts, risk checks, reports, guides, and shelters
-  authority-dashboard/    Agency dashboard for incident command, alerts, assignments, and maps
+  dispatcher-web/         Dispatcher command console for incident triage, workflow, assignments, alerts, and maps
+  authority-dashboard/    Compatibility shell for the original authority dashboard while role-specific apps are split out
 services/
   auth-service/
   incident-service/
@@ -59,7 +60,16 @@ pnpm dev:authority
 The authority dashboard uses `VITE_INCIDENT_API_URL`, defaulting to `http://localhost:8084/api/v1`, for incident map and status workflow actions.
 Copy `apps/authority-dashboard/.env.example` if you need a different incident service URL.
 
-Run both apps:
+Run the dispatcher command console:
+
+```bash
+pnpm dev:dispatcher
+```
+
+The dispatcher web app uses `VITE_INCIDENT_API_URL` and `VITE_ALERT_API_URL`, defaulting to local incident and alert service URLs. It runs on port `5175` and is the target app for dispatcher incident command workflows.
+Copy `apps/dispatcher-web/.env.example` if you need different service URLs.
+
+Run the web apps:
 
 ```bash
 pnpm dev

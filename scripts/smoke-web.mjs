@@ -1,6 +1,7 @@
 const targets = [
   ["citizen-web", "http://127.0.0.1:5173/", "NADAA Citizen"],
-  ["authority-dashboard", "http://127.0.0.1:5174/", "NADAA Authority Dashboard"]
+  ["authority-dashboard", "http://127.0.0.1:5174/", "NADAA Authority Dashboard"],
+  ["dispatcher-web", "http://127.0.0.1:5175/", "NADAA Dispatch Command"],
 ];
 
 for (const [name, url, expectedTitle] of targets) {

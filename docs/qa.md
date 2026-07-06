@@ -59,7 +59,7 @@ pnpm smoke:guide
 pnpm smoke:integration
 ```
 
-`pnpm smoke:web` expects the citizen app on port `5173` and the authority dashboard on port `5174`.
+`pnpm smoke:web` expects the citizen app on port `5173`, the authority dashboard compatibility shell on port `5174`, and the dispatcher command console on port `5175`.
 `pnpm smoke:citizen-guides` expects the citizen app on port `5173` and guide service on port `8086`.
 `pnpm smoke:alert` expects the alert service on port `8089`.
 `pnpm smoke:alert-geofence` expects the alert service on port `8089`.
