@@ -27,6 +27,7 @@
     "smoke:incident-merge": "node scripts/smoke-incident-merge.mjs",
     "smoke:incident-workflow": "node scripts/smoke-incident-workflow.mjs",
     "smoke:risk": "node scripts/smoke-risk.mjs",
+    "smoke:shelter": "node scripts/smoke-shelter.mjs",
     "smoke:guide": "node scripts/smoke-guide.mjs",
     "smoke:integration": "node scripts/smoke-integration.mjs",
     "smoke:staging": "node scripts/smoke-staging.mjs",

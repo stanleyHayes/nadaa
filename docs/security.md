@@ -152,6 +152,7 @@ Use environment variables and deployment secret stores.
 - Abuse and false-report review is limited to `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`; accepted decisions must create audit events.
 - Agency assignment is limited to `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`; agency admins can assign only to their own agency.
 - Assigned-agency queue filters require an authority reader role and completed MFA.
+- Shelter capacity and occupancy updates are limited to MFA-verified `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher` actors.
 - `closed` and `false_report` are terminal incident states.
 - `resolutionNotes` are mandatory for `closed` and `false_report`.
 - Accepted status changes create before/after audit events.

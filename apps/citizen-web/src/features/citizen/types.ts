@@ -31,6 +31,12 @@ export type RiskState =
   | { status: "error"; message: string }
   | { status: "permission-denied"; message: string };
 
+export type ShelterState =
+  | { status: "idle"; message?: string }
+  | { status: "loading"; message: string }
+  | { status: "fallback"; message: string }
+  | { status: "error"; message: string };
+
 export type AlertFeedView = "current" | "expired" | "all";
 
 export type AlertFeedState =

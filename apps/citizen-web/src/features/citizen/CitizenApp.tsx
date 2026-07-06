@@ -54,12 +54,14 @@ import type {
   HazardType,
   IncidentMediaContentType,
   IncidentUrgency,
+  NearbyShelterResponse,
 } from "@nadaa/shared-types";
 import {
   GUIDE_API_BASE,
   INCIDENT_API_BASE,
   NOTIFICATION_API_BASE,
   RISK_API_BASE,
+  SHELTER_API_BASE,
 } from "../../app/config";
 import { citizenTheme } from "../../app/theme";
 import {
@@ -74,6 +76,7 @@ import {
   mediaSizeLimits,
   riskTone,
   sampleRisk,
+  sampleShelterResponse,
   supportedMediaTypes,
   urgencyOptions,
 } from "./data";
@@ -88,6 +91,7 @@ import type {
   ReportForm,
   ReportState,
   RiskState,
+  ShelterState,
 } from "./types";
 import {
   alertSeverityLabel,
@@ -98,7 +102,9 @@ import {
   formatDateTime,
   formatDistance,
   formatFileSize,
+  formatListLabel,
   formatOccupancy,
+  formatSupportType,
   guideLanguageLabel,
   guideStageLabel,
   hazardLabel,
@@ -117,6 +123,13 @@ function CitizenApp() {
     lng: "-0.187000",
   });
   const [riskState, setRiskState] = useState<RiskState>({ status: "idle" });
+  const [shelterSupport, setShelterSupport] = useState<NearbyShelterResponse>(
+    sampleShelterResponse,
+  );
+  const [shelterState, setShelterState] = useState<ShelterState>({
+    status: "idle",
+    message: "Shelter and recovery support fixtures are ready.",
+  });
   const [alertFeed, setAlertFeed] = useState<CitizenAlertFeedItem[]>(() =>
     buildFallbackAlerts(),
   );
@@ -234,11 +247,54 @@ function CitizenApp() {
         status: "idle",
         message: `Updated for ${payload.location}`,
       });
+      void fetchShelters(lat, lng, payload);
     } catch (error) {
       setRiskState({
         status: "error",
         message:
           error instanceof Error ? error.message : "Could not load area risk.",
+      });
+    }
+  }
+
+  async function fetchShelters(
+    lat: number,
+    lng: number,
+    riskPayload: AreaRiskResponse = risk,
+  ) {
+    if (!navigator.onLine) {
+      setShelterSupport(shelterPayloadFromRisk(riskPayload));
+      setShelterState({
+        status: "fallback",
+        message: "Shelter lookup needs a connection. Showing saved resources.",
+      });
+      return;
+    }
+
+    setShelterState({ status: "loading", message: "Checking shelters" });
+
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/shelters/nearby?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
+      );
+      if (!response.ok) {
+        throw new Error(await extractAPIError(response));
+      }
+
+      const payload = (await response.json()) as NearbyShelterResponse;
+      setShelterSupport(payload);
+      setShelterState({
+        status: "idle",
+        message: "Shelter and recovery support updated.",
+      });
+    } catch (error) {
+      setShelterSupport(shelterPayloadFromRisk(riskPayload));
+      setShelterState({
+        status: "fallback",
+        message:
+          error instanceof Error
+            ? `Shelter service unavailable. ${error.message}`
+            : "Shelter service unavailable. Showing saved resources.",
       });
     }
   }
@@ -414,6 +470,20 @@ function CitizenApp() {
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
+  };
+
+  const refreshShelterSupport = () => {
+    const lat = Number(riskCoordinates.lat);
+    const lng = Number(riskCoordinates.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setShelterState({
+        status: "error",
+        message: "Shelter refresh needs valid risk coordinates first.",
+      });
+      return;
+    }
+
+    void fetchShelters(lat, lng, risk);
   };
 
   const useCurrentLocation = () => {
@@ -1267,17 +1337,69 @@ function CitizenApp() {
 
               <Paper className="surface">
                 <Stack
-                  direction="row"
+                  direction={{ xs: "column", sm: "row" }}
                   spacing={1}
-                  alignItems="center"
+                  justifyContent="space-between"
+                  alignItems={{ xs: "stretch", sm: "center" }}
                   className="section-heading"
                 >
-                  <Cross size={21} color={nadaaBrand.colors.green} />
-                  <Typography variant="h6">Nearby shelters</Typography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Cross size={21} color={nadaaBrand.colors.green} />
+                    <Box>
+                      <Typography variant="h6">Nearby shelters</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Capacity and facilities
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    size="small"
+                    startIcon={
+                      shelterState.status === "loading" ? (
+                        <Loader2 size={16} className="spin-icon" />
+                      ) : (
+                        <RefreshCw size={16} />
+                      )
+                    }
+                    onClick={refreshShelterSupport}
+                    disabled={shelterState.status === "loading"}
+                  >
+                    Refresh
+                  </Button>
                 </Stack>
+                {shelterState.status === "fallback" ||
+                shelterState.status === "error" ? (
+                  <Alert
+                    severity={
+                      shelterState.status === "fallback" ? "warning" : "error"
+                    }
+                    className="warning-alert"
+                  >
+                    {shelterState.message}
+                  </Alert>
+                ) : null}
+                <Box
+                  className="shelter-map-preview"
+                  aria-label="Nearby shelter map preview"
+                >
+                  <Typography variant="caption" color="text.secondary">
+                    {riskCoordinates.lat}, {riskCoordinates.lng}
+                  </Typography>
+                  {shelterSupport.shelters.slice(0, 3).map((shelter, index) => (
+                    <Box
+                      className={`shelter-map-dot shelter-map-dot-${index}`}
+                      key={shelter.id}
+                      title={shelter.name}
+                    >
+                      {index + 1}
+                    </Box>
+                  ))}
+                </Box>
                 <Stack spacing={1.25}>
-                  {risk.nearestShelters.length > 0 ? (
-                    risk.nearestShelters.map((shelter) => (
+                  {shelterSupport.shelters.length > 0 ? (
+                    shelterSupport.shelters.map((shelter) => (
                       <Paper
                         variant="outlined"
                         className="shelter-row"
@@ -1298,12 +1420,24 @@ function CitizenApp() {
                                 ? ` · ${formatDistance(shelter.distanceMeters)}`
                                 : ""}
                             </Typography>
+                            {shelter.facilities.length ? (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {formatListLabel(shelter.facilities)}
+                              </Typography>
+                            ) : null}
                           </Box>
                           {shelter.contact ? (
                             <Chip
                               size="small"
                               label={shelter.contact}
-                              color="success"
+                              color={
+                                shelter.status === "full"
+                                  ? "warning"
+                                  : "success"
+                              }
                             />
                           ) : null}
                         </Stack>
@@ -1312,6 +1446,65 @@ function CitizenApp() {
                   ) : (
                     <Alert severity="info" className="warning-alert">
                       No nearby shelters were returned for this area.
+                    </Alert>
+                  )}
+                </Stack>
+              </Paper>
+
+              <Paper className="surface">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  className="section-heading"
+                >
+                  <LifeBuoy size={21} color={nadaaBrand.colors.green} />
+                  <Typography variant="h6">Recovery support</Typography>
+                </Stack>
+                <Stack spacing={1.25}>
+                  {shelterSupport.recoverySupport.length > 0 ? (
+                    shelterSupport.recoverySupport.map((support) => (
+                      <Paper
+                        variant="outlined"
+                        className="shelter-row"
+                        key={support.id}
+                      >
+                        <Stack
+                          direction="row"
+                          justifyContent="space-between"
+                          spacing={1}
+                        >
+                          <Box>
+                            <Typography variant="subtitle2">
+                              {support.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {formatSupportType(support.type)}
+                              {support.distanceMeters
+                                ? ` · ${formatDistance(support.distanceMeters)}`
+                                : ""}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {support.hours} ·{" "}
+                              {formatListLabel(support.services)}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            size="small"
+                            label={support.status}
+                            color={
+                              support.status === "open" ? "success" : "warning"
+                            }
+                          />
+                        </Stack>
+                      </Paper>
+                    ))
+                  ) : (
+                    <Alert severity="info" className="warning-alert">
+                      No recovery support locations were returned for this area.
                     </Alert>
                   )}
                 </Stack>
@@ -1570,6 +1763,33 @@ function CitizenApp() {
       </Container>
     </ThemeProvider>
   );
+}
+
+function shelterPayloadFromRisk(
+  riskPayload: AreaRiskResponse,
+): NearbyShelterResponse {
+  const generatedAt = new Date().toISOString();
+
+  return {
+    generatedAt,
+    shelters: riskPayload.nearestShelters.map((shelter) => ({
+      id: shelter.id,
+      name: shelter.name,
+      type: "temporary_shelter",
+      region: "Greater Accra",
+      district: riskPayload.location,
+      address: riskPayload.location,
+      location: shelter.location,
+      capacity: shelter.capacity ?? 0,
+      currentOccupancy: shelter.currentOccupancy ?? 0,
+      status: shelter.status ?? "unknown",
+      contact: shelter.contact ?? "112",
+      facilities: shelter.facilities ?? [],
+      distanceMeters: shelter.distanceMeters,
+      updatedAt: generatedAt,
+    })),
+    recoverySupport: sampleShelterResponse.recoverySupport,
+  };
 }
 
 export default CitizenApp;

@@ -64,6 +64,7 @@ jobs:
           - services/integration-service
           - services/notification-service
           - services/risk-service
+          - services/shelter-service
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -109,6 +110,8 @@ jobs:
             dockerfile: services/notification-service/Dockerfile
           - name: risk-service
             dockerfile: services/risk-service/Dockerfile
+          - name: shelter-service
+            dockerfile: services/shelter-service/Dockerfile
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

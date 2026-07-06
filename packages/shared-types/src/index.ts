@@ -780,6 +780,77 @@ export interface ShelterSummary {
   facilities?: string[];
 }
 
+export type ShelterStatus = "open" | "full" | "closed" | "unknown";
+
+export interface ShelterRecord {
+  id: string;
+  name: string;
+  type: "evacuation_shelter" | "temporary_shelter" | "relief_shelter";
+  region: string;
+  district: string;
+  address: string;
+  location: Coordinates;
+  capacity: number;
+  currentOccupancy: number;
+  status: ShelterStatus;
+  contact: string;
+  facilities: string[];
+  notes?: string;
+  distanceMeters?: number;
+  updatedBy?: string;
+  updatedAt: string;
+}
+
+export type RecoverySupportType =
+  | "relief_point"
+  | "medical_support"
+  | "recovery_registration"
+  | "water_point"
+  | "family_reunification";
+
+export interface RecoverySupportLocation {
+  id: string;
+  name: string;
+  type: RecoverySupportType;
+  region: string;
+  district: string;
+  address: string;
+  location: Coordinates;
+  contact: string;
+  services: string[];
+  hours: string;
+  status: ShelterStatus;
+  distanceMeters?: number;
+  updatedAt: string;
+}
+
+export interface ShelterListResponse {
+  shelters: ShelterRecord[];
+  generatedAt: string;
+}
+
+export interface NearbyShelterResponse {
+  shelters: ShelterRecord[];
+  recoverySupport: RecoverySupportLocation[];
+  generatedAt: string;
+}
+
+export interface RecoverySupportResponse {
+  recoverySupport: RecoverySupportLocation[];
+  generatedAt: string;
+}
+
+export interface ShelterOccupancyUpdateRequest {
+  capacity?: number;
+  currentOccupancy?: number;
+  status?: ShelterStatus;
+  notes?: string;
+}
+
+export interface ShelterUpdateResponse {
+  shelter: ShelterRecord;
+}
+
 export interface EmergencyFacilitySummary {
   id: string;
   name: string;

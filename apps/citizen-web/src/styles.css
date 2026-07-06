@@ -142,6 +142,51 @@ body {
   box-shadow: 0 0 0 6px rgba(229, 57, 53, 0.16);
 }
 
+.shelter-map-preview {
+  position: relative;
+  min-height: 112px;
+  margin-bottom: 14px;
+  padding: 12px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(17, 141, 78, 0.18);
+  background:
+    linear-gradient(rgba(17, 141, 78, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 141, 78, 0.08) 1px, transparent 1px),
+    #f8fffb;
+  background-size: 20px 20px;
+}
+
+.shelter-map-dot {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #118d4e;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  box-shadow: 0 0 0 6px rgba(17, 141, 78, 0.16);
+}
+
+.shelter-map-dot-0 {
+  left: 54%;
+  top: 44%;
+}
+
+.shelter-map-dot-1 {
+  left: 38%;
+  top: 62%;
+}
+
+.shelter-map-dot-2 {
+  left: 72%;
+  top: 34%;
+}
+
 .risk-row,
 .shelter-row {
   padding: 14px;

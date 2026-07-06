@@ -8,6 +8,7 @@ import type {
   IncidentMediaContentType,
   InitiateMediaUploadRequest,
   MediaUploadResponse,
+  ShelterStatus,
 } from "@nadaa/shared-types";
 import { GUIDE_CACHE_KEY, INCIDENT_API_BASE } from "../../app/config";
 import { areaPresets, guideLanguageOptions, supportedMediaTypes } from "./data";
@@ -211,9 +212,12 @@ export function guideLanguageLabel(language: string): string {
   );
 }
 
-export function formatOccupancy(
-  shelter: AreaRiskResponse["nearestShelters"][number],
-): string {
+export function formatOccupancy(shelter: {
+  capacity?: number;
+  currentOccupancy?: number;
+  status?:
+    ShelterStatus | AreaRiskResponse["nearestShelters"][number]["status"];
+}): string {
   if (
     typeof shelter.currentOccupancy === "number" &&
     typeof shelter.capacity === "number"
@@ -222,6 +226,17 @@ export function formatOccupancy(
   }
 
   return shelter.status ? shelter.status : "Shelter status unavailable";
+}
+
+export function formatSupportType(value: string): string {
+  return value
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+export function formatListLabel(values: string[]): string {
+  return values.map(formatSupportType).join(" · ");
 }
 
 export function formatDistance(meters: number): string {

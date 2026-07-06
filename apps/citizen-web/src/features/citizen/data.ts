@@ -5,6 +5,7 @@ import type {
   HazardType,
   IncidentMediaContentType,
   IncidentUrgency,
+  NearbyShelterResponse,
   RiskLevel,
 } from "@nadaa/shared-types";
 import type { GuideHazardFilter, GuideStageFilter, ReportForm } from "./types";
@@ -70,6 +71,80 @@ export const sampleRisk: AreaRiskResponse = {
     "Avoid low-lying roads and open drains.",
     "Move valuables above ground level.",
     "Prepare an evacuation route to the nearest safe shelter.",
+  ],
+};
+
+const sampleGeneratedAt = new Date().toISOString();
+
+export const sampleShelterResponse: NearbyShelterResponse = {
+  generatedAt: sampleGeneratedAt,
+  shelters: [
+    {
+      id: "00000000-0000-0000-0000-000000000301",
+      name: "Accra Metro Assembly Shelter",
+      type: "evacuation_shelter",
+      region: "Greater Accra",
+      district: "Accra Metropolitan",
+      address: "Accra Metropolitan Assembly Hall",
+      location: { lat: 5.56, lng: -0.2 },
+      capacity: 450,
+      currentOccupancy: 116,
+      status: "open",
+      contact: "112",
+      facilities: ["water", "first_aid", "accessible_entry", "family_area"],
+      notes: "Primary flood evacuation shelter for central Accra.",
+      distanceMeters: 0,
+      updatedAt: sampleGeneratedAt,
+    },
+    {
+      id: "00000000-0000-0000-0000-000000000302",
+      name: "Osu Community Hall",
+      type: "temporary_shelter",
+      region: "Greater Accra",
+      district: "Korle Klottey",
+      address: "Osu Community Hall",
+      location: { lat: 5.55, lng: -0.18 },
+      capacity: 220,
+      currentOccupancy: 34,
+      status: "open",
+      contact: "112",
+      facilities: ["water", "first_aid", "family_area"],
+      notes: "Short-term shelter and reunification point.",
+      distanceMeters: 2480,
+      updatedAt: sampleGeneratedAt,
+    },
+  ],
+  recoverySupport: [
+    {
+      id: "recovery_ama_relief_001",
+      name: "AMA Relief Distribution Point",
+      type: "relief_point",
+      region: "Greater Accra",
+      district: "Accra Metropolitan",
+      address: "Independence Avenue recovery desk",
+      location: { lat: 5.558, lng: -0.197 },
+      contact: "112",
+      services: ["food", "water", "blankets", "family_reunification"],
+      hours: "08:00-20:00",
+      status: "open",
+      distanceMeters: 420,
+      updatedAt: sampleGeneratedAt,
+    },
+    {
+      id: "recovery_osu_registration_001",
+      name: "Osu Recovery Registration Desk",
+      type: "recovery_registration",
+      region: "Greater Accra",
+      district: "Korle Klottey",
+      address: "Osu Community Hall annex",
+      location: { lat: 5.551, lng: -0.181 },
+      contact: "112",
+      services: ["needs_registration", "damage_reporting", "case_follow_up"],
+      hours: "08:00-18:00",
+      status: "open",
+      distanceMeters: 2300,
+      updatedAt: sampleGeneratedAt,
+    },
   ],
 };
 

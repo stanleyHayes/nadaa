@@ -26,6 +26,7 @@ NADAA is the Ghana National Disaster Alert and Response Platform. It is designed
 - `services/integration-service` - Go integration contract and mock-adapter starter for agency, weather, hydrology, incident, alert, hospital, road, utility, and shelter data exchange.
 - `services/notification-service` - Go citizen alert feed, mock push/SMS provider abstraction, and delivery log starter.
 - `services/risk-service` - first Go service with `GET /healthz` and `GET /api/v1/risk`.
+- `services/shelter-service` - Go shelter and recovery support starter with nearby lookup and protected capacity updates.
 - `infra/docker/docker-compose.yml` - local PostGIS, Redis, and MinIO.
 - `database/migrations/001_core_geospatial_schema.sql` - core PostGIS schema and indexes.
 - `database/seeds/001_ghana_mvp_seed.sql` - development seed data for Ghana MVP fixtures.
@@ -44,11 +45,12 @@ API Gateway / Edge Routing
         +--> Alert Service ----> Notification Service
         +--> Dispatch Service -> Agency Users + Timelines
         +--> Guide Service
+        +--> Shelter Service -> Shelter Capacity + Recovery Support
         +--> Integration Service -> GMet, Hydro, NADMO, Police, Fire, Ambulance, Hospitals
 
 Dispatcher Web / Agency Web / Admin Web
         |
-        +--> Incident, Alert, Dispatch, Risk, ML, Integration APIs
+        +--> Incident, Alert, Dispatch, Risk, Shelter, ML, Integration APIs
 ```
 
 ## Service Boundaries
@@ -65,14 +67,24 @@ Primary dependencies:
 
 ### Risk Service
 
-Owns area risk lookup, hazard risk scoring, nearby shelters, nearby emergency facilities, recommended actions, and risk API aggregation.
+Owns area risk lookup, hazard risk scoring, nearby emergency facilities, recommended actions, and risk API aggregation. It can include shelter summaries for backwards-compatible preparedness context, while shelter capacity ownership lives in the shelter service.
 
 Primary dependencies:
 
 - PostGIS risk zones.
-- Shelter/facility records.
+- Shelter-service summaries and facility records.
 - Weather/hydrology observations.
 - ML prediction service.
+
+### Shelter Service
+
+Owns shelter records, occupancy/capacity updates, citizen nearby shelter lookup, and recovery support locations.
+
+Primary dependencies:
+
+- PostGIS shelter and recovery support records.
+- Authority RBAC/MFA.
+- District assembly or shelter-operator feeds.
 
 ### Incident Service
 

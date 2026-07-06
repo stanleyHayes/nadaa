@@ -17,6 +17,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TextField,
   ThemeProvider,
   Toolbar,
   Typography,
@@ -25,6 +26,8 @@ import type { SelectChangeEvent } from "@mui/material/Select";
 import {
   Eye,
   Filter,
+  LifeBuoy,
+  Loader2,
   LocateFixed,
   MapPinned,
   RadioTower,
@@ -46,8 +49,16 @@ import type {
   IncidentStatusUpdateRequest,
   MergeIncidentsRequest,
   MergeIncidentsResponse,
+  ShelterListResponse,
+  ShelterOccupancyUpdateRequest,
+  ShelterRecord,
+  ShelterUpdateResponse,
 } from "@nadaa/shared-types";
-import { ALERT_API_BASE, INCIDENT_API_BASE } from "../../app/config";
+import {
+  ALERT_API_BASE,
+  INCIDENT_API_BASE,
+  SHELTER_API_BASE,
+} from "../../app/config";
 import {
   authorityHeaders,
   authoritySession,
@@ -67,6 +78,7 @@ import {
   defaultFilters,
   fallbackAlerts,
   fallbackIncidents,
+  fallbackShelters,
   assignmentAgencyOptions,
   severityColors,
 } from "./data";
@@ -79,6 +91,7 @@ import type {
   FilterState,
   IncidentLoadState,
   IncidentStatusFormState,
+  ShelterFormState,
 } from "./types";
 import {
   alertStatusLabel,
@@ -144,6 +157,16 @@ function CommandCenterApp() {
   const [alertFeedback, setAlertFeedback] = useState("");
   const [alertForm, setAlertForm] = useState<AlertFormState>(
     buildDefaultAlertForm(fallbackIncidents[0]),
+  );
+  const [shelters, setShelters] = useState<ShelterRecord[]>(fallbackShelters);
+  const [shelterLoadState, setShelterLoadState] =
+    useState<IncidentLoadState>("loading");
+  const [shelterFeedback, setShelterFeedback] = useState(
+    "Loading shelter capacity",
+  );
+  const [shelterBusy, setShelterBusy] = useState(false);
+  const [shelterForm, setShelterForm] = useState<ShelterFormState>(
+    buildDefaultShelterForm(fallbackShelters[0]),
   );
 
   const refreshIncidents = async (signal?: AbortSignal) => {
@@ -225,6 +248,49 @@ function CommandCenterApp() {
     return () => controller.abort();
   }, []);
 
+  const refreshShelters = async (signal?: AbortSignal) => {
+    setShelterLoadState("loading");
+    setShelterFeedback("Loading shelter capacity");
+
+    try {
+      const response = await fetch(`${SHELTER_API_BASE}/shelters`, {
+        signal,
+      });
+      if (!response.ok) {
+        throw new Error(`shelter API returned ${response.status}`);
+      }
+
+      const payload = (await response.json()) as ShelterListResponse;
+      const nextShelters = payload.shelters.length
+        ? payload.shelters
+        : fallbackShelters;
+      setShelters(nextShelters);
+      setShelterForm((current) => {
+        const selected =
+          nextShelters.find((shelter) => shelter.id === current.shelterId) ??
+          nextShelters[0];
+        return buildDefaultShelterForm(selected);
+      });
+      setShelterLoadState("ready");
+      setShelterFeedback("Shelter capacity API connected.");
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setShelters(fallbackShelters);
+      setShelterForm(buildDefaultShelterForm(fallbackShelters[0]));
+      setShelterLoadState("fallback");
+      setShelterFeedback("Shelter API unavailable. Showing fixture capacity.");
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshShelters(controller.signal);
+    return () => controller.abort();
+  }, []);
+
   const filteredIncidents = useMemo(
     () => incidents.filter((incident) => matchesFilters(incident, filters)),
     [filters, incidents],
@@ -240,6 +306,13 @@ function CommandCenterApp() {
       ) ?? filteredIncidents[0]
     );
   }, [filteredIncidents, selectedIncidentId]);
+
+  const selectedShelter = useMemo(
+    () =>
+      shelters.find((shelter) => shelter.id === shelterForm.shelterId) ??
+      shelters[0],
+    [shelterForm.shelterId, shelters],
+  );
 
   useEffect(() => {
     if (!filteredIncidents.length) {
@@ -348,6 +421,22 @@ function CommandCenterApp() {
             agencyType: agency.type,
             responderLead: agency.responderLead,
           };
+        }
+        return { ...current, [key]: value };
+      });
+    };
+
+  const updateShelterForm =
+    (key: keyof ShelterFormState) =>
+    (
+      event:
+        ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+    ) => {
+      const value = event.target.value;
+      setShelterForm((current) => {
+        if (key === "shelterId") {
+          const shelter = shelters.find((item) => item.id === value);
+          return shelter ? buildDefaultShelterForm(shelter) : current;
         }
         return { ...current, [key]: value };
       });
@@ -615,6 +704,66 @@ function CommandCenterApp() {
       .map((shelterId) => shelterId.trim())
       .filter(Boolean),
   });
+
+  const updateShelterCapacity = async () => {
+    if (!selectedShelter) {
+      return;
+    }
+
+    const capacity = Number(shelterForm.capacity);
+    const currentOccupancy = Number(shelterForm.currentOccupancy);
+    if (
+      !Number.isFinite(capacity) ||
+      !Number.isFinite(currentOccupancy) ||
+      capacity < 0 ||
+      currentOccupancy < 0 ||
+      currentOccupancy > capacity
+    ) {
+      setShelterFeedback(
+        "Capacity and occupancy must be valid numbers, and occupancy cannot exceed capacity.",
+      );
+      return;
+    }
+
+    const request: ShelterOccupancyUpdateRequest = {
+      capacity,
+      currentOccupancy,
+      status: shelterForm.status,
+      notes: shelterForm.notes.trim(),
+    };
+
+    setShelterBusy(true);
+    setShelterFeedback("");
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/shelters/${selectedShelter.id}/occupancy`,
+        {
+          method: "PATCH",
+          headers: authorityHeaders(),
+          body: JSON.stringify(request),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`shelter API returned ${response.status}`);
+      }
+
+      const payload = (await response.json()) as ShelterUpdateResponse;
+      setShelters((current) =>
+        current.map((shelter) =>
+          shelter.id === payload.shelter.id ? payload.shelter : shelter,
+        ),
+      );
+      setShelterForm(buildDefaultShelterForm(payload.shelter));
+      setShelterLoadState("ready");
+      setShelterFeedback(`${payload.shelter.name} capacity updated.`);
+    } catch (error) {
+      setShelterFeedback(
+        "Shelter update needs a live shelter-service API and authority session.",
+      );
+    } finally {
+      setShelterBusy(false);
+    }
+  };
 
   const createAlertDraft = async () => {
     setAlertBusy(true);
@@ -1079,6 +1228,147 @@ function CommandCenterApp() {
                 selectedIncident={selectedIncident}
               />
 
+              <Paper className="surface shelter-panel">
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "stretch", sm: "center" }}
+                  className="section-heading"
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <LifeBuoy size={21} color={nadaaBrand.colors.green} />
+                    <Box>
+                      <Typography variant="h6">Shelter capacity</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Update occupancy and operating status
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    size="small"
+                    startIcon={
+                      shelterLoadState === "loading" ? (
+                        <Loader2 size={16} className="spin-icon" />
+                      ) : (
+                        <RefreshCw size={16} />
+                      )
+                    }
+                    onClick={() => void refreshShelters()}
+                    disabled={shelterLoadState === "loading"}
+                  >
+                    Refresh
+                  </Button>
+                </Stack>
+
+                {shelterFeedback ? (
+                  <Alert
+                    severity={
+                      shelterLoadState === "ready" ? "success" : "warning"
+                    }
+                    className="feed-alert"
+                  >
+                    {shelterFeedback}
+                  </Alert>
+                ) : null}
+
+                <Stack spacing={1.5}>
+                  <CommandSelect
+                    label="Shelter"
+                    value={shelterForm.shelterId}
+                    onChange={updateShelterForm("shelterId")}
+                  >
+                    {shelters.map((shelter) => (
+                      <MenuItem value={shelter.id} key={shelter.id}>
+                        {shelter.name}
+                      </MenuItem>
+                    ))}
+                  </CommandSelect>
+
+                  {selectedShelter ? (
+                    <Box className="shelter-capacity-summary">
+                      <Stack direction="row" spacing={1} flexWrap="wrap">
+                        <Chip
+                          size="small"
+                          label={selectedShelter.status}
+                          color={
+                            selectedShelter.status === "open"
+                              ? "success"
+                              : "warning"
+                          }
+                        />
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`${selectedShelter.currentOccupancy}/${selectedShelter.capacity} occupied`}
+                        />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        {selectedShelter.district} · {selectedShelter.address}
+                      </Typography>
+                    </Box>
+                  ) : null}
+
+                  <Grid container spacing={1}>
+                    <Grid size={6}>
+                      <TextField
+                        label="Capacity"
+                        size="small"
+                        fullWidth
+                        value={shelterForm.capacity}
+                        onChange={updateShelterForm("capacity")}
+                        inputProps={{ inputMode: "numeric" }}
+                      />
+                    </Grid>
+                    <Grid size={6}>
+                      <TextField
+                        label="Occupancy"
+                        size="small"
+                        fullWidth
+                        value={shelterForm.currentOccupancy}
+                        onChange={updateShelterForm("currentOccupancy")}
+                        inputProps={{ inputMode: "numeric" }}
+                      />
+                    </Grid>
+                    <Grid size={12}>
+                      <CommandSelect
+                        label="Status"
+                        value={shelterForm.status}
+                        onChange={updateShelterForm("status")}
+                      >
+                        <MenuItem value="open">Open</MenuItem>
+                        <MenuItem value="full">Full</MenuItem>
+                        <MenuItem value="closed">Closed</MenuItem>
+                        <MenuItem value="unknown">Unknown</MenuItem>
+                      </CommandSelect>
+                    </Grid>
+                    <Grid size={12}>
+                      <TextField
+                        label="Operational note"
+                        size="small"
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        value={shelterForm.notes}
+                        onChange={updateShelterForm("notes")}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <Button
+                    type="button"
+                    variant="contained"
+                    startIcon={<LifeBuoy size={17} />}
+                    onClick={() => void updateShelterCapacity()}
+                    disabled={shelterBusy}
+                  >
+                    {shelterBusy ? "Updating" : "Update capacity"}
+                  </Button>
+                </Stack>
+              </Paper>
+
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">
                   Operating posture
@@ -1112,6 +1402,16 @@ function CommandCenterApp() {
       </Container>
     </ThemeProvider>
   );
+}
+
+function buildDefaultShelterForm(shelter: ShelterRecord): ShelterFormState {
+  return {
+    shelterId: shelter.id,
+    capacity: `${shelter.capacity}`,
+    currentOccupancy: `${shelter.currentOccupancy}`,
+    status: shelter.status,
+    notes: shelter.notes ?? "",
+  };
 }
 
 export default CommandCenterApp;

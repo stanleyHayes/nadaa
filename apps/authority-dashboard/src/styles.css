@@ -94,11 +94,30 @@ body {
   margin-bottom: 16px;
 }
 
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+.shelter-capacity-summary {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
 .metric-card,
 .surface {
   border: 1px solid rgba(13, 27, 61, 0.08);
   border-radius: 8px !important;
   box-shadow: 0 18px 48px rgba(13, 27, 61, 0.08) !important;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .metric-card {

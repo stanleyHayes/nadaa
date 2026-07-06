@@ -831,17 +831,77 @@ Rules:
 
 `GET /api/v1/shelters/nearby?lat=5.6037&lng=-0.1870`
 
+Returns nearby shelters and recovery support locations sorted by distance.
+
+```json
+{
+  "shelters": [
+    {
+      "id": "00000000-0000-0000-0000-000000000301",
+      "name": "Accra Metro Assembly Shelter",
+      "type": "evacuation_shelter",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "address": "Accra Metropolitan Assembly Hall",
+      "location": {
+        "lat": 5.56,
+        "lng": -0.2
+      },
+      "capacity": 450,
+      "currentOccupancy": 116,
+      "status": "open",
+      "contact": "112",
+      "facilities": ["water", "first_aid", "accessible_entry"],
+      "distanceMeters": 0,
+      "updatedAt": "2026-07-06T12:00:00Z"
+    }
+  ],
+  "recoverySupport": [
+    {
+      "id": "recovery_ama_relief_001",
+      "name": "AMA Relief Distribution Point",
+      "type": "relief_point",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "address": "Independence Avenue recovery desk",
+      "location": {
+        "lat": 5.558,
+        "lng": -0.197
+      },
+      "contact": "112",
+      "services": ["food", "water", "blankets"],
+      "hours": "08:00-20:00",
+      "status": "open",
+      "distanceMeters": 420,
+      "updatedAt": "2026-07-06T12:00:00Z"
+    }
+  ],
+  "generatedAt": "2026-07-06T12:00:00Z"
+}
+```
+
+`GET /api/v1/recovery-support/nearby?lat=5.6037&lng=-0.1870`
+
+Returns only recovery support locations for relief distribution, medical support, recovery registration, water points, and family reunification.
+
+`GET /api/v1/shelters`
+
+Returns all shelter records for command console capacity views.
+
 `PATCH /api/v1/shelters/{id}/occupancy`
 
-Authority only.
+Authority only. Requires authority actor, role, agency, MFA-completed, and request-id headers.
 
 ```json
 {
   "currentOccupancy": 116,
   "capacity": 450,
-  "status": "open"
+  "status": "open",
+  "notes": "Capacity confirmed by district shelter desk."
 }
 ```
+
+Allowed update roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. `currentOccupancy` cannot exceed `capacity`. `status` must be `open`, `full`, `closed`, or `unknown`.
 
 ### Integrations
 

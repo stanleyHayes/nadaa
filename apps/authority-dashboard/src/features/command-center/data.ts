@@ -6,6 +6,7 @@ import type {
   Coordinates,
   IncidentStatus,
   RiskLevel,
+  ShelterRecord,
 } from "@nadaa/shared-types";
 import type {
   AssignmentAgencyOption,
@@ -43,6 +44,59 @@ export const assignmentAgencyOptions: AssignmentAgencyOption[] = [
     name: "Accra Metropolitan Assembly",
     type: "district_assembly",
     responderLead: "Metro Works Supervisor",
+  },
+];
+
+const shelterFixtureUpdatedAt = "2026-07-06T12:00:00Z";
+
+export const fallbackShelters: ShelterRecord[] = [
+  {
+    id: "00000000-0000-0000-0000-000000000301",
+    name: "Accra Metro Assembly Shelter",
+    type: "evacuation_shelter",
+    region: "Greater Accra",
+    district: "Accra Metropolitan",
+    address: "Accra Metropolitan Assembly Hall",
+    location: { lat: 5.56, lng: -0.2 },
+    capacity: 450,
+    currentOccupancy: 116,
+    status: "open",
+    contact: "112",
+    facilities: ["water", "first_aid", "accessible_entry", "family_area"],
+    notes: "Primary flood evacuation shelter for central Accra.",
+    updatedAt: shelterFixtureUpdatedAt,
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000302",
+    name: "Osu Community Hall",
+    type: "temporary_shelter",
+    region: "Greater Accra",
+    district: "Korle Klottey",
+    address: "Osu Community Hall",
+    location: { lat: 5.55, lng: -0.18 },
+    capacity: 220,
+    currentOccupancy: 34,
+    status: "open",
+    contact: "112",
+    facilities: ["water", "first_aid", "family_area"],
+    notes: "Short-term shelter and reunification point.",
+    updatedAt: shelterFixtureUpdatedAt,
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000303",
+    name: "Kaneshie Social Centre",
+    type: "relief_shelter",
+    region: "Greater Accra",
+    district: "Okaikwei South",
+    address: "Kaneshie Market Road",
+    location: { lat: 5.566, lng: -0.242 },
+    capacity: 180,
+    currentOccupancy: 180,
+    status: "full",
+    contact: "112",
+    facilities: ["water", "food_distribution"],
+    notes: "At capacity; redirect new arrivals unless occupancy changes.",
+    updatedAt: shelterFixtureUpdatedAt,
   },
 ];
 

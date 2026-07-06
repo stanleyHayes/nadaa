@@ -13,6 +13,7 @@ const optionalServiceTargets = [
   ["integration-service", "STAGING_INTEGRATION_SERVICE_URL"],
   ["notification-service", "STAGING_NOTIFICATION_SERVICE_URL"],
   ["risk-service", "STAGING_RISK_SERVICE_URL"],
+  ["shelter-service", "STAGING_SHELTER_SERVICE_URL"],
 ];
 
 for (const [name, envKey, expectedTitle] of requiredWebTargets) {

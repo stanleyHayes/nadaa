@@ -76,6 +76,13 @@ cd services/guide-service
 go run .
 ```
 
+Run shelter service:
+
+```bash
+cd services/shelter-service
+go run .
+```
+
 Run integration service:
 
 ```bash
@@ -103,6 +110,7 @@ pnpm smoke:incident-merge
 pnpm smoke:incident-workflow
 pnpm smoke:risk
 pnpm smoke:guide
+pnpm smoke:shelter
 pnpm smoke:integration
 ```
 
@@ -141,6 +149,7 @@ Initial expected groups:
 - `NADAA_AUTH_TOKEN_SECRET`
 - `NADAA_ALERT_ADDR`
 - `NADAA_NOTIFICATION_ADDR`
+- `NADAA_SHELTER_ADDR`
 - `NADAA_ALERT_SERVICE_URL`
 - `SMS_PROVIDER`
 - `SMS_API_KEY`
@@ -175,8 +184,8 @@ The first-pass GitHub Actions workflows live in `.github/workflows/`.
 - TypeScript type checks.
 - Workspace tests.
 - App and package builds.
-- Go tests for `alert-service`, `auth-service`, `incident-service`, `guide-service`, `integration-service`, `notification-service`, and `risk-service`.
-- Docker build validation for citizen web, authority dashboard, dispatcher web, admin web, alert service, auth service, incident service, guide service, integration service, notification service, and risk service images.
+- Go tests for `alert-service`, `auth-service`, `incident-service`, `guide-service`, `integration-service`, `notification-service`, `risk-service`, and `shelter-service`.
+- Docker build validation for citizen web, authority dashboard, dispatcher web, admin web, alert service, auth service, incident service, guide service, integration service, notification service, risk service, and shelter service images.
 
 `Staging Smoke` runs manually against the GitHub `staging` environment:
 

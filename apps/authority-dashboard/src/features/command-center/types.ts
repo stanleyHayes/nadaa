@@ -8,6 +8,7 @@ import type {
   IncidentRecord,
   IncidentStatus,
   RiskLevel,
+  ShelterStatus,
 } from "@nadaa/shared-types";
 
 export type CommandIncident = IncidentRecord & {
@@ -69,6 +70,14 @@ export type AssignmentFormState = {
   priority: IncidentAssignmentPriority;
   instructions: string;
   responderLead: string;
+};
+
+export type ShelterFormState = {
+  shelterId: string;
+  capacity: string;
+  currentOccupancy: string;
+  status: ShelterStatus;
+  notes: string;
 };
 
 export type AssignmentAgencyOption = {
