@@ -90,6 +90,15 @@ cd services/integration-service
 go run .
 ```
 
+Run ML service:
+
+```bash
+cd services/ml-service
+go run .
+```
+
+Set `NADAA_ML_MODEL_DIR` only when the baseline model artifacts are outside the default repository paths. Set `NADAA_ML_API_URL=http://127.0.0.1:8094/api/v1` on risk-service when risk responses should include ML decision support.
+
 Set `NADAA_IMPORT_SCHEDULER_ENABLED=true` only when the weather/hydrology fixture importer should run on a timer. Override the default interval with `NADAA_IMPORT_SCHEDULER_INTERVAL`, for example `15m`.
 
 Run checks:
@@ -112,6 +121,7 @@ pnpm smoke:incident-abuse
 pnpm smoke:incident-assignment
 pnpm smoke:incident-merge
 pnpm smoke:incident-workflow
+pnpm smoke:ml
 pnpm smoke:risk
 pnpm smoke:guide
 pnpm smoke:shelter
@@ -126,6 +136,7 @@ STAGING_AUTHORITY_URL=http://127.0.0.1:5174 \
 STAGING_DISPATCHER_URL=http://127.0.0.1:5175 \
 STAGING_ADMIN_URL=http://127.0.0.1:5176 \
 STAGING_NOTIFICATION_SERVICE_URL=http://127.0.0.1:8090 \
+STAGING_ML_SERVICE_URL=http://127.0.0.1:8094 \
 pnpm smoke:staging
 ```
 
@@ -188,8 +199,8 @@ The first-pass GitHub Actions workflows live in `.github/workflows/`.
 - TypeScript type checks.
 - Workspace tests.
 - App and package builds.
-- Go tests for `alert-service`, `auth-service`, `incident-service`, `guide-service`, `integration-service`, `notification-service`, `risk-service`, and `shelter-service`.
-- Docker build validation for citizen web, authority dashboard, dispatcher web, admin web, alert service, auth service, incident service, guide service, integration service, notification service, risk service, and shelter service images.
+- Go tests for `alert-service`, `auth-service`, `incident-service`, `guide-service`, `integration-service`, `ml-service`, `notification-service`, `risk-service`, and `shelter-service`.
+- Docker build validation for citizen web, authority dashboard, dispatcher web, admin web, alert service, auth service, incident service, guide service, integration service, ML service, notification service, risk service, and shelter service images.
 
 `Staging Smoke` runs manually against the GitHub `staging` environment:
 

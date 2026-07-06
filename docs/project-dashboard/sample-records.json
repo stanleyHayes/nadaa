@@ -1045,5 +1045,39 @@
       "git diff --check"
     ],
     "notes": "Dependency-free deterministic logistic-regression baseline trained over flood-risk-features.v1. Model metadata, sample predictions, evaluation JSON, evaluation report, false-positive/false-negative review process, validation script, ML-service handoff, docs, QA status, and dashboard record added. Fixture metrics are for contract wiring only, not production readiness."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 6",
+    "epic": "EPIC 7: Flood ML Risk MVP",
+    "story": "Serve ML Predictions Through Risk API",
+    "jiraKey": "NADAA-072",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 13,
+    "actualEffortHours": 3,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-071", "NADAA-021"],
+    "blockers": [],
+    "verification": [
+      "services/ml-service go test ./...",
+      "services/risk-service go test ./...",
+      "pnpm --filter @nadaa/shared-types typecheck",
+      "pnpm smoke:ml on localhost:8094",
+      "RISK_EXPECT_ML=true pnpm smoke:risk with risk-service connected to ml-service",
+      "pnpm validate:docs",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "git diff --check"
+    ],
+    "notes": "ML service prediction endpoint, in-memory prediction logs aligned to ml_predictions, risk-service ML decision-support enrichment, shared ML contracts, no-auto-publish safety flags, smoke/staging/CI/Docker wiring, API/ML/deployment/QA docs, and dashboard record added."
   }
 ]

@@ -62,6 +62,7 @@ jobs:
           - services/incident-service
           - services/guide-service
           - services/integration-service
+          - services/ml-service
           - services/notification-service
           - services/risk-service
           - services/shelter-service
@@ -106,6 +107,8 @@ jobs:
             dockerfile: services/guide-service/Dockerfile
           - name: integration-service
             dockerfile: services/integration-service/Dockerfile
+          - name: ml-service
+            dockerfile: services/ml-service/Dockerfile
           - name: notification-service
             dockerfile: services/notification-service/Dockerfile
           - name: risk-service

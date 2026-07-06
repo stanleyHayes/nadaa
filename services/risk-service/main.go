@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,10 +12,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type server struct {
-	store *riskStore
+	store    *riskStore
+	mlClient *mlClient
 }
 
 type riskStore struct {
@@ -27,6 +31,7 @@ type riskResponse struct {
 	Location           string            `json:"location"`
 	OverallRisk        string            `json:"overallRisk"`
 	Risks              []riskSummary     `json:"risks"`
+	MLPrediction       *mlPrediction     `json:"mlPrediction,omitempty"`
 	NearestShelters    []shelterSummary  `json:"nearestShelters"`
 	NearbyFacilities   []facilitySummary `json:"nearbyFacilities"`
 	RecommendedActions []string          `json:"recommendedActions"`
@@ -37,6 +42,79 @@ type riskSummary struct {
 	Level       string  `json:"level"`
 	Probability float64 `json:"probability"`
 	Reason      string  `json:"reason"`
+}
+
+type mlPrediction struct {
+	ID                     string                `json:"id"`
+	ModelVersion           string                `json:"modelVersion"`
+	HazardType             string                `json:"hazardType"`
+	PredictionTime         string                `json:"predictionTime"`
+	TargetTime             string                `json:"targetTime"`
+	CellID                 string                `json:"cellId"`
+	Region                 string                `json:"region"`
+	District               string                `json:"district"`
+	Community              string                `json:"community"`
+	Probability            float64               `json:"probability"`
+	Severity               string                `json:"severity"`
+	ExpectedOnset          string                `json:"expectedOnset"`
+	Confidence             string                `json:"confidence"`
+	ExplanationFactors     []mlExplanationFactor `json:"explanationFactors"`
+	InputFeatureSetVersion string                `json:"inputFeatureSetVersion"`
+	PredictionLogID        string                `json:"predictionLogId"`
+	HumanReviewRequired    bool                  `json:"humanReviewRequired"`
+	AutoPublishAllowed     bool                  `json:"autoPublishAllowed"`
+	Source                 string                `json:"source"`
+}
+
+type mlExplanationFactor struct {
+	Feature      string  `json:"feature"`
+	Label        string  `json:"label"`
+	Value        any     `json:"value"`
+	Contribution float64 `json:"contribution"`
+	Direction    string  `json:"direction"`
+}
+
+type mlPredictionResponse struct {
+	Prediction mlPredictionPayload `json:"prediction"`
+	Log        mlPredictionLog     `json:"log"`
+}
+
+type mlPredictionPayload struct {
+	ID                     string                `json:"id"`
+	ModelVersion           string                `json:"modelVersion"`
+	HazardType             string                `json:"hazardType"`
+	PredictionTime         string                `json:"predictionTime"`
+	TargetTime             string                `json:"targetTime"`
+	CellID                 string                `json:"cellId"`
+	Region                 string                `json:"region"`
+	District               string                `json:"district"`
+	Community              string                `json:"community"`
+	Probability            float64               `json:"probability"`
+	Severity               string                `json:"severity"`
+	ExpectedOnset          string                `json:"expectedOnset"`
+	Confidence             string                `json:"confidence"`
+	ExplanationFactors     []mlExplanationFactor `json:"explanationFactors"`
+	InputFeatureSetVersion string                `json:"inputFeatureSetVersion"`
+	HumanReviewRequired    bool                  `json:"humanReviewRequired"`
+	AutoPublishAllowed     bool                  `json:"autoPublishAllowed"`
+	Source                 string                `json:"source"`
+}
+
+type mlPredictionLog struct {
+	ID                     string `json:"id"`
+	ModelVersion           string `json:"modelVersion"`
+	InputFeatureSetVersion string `json:"inputFeatureSetVersion"`
+}
+
+type mlPredictionRequest struct {
+	Location      coordinates `json:"location"`
+	RequestedBy   string      `json:"requestedBy"`
+	CorrelationID string      `json:"correlationId"`
+}
+
+type mlClient struct {
+	baseURL    string
+	httpClient *http.Client
 }
 
 type shelterSummary struct {
@@ -121,7 +199,7 @@ func main() {
 }
 
 func newServer() *server {
-	return &server{store: newFixtureRiskStore()}
+	return &server{store: newFixtureRiskStore(), mlClient: newMLClientFromEnv()}
 }
 
 func newFixtureRiskStore() *riskStore {
@@ -216,6 +294,17 @@ func (s *server) riskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	risk := s.store.areaRisk(location)
+	if s.mlClient != nil {
+		if prediction, err := s.mlClient.predict(r.Context(), location); err != nil {
+			log.Printf("ml prediction unavailable: %v", err)
+		} else {
+			risk.MLPrediction = &prediction
+			if riskRank(prediction.Severity) > riskRank(risk.OverallRisk) {
+				risk.OverallRisk = prediction.Severity
+				risk.RecommendedActions = recommendedActions(risk.OverallRisk, risksFloodLevel(risk.Risks))
+			}
+		}
+	}
 	writeJSON(w, http.StatusOK, risk)
 }
 
@@ -424,6 +513,15 @@ func recommendedActions(overall string, floodLevel string) []string {
 	}
 }
 
+func risksFloodLevel(risks []riskSummary) string {
+	for _, risk := range risks {
+		if risk.Type == "flood" {
+			return risk.Level
+		}
+	}
+	return "low"
+}
+
 func inferLocation(location coordinates) string {
 	if location.Lat >= 5.50 && location.Lat <= 5.66 && location.Lng >= -0.28 && location.Lng <= -0.08 {
 		return "Accra Metropolitan"
@@ -493,6 +591,90 @@ func riskRank(level string) int {
 	default:
 		return 1
 	}
+}
+
+func newMLClientFromEnv() *mlClient {
+	baseURL := strings.TrimSpace(os.Getenv("NADAA_ML_API_URL"))
+	if baseURL == "" {
+		return nil
+	}
+	return newMLClient(baseURL, http.DefaultClient)
+}
+
+func newMLClient(baseURL string, httpClient *http.Client) *mlClient {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	return &mlClient{
+		baseURL: strings.TrimRight(baseURL, "/"),
+		httpClient: &http.Client{
+			Transport:     httpClient.Transport,
+			CheckRedirect: httpClient.CheckRedirect,
+			Jar:           httpClient.Jar,
+			Timeout:       2 * time.Second,
+		},
+	}
+}
+
+func (c *mlClient) predict(ctx context.Context, location coordinates) (mlPrediction, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	requestPayload := mlPredictionRequest{
+		Location:      location,
+		RequestedBy:   "risk-service",
+		CorrelationID: fmt.Sprintf("risk_%0.4f_%0.4f", location.Lat, location.Lng),
+	}
+	body, err := json.Marshal(requestPayload)
+	if err != nil {
+		return mlPrediction{}, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/ml/flood/predictions", bytes.NewReader(body))
+	if err != nil {
+		return mlPrediction{}, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return mlPrediction{}, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return mlPrediction{}, fmt.Errorf("ml service returned %d", response.StatusCode)
+	}
+
+	var payload mlPredictionResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		return mlPrediction{}, err
+	}
+	if payload.Prediction.ModelVersion == "" {
+		return mlPrediction{}, fmt.Errorf("ml service returned an empty modelVersion")
+	}
+
+	return mlPrediction{
+		ID:                     payload.Prediction.ID,
+		ModelVersion:           payload.Prediction.ModelVersion,
+		HazardType:             payload.Prediction.HazardType,
+		PredictionTime:         payload.Prediction.PredictionTime,
+		TargetTime:             payload.Prediction.TargetTime,
+		CellID:                 payload.Prediction.CellID,
+		Region:                 payload.Prediction.Region,
+		District:               payload.Prediction.District,
+		Community:              payload.Prediction.Community,
+		Probability:            payload.Prediction.Probability,
+		Severity:               payload.Prediction.Severity,
+		ExpectedOnset:          payload.Prediction.ExpectedOnset,
+		Confidence:             payload.Prediction.Confidence,
+		ExplanationFactors:     payload.Prediction.ExplanationFactors,
+		InputFeatureSetVersion: payload.Prediction.InputFeatureSetVersion,
+		PredictionLogID:        payload.Log.ID,
+		HumanReviewRequired:    payload.Prediction.HumanReviewRequired,
+		AutoPublishAllowed:     payload.Prediction.AutoPublishAllowed,
+		Source:                 payload.Prediction.Source,
+	}, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

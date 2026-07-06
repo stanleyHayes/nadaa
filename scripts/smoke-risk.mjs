@@ -1,5 +1,6 @@
 const baseURL =
   process.env.RISK_API_URL?.trim() || "http://127.0.0.1:8081/api/v1";
+const expectMLPrediction = process.env.RISK_EXPECT_ML === "true";
 
 const checks = [
   ["severe", "lat=5.5600&lng=-0.2000", "severe"],
@@ -31,6 +32,20 @@ for (const [name, query, expectedRisk] of checks) {
     throw new Error(
       `${name} risk smoke returned an incomplete resource payload`,
     );
+  }
+  if (expectMLPrediction) {
+    if (!payload.mlPrediction) {
+      throw new Error(`${name} risk smoke expected an ML prediction`);
+    }
+    if (
+      payload.mlPrediction.humanReviewRequired !== true ||
+      payload.mlPrediction.autoPublishAllowed !== false
+    ) {
+      throw new Error(`${name} risk ML prediction safety flags are invalid`);
+    }
+    if (!payload.mlPrediction.modelVersion) {
+      throw new Error(`${name} risk ML prediction is missing modelVersion`);
+    }
   }
 
   console.log(`${name} risk OK ${payload.overallRisk}`);

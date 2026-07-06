@@ -768,6 +768,70 @@ export interface RiskSummary {
   reason: string;
 }
 
+export interface MLExplanationFactor {
+  feature: string;
+  label: string;
+  value: string | number | boolean;
+  contribution: number;
+  direction: "increases_risk" | "reduces_risk";
+}
+
+export interface MLPredictionSummary {
+  id: string;
+  modelVersion: string;
+  hazardType: HazardType;
+  predictionTime: string;
+  targetTime: string;
+  cellId: string;
+  region: string;
+  district: string;
+  community: string;
+  probability: number;
+  severity: RiskLevel;
+  expectedOnset: string;
+  confidence: "low" | "medium" | "high";
+  explanationFactors: MLExplanationFactor[];
+  inputFeatureSetVersion: string;
+  predictionLogId?: string;
+  humanReviewRequired: boolean;
+  autoPublishAllowed: false;
+  source: "baseline_fixture_model" | "ml-service";
+}
+
+export interface MLPredictionRequest {
+  location: Coordinates;
+  requestedBy?: string;
+  correlationId?: string;
+}
+
+export interface MLPredictionLogRecord {
+  id: string;
+  predictionId: string;
+  modelVersion: string;
+  inputFeatureSetVersion: string;
+  requestedBy?: string;
+  correlationId?: string;
+  location: Coordinates;
+  storageTarget: "ml_predictions";
+  humanReviewRequired: boolean;
+  autoPublishAllowed: false;
+  createdAt: string;
+}
+
+export interface MLPredictionResponse {
+  prediction: MLPredictionSummary;
+  log: MLPredictionLogRecord;
+  safety: {
+    humanReviewRequired: boolean;
+    autoPublishAllowed: false;
+    message: string;
+  };
+}
+
+export interface MLPredictionLogListResponse {
+  logs: MLPredictionLogRecord[];
+}
+
 export interface ShelterSummary {
   id: string;
   name: string;
@@ -866,6 +930,7 @@ export interface AreaRiskResponse {
   location: string;
   overallRisk: RiskLevel;
   risks: RiskSummary[];
+  mlPrediction?: MLPredictionSummary;
   nearestShelters: ShelterSummary[];
   nearbyFacilities: EmergencyFacilitySummary[];
   recommendedActions: string[];

@@ -200,6 +200,15 @@ Every prediction should include:
 - `inputFeatureSetVersion`
 - `createdBy`
 
+Current MVP serving implementation:
+
+- `services/ml-service` exposes `POST /api/v1/ml/flood/predictions` and `GET /api/v1/ml/prediction-logs`.
+- The service loads `data/flood-risk/models/baseline-logistic.v1.json` and `data/flood-risk/models/sample-predictions.v1.json`.
+- `NADAA_ML_MODEL_DIR` can point the service to a mounted model artifact directory.
+- Prediction logs are in-memory during the MVP but use `storageTarget: "ml_predictions"` and carry `modelVersion` plus `inputFeatureSetVersion` for the future database writer.
+- `services/risk-service` attaches `mlPrediction` when `NADAA_ML_API_URL` points to the ML API base URL.
+- Every served prediction has `humanReviewRequired: true` and `autoPublishAllowed: false`.
+
 ## Human Review Rules
 
 - Predictions can inform risk maps.
@@ -221,7 +230,7 @@ Every prediction should include:
 1. Rule-based flood risk score in the risk service.
 2. Feature schema, sample data, generated outputs, and validation script.
 3. Baseline logistic-regression model, sample predictions, and fixture evaluation report.
-4. FastAPI model serving.
-5. Prediction logs in `ml_predictions`.
-6. Risk API integration.
+4. MVP ML HTTP model serving and risk-service decision-support integration.
+5. MVP prediction logs aligned to the `ml_predictions` table shape.
+6. Durable prediction persistence.
 7. Authority review UI before alert drafting or approval.

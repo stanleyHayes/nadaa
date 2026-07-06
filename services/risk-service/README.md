@@ -14,6 +14,8 @@ The MVP baseline uses seed-aligned in-memory fixtures for:
 - NADMO, fire, and ambulance facilities.
 - A recent flood report near Accra Central.
 
-`GET /api/v1/risk` validates coordinates, returns low/high/severe flood risk bands, includes nearby shelters and response facilities within 30 km, and emits recommended citizen actions. This locks in the public API contract while service-level PostGIS persistence, weather/hydrology imports, and ML predictions are added later.
+`GET /api/v1/risk` validates coordinates, returns low/high/severe flood risk bands, includes nearby shelters and response facilities within 30 km, and emits recommended citizen actions.
+
+When `NADAA_ML_API_URL` is set to the ML API base URL, for example `http://127.0.0.1:8094/api/v1`, the response also includes `mlPrediction` decision support with model version, probability, severity, confidence, explanation factors, prediction log id, `humanReviewRequired=true`, and `autoPublishAllowed=false`. ML failures are logged and do not block rule-based risk responses.
 
 Set `NADAA_RISK_ADDR` to override the default `:8081` bind address.

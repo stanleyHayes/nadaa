@@ -11,6 +11,7 @@ const optionalServiceTargets = [
   ["incident-service", "STAGING_INCIDENT_SERVICE_URL"],
   ["guide-service", "STAGING_GUIDE_SERVICE_URL"],
   ["integration-service", "STAGING_INTEGRATION_SERVICE_URL"],
+  ["ml-service", "STAGING_ML_SERVICE_URL"],
   ["notification-service", "STAGING_NOTIFICATION_SERVICE_URL"],
   ["risk-service", "STAGING_RISK_SERVICE_URL"],
   ["shelter-service", "STAGING_SHELTER_SERVICE_URL"],

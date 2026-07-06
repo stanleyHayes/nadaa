@@ -64,6 +64,35 @@ Returns:
       "reason": "Within 1523m of a severe flood zone and 0m of a recent high flood report."
     }
   ],
+  "mlPrediction": {
+    "id": "pred_grid-accra-north-002",
+    "modelVersion": "flood-logistic-baseline-0.1.0",
+    "hazardType": "flood",
+    "predictionTime": "2026-07-06T10:00:00Z",
+    "targetTime": "2026-07-06T12:00:00Z",
+    "cellId": "grid-accra-north-002",
+    "region": "Greater Accra",
+    "district": "Accra Metropolitan",
+    "community": "Accra North",
+    "probability": 0.9828,
+    "severity": "high",
+    "expectedOnset": "24_to_48h",
+    "confidence": "medium",
+    "explanationFactors": [
+      {
+        "feature": "vulnerable_population_pct",
+        "label": "vulnerable population share",
+        "value": 21,
+        "contribution": 0.8183,
+        "direction": "increases_risk"
+      }
+    ],
+    "inputFeatureSetVersion": "flood-risk-features.v1",
+    "predictionLogId": "ml_log_20260706100000_grid_accra_north_002",
+    "humanReviewRequired": true,
+    "autoPublishAllowed": false,
+    "source": "baseline_fixture_model"
+  },
   "nearestShelters": [
     {
       "id": "00000000-0000-0000-0000-000000000301",
@@ -103,6 +132,7 @@ Rules:
 - The MVP baseline uses seed-aligned fixtures for flood zones, fire zones, shelters, facilities, and one recent flood report.
 - Flood scoring is rule-based: inside the flood zone returns `severe`, near both the flood zone and recent report returns `high`, near only a recent report returns `moderate`, and locations outside fixture coverage return `low`.
 - Nearby shelters and facilities are returned within 30 km and sorted by distance.
+- When `NADAA_ML_API_URL` is configured, risk-service attaches `mlPrediction` from the ML service as decision support. The response keeps `humanReviewRequired=true` and `autoPublishAllowed=false`; no public alert can be published from model output without the alert approval workflow.
 
 ## MVP API Contracts
 
@@ -1022,28 +1052,78 @@ Accepts mock outbound incident or alert sync events and returns `202 Accepted`.
 
 ### ML Predictions
 
-`GET /api/v1/ml/predictions/flood?lat=5.6037&lng=-0.1870`
+`POST /api/v1/ml/flood/predictions`
 
 ```json
 {
-  "hazardType": "flood",
-  "modelVersion": "flood-baseline-0.1.0",
-  "predictionTime": "2026-07-06T15:00:00Z",
-  "targetTime": "2026-07-06T18:00:00Z",
-  "probability": 0.82,
-  "severity": "severe",
-  "confidence": "medium",
-  "explanation": [
-    "Heavy rainfall forecast",
-    "Low elevation",
-    "Historical flood zone"
-  ]
+  "location": { "lat": 5.6037, "lng": -0.187 },
+  "requestedBy": "risk-service",
+  "correlationId": "risk_5.6037_-0.1870"
 }
 ```
 
+Response:
+
+```json
+{
+  "prediction": {
+    "id": "pred_grid-accra-north-002",
+    "modelVersion": "flood-logistic-baseline-0.1.0",
+    "hazardType": "flood",
+    "predictionTime": "2026-07-06T10:00:00Z",
+    "targetTime": "2026-07-06T12:00:00Z",
+    "cellId": "grid-accra-north-002",
+    "region": "Greater Accra",
+    "district": "Accra Metropolitan",
+    "community": "Accra North",
+    "location": { "lat": 5.6037, "lng": -0.187 },
+    "distanceMeters": 0,
+    "probability": 0.9828,
+    "severity": "high",
+    "expectedOnset": "24_to_48h",
+    "confidence": "medium",
+    "explanationFactors": [
+      {
+        "feature": "vulnerable_population_pct",
+        "label": "vulnerable population share",
+        "value": 21,
+        "contribution": 0.8183,
+        "direction": "increases_risk"
+      }
+    ],
+    "inputFeatureSetVersion": "flood-risk-features.v1",
+    "humanReviewRequired": true,
+    "autoPublishAllowed": false,
+    "source": "baseline_fixture_model"
+  },
+  "log": {
+    "id": "ml_log_20260706100000_grid_accra_north_002",
+    "predictionId": "pred_grid-accra-north-002",
+    "modelVersion": "flood-logistic-baseline-0.1.0",
+    "inputFeatureSetVersion": "flood-risk-features.v1",
+    "requestedBy": "risk-service",
+    "correlationId": "risk_5.6037_-0.1870",
+    "location": { "lat": 5.6037, "lng": -0.187 },
+    "storageTarget": "ml_predictions",
+    "humanReviewRequired": true,
+    "autoPublishAllowed": false,
+    "createdAt": "2026-07-06T10:01:00Z"
+  },
+  "safety": {
+    "humanReviewRequired": true,
+    "autoPublishAllowed": false,
+    "message": "Model output is decision support only and cannot publish alerts without authority review and approval."
+  }
+}
+```
+
+`GET /api/v1/ml/prediction-logs`
+
+Returns in-memory MVP prediction log records. Each record is aligned to the `ml_predictions` storage target and includes model version and input feature set version.
+
 `POST /api/v1/alerts/from-prediction/{predictionId}`
 
-Creates an alert draft only. It must still pass approval.
+Creates an alert draft only. It must still pass approval. This endpoint remains planned for NADAA-073 and later; NADAA-072 does not auto-create or auto-publish alerts.
 
 ## Phase 2 API Areas
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -91,10 +92,67 @@ func TestRiskHandlerReturnsLowRiskOutsideFixtureZones(t *testing.T) {
 	}
 }
 
+func TestRiskHandlerIncludesMLPredictionWhenConfigured(t *testing.T) {
+	mlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/ml/flood/predictions" || r.Method != http.MethodPost {
+			t.Fatalf("unexpected ML request %s %s", r.Method, r.URL.Path)
+		}
+		writeJSON(w, http.StatusOK, mlPredictionResponse{
+			Prediction: mlPredictionPayload{
+				ID:                     "pred_grid-accra-central-001",
+				ModelVersion:           "flood-logistic-baseline-0.1.0",
+				HazardType:             "flood",
+				PredictionTime:         "2026-07-06T10:00:00Z",
+				TargetTime:             "2026-07-06T12:00:00Z",
+				CellID:                 "grid-accra-central-001",
+				Region:                 "Greater Accra",
+				District:               "Accra Metropolitan",
+				Community:              "Accra Central",
+				Probability:            0.9993,
+				Severity:               "severe",
+				ExpectedOnset:          "within_24h",
+				Confidence:             "medium",
+				InputFeatureSetVersion: "flood-risk-features.v1",
+				HumanReviewRequired:    true,
+				AutoPublishAllowed:     false,
+				Source:                 "baseline_fixture_model",
+			},
+			Log: mlPredictionLog{
+				ID:                     "ml_log_test",
+				ModelVersion:           "flood-logistic-baseline-0.1.0",
+				InputFeatureSetVersion: "flood-risk-features.v1",
+			},
+		})
+	}))
+	defer mlServer.Close()
+
+	srv := newServer()
+	srv.mlClient = newMLClient(fmt.Sprintf("%s/api/v1", mlServer.URL), mlServer.Client())
+
+	payload := requestRiskFromServer(t, srv, "/api/v1/risk?lat=5.5600&lng=-0.2000")
+	if payload.MLPrediction == nil {
+		t.Fatalf("expected ML prediction in risk response, got %#v", payload)
+	}
+	if payload.MLPrediction.ModelVersion != "flood-logistic-baseline-0.1.0" {
+		t.Fatalf("expected model version in risk response, got %#v", payload.MLPrediction)
+	}
+	if !payload.MLPrediction.HumanReviewRequired || payload.MLPrediction.AutoPublishAllowed {
+		t.Fatalf("expected human review and no auto-publish, got %#v", payload.MLPrediction)
+	}
+	if payload.MLPrediction.PredictionLogID != "ml_log_test" {
+		t.Fatalf("expected prediction log id, got %#v", payload.MLPrediction)
+	}
+}
+
 func requestRisk(t *testing.T, path string) riskResponse {
 	t.Helper()
 
-	srv := newServer()
+	return requestRiskFromServer(t, newServer(), path)
+}
+
+func requestRiskFromServer(t *testing.T, srv *server, path string) riskResponse {
+	t.Helper()
+
 	request := httptest.NewRequest(http.MethodGet, path, nil)
 	response := httptest.NewRecorder()
 

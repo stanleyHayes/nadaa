@@ -16,28 +16,28 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 
 ## MVP Test Matrix
 
-| Flow                         | Primary Stories                            | Test Type          | Acceptance Focus                                                                                   | Status                                                      |
-| ---------------------------- | ------------------------------------------ | ------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Citizen risk check           | NADAA-021, NADAA-022                       | API, E2E           | Location lookup returns risk, shelters, guidance, loading/error states                             | MVP API/UI smoke covered                                    |
-| Agency auth, roles, and MFA  | NADAA-011                                  | API, security      | Agency membership, role catalog, MFA-required login, admin-only creation, forbidden role checks    | MVP API/security tests covered                              |
-| Audit logging foundation     | NADAA-012                                  | API, security      | Actor/action/target metadata, before/after snapshots, RBAC denial events, system-admin audit read  | MVP API/security tests covered                              |
-| Citizen incident report      | NADAA-030, NADAA-032                       | API, E2E           | GPS, hazard type, description, urgency, affected people, contact permission                        | MVP API/UI smoke covered                                    |
-| Media upload                 | NADAA-031                                  | API, security      | File type/size validation, private storage, incident linkage                                       | MVP API/UI smoke covered                                    |
-| Anonymous report privacy     | NADAA-090                                  | API, security      | Identity hidden where policy allows, contact permission honored                                    | MVP API/UI smoke covered                                    |
-| Duplicate detection          | NADAA-033, NADAA-043                       | Unit, API          | Nearby/time-window duplicate candidates are reviewable, mergeable, and traceable                   | MVP API/UI smoke covered                                    |
-| Authority incident map       | NADAA-040                                  | E2E                | Filters, map/list sync, role-protected access, loading/empty/error fallback                        | MVP UI smoke covered                                        |
-| Incident verification/status | NADAA-041                                  | API, E2E, audit    | Valid transitions, invalid transition rejection, closure notes                                     | MVP API/UI smoke covered                                    |
-| Agency assignment/timeline   | NADAA-042                                  | API, E2E, audit    | Assignment permissions, assigned-agency filtering, timeline event creation                         | MVP API/UI smoke covered                                    |
-| Abuse and false reports      | NADAA-091                                  | API, E2E, audit    | Rate limits, visible suspicion signals, review decisions, false-report resolution notes            | MVP API/UI smoke covered                                    |
-| Alert draft/approval         | NADAA-050                                  | API, E2E, security | Draft, submit, approve/reject, emergency override audit                                            | MVP API/UI smoke covered                                    |
-| Geofenced targeting          | NADAA-051                                  | API, geospatial    | District/radius/custom geometry stored and previewable                                             | MVP API/UI smoke covered                                    |
-| Alert feed/delivery logs     | NADAA-052                                  | API, E2E           | Current/expired alerts visible, mock delivery attempts logged                                      | MVP API/UI smoke covered                                    |
-| Emergency guides offline     | NADAA-060, NADAA-061                       | API, E2E/PWA       | Guide API/content model, language fallback, citizen guide browsing, and offline cache              | MVP API/UI smoke covered                                    |
-| Shelter lookup/update        | NADAA-062                                  | API, E2E           | Nearby lookup, occupancy update permission, map/list display                                       | MVP API/UI smoke covered                                    |
-| Flood ML review              | NADAA-070, NADAA-071, NADAA-072, NADAA-073 | Model, API, E2E    | Confidence, model version, explanation, no auto-publish                                            | Feature pipeline and baseline model covered; API/UI pending |
-| Agency integration contracts | NADAA-080                                  | API, Integration   | Partner matrix, ownership, cadence, payloads, auth, retry/dead-letter behavior, mock adapters      | Contract API covered                                        |
-| Weather/hydrology import     | NADAA-081                                  | Integration        | Fixture import, source metadata, persisted observation shape, retryable failures, scheduled hook   | MVP API smoke covered                                       |
-| Admin governance console     | NADAA-014                                  | E2E, security      | Admin-only access shell, agency/user/MFA views, audit trace, data-source and alert-rule visibility | MVP UI smoke covered                                        |
+| Flow                         | Primary Stories                            | Test Type          | Acceptance Focus                                                                                   | Status                                                                       |
+| ---------------------------- | ------------------------------------------ | ------------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Citizen risk check           | NADAA-021, NADAA-022                       | API, E2E           | Location lookup returns risk, shelters, guidance, loading/error states                             | MVP API/UI smoke covered                                                     |
+| Agency auth, roles, and MFA  | NADAA-011                                  | API, security      | Agency membership, role catalog, MFA-required login, admin-only creation, forbidden role checks    | MVP API/security tests covered                                               |
+| Audit logging foundation     | NADAA-012                                  | API, security      | Actor/action/target metadata, before/after snapshots, RBAC denial events, system-admin audit read  | MVP API/security tests covered                                               |
+| Citizen incident report      | NADAA-030, NADAA-032                       | API, E2E           | GPS, hazard type, description, urgency, affected people, contact permission                        | MVP API/UI smoke covered                                                     |
+| Media upload                 | NADAA-031                                  | API, security      | File type/size validation, private storage, incident linkage                                       | MVP API/UI smoke covered                                                     |
+| Anonymous report privacy     | NADAA-090                                  | API, security      | Identity hidden where policy allows, contact permission honored                                    | MVP API/UI smoke covered                                                     |
+| Duplicate detection          | NADAA-033, NADAA-043                       | Unit, API          | Nearby/time-window duplicate candidates are reviewable, mergeable, and traceable                   | MVP API/UI smoke covered                                                     |
+| Authority incident map       | NADAA-040                                  | E2E                | Filters, map/list sync, role-protected access, loading/empty/error fallback                        | MVP UI smoke covered                                                         |
+| Incident verification/status | NADAA-041                                  | API, E2E, audit    | Valid transitions, invalid transition rejection, closure notes                                     | MVP API/UI smoke covered                                                     |
+| Agency assignment/timeline   | NADAA-042                                  | API, E2E, audit    | Assignment permissions, assigned-agency filtering, timeline event creation                         | MVP API/UI smoke covered                                                     |
+| Abuse and false reports      | NADAA-091                                  | API, E2E, audit    | Rate limits, visible suspicion signals, review decisions, false-report resolution notes            | MVP API/UI smoke covered                                                     |
+| Alert draft/approval         | NADAA-050                                  | API, E2E, security | Draft, submit, approve/reject, emergency override audit                                            | MVP API/UI smoke covered                                                     |
+| Geofenced targeting          | NADAA-051                                  | API, geospatial    | District/radius/custom geometry stored and previewable                                             | MVP API/UI smoke covered                                                     |
+| Alert feed/delivery logs     | NADAA-052                                  | API, E2E           | Current/expired alerts visible, mock delivery attempts logged                                      | MVP API/UI smoke covered                                                     |
+| Emergency guides offline     | NADAA-060, NADAA-061                       | API, E2E/PWA       | Guide API/content model, language fallback, citizen guide browsing, and offline cache              | MVP API/UI smoke covered                                                     |
+| Shelter lookup/update        | NADAA-062                                  | API, E2E           | Nearby lookup, occupancy update permission, map/list display                                       | MVP API/UI smoke covered                                                     |
+| Flood ML review              | NADAA-070, NADAA-071, NADAA-072, NADAA-073 | Model, API, E2E    | Confidence, model version, explanation, no auto-publish                                            | Feature pipeline, baseline model, and serving API covered; review UI pending |
+| Agency integration contracts | NADAA-080                                  | API, Integration   | Partner matrix, ownership, cadence, payloads, auth, retry/dead-letter behavior, mock adapters      | Contract API covered                                                         |
+| Weather/hydrology import     | NADAA-081                                  | Integration        | Fixture import, source metadata, persisted observation shape, retryable failures, scheduled hook   | MVP API smoke covered                                                        |
+| Admin governance console     | NADAA-014                                  | E2E, security      | Admin-only access shell, agency/user/MFA views, audit trace, data-source and alert-rule visibility | MVP UI smoke covered                                                         |
 
 ## Current Sprint 0 Commands
 
@@ -59,6 +59,7 @@ pnpm smoke:incident-abuse
 pnpm smoke:incident-assignment
 pnpm smoke:incident-merge
 pnpm smoke:incident-workflow
+pnpm smoke:ml
 pnpm smoke:risk
 pnpm smoke:guide
 pnpm smoke:integration
@@ -73,6 +74,7 @@ pnpm smoke:integration
 `pnpm smoke:incident-assignment` expects the incident service on port `8084`.
 `pnpm smoke:incident-merge` expects the incident service on port `8084`.
 `pnpm smoke:incident-workflow` expects the incident service on port `8084`.
+`pnpm smoke:ml` expects the ML service on port `8094`.
 `pnpm smoke:risk` expects the risk service on port `8081`.
 `pnpm smoke:guide` expects the guide service on port `8086`.
 `pnpm smoke:integration` expects the integration service on port `8088`.

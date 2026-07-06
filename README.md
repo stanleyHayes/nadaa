@@ -92,6 +92,15 @@ cd services/risk-service
 go run .
 ```
 
+Run the ML service:
+
+```bash
+cd services/ml-service
+go run .
+```
+
+Set `NADAA_ML_API_URL=http://127.0.0.1:8094/api/v1` on risk-service to include baseline flood predictions in area risk responses. With ML service running on `:8094`, verify model serving with `pnpm smoke:ml`.
+
 Run the Go auth service:
 
 ```bash
