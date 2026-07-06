@@ -78,14 +78,16 @@ Coordination rules:
 | ID | Phase/Sprint | Work Item | Status | Owner | Branch/PR | Dependencies | Last Update | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | NADAA-001 | MVP Sprint 0 | Create Repository And Monorepo Foundation | Done | Codex | main | None | 2026-07-06 | Monorepo foundation, brand assets, starter apps, risk service, infra, docs, and Git remote are in place. |
-| NADAA-002 | MVP Sprint 0 | Define Product, API, Security, ML, And Deployment Docs | Todo | Unassigned | TBD | NADAA-001 | 2026-07-06 | Use `spec.md` as source of truth. |
-| NADAA-003 | MVP Sprint 0 | Create Delivery Dashboard Data Contract | Todo | Unassigned | TBD | NADAA-001 | 2026-07-06 | Align with workflow manuals. |
+| NADAA-002 | MVP Sprint 0 | Define Product, API, Security, ML, And Deployment Docs | Done | Codex | main | NADAA-001 | 2026-07-06 | Product, architecture, API, security, ML, deployment, data ownership, and integration assumptions documented. |
+| NADAA-003 | MVP Sprint 0 | Create Delivery Dashboard Data Contract | Done | Codex | main | NADAA-001 | 2026-07-06 | Dashboard schema, sample records, README, and validation script added under `docs/project-dashboard/`. |
 | NADAA-100 | MVP Sprint 0 | Build Test Strategy And QA Matrix | Todo | Unassigned | TBD | NADAA-002 | 2026-07-06 | Seed QA matrix before implementation grows. |
 
 ### Agent Handoff Log
 
 | Date | Agent | Item | Status | Handoff Notes |
 | --- | --- | --- | --- | --- |
+| 2026-07-06 | Codex | NADAA-002/NADAA-003 | Done | Verified `pnpm validate:dashboard`, `pnpm typecheck`, `pnpm build`, and `pnpm go:test`. |
+| 2026-07-06 | Codex | NADAA-002/NADAA-003 | In Progress | Claimed documentation expansion and delivery dashboard contract. |
 | 2026-07-06 | Codex | NADAA-001 | Done | Verified `pnpm typecheck`, `pnpm build`, `pnpm go:test`, and app HTTP smoke checks on ports 5173 and 5174. |
 | 2026-07-06 | Codex | NADAA-001 | In Progress | Claimed repository foundation and initial scaffold. |
 | 2026-07-06 | Codex | agent_plan.md | Done | Initial plan created and expanded for multi-agent coordination. |
@@ -1430,8 +1432,8 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | ID | Phase | Sprint | Story | Status | Owner | Branch/PR | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | NADAA-001 | MVP | Sprint 0 | Create Repository And Monorepo Foundation | Done | Codex | main | Monorepo foundation, starter apps, risk service, infra, and docs created. |
-| NADAA-002 | MVP | Sprint 0 | Define Product, API, Security, ML, And Deployment Docs | Todo | Unassigned | TBD | Depends on NADAA-001. |
-| NADAA-003 | MVP | Sprint 0 | Create Delivery Dashboard Data Contract | Todo | Unassigned | TBD | Depends on NADAA-001. |
+| NADAA-002 | MVP | Sprint 0 | Define Product, API, Security, ML, And Deployment Docs | Done | Codex | main | Docs expanded and linked from README. |
+| NADAA-003 | MVP | Sprint 0 | Create Delivery Dashboard Data Contract | Done | Codex | main | Schema, sample records, and validation script added. |
 | NADAA-010 | MVP | Sprint 1 | Implement Citizen Authentication | Todo | Unassigned | TBD | Depends on NADAA-001. |
 | NADAA-011 | MVP | Sprint 1 | Implement Agency Users, Roles, And MFA | Todo | Unassigned | TBD | Depends on NADAA-010. |
 | NADAA-012 | MVP | Sprint 1 | Implement Audit Logging Foundation | Todo | Unassigned | TBD | Depends on NADAA-011. |
@@ -1500,11 +1502,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 
 Start here:
 
-1. NADAA-002 Define Product, API, Security, ML, And Deployment Docs.
-2. NADAA-003 Create Delivery Dashboard Data Contract.
-3. NADAA-020 Set Up PostGIS And Core Geospatial Models.
-4. NADAA-010 Implement Citizen Authentication.
-5. NADAA-030 Implement Incident Reporting API.
+1. NADAA-100 Build Test Strategy And QA Matrix.
+2. NADAA-020 Set Up PostGIS And Core Geospatial Models.
+3. NADAA-010 Implement Citizen Authentication.
+4. NADAA-030 Implement Incident Reporting API.
+5. NADAA-101 Set Up CI/CD And Staging Environment.
 
 ## Key Risks And Early Decisions
 
@@ -1532,6 +1534,7 @@ Start here:
 
 | Date | Update | Owner | Status |
 | --- | --- | --- | --- |
+| 2026-07-06 | Completed NADAA-002 and NADAA-003 with expanded product/API/security/ML/deployment docs, dashboard tracking schema, sample records, and validation script. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-001 initial monorepo foundation with React/Vite citizen and authority apps, shared brand/types packages, Go risk service, local infra, docs, dependency lockfile, and Git remote setup. | Codex | Complete |
 | 2026-07-06 | Expanded Phase 2 and Phase 3 into detailed epics, stories, tasks, sprint plans, and master status trackers. | Codex | Complete |
 | 2026-07-06 | Created initial agent plan from repository documents. | Codex | Complete |

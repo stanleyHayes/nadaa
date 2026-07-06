@@ -2,6 +2,48 @@
 
 Base path: `/api/v1`
 
+All request and response bodies are JSON unless a media upload flow explicitly uses signed upload URLs or multipart form data.
+
+## Common Conventions
+
+### Authentication
+
+- Citizen endpoints accept citizen access tokens where identity is required.
+- Public safety read endpoints may allow anonymous access when no personal data is returned.
+- Authority endpoints require agency-user access tokens and role checks.
+- MFA is required before authority users can perform sensitive actions.
+
+### Error Shape
+
+```json
+{
+  "error": {
+    "code": "invalid_coordinates",
+    "message": "lat and lng query parameters are required",
+    "requestId": "req_01H..."
+  }
+}
+```
+
+### Pagination
+
+List endpoints should support:
+
+- `limit`
+- `cursor`
+- `sort`
+- filter-specific query parameters
+
+### Audit Headers
+
+Authority write endpoints should preserve:
+
+- actor user id
+- agency id
+- request id
+- IP/device metadata where available
+- target resource id
+
 ## Current Starter Endpoint
 
 ### Check Area Risk
@@ -27,18 +69,230 @@ Returns:
 }
 ```
 
-## Planned MVP Endpoints
+## MVP API Contracts
 
-- `POST /api/v1/auth/citizens/register`
-- `POST /api/v1/auth/citizens/login`
-- `POST /api/v1/incidents`
-- `GET /api/v1/incidents`
-- `PATCH /api/v1/incidents/{id}/status`
-- `POST /api/v1/incidents/{id}/assignments`
-- `POST /api/v1/alerts`
-- `POST /api/v1/alerts/{id}/submit`
-- `POST /api/v1/alerts/{id}/approve`
-- `GET /api/v1/alerts`
-- `GET /api/v1/guides`
-- `GET /api/v1/shelters/nearby`
+### Citizen Auth
+
+`POST /api/v1/auth/citizens/register`
+
+```json
+{
+  "name": "Ama Mensah",
+  "phone": "+233200000000",
+  "preferredLanguage": "en",
+  "homeLocation": {
+    "lat": 5.6037,
+    "lng": -0.187
+  },
+  "contactPermission": true
+}
+```
+
+`POST /api/v1/auth/citizens/login`
+
+```json
+{
+  "phone": "+233200000000",
+  "otp": "123456"
+}
+```
+
+### Agency Auth
+
+`POST /api/v1/auth/agency-users`
+
+Authority/admin only.
+
+```json
+{
+  "name": "Dispatcher One",
+  "email": "dispatcher@nadaa.example",
+  "phone": "+233200000001",
+  "agencyId": "agency_nadmo_ama",
+  "role": "dispatcher"
+}
+```
+
+`POST /api/v1/auth/agency-users/{id}/mfa/setup`
+
+`POST /api/v1/auth/agency-users/{id}/mfa/verify`
+
+### Incident Reporting
+
+`POST /api/v1/incidents`
+
+```json
+{
+  "type": "flood",
+  "description": "Road is flooded and vehicles are trapped",
+  "location": {
+    "lat": 5.579,
+    "lng": -0.212
+  },
+  "peopleAffected": 12,
+  "injuriesReported": false,
+  "urgency": "high",
+  "anonymous": false,
+  "contactPermission": true,
+  "accessibilityNeeds": "Elderly person needs help evacuating",
+  "media": ["media_01H..."]
+}
+```
+
+Response:
+
+```json
+{
+  "id": "inc_01H...",
+  "reference": "INC-0241",
+  "status": "reported",
+  "duplicateCandidates": []
+}
+```
+
+### Media Upload
+
+`POST /api/v1/media/uploads`
+
+```json
+{
+  "purpose": "incident_media",
+  "fileName": "flooded-road.jpg",
+  "contentType": "image/jpeg",
+  "sizeBytes": 820000
+}
+```
+
+Returns a signed upload URL or controlled upload target.
+
+### Incident Command
+
+`GET /api/v1/incidents?hazard=flood&district=ama&status=reported`
+
+`PATCH /api/v1/incidents/{id}/status`
+
+```json
+{
+  "status": "verified",
+  "note": "Confirmed through duplicate reports and dispatcher call"
+}
+```
+
+`POST /api/v1/incidents/{id}/assignments`
+
+```json
+{
+  "agencyId": "agency_fire_ama",
+  "priority": "high",
+  "instructions": "Check trapped vehicles near the market road"
+}
+```
+
+`POST /api/v1/incidents/{id}/merge`
+
+```json
+{
+  "duplicateIncidentIds": ["inc_02H...", "inc_03H..."],
+  "reason": "Same flood location and reports within 10 minutes"
+}
+```
+
+### Alerts
+
+`POST /api/v1/alerts`
+
+```json
+{
+  "title": "Severe Flood Warning",
+  "hazardType": "flood",
+  "severity": "severe_warning",
+  "message": "Avoid low-lying roads and move to higher ground.",
+  "target": {
+    "type": "district",
+    "ids": ["ama", "tema"]
+  },
+  "startsAt": "2026-07-06T16:00:00Z",
+  "expiresAt": "2026-07-07T18:00:00Z",
+  "recommendedAction": "Prepare to evacuate if instructed.",
+  "evacuationRequired": false,
+  "shelterIds": ["shelter-ama-001"]
+}
+```
+
+`POST /api/v1/alerts/{id}/submit`
+
+`POST /api/v1/alerts/{id}/approve`
+
+`POST /api/v1/alerts/{id}/reject`
+
+`GET /api/v1/alerts?current=true&lat=5.6037&lng=-0.1870`
+
+### Guidance And Shelters
+
+`GET /api/v1/guides?hazard=flood&stage=before&language=en`
+
+`GET /api/v1/shelters/nearby?lat=5.6037&lng=-0.1870`
+
+`PATCH /api/v1/shelters/{id}/occupancy`
+
+Authority only.
+
+```json
+{
+  "currentOccupancy": 116,
+  "capacity": 450,
+  "status": "open"
+}
+```
+
+### ML Predictions
+
+`GET /api/v1/ml/predictions/flood?lat=5.6037&lng=-0.1870`
+
+```json
+{
+  "hazardType": "flood",
+  "modelVersion": "flood-baseline-0.1.0",
+  "predictionTime": "2026-07-06T15:00:00Z",
+  "targetTime": "2026-07-06T18:00:00Z",
+  "probability": 0.82,
+  "severity": "severe",
+  "confidence": "medium",
+  "explanation": [
+    "Heavy rainfall forecast",
+    "Low elevation",
+    "Historical flood zone"
+  ]
+}
+```
+
+`POST /api/v1/alerts/from-prediction/{predictionId}`
+
+Creates an alert draft only. It must still pass approval.
+
+## Phase 2 API Areas
+
+- SMS/USSD inbound webhook.
+- WhatsApp inbound webhook.
+- Voice alert asset review.
+- Volunteer registration and assignment.
+- Hospital capacity updates.
+- Relief distribution point management.
+- Donation/aid request and pledge management.
+- Road closure management.
+- Evacuation route planning.
+- Missing persons intake and review.
+- Property damage report/export.
+- Drone/satellite imagery ingestion.
+
+## Phase 3 API Areas
+
+- Flood simulation jobs and map layers.
+- AI incident triage suggestions and overrides.
+- Computer vision evidence review.
+- Predictive resource positioning.
+- School preparedness profiles and drill logs.
+- Campaign publishing.
+- Open data catalog and exports.
+- Cell broadcast adapter and simulator.
 

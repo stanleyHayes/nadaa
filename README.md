@@ -69,9 +69,18 @@ go run .
 
 Use `agent_plan.md` as the living project board. Before starting work, agents should claim a row in the Active Work Board, update the Master Story Tracker, and record handoff notes when finished or blocked.
 
+## Documentation
+
+- [Product Scope](docs/product.md)
+- [Architecture](docs/architecture.md)
+- [API](docs/api.md)
+- [Security](docs/security.md)
+- [ML](docs/ml.md)
+- [Deployment](docs/deployment.md)
+- [Project Dashboard Contract](docs/project-dashboard/README.md)
+
 ## Source Documents
 
 - `spec.md`
 - `AI_Native_Software_Engineering_Operations_Manual.docx`
 - `AI_Development_Workflow_Training_Manual.docx`
-
