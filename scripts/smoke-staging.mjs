@@ -2,6 +2,7 @@ const requiredWebTargets = [
   ["citizen-web", "STAGING_CITIZEN_URL", "NADAA Citizen"],
   ["authority-dashboard", "STAGING_AUTHORITY_URL", "NADAA Authority Dashboard"],
   ["dispatcher-web", "STAGING_DISPATCHER_URL", "NADAA Dispatch Command"],
+  ["admin-web", "STAGING_ADMIN_URL", "NADAA Admin Console"],
 ];
 
 const optionalServiceTargets = [

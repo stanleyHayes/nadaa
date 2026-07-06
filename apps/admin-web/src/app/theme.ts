@@ -1,13 +1,13 @@
 import { createTheme } from "@mui/material";
 import { nadaaBrand } from "@nadaa/brand";
 
-export const citizenTheme = createTheme({
+export const adminTheme = createTheme({
   palette: {
     primary: { main: nadaaBrand.colors.navy },
     secondary: { main: nadaaBrand.colors.green },
     error: { main: nadaaBrand.colors.red },
     warning: { main: nadaaBrand.colors.gold },
-    background: { default: "#F4F7FB", paper: nadaaBrand.colors.white },
+    background: { default: "#F3F6FA", paper: "#FFFFFF" },
     text: {
       primary: nadaaBrand.colors.ink,
       secondary: nadaaBrand.colors.slate,
@@ -23,7 +23,7 @@ export const citizenTheme = createTheme({
     h4: { fontWeight: 800 },
     h5: { fontWeight: 800 },
     h6: { fontWeight: 800 },
-    button: { fontWeight: 800, textTransform: "none" },
+    button: { textTransform: "none", fontWeight: 800 },
   },
   components: {
     MuiPaper: {

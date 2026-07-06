@@ -1,0 +1,194 @@
+:root {
+  color: #101828;
+  background: #f3f6fa;
+  font-family:
+    "Outfit",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.topbar {
+  background: #0d1b3d;
+  border-bottom: 4px solid #f4c20d;
+}
+
+.toolbar {
+  min-height: 76px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand-lockup {
+  min-width: 260px;
+}
+
+.brand-logo {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.topbar-actions {
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.session-chip {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+.dashboard-shell {
+  padding-top: 24px;
+  padding-bottom: 40px;
+}
+
+.access-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.access-panel {
+  max-width: 560px;
+  padding: 28px;
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.page-heading {
+  margin-bottom: 18px;
+}
+
+.feed-alert,
+.feed-progress,
+.view-tabs {
+  margin-bottom: 16px;
+}
+
+.metric-card,
+.surface,
+.data-source-card,
+.rule-card,
+.user-form {
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  border-radius: 8px !important;
+  box-shadow: 0 18px 48px rgba(13, 27, 61, 0.08) !important;
+}
+
+.metric-card,
+.data-source-card,
+.rule-card {
+  height: 100%;
+  padding: 18px;
+}
+
+.metric-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: #f5f8fc;
+}
+
+.surface,
+.user-form {
+  padding: 20px;
+}
+
+.main-grid,
+.section-stack {
+  margin-top: 20px;
+}
+
+.section-heading {
+  margin-bottom: 16px !important;
+}
+
+.admin-table {
+  overflow-x: auto;
+}
+
+.admin-table table {
+  min-width: 820px;
+}
+
+.agency-row,
+.audit-row {
+  vertical-align: top;
+}
+
+.role-chip,
+.status-chip {
+  min-width: 92px;
+  font-weight: 800 !important;
+}
+
+.mfa-meter {
+  height: 8px !important;
+  border-radius: 8px;
+  background: rgba(13, 27, 61, 0.08) !important;
+}
+
+.mfa-meter .MuiLinearProgress-bar {
+  border-radius: 8px;
+}
+
+.rule-card {
+  border-top: 6px solid #0d1b3d;
+}
+
+.data-source-card {
+  border-top: 6px solid #118d4e;
+}
+
+.empty-state {
+  padding: 28px;
+  text-align: center;
+  border: 1px dashed rgba(13, 27, 61, 0.2);
+  border-radius: 8px;
+  background: #f5f8fc;
+}
+
+@media (max-width: 780px) {
+  .toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+
+  .brand-lockup {
+    min-width: 0;
+  }
+
+  .dashboard-shell {
+    padding-top: 16px;
+  }
+}

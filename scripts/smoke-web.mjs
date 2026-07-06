@@ -1,13 +1,32 @@
 const targets = [
-  ["citizen-web", "http://127.0.0.1:5173/", "NADAA Citizen"],
-  ["authority-dashboard", "http://127.0.0.1:5174/", "NADAA Authority Dashboard"],
-  ["dispatcher-web", "http://127.0.0.1:5175/", "NADAA Dispatch Command"],
+  [
+    "citizen-web",
+    localURL("LOCAL_CITIZEN_URL", "http://127.0.0.1:5173/"),
+    "NADAA Citizen",
+  ],
+  [
+    "authority-dashboard",
+    localURL("LOCAL_AUTHORITY_URL", "http://127.0.0.1:5174/"),
+    "NADAA Authority Dashboard",
+  ],
+  [
+    "dispatcher-web",
+    localURL("LOCAL_DISPATCHER_URL", "http://127.0.0.1:5175/"),
+    "NADAA Dispatch Command",
+  ],
+  [
+    "admin-web",
+    localURL("LOCAL_ADMIN_URL", "http://127.0.0.1:5176/"),
+    "NADAA Admin Console",
+  ],
 ];
 
 for (const [name, url, expectedTitle] of targets) {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`${name} smoke check failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `${name} smoke check failed: ${response.status} ${response.statusText}`,
+    );
   }
 
   const html = await response.text();
@@ -16,4 +35,9 @@ for (const [name, url, expectedTitle] of targets) {
   }
 
   console.log(`${name} OK ${response.status}`);
+}
+
+function localURL(envKey, fallback) {
+  const value = process.env[envKey]?.trim();
+  return value || fallback;
 }

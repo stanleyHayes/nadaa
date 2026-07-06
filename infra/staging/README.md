@@ -9,6 +9,7 @@ Create a GitHub environment named `staging` and set these environment variables 
 - `STAGING_CITIZEN_URL`
 - `STAGING_AUTHORITY_URL`
 - `STAGING_DISPATCHER_URL`
+- `STAGING_ADMIN_URL`
 - `STAGING_AUTH_SERVICE_URL`
 - `STAGING_INCIDENT_SERVICE_URL`
 - `STAGING_ALERT_SERVICE_URL`
@@ -30,6 +31,7 @@ The current CI pipeline builds:
 - `nadaa/citizen-web`
 - `nadaa/authority-dashboard`
 - `nadaa/dispatcher-web`
+- `nadaa/admin-web`
 - `nadaa/auth-service`
 - `nadaa/incident-service`
 - `nadaa/alert-service`

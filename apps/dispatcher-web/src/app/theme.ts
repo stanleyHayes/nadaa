@@ -16,7 +16,7 @@ export const dispatcherTheme = createTheme({
   shape: { borderRadius: 8 },
   typography: {
     fontFamily:
-      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      '"Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     h1: { fontWeight: 800 },
     h2: { fontWeight: 800 },
     h3: { fontWeight: 800 },

@@ -93,6 +93,8 @@ jobs:
             dockerfile: apps/authority-dashboard/Dockerfile
           - name: dispatcher-web
             dockerfile: apps/dispatcher-web/Dockerfile
+          - name: admin-web
+            dockerfile: apps/admin-web/Dockerfile
           - name: alert-service
             dockerfile: services/alert-service/Dockerfile
           - name: auth-service

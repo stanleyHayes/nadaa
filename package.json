@@ -5,10 +5,11 @@
   "description": "NADAA Ghana National Disaster Alert and Response Platform monorepo.",
   "packageManager": "pnpm@11.8.0",
   "scripts": {
-    "dev": "pnpm --parallel --filter @nadaa/citizen-web --filter @nadaa/authority-dashboard --filter @nadaa/dispatcher-web dev",
+    "dev": "pnpm --parallel --filter @nadaa/citizen-web --filter @nadaa/authority-dashboard --filter @nadaa/dispatcher-web --filter @nadaa/admin-web dev",
     "dev:citizen": "pnpm --filter @nadaa/citizen-web dev",
     "dev:authority": "pnpm --filter @nadaa/authority-dashboard dev",
     "dev:dispatcher": "pnpm --filter @nadaa/dispatcher-web dev",
+    "dev:admin": "pnpm --filter @nadaa/admin-web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
