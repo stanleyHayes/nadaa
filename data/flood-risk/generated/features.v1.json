@@ -1,0 +1,379 @@
+{
+  "featureSetVersion": "flood-risk-features.v1",
+  "schemaVersion": "flood-risk-feature-schema.v1",
+  "source": "development_fixture",
+  "sourceUpdatedAt": "2026-07-06T09:00:00Z",
+  "generatedAt": "2026-07-06T09:05:00Z",
+  "validFrom": "2026-07-06T09:00:00Z",
+  "validTo": "2026-07-06T12:00:00Z",
+  "rowCount": 5,
+  "limitations": [
+    "Fixture values are seed-aligned and must not be treated as official Ghana hazard data.",
+    "Rainfall aggregates are derived from mock integration observations plus hand-authored development aggregates.",
+    "Terrain, drainage, land-use, and population values are development proxies pending production source ingestion and licensing review.",
+    "District/community geometries are simplified bounding boxes and should be replaced with authoritative administrative boundaries.",
+    "Historical report counts are intentionally small and biased toward current MVP seed records."
+  ],
+  "rows": [
+    {
+      "feature_set_version": "flood-risk-features.v1",
+      "source": "development_fixture",
+      "source_updated_at": "2026-07-06T09:00:00Z",
+      "generated_at": "2026-07-06T09:05:00Z",
+      "valid_from": "2026-07-06T09:00:00Z",
+      "valid_to": "2026-07-06T12:00:00Z",
+      "cell_id": "grid-accra-central-001",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "community": "Accra Central",
+      "centroid_lat": 5.56,
+      "centroid_lng": -0.2,
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.21,
+              5.55
+            ],
+            [
+              -0.19,
+              5.55
+            ],
+            [
+              -0.19,
+              5.57
+            ],
+            [
+              -0.21,
+              5.57
+            ],
+            [
+              -0.21,
+              5.55
+            ]
+          ]
+        ]
+      },
+      "district_geometry_source": "development_fixture_bbox",
+      "rainfall_24h_mm": 92.4,
+      "rainfall_72h_mm": 154.8,
+      "rainfall_forecast_24h_mm": 68.5,
+      "elevation_m": 8.5,
+      "slope_degrees": 1.4,
+      "distance_to_drain_m": 110,
+      "distance_to_river_m": 720,
+      "water_level_trend_cm": 28,
+      "drainage_density_km_per_sq_km": 1.2,
+      "dominant_land_use": "dense_urban",
+      "impervious_surface_pct": 78,
+      "population_density_per_sq_km": 14600,
+      "vulnerable_population_pct": 19,
+      "historical_flood_reports_30d": 5,
+      "days_since_last_flood_report": 2,
+      "inside_known_flood_zone": true,
+      "low_lying_area": true,
+      "rainfall_intensity_score": 0.8021,
+      "exposure_score": 0.8103,
+      "drainage_pressure_score": 0.843,
+      "historical_signal_score": 0.9767,
+      "composite_rule_score": 0.9222,
+      "label_severity": "severe",
+      "missing_rainfall": false,
+      "missing_terrain": false,
+      "missing_hydrology": false,
+      "missing_land_use": false,
+      "missing_population": false,
+      "missing_historical_reports": false,
+      "missing_geometry": false
+    },
+    {
+      "feature_set_version": "flood-risk-features.v1",
+      "source": "development_fixture",
+      "source_updated_at": "2026-07-06T09:00:00Z",
+      "generated_at": "2026-07-06T09:05:00Z",
+      "valid_from": "2026-07-06T09:00:00Z",
+      "valid_to": "2026-07-06T12:00:00Z",
+      "cell_id": "grid-accra-north-002",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "community": "Accra North",
+      "centroid_lat": 5.6037,
+      "centroid_lng": -0.187,
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.197,
+              5.5937
+            ],
+            [
+              -0.177,
+              5.5937
+            ],
+            [
+              -0.177,
+              5.6137
+            ],
+            [
+              -0.197,
+              5.6137
+            ],
+            [
+              -0.197,
+              5.5937
+            ]
+          ]
+        ]
+      },
+      "district_geometry_source": "development_fixture_bbox",
+      "rainfall_24h_mm": 84.1,
+      "rainfall_72h_mm": 132.6,
+      "rainfall_forecast_24h_mm": 60.3,
+      "elevation_m": 11.2,
+      "slope_degrees": 2.1,
+      "distance_to_drain_m": 180,
+      "distance_to_river_m": 900,
+      "water_level_trend_cm": 22,
+      "drainage_density_km_per_sq_km": 1.6,
+      "dominant_land_use": "mixed_urban",
+      "impervious_surface_pct": 66,
+      "population_density_per_sq_km": 9500,
+      "vulnerable_population_pct": 21,
+      "historical_flood_reports_30d": 3,
+      "days_since_last_flood_report": 1,
+      "inside_known_flood_zone": false,
+      "low_lying_area": true,
+      "rainfall_intensity_score": 0.7134,
+      "exposure_score": 0.6382,
+      "drainage_pressure_score": 0.7667,
+      "historical_signal_score": 0.7283,
+      "composite_rule_score": 0.7166,
+      "label_severity": "high",
+      "missing_rainfall": false,
+      "missing_terrain": false,
+      "missing_hydrology": false,
+      "missing_land_use": false,
+      "missing_population": false,
+      "missing_historical_reports": false,
+      "missing_geometry": false
+    },
+    {
+      "feature_set_version": "flood-risk-features.v1",
+      "source": "development_fixture",
+      "source_updated_at": "2026-07-06T09:00:00Z",
+      "generated_at": "2026-07-06T09:05:00Z",
+      "valid_from": "2026-07-06T09:00:00Z",
+      "valid_to": "2026-07-06T12:00:00Z",
+      "cell_id": "grid-osu-003",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "community": "Osu",
+      "centroid_lat": 5.55,
+      "centroid_lng": -0.18,
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.19,
+              5.54
+            ],
+            [
+              -0.17,
+              5.54
+            ],
+            [
+              -0.17,
+              5.56
+            ],
+            [
+              -0.19,
+              5.56
+            ],
+            [
+              -0.19,
+              5.54
+            ]
+          ]
+        ]
+      },
+      "district_geometry_source": "development_fixture_bbox",
+      "rainfall_24h_mm": 77.2,
+      "rainfall_72h_mm": 120.4,
+      "rainfall_forecast_24h_mm": 54.7,
+      "elevation_m": 10.1,
+      "slope_degrees": 1.7,
+      "distance_to_drain_m": 150,
+      "distance_to_river_m": 640,
+      "water_level_trend_cm": 18,
+      "drainage_density_km_per_sq_km": 1.4,
+      "dominant_land_use": "dense_urban",
+      "impervious_surface_pct": 74,
+      "population_density_per_sq_km": 13000,
+      "vulnerable_population_pct": 18,
+      "historical_flood_reports_30d": 2,
+      "days_since_last_flood_report": 7,
+      "inside_known_flood_zone": true,
+      "low_lying_area": true,
+      "rainfall_intensity_score": 0.6514,
+      "exposure_score": 0.7446,
+      "drainage_pressure_score": 0.7757,
+      "historical_signal_score": 0.5283,
+      "composite_rule_score": 0.7689,
+      "label_severity": "high",
+      "missing_rainfall": false,
+      "missing_terrain": false,
+      "missing_hydrology": false,
+      "missing_land_use": false,
+      "missing_population": false,
+      "missing_historical_reports": false,
+      "missing_geometry": false
+    },
+    {
+      "feature_set_version": "flood-risk-features.v1",
+      "source": "development_fixture",
+      "source_updated_at": "2026-07-06T09:00:00Z",
+      "generated_at": "2026-07-06T09:05:00Z",
+      "valid_from": "2026-07-06T09:00:00Z",
+      "valid_to": "2026-07-06T12:00:00Z",
+      "cell_id": "grid-tema-004",
+      "region": "Greater Accra",
+      "district": "Tema Metropolitan",
+      "community": "Tema Community One",
+      "centroid_lat": 5.669,
+      "centroid_lng": -0.016,
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.026,
+              5.659
+            ],
+            [
+              -0.006,
+              5.659
+            ],
+            [
+              -0.006,
+              5.679
+            ],
+            [
+              -0.026,
+              5.679
+            ],
+            [
+              -0.026,
+              5.659
+            ]
+          ]
+        ]
+      },
+      "district_geometry_source": "development_fixture_bbox",
+      "rainfall_24h_mm": 46.5,
+      "rainfall_72h_mm": 72.1,
+      "rainfall_forecast_24h_mm": 36.2,
+      "elevation_m": 18.6,
+      "slope_degrees": 2.8,
+      "distance_to_drain_m": 420,
+      "distance_to_river_m": 1200,
+      "water_level_trend_cm": 8,
+      "drainage_density_km_per_sq_km": 2.4,
+      "dominant_land_use": "industrial_residential",
+      "impervious_surface_pct": 52,
+      "population_density_per_sq_km": 6300,
+      "vulnerable_population_pct": 13,
+      "historical_flood_reports_30d": 1,
+      "days_since_last_flood_report": 14,
+      "inside_known_flood_zone": false,
+      "low_lying_area": false,
+      "rainfall_intensity_score": 0.3999,
+      "exposure_score": 0.4459,
+      "drainage_pressure_score": 0.5925,
+      "historical_signal_score": 0.3167,
+      "composite_rule_score": 0.4544,
+      "label_severity": "moderate",
+      "missing_rainfall": false,
+      "missing_terrain": false,
+      "missing_hydrology": false,
+      "missing_land_use": false,
+      "missing_population": false,
+      "missing_historical_reports": false,
+      "missing_geometry": false
+    },
+    {
+      "feature_set_version": "flood-risk-features.v1",
+      "source": "development_fixture",
+      "source_updated_at": "2026-07-06T09:00:00Z",
+      "generated_at": "2026-07-06T09:05:00Z",
+      "valid_from": "2026-07-06T09:00:00Z",
+      "valid_to": "2026-07-06T12:00:00Z",
+      "cell_id": "grid-kumasi-005",
+      "region": "Ashanti",
+      "district": "Kumasi Metropolitan",
+      "community": "Adum",
+      "centroid_lat": 6.6885,
+      "centroid_lng": -1.6244,
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1.6344,
+              6.6785
+            ],
+            [
+              -1.6144,
+              6.6785
+            ],
+            [
+              -1.6144,
+              6.6985
+            ],
+            [
+              -1.6344,
+              6.6985
+            ],
+            [
+              -1.6344,
+              6.6785
+            ]
+          ]
+        ]
+      },
+      "district_geometry_source": "development_fixture_bbox",
+      "rainfall_24h_mm": 22.4,
+      "rainfall_72h_mm": 34.2,
+      "rainfall_forecast_24h_mm": 18.5,
+      "elevation_m": 255.4,
+      "slope_degrees": 6.2,
+      "distance_to_drain_m": 980,
+      "distance_to_river_m": 3100,
+      "water_level_trend_cm": 2,
+      "drainage_density_km_per_sq_km": 3.2,
+      "dominant_land_use": "mixed_urban",
+      "impervious_surface_pct": 45,
+      "population_density_per_sq_km": 7000,
+      "vulnerable_population_pct": 11,
+      "historical_flood_reports_30d": 0,
+      "days_since_last_flood_report": 999,
+      "inside_known_flood_zone": false,
+      "low_lying_area": false,
+      "rainfall_intensity_score": 0.1946,
+      "exposure_score": 0.4277,
+      "drainage_pressure_score": 0.1529,
+      "historical_signal_score": 0,
+      "composite_rule_score": 0.1995,
+      "label_severity": "low",
+      "missing_rainfall": false,
+      "missing_terrain": false,
+      "missing_hydrology": false,
+      "missing_land_use": false,
+      "missing_population": false,
+      "missing_historical_reports": false,
+      "missing_geometry": false
+    }
+  ]
+}

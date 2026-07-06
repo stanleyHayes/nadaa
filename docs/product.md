@@ -10,13 +10,13 @@ Build a national emergency preparedness and disaster intelligence platform for G
 
 ## Core Users
 
-| User | Primary Needs |
-| --- | --- |
-| Citizen | Check area risk, receive warnings, report incidents, request help, learn guidance, find recovery support |
-| Emergency Dispatcher | Verify reports, merge duplicates, assign response teams, track incident status |
-| NADMO / District Officer | Issue warnings, view risk maps, coordinate relief, manage shelters |
-| Police / Fire / Ambulance / Rescue Team | Receive assignments, navigate to incidents, update response status |
-| System Admin | Manage agencies, roles, users, alert rules, audit logs, and data sources |
+| User                                    | Primary Needs                                                                                            |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Citizen                                 | Check area risk, receive warnings, report incidents, request help, learn guidance, find recovery support |
+| Emergency Dispatcher                    | Verify reports, merge duplicates, assign response teams, track incident status                           |
+| NADMO / District Officer                | Issue warnings, view risk maps, coordinate relief, manage shelters                                       |
+| Police / Fire / Ambulance / Rescue Team | Receive assignments, navigate to incidents, update response status                                       |
+| System Admin                            | Manage agencies, roles, users, alert rules, audit logs, and data sources                                 |
 
 ## MVP Scope
 
@@ -41,6 +41,7 @@ Build a national emergency preparedness and disaster intelligence platform for G
 
 ### ML MVP
 
+- Versioned flood-risk feature pipeline.
 - Flood risk scoring model.
 - Historical flood zone mapping.
 - Rainfall-based alert trigger.
@@ -84,4 +85,3 @@ Build a national emergency preparedness and disaster intelligence platform for G
 - Response time reduction.
 - Duplicate reports merged.
 - User trust and feedback score.
-

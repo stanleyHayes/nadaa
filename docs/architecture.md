@@ -165,7 +165,8 @@ Primary dependencies:
 - PostgreSQL + PostGIS: authoritative relational and geospatial store for users, agencies, incidents, alerts, risk zones, shelters, observations, and predictions.
 - Redis: caching, rate limits, queues, and short-lived workflow state.
 - Object storage: incident media, voice alert assets, imagery, and generated exports.
-- Future analytical store: model features, reporting aggregates, and open data exports if PostGIS becomes too operationally loaded.
+- Versioned repository data assets: MVP flood-risk feature fixtures, generated JSON/CSV outputs, and manifests for repeatable model experiments.
+- Future analytical store: model features, reporting aggregates, and open data exports if PostGIS and repository fixtures become too operationally loaded.
 
 ## MVP Scope Boundary
 
@@ -180,7 +181,7 @@ MVP includes:
 - Alert creation, approval, and geofenced targeting.
 - In-app alert feed and notification abstraction.
 - Emergency guidance and shelter map/list.
-- Baseline flood risk model and human review view.
+- Flood-risk feature pipeline, baseline model, and human review view.
 - Core docs, QA matrix, CI/CD, and staging readiness.
 
 Phase 2 includes inclusive channels, field coordination, hospital capacity, relief logistics, road closures, route planning, missing persons, damage exports, and remote sensing ingestion.

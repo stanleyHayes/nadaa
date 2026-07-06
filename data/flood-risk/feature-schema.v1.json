@@ -1,0 +1,301 @@
+{
+  "schemaVersion": "flood-risk-feature-schema.v1",
+  "featureSetVersion": "flood-risk-features.v1",
+  "description": "Column schema for NADAA MVP flood-risk feature outputs. The JSON output keeps geometry as GeoJSON; the CSV output stringifies geometry.",
+  "primaryKey": ["feature_set_version", "cell_id", "valid_from"],
+  "columns": [
+    {
+      "name": "feature_set_version",
+      "type": "string",
+      "required": true,
+      "description": "Version of the generated feature set."
+    },
+    {
+      "name": "source",
+      "type": "string",
+      "required": true,
+      "description": "Source family used to produce the row."
+    },
+    {
+      "name": "source_updated_at",
+      "type": "datetime",
+      "required": true,
+      "description": "Timestamp of the newest input fixture represented in the row."
+    },
+    {
+      "name": "generated_at",
+      "type": "datetime",
+      "required": true,
+      "description": "Deterministic generation timestamp for the fixture artifact."
+    },
+    {
+      "name": "valid_from",
+      "type": "datetime",
+      "required": true,
+      "description": "Start of the feature validity window."
+    },
+    {
+      "name": "valid_to",
+      "type": "datetime",
+      "required": true,
+      "description": "End of the feature validity window."
+    },
+    {
+      "name": "cell_id",
+      "type": "string",
+      "required": true,
+      "description": "Stable grid cell identifier."
+    },
+    {
+      "name": "region",
+      "type": "string",
+      "required": true,
+      "description": "Ghana region name."
+    },
+    {
+      "name": "district",
+      "type": "string",
+      "required": true,
+      "description": "District or metropolitan assembly name."
+    },
+    {
+      "name": "community",
+      "type": "string",
+      "required": true,
+      "description": "Human-readable community label for review."
+    },
+    {
+      "name": "centroid_lat",
+      "type": "number",
+      "required": true,
+      "min": -90,
+      "max": 90,
+      "description": "Grid centroid latitude."
+    },
+    {
+      "name": "centroid_lng",
+      "type": "number",
+      "required": true,
+      "min": -180,
+      "max": 180,
+      "description": "Grid centroid longitude."
+    },
+    {
+      "name": "geometry",
+      "type": "geojson",
+      "required": true,
+      "description": "Grid polygon geometry."
+    },
+    {
+      "name": "district_geometry_source",
+      "type": "string",
+      "required": true,
+      "description": "Provenance of district/community geometry."
+    },
+    {
+      "name": "rainfall_24h_mm",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "description": "Observed rainfall aggregate over the previous 24 hours."
+    },
+    {
+      "name": "rainfall_72h_mm",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "description": "Observed rainfall aggregate over the previous 72 hours."
+    },
+    {
+      "name": "rainfall_forecast_24h_mm",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "description": "Rainfall forecast aggregate for the next 24 hours."
+    },
+    {
+      "name": "elevation_m",
+      "type": "number",
+      "required": true,
+      "description": "Approximate elevation above sea level."
+    },
+    {
+      "name": "slope_degrees",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "description": "Approximate terrain slope."
+    },
+    {
+      "name": "distance_to_drain_m",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "description": "Approximate distance from centroid to nearest drain."
+    },
+    {
+      "name": "distance_to_river_m",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "description": "Approximate distance from centroid to nearest river or major waterway."
+    },
+    {
+      "name": "water_level_trend_cm",
+      "type": "number",
+      "required": true,
+      "description": "Recent water-level trend in centimeters."
+    },
+    {
+      "name": "drainage_density_km_per_sq_km",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "description": "Approximate drainage density proxy."
+    },
+    {
+      "name": "dominant_land_use",
+      "type": "string",
+      "required": true,
+      "description": "Dominant land-use class."
+    },
+    {
+      "name": "impervious_surface_pct",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "max": 100,
+      "description": "Estimated impervious surface percentage."
+    },
+    {
+      "name": "population_density_per_sq_km",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "description": "Estimated population density."
+    },
+    {
+      "name": "vulnerable_population_pct",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "max": 100,
+      "description": "Estimated vulnerable population share."
+    },
+    {
+      "name": "historical_flood_reports_30d",
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "description": "Recent flood report count in the grid area or nearby buffer."
+    },
+    {
+      "name": "days_since_last_flood_report",
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "description": "Days since the most recent nearby flood report, or 999 when no fixture report exists."
+    },
+    {
+      "name": "inside_known_flood_zone",
+      "type": "boolean",
+      "required": true,
+      "description": "Whether the cell overlaps a known flood risk zone fixture."
+    },
+    {
+      "name": "low_lying_area",
+      "type": "boolean",
+      "required": true,
+      "description": "Fixture terrain flag for low-lying locations."
+    },
+    {
+      "name": "rainfall_intensity_score",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "max": 1,
+      "description": "Normalized rainfall feature score."
+    },
+    {
+      "name": "exposure_score",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "max": 1,
+      "description": "Normalized exposure feature score."
+    },
+    {
+      "name": "drainage_pressure_score",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "max": 1,
+      "description": "Normalized drainage and terrain pressure score."
+    },
+    {
+      "name": "historical_signal_score",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "max": 1,
+      "description": "Normalized historical report signal score."
+    },
+    {
+      "name": "composite_rule_score",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "max": 1,
+      "description": "Weighted deterministic score used for Stage 0/Stage 1 bootstrapping."
+    },
+    {
+      "name": "label_severity",
+      "type": "string",
+      "required": true,
+      "enum": ["low", "moderate", "high", "severe"],
+      "description": "Fixture label derived from composite score and known zone signal."
+    },
+    {
+      "name": "missing_rainfall",
+      "type": "boolean",
+      "required": true,
+      "description": "True when rainfall features were imputed or unavailable."
+    },
+    {
+      "name": "missing_terrain",
+      "type": "boolean",
+      "required": true,
+      "description": "True when terrain features were imputed or unavailable."
+    },
+    {
+      "name": "missing_hydrology",
+      "type": "boolean",
+      "required": true,
+      "description": "True when hydrology features were imputed or unavailable."
+    },
+    {
+      "name": "missing_land_use",
+      "type": "boolean",
+      "required": true,
+      "description": "True when land-use features were imputed or unavailable."
+    },
+    {
+      "name": "missing_population",
+      "type": "boolean",
+      "required": true,
+      "description": "True when population features were imputed or unavailable."
+    },
+    {
+      "name": "missing_historical_reports",
+      "type": "boolean",
+      "required": true,
+      "description": "True when historical report features were imputed or unavailable."
+    },
+    {
+      "name": "missing_geometry",
+      "type": "boolean",
+      "required": true,
+      "description": "True when geometry is imputed or unavailable."
+    }
+  ]
+}

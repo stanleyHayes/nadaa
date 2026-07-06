@@ -983,5 +983,36 @@
       "git diff --check"
     ],
     "notes": "Integration-service now imports fixture rainfall and water-level observations into a weather_observations-aligned store, logs import job status, supports retryable failed imports, exposes imported observations, includes a scheduled importer hook, shared types, docs, smoke, and tests."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 6",
+    "epic": "EPIC 7: Flood ML Risk MVP",
+    "story": "Create Flood Risk Dataset And Feature Pipeline",
+    "jiraKey": "NADAA-070",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 13,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-020", "NADAA-002"],
+    "blockers": [],
+    "verification": [
+      "pnpm features:flood",
+      "pnpm validate:features",
+      "pnpm validate:docs",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "git diff --check"
+    ],
+    "notes": "Versioned flood-risk fixture inputs, 44-column feature schema, deterministic feature generator, generated JSON/CSV outputs, manifest checksums, validation script, candidate production source notes, ML docs, QA status, and dashboard record added."
   }
 ]

@@ -96,6 +96,8 @@ Run checks:
 
 ```bash
 pnpm validate:docs
+pnpm features:flood
+pnpm validate:features
 pnpm typecheck
 pnpm build
 pnpm go:test

@@ -49,7 +49,7 @@ Run:
 
 ```bash
 pnpm validate:dashboard
+pnpm validate:features
 ```
 
-This validates that the sample records contain the required Sprint 0 fields and status values.
-
+This validates that the sample records contain the required Sprint 0 fields and status values, and that the flood-risk feature artifacts match their schema and manifest.

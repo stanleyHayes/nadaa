@@ -1,0 +1,409 @@
+{
+  "datasetVersion": "flood-risk-features.v1",
+  "schemaVersion": "flood-risk-feature-schema.v1",
+  "source": "development_fixture",
+  "sourceUpdatedAt": "2026-07-06T09:00:00Z",
+  "generatedAt": "2026-07-06T09:05:00Z",
+  "validFrom": "2026-07-06T09:00:00Z",
+  "validTo": "2026-07-06T12:00:00Z",
+  "description": "Development fixture inputs for the first NADAA flood-risk feature pipeline. Values are deliberately small and seed-aligned so model and API work can proceed before official data-sharing integrations are live.",
+  "candidateProductionSources": [
+    {
+      "name": "Ghana Meteorological Agency rainfall nowcast",
+      "featureArea": "rainfall",
+      "status": "agency_contract_required",
+      "notes": "Primary rainfall source for production. MVP uses integration-service mock observations and fixture aggregates."
+    },
+    {
+      "name": "Ghana Hydrological Authority water-level feed",
+      "featureArea": "hydrology",
+      "status": "agency_contract_required",
+      "notes": "Primary water-level source for production. MVP uses fixture trends around Odaw and Korle sample stations."
+    },
+    {
+      "name": "NASA GPM IMERG",
+      "featureArea": "satellite_rainfall",
+      "status": "candidate_open_source",
+      "url": "https://gpm.nasa.gov/data/imerg",
+      "notes": "Candidate fallback or gap-fill precipitation source after licensing, latency, and accuracy review."
+    },
+    {
+      "name": "NASA SRTM",
+      "featureArea": "elevation_slope",
+      "status": "candidate_open_source",
+      "url": "https://www.earthdata.nasa.gov/data/instruments/srtm",
+      "notes": "Candidate terrain source for elevation and slope derivation."
+    },
+    {
+      "name": "OpenStreetMap",
+      "featureArea": "roads_drains_waterways",
+      "status": "candidate_open_source",
+      "url": "https://welcome.openstreetmap.org/working-with-osm-data/downloading-and-using/",
+      "notes": "Candidate community-maintained geometry source for roads, waterways, and drainage proxies where official data is unavailable."
+    },
+    {
+      "name": "WorldPop Ghana",
+      "featureArea": "population_density",
+      "status": "candidate_open_source",
+      "url": "https://hub.worldpop.org/geodata/country?iso3=GHA",
+      "notes": "Candidate population density source for exposure features."
+    }
+  ],
+  "knownFloodZones": [
+    {
+      "id": "00000000-0000-0000-0000-000000000401",
+      "name": "Accra sample flood zone",
+      "riskLevel": "severe",
+      "source": "database/seeds/001_ghana_mvp_seed.sql",
+      "bounds": {
+        "minLat": 5.53,
+        "maxLat": 5.59,
+        "minLng": -0.23,
+        "maxLng": -0.16
+      },
+      "geometryWkt": "POLYGON((-0.230 5.530, -0.160 5.530, -0.160 5.590, -0.230 5.590, -0.230 5.530))",
+      "explanation": "Low-lying Accra sample zone with historical flood reports and rainfall sensitivity."
+    }
+  ],
+  "gridCells": [
+    {
+      "cellId": "grid-accra-central-001",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "community": "Accra Central",
+      "centroid": {
+        "lat": 5.56,
+        "lng": -0.2
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-0.21, 5.55],
+            [-0.19, 5.55],
+            [-0.19, 5.57],
+            [-0.21, 5.57],
+            [-0.21, 5.55]
+          ]
+        ]
+      },
+      "districtGeometrySource": "development_fixture_bbox",
+      "knownFloodZoneId": "00000000-0000-0000-0000-000000000401"
+    },
+    {
+      "cellId": "grid-accra-north-002",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "community": "Accra North",
+      "centroid": {
+        "lat": 5.6037,
+        "lng": -0.187
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-0.197, 5.5937],
+            [-0.177, 5.5937],
+            [-0.177, 5.6137],
+            [-0.197, 5.6137],
+            [-0.197, 5.5937]
+          ]
+        ]
+      },
+      "districtGeometrySource": "development_fixture_bbox",
+      "knownFloodZoneId": null
+    },
+    {
+      "cellId": "grid-osu-003",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "community": "Osu",
+      "centroid": {
+        "lat": 5.55,
+        "lng": -0.18
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-0.19, 5.54],
+            [-0.17, 5.54],
+            [-0.17, 5.56],
+            [-0.19, 5.56],
+            [-0.19, 5.54]
+          ]
+        ]
+      },
+      "districtGeometrySource": "development_fixture_bbox",
+      "knownFloodZoneId": "00000000-0000-0000-0000-000000000401"
+    },
+    {
+      "cellId": "grid-tema-004",
+      "region": "Greater Accra",
+      "district": "Tema Metropolitan",
+      "community": "Tema Community One",
+      "centroid": {
+        "lat": 5.669,
+        "lng": -0.016
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-0.026, 5.659],
+            [-0.006, 5.659],
+            [-0.006, 5.679],
+            [-0.026, 5.679],
+            [-0.026, 5.659]
+          ]
+        ]
+      },
+      "districtGeometrySource": "development_fixture_bbox",
+      "knownFloodZoneId": null
+    },
+    {
+      "cellId": "grid-kumasi-005",
+      "region": "Ashanti",
+      "district": "Kumasi Metropolitan",
+      "community": "Adum",
+      "centroid": {
+        "lat": 6.6885,
+        "lng": -1.6244
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-1.6344, 6.6785],
+            [-1.6144, 6.6785],
+            [-1.6144, 6.6985],
+            [-1.6344, 6.6985],
+            [-1.6344, 6.6785]
+          ]
+        ]
+      },
+      "districtGeometrySource": "development_fixture_bbox",
+      "knownFloodZoneId": null
+    }
+  ],
+  "rainfallObservations": [
+    {
+      "cellId": "grid-accra-central-001",
+      "stationId": "GHA-ACC-RAIN-002",
+      "sourceRecord": "obs_gmet_accra_002",
+      "rainfall24hMm": 92.4,
+      "rainfall72hMm": 154.8,
+      "rainfallForecast24hMm": 68.5
+    },
+    {
+      "cellId": "grid-accra-north-002",
+      "stationId": "GHA-ACC-RAIN-001",
+      "sourceRecord": "obs_gmet_accra_001",
+      "rainfall24hMm": 84.1,
+      "rainfall72hMm": 132.6,
+      "rainfallForecast24hMm": 60.3
+    },
+    {
+      "cellId": "grid-osu-003",
+      "stationId": "GHA-ACC-RAIN-002",
+      "sourceRecord": "obs_gmet_accra_002",
+      "rainfall24hMm": 77.2,
+      "rainfall72hMm": 120.4,
+      "rainfallForecast24hMm": 54.7
+    },
+    {
+      "cellId": "grid-tema-004",
+      "stationId": "GHA-TMA-RAIN-001",
+      "sourceRecord": "fixture_tema_rainfall_001",
+      "rainfall24hMm": 46.5,
+      "rainfall72hMm": 72.1,
+      "rainfallForecast24hMm": 36.2
+    },
+    {
+      "cellId": "grid-kumasi-005",
+      "stationId": "GHA-KMA-RAIN-001",
+      "sourceRecord": "fixture_kumasi_rainfall_001",
+      "rainfall24hMm": 22.4,
+      "rainfall72hMm": 34.2,
+      "rainfallForecast24hMm": 18.5
+    }
+  ],
+  "terrainSamples": [
+    {
+      "cellId": "grid-accra-central-001",
+      "source": "development_fixture_srtm_proxy",
+      "elevationM": 8.5,
+      "slopeDegrees": 1.4,
+      "lowLyingArea": true
+    },
+    {
+      "cellId": "grid-accra-north-002",
+      "source": "development_fixture_srtm_proxy",
+      "elevationM": 11.2,
+      "slopeDegrees": 2.1,
+      "lowLyingArea": true
+    },
+    {
+      "cellId": "grid-osu-003",
+      "source": "development_fixture_srtm_proxy",
+      "elevationM": 10.1,
+      "slopeDegrees": 1.7,
+      "lowLyingArea": true
+    },
+    {
+      "cellId": "grid-tema-004",
+      "source": "development_fixture_srtm_proxy",
+      "elevationM": 18.6,
+      "slopeDegrees": 2.8,
+      "lowLyingArea": false
+    },
+    {
+      "cellId": "grid-kumasi-005",
+      "source": "development_fixture_srtm_proxy",
+      "elevationM": 255.4,
+      "slopeDegrees": 6.2,
+      "lowLyingArea": false
+    }
+  ],
+  "hydrologySamples": [
+    {
+      "cellId": "grid-accra-central-001",
+      "nearestWaterLevelStationId": "GHA-ODAW-LVL-001",
+      "distanceToDrainM": 110,
+      "distanceToRiverM": 720,
+      "waterLevelTrendCm": 28,
+      "drainageDensityKmPerSqKm": 1.2
+    },
+    {
+      "cellId": "grid-accra-north-002",
+      "nearestWaterLevelStationId": "GHA-ODAW-LVL-001",
+      "distanceToDrainM": 180,
+      "distanceToRiverM": 900,
+      "waterLevelTrendCm": 22,
+      "drainageDensityKmPerSqKm": 1.6
+    },
+    {
+      "cellId": "grid-osu-003",
+      "nearestWaterLevelStationId": "GHA-KORLE-LVL-001",
+      "distanceToDrainM": 150,
+      "distanceToRiverM": 640,
+      "waterLevelTrendCm": 18,
+      "drainageDensityKmPerSqKm": 1.4
+    },
+    {
+      "cellId": "grid-tema-004",
+      "nearestWaterLevelStationId": "GHA-TMA-LVL-001",
+      "distanceToDrainM": 420,
+      "distanceToRiverM": 1200,
+      "waterLevelTrendCm": 8,
+      "drainageDensityKmPerSqKm": 2.4
+    },
+    {
+      "cellId": "grid-kumasi-005",
+      "nearestWaterLevelStationId": "GHA-KMA-LVL-001",
+      "distanceToDrainM": 980,
+      "distanceToRiverM": 3100,
+      "waterLevelTrendCm": 2,
+      "drainageDensityKmPerSqKm": 3.2
+    }
+  ],
+  "landUseSamples": [
+    {
+      "cellId": "grid-accra-central-001",
+      "dominantLandUse": "dense_urban",
+      "imperviousSurfacePct": 78
+    },
+    {
+      "cellId": "grid-accra-north-002",
+      "dominantLandUse": "mixed_urban",
+      "imperviousSurfacePct": 66
+    },
+    {
+      "cellId": "grid-osu-003",
+      "dominantLandUse": "dense_urban",
+      "imperviousSurfacePct": 74
+    },
+    {
+      "cellId": "grid-tema-004",
+      "dominantLandUse": "industrial_residential",
+      "imperviousSurfacePct": 52
+    },
+    {
+      "cellId": "grid-kumasi-005",
+      "dominantLandUse": "mixed_urban",
+      "imperviousSurfacePct": 45
+    }
+  ],
+  "populationSamples": [
+    {
+      "cellId": "grid-accra-central-001",
+      "populationDensityPerSqKm": 14600,
+      "vulnerablePopulationPct": 19
+    },
+    {
+      "cellId": "grid-accra-north-002",
+      "populationDensityPerSqKm": 9500,
+      "vulnerablePopulationPct": 21
+    },
+    {
+      "cellId": "grid-osu-003",
+      "populationDensityPerSqKm": 13000,
+      "vulnerablePopulationPct": 18
+    },
+    {
+      "cellId": "grid-tema-004",
+      "populationDensityPerSqKm": 6300,
+      "vulnerablePopulationPct": 13
+    },
+    {
+      "cellId": "grid-kumasi-005",
+      "populationDensityPerSqKm": 7000,
+      "vulnerablePopulationPct": 11
+    }
+  ],
+  "historicalReports": [
+    {
+      "cellId": "grid-accra-central-001",
+      "sourceRecords": ["00000000-0000-0000-0000-000000000601"],
+      "floodReports30d": 5,
+      "daysSinceLastFloodReport": 2,
+      "latestSeverity": "high"
+    },
+    {
+      "cellId": "grid-accra-north-002",
+      "sourceRecords": ["00000000-0000-0000-0000-000000000601"],
+      "floodReports30d": 3,
+      "daysSinceLastFloodReport": 1,
+      "latestSeverity": "high"
+    },
+    {
+      "cellId": "grid-osu-003",
+      "sourceRecords": ["fixture_flood_report_osu_001"],
+      "floodReports30d": 2,
+      "daysSinceLastFloodReport": 7,
+      "latestSeverity": "moderate"
+    },
+    {
+      "cellId": "grid-tema-004",
+      "sourceRecords": ["fixture_flood_report_tema_001"],
+      "floodReports30d": 1,
+      "daysSinceLastFloodReport": 14,
+      "latestSeverity": "moderate"
+    },
+    {
+      "cellId": "grid-kumasi-005",
+      "sourceRecords": [],
+      "floodReports30d": 0,
+      "daysSinceLastFloodReport": 999,
+      "latestSeverity": "none"
+    }
+  ],
+  "sourceLimitations": [
+    "Fixture values are seed-aligned and must not be treated as official Ghana hazard data.",
+    "Rainfall aggregates are derived from mock integration observations plus hand-authored development aggregates.",
+    "Terrain, drainage, land-use, and population values are development proxies pending production source ingestion and licensing review.",
+    "District/community geometries are simplified bounding boxes and should be replaced with authoritative administrative boundaries.",
+    "Historical report counts are intentionally small and biased toward current MVP seed records."
+  ]
+}
