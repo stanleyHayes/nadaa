@@ -33,6 +33,7 @@ go run .
 Run checks:
 
 ```bash
+pnpm validate:docs
 pnpm typecheck
 pnpm build
 pnpm go:test
@@ -102,9 +103,9 @@ Production deployment should require:
 
 `infra/docker/docker-compose.yml` provides:
 
-- PostGIS on port `5432`.
-- Redis on port `6379`.
-- MinIO object storage on ports `9000` and `9001`.
+- PostGIS on port `5432`, or `POSTGRES_PORT` when overridden.
+- Redis on port `6379`, or `REDIS_PORT` when overridden.
+- MinIO object storage on ports `9000` and `9001`, or `MINIO_API_PORT` and `MINIO_CONSOLE_PORT` when overridden.
 
 These credentials are development-only and must not be reused in staging or production.
 
@@ -131,4 +132,3 @@ MVP should capture:
 6. Beta rollout.
 7. Production release.
 8. Hypercare.
-

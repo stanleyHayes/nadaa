@@ -76,5 +76,58 @@
       "pnpm go:test"
     ],
     "notes": "Dashboard schema, sample records, README, and validation script created."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 0",
+    "epic": "EPIC 10: QA, Release, UAT, And Operations",
+    "story": "Build Test Strategy And QA Matrix",
+    "jiraKey": "NADAA-100",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 1,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-002"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:docs",
+      "pnpm typecheck",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm smoke:web"
+    ],
+    "notes": "QA strategy, MVP matrix, release checklist, UAT outline, severity definitions, and web smoke script added."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 1",
+    "epic": "EPIC 2: Geospatial Data And Risk Checker",
+    "story": "Set Up PostGIS And Core Geospatial Models",
+    "jiraKey": "NADAA-020",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-001"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:database",
+      "PostGIS migration applied on localhost:55432",
+      "Seed data applied on localhost:55432",
+      "PostGIS/table count query passed"
+    ],
+    "notes": "Core PostGIS schema, indexes, seed data, database docs, configurable compose ports, and database asset validator added."
   }
 ]

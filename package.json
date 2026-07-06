@@ -13,6 +13,9 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "validate:dashboard": "node scripts/validate-dashboard-contract.mjs",
+    "validate:database": "node scripts/validate-database-assets.mjs",
+    "validate:docs": "pnpm validate:dashboard && pnpm validate:database",
+    "smoke:web": "node scripts/smoke-web.mjs",
     "go:test": "cd services/risk-service && go test ./...",
     "format": "prettier --write \"**/*.{md,json,ts,tsx,css,yml,yaml}\""
   },

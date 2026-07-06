@@ -77,6 +77,8 @@ Use `agent_plan.md` as the living project board. Before starting work, agents sh
 - [Security](docs/security.md)
 - [ML](docs/ml.md)
 - [Deployment](docs/deployment.md)
+- [QA Strategy](docs/qa.md)
+- [Database](database/README.md)
 - [Project Dashboard Contract](docs/project-dashboard/README.md)
 
 ## Source Documents

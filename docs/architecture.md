@@ -19,6 +19,8 @@ NADAA is the Ghana National Disaster Alert and Response Platform. It is designed
 - `packages/shared-types` - shared TypeScript domain contracts.
 - `services/risk-service` - first Go service with `GET /healthz` and `GET /api/v1/risk`.
 - `infra/docker/docker-compose.yml` - local PostGIS, Redis, and MinIO.
+- `database/migrations/001_core_geospatial_schema.sql` - core PostGIS schema and indexes.
+- `database/seeds/001_ghana_mvp_seed.sql` - development seed data for Ghana MVP fixtures.
 
 ## Target Runtime Topology
 
@@ -175,4 +177,3 @@ Phase 3 includes advanced simulation, AI triage, computer vision, predictive res
 - Authority actions are role-protected and audited.
 - Citizen location and identity data are minimized and protected.
 - Suspicious report scoring can inform human review but must not silently suppress urgent life-safety reports.
-
