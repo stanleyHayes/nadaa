@@ -1014,5 +1014,36 @@
       "git diff --check"
     ],
     "notes": "Versioned flood-risk fixture inputs, 44-column feature schema, deterministic feature generator, generated JSON/CSV outputs, manifest checksums, validation script, candidate production source notes, ML docs, QA status, and dashboard record added."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 6",
+    "epic": "EPIC 7: Flood ML Risk MVP",
+    "story": "Train Baseline Flood Risk Model",
+    "jiraKey": "NADAA-071",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 13,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-070"],
+    "blockers": [],
+    "verification": [
+      "pnpm ml:flood:train",
+      "pnpm validate:ml",
+      "pnpm validate:docs",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "git diff --check"
+    ],
+    "notes": "Dependency-free deterministic logistic-regression baseline trained over flood-risk-features.v1. Model metadata, sample predictions, evaluation JSON, evaluation report, false-positive/false-negative review process, validation script, ML-service handoff, docs, QA status, and dashboard record added. Fixture metrics are for contract wiring only, not production readiness."
   }
 ]

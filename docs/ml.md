@@ -114,6 +114,24 @@ Candidate models:
 - Random forest.
 - XGBoost.
 
+Current MVP baseline:
+
+- `scripts/train-flood-risk-baseline.mjs` trains `flood-logistic-baseline-0.1.0` using deterministic logistic regression over `data/flood-risk/generated/features.v1.json`.
+- `data/flood-risk/models/baseline-logistic.v1.json` stores model metadata, feature columns, preprocessing statistics, hyperparameters, coefficients, output contract, limitations, and training metrics.
+- `data/flood-risk/models/sample-predictions.v1.json` stores five sample predictions with probability, severity, expected onset bucket, medium fixture confidence, and explanation factors.
+- `data/flood-risk/models/evaluation.v1.json` stores precision, recall, F1, Brier score, confusion matrix, calibration buckets, and false-positive/false-negative review records.
+- `data/flood-risk/models/evaluation-report.v1.md` is the human-readable evaluation report for authority and ML review.
+- `scripts/validate-flood-risk-model.mjs` verifies the model, prediction, evaluation, and report artifacts.
+
+Commands:
+
+```bash
+pnpm ml:flood:train
+pnpm validate:ml
+```
+
+The MVP model predicts a binary high-or-severe flood risk probability, then maps that output into `low`, `moderate`, `high`, or `severe` with an additional conservative severe rule. Confidence is capped at `medium` for fixture-trained outputs because the current training set has five seed-aligned rows and no independent outcome history.
+
 Minimum evaluation:
 
 - Precision/recall for high-risk flood events.
@@ -121,6 +139,19 @@ Minimum evaluation:
 - False positive review.
 - False negative review.
 - District/community breakdown when data permits.
+
+Current fixture evaluation:
+
+- Scope: training fixture resubstitution only.
+- Rows: 5.
+- Positive high-risk labels: 3.
+- Negative labels: 2.
+- Precision/recall/F1 on the fixture: 1.0.
+- Brier score on the fixture: 0.0002.
+- False positives: 0.
+- False negatives: 0.
+
+These metrics prove artifact and contract wiring, not production readiness. The next data step is to add official rainfall/hydrology and independent historical outcome labels, then rerun evaluation with temporal or district holdout splits.
 
 ### Stage 2: Spatial And Temporal Improvement
 
@@ -189,7 +220,7 @@ Every prediction should include:
 
 1. Rule-based flood risk score in the risk service.
 2. Feature schema, sample data, generated outputs, and validation script.
-3. Baseline model using logistic regression, random forest, or XGBoost.
+3. Baseline logistic-regression model, sample predictions, and fixture evaluation report.
 4. FastAPI model serving.
 5. Prediction logs in `ml_predictions`.
 6. Risk API integration.

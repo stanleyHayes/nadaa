@@ -1,0 +1,64 @@
+{
+  "modelVersion": "flood-logistic-baseline-0.1.0",
+  "featureSetVersion": "flood-risk-features.v1",
+  "generatedAt": "2026-07-06T10:00:00Z",
+  "evaluationScope": "training_fixture_resubstitution",
+  "rowCount": 5,
+  "positiveLabelCount": 3,
+  "negativeLabelCount": 2,
+  "metrics": {
+    "accuracy": 1,
+    "precisionHighRisk": 1,
+    "recallHighRisk": 1,
+    "f1HighRisk": 1,
+    "brierScore": 0.0002
+  },
+  "confusionMatrix": {
+    "truePositive": 3,
+    "falsePositive": 0,
+    "trueNegative": 2,
+    "falseNegative": 0
+  },
+  "calibrationBuckets": [
+    {
+      "bucket": "0.00-0.25",
+      "count": 2,
+      "averagePrediction": 0.0136,
+      "observedHighRiskRate": 0
+    },
+    {
+      "bucket": "0.25-0.50",
+      "count": 0,
+      "averagePrediction": 0,
+      "observedHighRiskRate": 0
+    },
+    {
+      "bucket": "0.50-0.75",
+      "count": 0,
+      "averagePrediction": 0,
+      "observedHighRiskRate": 0
+    },
+    {
+      "bucket": "0.75-1.00",
+      "count": 3,
+      "averagePrediction": 0.9909,
+      "observedHighRiskRate": 1
+    }
+  ],
+  "falsePositiveReview": {
+    "count": 0,
+    "cases": [],
+    "process": "Review each predicted high/severe cell against rainfall, hydrology, report recency, and local officer context before drafting an alert."
+  },
+  "falseNegativeReview": {
+    "count": 0,
+    "cases": [],
+    "process": "Review each actual high/severe fixture predicted below threshold and add missing rainfall, blocked-drain, or incident-report signals before model promotion."
+  },
+  "limitations": [
+    "The fixture training set has only five seed-aligned rows and is suitable for product/API integration, not production accuracy claims.",
+    "Labels are derived from the NADAA-070 fixture severity labels; they are not independently observed event outcomes.",
+    "Model output must remain decision support and cannot publish public alerts without human review.",
+    "Replace fixture rows with official rainfall, hydrology, terrain, population, and historical disaster records before production model promotion."
+  ]
+}

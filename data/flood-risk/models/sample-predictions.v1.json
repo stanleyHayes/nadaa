@@ -1,0 +1,379 @@
+{
+  "modelVersion": "flood-logistic-baseline-0.1.0",
+  "featureSetVersion": "flood-risk-features.v1",
+  "generatedAt": "2026-07-06T10:00:00Z",
+  "targetTime": "2026-07-06T12:00:00Z",
+  "predictionCount": 5,
+  "predictions": [
+    {
+      "id": "pred_grid-accra-central-001",
+      "modelVersion": "flood-logistic-baseline-0.1.0",
+      "hazardType": "flood",
+      "predictionTime": "2026-07-06T10:00:00Z",
+      "targetTime": "2026-07-06T12:00:00Z",
+      "cellId": "grid-accra-central-001",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "community": "Accra Central",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.21,
+              5.55
+            ],
+            [
+              -0.19,
+              5.55
+            ],
+            [
+              -0.19,
+              5.57
+            ],
+            [
+              -0.21,
+              5.57
+            ],
+            [
+              -0.21,
+              5.55
+            ]
+          ]
+        ]
+      },
+      "probability": 0.9993,
+      "severity": "severe",
+      "expectedOnset": "within_24h",
+      "confidence": "medium",
+      "explanationFactors": [
+        {
+          "feature": "exposure_score",
+          "label": "population and land-use exposure",
+          "value": 0.8103,
+          "contribution": 0.7004,
+          "direction": "increases_risk"
+        },
+        {
+          "feature": "population_density_per_sq_km",
+          "label": "population density",
+          "value": 14600,
+          "contribution": 0.696,
+          "direction": "increases_risk"
+        },
+        {
+          "feature": "water_level_trend_cm",
+          "label": "water-level trend",
+          "value": 28,
+          "contribution": 0.6573,
+          "direction": "increases_risk"
+        },
+        {
+          "feature": "low_lying_area",
+          "label": "low-lying area",
+          "value": true,
+          "contribution": 0.6048,
+          "direction": "increases_risk"
+        }
+      ],
+      "inputFeatureSetVersion": "flood-risk-features.v1",
+      "sourceFeatureRow": "grid-accra-central-001"
+    },
+    {
+      "id": "pred_grid-accra-north-002",
+      "modelVersion": "flood-logistic-baseline-0.1.0",
+      "hazardType": "flood",
+      "predictionTime": "2026-07-06T10:00:00Z",
+      "targetTime": "2026-07-06T12:00:00Z",
+      "cellId": "grid-accra-north-002",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "community": "Accra North",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.197,
+              5.5937
+            ],
+            [
+              -0.177,
+              5.5937
+            ],
+            [
+              -0.177,
+              5.6137
+            ],
+            [
+              -0.197,
+              5.6137
+            ],
+            [
+              -0.197,
+              5.5937
+            ]
+          ]
+        ]
+      },
+      "probability": 0.9828,
+      "severity": "high",
+      "expectedOnset": "24_to_48h",
+      "confidence": "medium",
+      "explanationFactors": [
+        {
+          "feature": "vulnerable_population_pct",
+          "label": "vulnerable population share",
+          "value": 21,
+          "contribution": 0.8183,
+          "direction": "increases_risk"
+        },
+        {
+          "feature": "low_lying_area",
+          "label": "low-lying area",
+          "value": true,
+          "contribution": 0.6048,
+          "direction": "increases_risk"
+        },
+        {
+          "feature": "rainfall_intensity_score",
+          "label": "rainfall intensity",
+          "value": 0.7134,
+          "contribution": 0.3522,
+          "direction": "increases_risk"
+        },
+        {
+          "feature": "water_level_trend_cm",
+          "label": "water-level trend",
+          "value": 22,
+          "contribution": 0.3392,
+          "direction": "increases_risk"
+        }
+      ],
+      "inputFeatureSetVersion": "flood-risk-features.v1",
+      "sourceFeatureRow": "grid-accra-north-002"
+    },
+    {
+      "id": "pred_grid-osu-003",
+      "modelVersion": "flood-logistic-baseline-0.1.0",
+      "hazardType": "flood",
+      "predictionTime": "2026-07-06T10:00:00Z",
+      "targetTime": "2026-07-06T12:00:00Z",
+      "cellId": "grid-osu-003",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "community": "Osu",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.19,
+              5.54
+            ],
+            [
+              -0.17,
+              5.54
+            ],
+            [
+              -0.17,
+              5.56
+            ],
+            [
+              -0.19,
+              5.56
+            ],
+            [
+              -0.19,
+              5.54
+            ]
+          ]
+        ]
+      },
+      "probability": 0.9906,
+      "severity": "high",
+      "expectedOnset": "24_to_48h",
+      "confidence": "medium",
+      "explanationFactors": [
+        {
+          "feature": "low_lying_area",
+          "label": "low-lying area",
+          "value": true,
+          "contribution": 0.6048,
+          "direction": "increases_risk"
+        },
+        {
+          "feature": "exposure_score",
+          "label": "population and land-use exposure",
+          "value": 0.7446,
+          "contribution": 0.4668,
+          "direction": "increases_risk"
+        },
+        {
+          "feature": "population_density_per_sq_km",
+          "label": "population density",
+          "value": 13000,
+          "contribution": 0.4496,
+          "direction": "increases_risk"
+        },
+        {
+          "feature": "impervious_surface_pct",
+          "label": "impervious surface share",
+          "value": 74,
+          "contribution": 0.4301,
+          "direction": "increases_risk"
+        }
+      ],
+      "inputFeatureSetVersion": "flood-risk-features.v1",
+      "sourceFeatureRow": "grid-osu-003"
+    },
+    {
+      "id": "pred_grid-tema-004",
+      "modelVersion": "flood-logistic-baseline-0.1.0",
+      "hazardType": "flood",
+      "predictionTime": "2026-07-06T10:00:00Z",
+      "targetTime": "2026-07-06T12:00:00Z",
+      "cellId": "grid-tema-004",
+      "region": "Greater Accra",
+      "district": "Tema Metropolitan",
+      "community": "Tema Community One",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.026,
+              5.659
+            ],
+            [
+              -0.006,
+              5.659
+            ],
+            [
+              -0.006,
+              5.679
+            ],
+            [
+              -0.026,
+              5.679
+            ],
+            [
+              -0.026,
+              5.659
+            ]
+          ]
+        ]
+      },
+      "probability": 0.0264,
+      "severity": "low",
+      "expectedOnset": "not_expected_in_72h",
+      "confidence": "medium",
+      "explanationFactors": [
+        {
+          "feature": "low_lying_area",
+          "label": "low-lying area",
+          "value": false,
+          "contribution": -0.9072,
+          "direction": "reduces_risk"
+        },
+        {
+          "feature": "vulnerable_population_pct",
+          "label": "vulnerable population share",
+          "value": 13,
+          "contribution": -0.6048,
+          "direction": "reduces_risk"
+        },
+        {
+          "feature": "exposure_score",
+          "label": "population and land-use exposure",
+          "value": 0.4459,
+          "contribution": -0.5954,
+          "direction": "reduces_risk"
+        },
+        {
+          "feature": "population_density_per_sq_km",
+          "label": "population density",
+          "value": 6300,
+          "contribution": -0.5821,
+          "direction": "reduces_risk"
+        }
+      ],
+      "inputFeatureSetVersion": "flood-risk-features.v1",
+      "sourceFeatureRow": "grid-tema-004"
+    },
+    {
+      "id": "pred_grid-kumasi-005",
+      "modelVersion": "flood-logistic-baseline-0.1.0",
+      "hazardType": "flood",
+      "predictionTime": "2026-07-06T10:00:00Z",
+      "targetTime": "2026-07-06T12:00:00Z",
+      "cellId": "grid-kumasi-005",
+      "region": "Ashanti",
+      "district": "Kumasi Metropolitan",
+      "community": "Adum",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1.6344,
+              6.6785
+            ],
+            [
+              -1.6144,
+              6.6785
+            ],
+            [
+              -1.6144,
+              6.6985
+            ],
+            [
+              -1.6344,
+              6.6985
+            ],
+            [
+              -1.6344,
+              6.6785
+            ]
+          ]
+        ]
+      },
+      "probability": 0.0008,
+      "severity": "low",
+      "expectedOnset": "not_expected_in_72h",
+      "confidence": "medium",
+      "explanationFactors": [
+        {
+          "feature": "vulnerable_population_pct",
+          "label": "vulnerable population share",
+          "value": 11,
+          "contribution": -0.9606,
+          "direction": "reduces_risk"
+        },
+        {
+          "feature": "low_lying_area",
+          "label": "low-lying area",
+          "value": false,
+          "contribution": -0.9072,
+          "direction": "reduces_risk"
+        },
+        {
+          "feature": "rainfall_intensity_score",
+          "label": "rainfall intensity",
+          "value": 0.1946,
+          "contribution": -0.7818,
+          "direction": "reduces_risk"
+        },
+        {
+          "feature": "rainfall_forecast_24h_mm",
+          "label": "24-hour rainfall forecast",
+          "value": 18.5,
+          "contribution": -0.7448,
+          "direction": "reduces_risk"
+        }
+      ],
+      "inputFeatureSetVersion": "flood-risk-features.v1",
+      "sourceFeatureRow": "grid-kumasi-005"
+    }
+  ]
+}

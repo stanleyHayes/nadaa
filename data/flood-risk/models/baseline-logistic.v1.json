@@ -1,0 +1,144 @@
+{
+  "modelVersion": "flood-logistic-baseline-0.1.0",
+  "modelFamily": "logistic_regression",
+  "hazardType": "flood",
+  "generatedAt": "2026-07-06T10:00:00Z",
+  "trainingFeatureSetVersion": "flood-risk-features.v1",
+  "trainingSchemaVersion": "flood-risk-feature-schema.v1",
+  "trainingSource": "development_fixture",
+  "trainingSourceUpdatedAt": "2026-07-06T09:00:00Z",
+  "target": {
+    "name": "high_or_severe_flood_risk",
+    "positiveLabels": [
+      "high",
+      "severe"
+    ],
+    "negativeLabels": [
+      "low",
+      "moderate"
+    ]
+  },
+  "featureColumns": [
+    "rainfall_intensity_score",
+    "exposure_score",
+    "drainage_pressure_score",
+    "historical_signal_score",
+    "rainfall_forecast_24h_mm",
+    "water_level_trend_cm",
+    "distance_to_drain_m",
+    "distance_to_river_m",
+    "impervious_surface_pct",
+    "population_density_per_sq_km",
+    "vulnerable_population_pct",
+    "inside_known_flood_zone",
+    "low_lying_area"
+  ],
+  "preprocessing": {
+    "booleanEncoding": "false=0,true=1",
+    "numericStandardization": {
+      "rainfall_intensity_score": {
+        "mean": 0.55228,
+        "std": 0.223316
+      },
+      "exposure_score": {
+        "mean": 0.61334,
+        "std": 0.154362
+      },
+      "drainage_pressure_score": {
+        "mean": 0.62616,
+        "std": 0.250696
+      },
+      "historical_signal_score": {
+        "mean": 0.51,
+        "std": 0.335638
+      },
+      "rainfall_forecast_24h_mm": {
+        "mean": 47.64,
+        "std": 18.029265
+      },
+      "water_level_trend_cm": {
+        "mean": 15.6,
+        "std": 9.414882
+      },
+      "distance_to_drain_m": {
+        "mean": 368,
+        "std": 324.55508
+      },
+      "distance_to_river_m": {
+        "mean": 1312,
+        "std": 914.470339
+      },
+      "impervious_surface_pct": {
+        "mean": 63,
+        "std": 12.649111
+      },
+      "population_density_per_sq_km": {
+        "mean": 10080,
+        "std": 3257.852053
+      },
+      "vulnerable_population_pct": {
+        "mean": 16.4,
+        "std": 3.773592
+      },
+      "inside_known_flood_zone": {
+        "mean": 0.4,
+        "std": 0.489898
+      },
+      "low_lying_area": {
+        "mean": 0.6,
+        "std": 0.489898
+      }
+    }
+  },
+  "hyperparameters": {
+    "learningRate": 0.18,
+    "epochs": 5000,
+    "l2": 0.015,
+    "classificationThreshold": 0.5,
+    "severityThresholds": {
+      "severe": 0.78,
+      "high": 0.58,
+      "moderate": 0.35
+    },
+    "severeRule": "probability >= 0.78, inside known flood zone, and rainfall_forecast_24h_mm >= 55"
+  },
+  "coefficients": {
+    "intercept": 1.04969964,
+    "rainfall_intensity_score": 0.48811065,
+    "exposure_score": 0.54893482,
+    "drainage_pressure_score": 0.27797819,
+    "historical_signal_score": 0.38729094,
+    "rainfall_forecast_24h_mm": 0.46081221,
+    "water_level_trend_cm": 0.49903644,
+    "distance_to_drain_m": -0.3001369,
+    "distance_to_river_m": -0.17833702,
+    "impervious_surface_pct": 0.49461381,
+    "population_density_per_sq_km": 0.50165697,
+    "vulnerable_population_pct": 0.67129876,
+    "inside_known_flood_zone": 0.2721206,
+    "low_lying_area": 0.74074048
+  },
+  "trainingRows": 5,
+  "outputContract": {
+    "probability": "0..1 high-or-severe flood probability",
+    "severity": "low, moderate, high, or severe",
+    "confidence": "low, medium, or high review confidence; fixture-trained models are capped at medium",
+    "expectedOnset": "fixture onset bucket only; not a hydrodynamic forecast",
+    "explanationFactors": "top signed feature contributions from the logistic model"
+  },
+  "limitations": [
+    "The fixture training set has only five seed-aligned rows and is suitable for product/API integration, not production accuracy claims.",
+    "Labels are derived from the NADAA-070 fixture severity labels; they are not independently observed event outcomes.",
+    "Model output must remain decision support and cannot publish public alerts without human review.",
+    "Replace fixture rows with official rainfall, hydrology, terrain, population, and historical disaster records before production model promotion."
+  ],
+  "trainingMetrics": {
+    "accuracy": 1,
+    "precisionHighRisk": 1,
+    "recallHighRisk": 1,
+    "f1HighRisk": 1,
+    "brierScore": 0.0002
+  },
+  "evaluationArtifact": "data/flood-risk/models/evaluation.v1.json",
+  "predictionArtifact": "data/flood-risk/models/sample-predictions.v1.json"
+}

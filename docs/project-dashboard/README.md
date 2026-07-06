@@ -50,6 +50,7 @@ Run:
 ```bash
 pnpm validate:dashboard
 pnpm validate:features
+pnpm validate:ml
 ```
 
-This validates that the sample records contain the required Sprint 0 fields and status values, and that the flood-risk feature artifacts match their schema and manifest.
+This validates that the sample records contain the required Sprint 0 fields and status values, that the flood-risk feature artifacts match their schema and manifest, and that the baseline model artifacts match the expected prediction/evaluation contract.

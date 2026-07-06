@@ -98,6 +98,8 @@ Run checks:
 pnpm validate:docs
 pnpm features:flood
 pnpm validate:features
+pnpm ml:flood:train
+pnpm validate:ml
 pnpm typecheck
 pnpm build
 pnpm go:test
