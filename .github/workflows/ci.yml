@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-docs:
+    name: Web, Types, And Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate docs and project assets
+        run: pnpm validate:docs
+
+      - name: Lint workspaces
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test workspaces
+        run: pnpm test
+
+      - name: Build apps and packages
+        run: pnpm build
+
+  go-tests:
+    name: Go Tests (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - services/auth-service
+          - services/incident-service
+          - services/risk-service
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.service }}/go.mod
+
+      - name: Test service
+        working-directory: ${{ matrix.service }}
+        run: go test ./...
+
+  docker-builds:
+    name: Docker Build (${{ matrix.image.name }})
+    runs-on: ubuntu-latest
+    needs:
+      - web-and-docs
+      - go-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: citizen-web
+            dockerfile: apps/citizen-web/Dockerfile
+          - name: authority-dashboard
+            dockerfile: apps/authority-dashboard/Dockerfile
+          - name: auth-service
+            dockerfile: services/auth-service/Dockerfile
+          - name: incident-service
+            dockerfile: services/incident-service/Dockerfile
+          - name: risk-service
+            dockerfile: services/risk-service/Dockerfile
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image.dockerfile }}
+          push: false
+          tags: nadaa/${{ matrix.image.name }}:${{ github.sha }}

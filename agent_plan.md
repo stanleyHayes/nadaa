@@ -87,11 +87,14 @@ Coordination rules:
 | NADAA-031 | MVP Sprint 2 | Implement Media Upload Flow | Done | Codex | main | NADAA-030 | 2026-07-06 | Controlled media upload initiation, private metadata, content-type and size validation, incident media linkage, shared types, docs, and tests added. |
 | NADAA-032 | MVP Sprint 2 | Build Citizen Incident Reporting UI | Done | Codex | main | NADAA-030, NADAA-031 | 2026-07-06 | Citizen report form now supports GPS/manual coordinates, hazard, urgency, people affected, injuries, anonymous/contact controls, accessibility needs, media initiation, offline retry messaging, and success/error states. |
 | NADAA-033 | MVP Sprint 2 | Add Incident Deduplication Baseline | Done | Codex | main | NADAA-030 | 2026-07-06 | Incident-service now stores same-hazard duplicate candidates scored by distance, time window, and description similarity without merging or deleting reports. |
+| NADAA-101 | MVP Sprint 1/7 | Set Up CI/CD And Staging Environment | Done | Codex | main | NADAA-001 | 2026-07-06 | GitHub Actions CI, manual staging smoke workflow, Docker build validation, staging env template, and staging runbook added; registry push/deploy credentials remain environment-owned. |
 
 ### Agent Handoff Log
 
 | Date | Agent | Item | Status | Handoff Notes |
 | --- | --- | --- | --- | --- |
+| 2026-07-06 | Codex | NADAA-101 | Done | Verified `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, local `pnpm smoke:staging`, and local Docker builds for five deployable images. |
+| 2026-07-06 | Codex | NADAA-101 | In Progress | Claimed CI/CD and staging foundation; credentials and provider deployment remain environment-owned, not committed. |
 | 2026-07-06 | Codex | NADAA-033 | Done | Verified `pnpm validate:docs`, `pnpm typecheck`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live duplicate candidate HTTP smoke on `localhost:8084`. |
 | 2026-07-06 | Codex | NADAA-033 | In Progress | Claimed incident deduplication baseline; focusing on candidate scoring/storage without merging or deleting reports. |
 | 2026-07-06 | Codex | NADAA-032 | Done | Verified `pnpm validate:docs`, `pnpm typecheck`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live citizen incident UI/API smoke on `localhost:8084`. |
@@ -1482,7 +1485,7 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-091 | MVP | Sprint 3 | Implement Abuse, Spam, And False Report Handling | Todo | Unassigned | TBD | Depends on NADAA-030, NADAA-041. |
 | NADAA-092 | MVP | Sprint 7 | Security Review And Hardening | Todo | Unassigned | TBD | Depends on MVP feature completion. |
 | NADAA-100 | MVP | Sprint 0/7 | Build Test Strategy And QA Matrix | Done | Codex | main | Sprint 0 QA matrix complete; final pass remains in Sprint 7. |
-| NADAA-101 | MVP | Sprint 1/7 | Set Up CI/CD And Staging Environment | Todo | Unassigned | TBD | Starts in Sprint 1, final pass in Sprint 7. |
+| NADAA-101 | MVP | Sprint 1/7 | Set Up CI/CD And Staging Environment | Done | Codex | main | CI workflow, Docker build validation, manual staging smoke workflow/script, staging env template, and runbook added; registry push/deploy credentials remain environment-owned. |
 | NADAA-102 | MVP | Sprint 7 | Conduct UAT, Beta, And Production Readiness | Todo | Unassigned | TBD | Depends on NADAA-100, NADAA-101, MVP feature completion. |
 
 ### Phase 2 Tracker
@@ -1520,11 +1523,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 
 Start here:
 
-1. NADAA-101 Set Up CI/CD And Staging Environment.
-2. NADAA-021 Implement Area Risk API.
-3. NADAA-011 Implement Agency Users, Roles, And MFA.
-4. NADAA-060 Implement Emergency Guide Content Model.
-5. NADAA-080 Define Agency Integration Contracts.
+1. NADAA-021 Implement Area Risk API.
+2. NADAA-011 Implement Agency Users, Roles, And MFA.
+3. NADAA-060 Implement Emergency Guide Content Model.
+4. NADAA-080 Define Agency Integration Contracts.
+5. NADAA-040 Build Incident Command Map.
 
 ## Key Risks And Early Decisions
 
@@ -1552,6 +1555,7 @@ Start here:
 
 | Date | Update | Owner | Status |
 | --- | --- | --- | --- |
+| 2026-07-06 | Completed NADAA-101 with GitHub Actions CI, Docker build validation for deployable apps/services, manual staging smoke workflow, staging smoke script, staging environment template, and staging runbook. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-031 with controlled media upload initiation, private metadata, content-type and size validation, incident media linkage, shared media types, API docs, and tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-030 with incident-service report intake API, validation, anonymous/contact-permission behavior, media references, priority review flag, rate limiting, shared types, API docs, and tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-010 with auth-service citizen registration, mock OTP login, signed bearer token profile access, shared auth types, API docs, and tests. | Codex | Complete |

@@ -269,5 +269,36 @@
       "Live duplicate candidate HTTP smoke on localhost:8084"
     ],
     "notes": "Incident-service now stores same-hazard duplicate candidates scored by distance, time window, and description similarity without automatic merge or deletion."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 1/7",
+    "epic": "EPIC 10: QA, Release, UAT, And Operations",
+    "story": "Set Up CI/CD And Staging Environment",
+    "jiraKey": "NADAA-101",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 13,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-001"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:docs",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm smoke:web",
+      "Local pnpm smoke:staging against 127.0.0.1 web apps",
+      "Local Docker builds for citizen-web, authority-dashboard, auth-service, incident-service, and risk-service"
+    ],
+    "notes": "GitHub Actions CI, Docker build validation, manual staging smoke workflow/script, staging env template, and runbook added. Registry push and deploy credentials remain environment-owned."
   }
 ]

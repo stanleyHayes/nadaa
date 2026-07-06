@@ -51,16 +51,25 @@ pnpm validate:docs
 pnpm typecheck
 pnpm build
 pnpm go:test
+pnpm smoke:web
+```
+
+Run staging smoke checks against configured URLs:
+
+```bash
+STAGING_CITIZEN_URL=http://127.0.0.1:5173 \
+STAGING_AUTHORITY_URL=http://127.0.0.1:5174 \
+pnpm smoke:staging
 ```
 
 ## Environment Matrix
 
-| Environment | Purpose | Data | Notifications | Access |
-| --- | --- | --- | --- | --- |
-| Local | Developer implementation | Fixtures only | Mock providers | Developer machine |
-| Staging | QA, UAT, demos | Seeded non-production data | Sandbox/test providers | Project team and approved stakeholders |
-| Beta | Limited controlled rollout | Production-like approved data | Limited real providers | Selected users/agencies |
-| Production | National service | Approved production data | Real providers | Public and agencies |
+| Environment | Purpose                    | Data                          | Notifications          | Access                                 |
+| ----------- | -------------------------- | ----------------------------- | ---------------------- | -------------------------------------- |
+| Local       | Developer implementation   | Fixtures only                 | Mock providers         | Developer machine                      |
+| Staging     | QA, UAT, demos             | Seeded non-production data    | Sandbox/test providers | Project team and approved stakeholders |
+| Beta        | Limited controlled rollout | Production-like approved data | Limited real providers | Selected users/agencies                |
+| Production  | National service           | Approved production data      | Real providers         | Public and agencies                    |
 
 ## Required Environment Variables
 
@@ -84,18 +93,27 @@ Initial expected groups:
 - `EMAIL_API_KEY`
 - `ML_SERVICE_URL`
 
-Do not commit real values. Use `.env.example` when a service needs a template.
+Do not commit real values. Use `.env.example` when a service needs a template. Use `infra/staging/staging.env.example` as the staging environment checklist.
 
 ## CI/CD Expectations
 
-CI should run:
+The first-pass GitHub Actions workflows live in `.github/workflows/`.
 
+`CI` runs on pull requests and pushes to `main`:
+
+- Project dashboard and database asset validation.
+- Workspace lint checks.
 - TypeScript type checks.
-- App builds.
-- Go tests.
-- Future API tests.
-- Future linting/format checks.
-- Future container builds.
+- Workspace tests.
+- App and package builds.
+- Go tests for `auth-service`, `incident-service`, and `risk-service`.
+- Docker build validation for citizen web, authority dashboard, auth service, incident service, and risk service images.
+
+`Staging Smoke` runs manually against the GitHub `staging` environment:
+
+- `STAGING_CITIZEN_URL` must serve the NADAA Citizen app.
+- `STAGING_AUTHORITY_URL` must serve the NADAA Authority Dashboard.
+- Optional service URLs are checked at `/healthz` when configured.
 
 Staging deployment should require:
 
@@ -104,6 +122,7 @@ Staging deployment should require:
 - Environment variable validation.
 - Database migration plan.
 - Smoke test pass.
+- Image registry push and deploy credentials configured in the `staging` environment.
 
 Production deployment should require:
 
