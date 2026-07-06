@@ -4,7 +4,7 @@ NADAA uses PostgreSQL with PostGIS for core relational and geospatial data.
 
 ## Files
 
-- `migrations/001_core_geospatial_schema.sql` - core MVP schema, enums, PostGIS extension, tables, and indexes.
+- `migrations/001_core_geospatial_schema.sql` - core MVP schema, enums, PostGIS extension, tables, delivery logs, and indexes.
 - `migrations/002_add_guide_sort_order.sql` - idempotent guide content ordering column for existing local databases.
 - `seeds/001_ghana_mvp_seed.sql` - development seed data for Ghana agencies, shelters, emergency guides, risk zones, alerts, incidents, and ML predictions.
 

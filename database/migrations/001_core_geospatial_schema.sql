@@ -104,6 +104,20 @@ EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$
+BEGIN
+  CREATE TYPE notification_channel AS ENUM ('push', 'sms', 'in_app');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  CREATE TYPE notification_delivery_status AS ENUM ('queued', 'delivered', 'failed', 'skipped');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS agencies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -289,6 +303,19 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS notification_delivery_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  alert_id TEXT NOT NULL,
+  channel notification_channel NOT NULL,
+  provider TEXT NOT NULL,
+  recipient_ref TEXT NOT NULL,
+  status notification_delivery_status NOT NULL,
+  reason TEXT,
+  message_id TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  attempted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_agencies_service_area_geometry ON agencies USING GIST (service_area_geometry);
 CREATE INDEX IF NOT EXISTS idx_users_home_location ON users USING GIST (home_location);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
@@ -309,3 +336,5 @@ CREATE INDEX IF NOT EXISTS idx_weather_observations_location ON weather_observat
 CREATE INDEX IF NOT EXISTS idx_weather_observations_source_time ON weather_observations (source, observed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created_at ON audit_logs (actor_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs (target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_notification_delivery_alert_channel ON notification_delivery_logs (alert_id, channel, attempted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notification_delivery_status ON notification_delivery_logs (status, attempted_at DESC);

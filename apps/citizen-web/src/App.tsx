@@ -21,11 +21,12 @@ import {
   ThemeProvider,
   Toolbar,
   Typography,
-  createTheme
+  createTheme,
 } from "@mui/material";
 import {
   Bell,
   CheckCircle2,
+  Clock3,
   Cross,
   ImagePlus,
   LifeBuoy,
@@ -34,13 +35,17 @@ import {
   MapPin,
   Megaphone,
   Phone,
+  RefreshCw,
   ShieldCheck,
   Siren,
-  Waves
+  Waves,
 } from "lucide-react";
 import { featurePillars, nadaaBrand } from "@nadaa/brand";
 import type {
   AreaRiskResponse,
+  AlertSeverity,
+  CitizenAlertFeedItem,
+  CitizenAlertFeedResponse,
   CreateIncidentRequest,
   CreateIncidentResponse,
   HazardType,
@@ -48,18 +53,22 @@ import type {
   IncidentUrgency,
   InitiateMediaUploadRequest,
   MediaUploadResponse,
-  RiskLevel
+  RiskLevel,
 } from "@nadaa/shared-types";
 
-const INCIDENT_API_BASE = import.meta.env.VITE_INCIDENT_API_URL ?? "http://localhost:8084/api/v1";
-const RISK_API_BASE = import.meta.env.VITE_RISK_API_URL ?? "http://localhost:8081/api/v1";
+const INCIDENT_API_BASE =
+  import.meta.env.VITE_INCIDENT_API_URL ?? "http://localhost:8084/api/v1";
+const RISK_API_BASE =
+  import.meta.env.VITE_RISK_API_URL ?? "http://localhost:8081/api/v1";
+const NOTIFICATION_API_BASE =
+  import.meta.env.VITE_NOTIFICATION_API_URL ?? "http://localhost:8090/api/v1";
 
 const riskTone: Record<RiskLevel, "success" | "warning" | "error" | "info"> = {
   low: "success",
   moderate: "info",
   high: "warning",
   severe: "error",
-  emergency: "error"
+  emergency: "error",
 };
 
 const sampleRisk: AreaRiskResponse = {
@@ -70,14 +79,16 @@ const sampleRisk: AreaRiskResponse = {
       type: "flood",
       level: "severe",
       probability: 0.82,
-      reason: "Heavy rainfall forecast, low elevation, and historical flood reports nearby."
+      reason:
+        "Heavy rainfall forecast, low elevation, and historical flood reports nearby.",
     },
     {
       type: "fire",
       level: "moderate",
       probability: 0.34,
-      reason: "Dense market activity and recent dry periods increase localized risk."
-    }
+      reason:
+        "Dense market activity and recent dry periods increase localized risk.",
+    },
   ],
   nearestShelters: [
     {
@@ -86,7 +97,7 @@ const sampleRisk: AreaRiskResponse = {
       location: { lat: 5.56, lng: -0.2 },
       capacity: 450,
       currentOccupancy: 116,
-      contact: "112"
+      contact: "112",
     },
     {
       id: "shelter-osu-002",
@@ -94,8 +105,8 @@ const sampleRisk: AreaRiskResponse = {
       location: { lat: 5.55, lng: -0.18 },
       capacity: 220,
       currentOccupancy: 34,
-      contact: "112"
-    }
+      contact: "112",
+    },
   ],
   nearbyFacilities: [
     {
@@ -103,38 +114,98 @@ const sampleRisk: AreaRiskResponse = {
       name: "NADMO Accra Metro",
       type: "nadmo",
       location: { lat: 5.56, lng: -0.2 },
-      contact: "112"
-    }
+      contact: "112",
+    },
   ],
   recommendedActions: [
     "Avoid low-lying roads and open drains.",
     "Move valuables above ground level.",
-    "Prepare an evacuation route to the nearest safe shelter."
-  ]
+    "Prepare an evacuation route to the nearest safe shelter.",
+  ],
 };
 
 const areaPresets = [
   { label: "Accra Metropolitan", lat: 5.6037, lng: -0.187 },
   { label: "Accra flood zone", lat: 5.56, lng: -0.2 },
-  { label: "Kumasi area", lat: 6.6885, lng: -1.6244 }
+  { label: "Kumasi area", lat: 6.6885, lng: -1.6244 },
 ];
 
-const alerts = [
-  {
-    title: "Severe Flood Watch",
-    area: "Accra Metro, Tema",
-    severity: "Severe Warning",
-    expires: "18:00",
-    body: "Heavy rainfall may cause flooding in low-lying communities."
-  },
-  {
-    title: "Road Hazard Notice",
-    area: "Kaneshie Market Road",
-    severity: "Watch",
-    expires: "16:30",
-    body: "Slow movement expected. Emergency vehicles have priority."
-  }
-];
+function buildFallbackAlerts(): CitizenAlertFeedItem[] {
+  const now = new Date();
+  return [
+    {
+      id: "alert_feed_current_flood",
+      title: "Severe flood warning",
+      hazardType: "flood",
+      severity: "severe_warning",
+      message:
+        "Heavy rainfall and rising drains may flood low-lying parts of Accra Metro and Tema.",
+      target: {
+        type: "district",
+        ids: ["accra-metropolitan", "tema-metropolitan"],
+        label: "Accra Metro and Tema",
+      },
+      targetLabel: "Accra Metro and Tema",
+      startsAt: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+      expiresAt: new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString(),
+      status: "current",
+      recommendedAction:
+        "Move away from drains, avoid flooded roads, and prepare to go to a shelter if directed.",
+      evacuationRequired: true,
+      shelterIds: ["shelter-ama-001", "shelter-osu-002"],
+      source: "fixture",
+      updatedAt: new Date(now.getTime() - 20 * 60 * 1000).toISOString(),
+    },
+    {
+      id: "alert_feed_current_fire",
+      title: "Market fire watch",
+      hazardType: "fire",
+      severity: "watch",
+      message:
+        "Responders are monitoring dense market areas after smoke reports near electrical kiosks.",
+      target: {
+        type: "community",
+        ids: ["accra-central"],
+        label: "Accra Central",
+      },
+      targetLabel: "Accra Central",
+      startsAt: new Date(now.getTime() - 20 * 60 * 1000).toISOString(),
+      expiresAt: new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(),
+      status: "current",
+      recommendedAction:
+        "Keep access lanes open, avoid overloaded sockets, and call 112 if you see flames or heavy smoke.",
+      evacuationRequired: false,
+      shelterIds: [],
+      source: "fixture",
+      updatedAt: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
+    },
+    {
+      id: "alert_feed_expired_road",
+      title: "Road hazard resolved",
+      hazardType: "road_crash",
+      severity: "advisory",
+      message:
+        "Earlier congestion near Kaneshie Market Road has cleared after responders reopened the lane.",
+      target: {
+        type: "radius",
+        ids: ["kaneshie-market-road"],
+        label: "Kaneshie Market Road",
+        center: { lat: 5.566, lng: -0.242 },
+        radiusMeters: 1500,
+      },
+      targetLabel: "Kaneshie Market Road",
+      startsAt: new Date(now.getTime() - 8 * 60 * 60 * 1000).toISOString(),
+      expiresAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+      status: "expired",
+      recommendedAction:
+        "Continue to drive carefully and give way to emergency vehicles.",
+      evacuationRequired: false,
+      shelterIds: [],
+      source: "fixture",
+      updatedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+    },
+  ];
+}
 
 const hazardOptions: { label: string; value: HazardType }[] = [
   { label: "Flood", value: "flood" },
@@ -143,14 +214,14 @@ const hazardOptions: { label: string; value: HazardType }[] = [
   { label: "Medical emergency", value: "medical_emergency" },
   { label: "Building collapse", value: "building_collapse" },
   { label: "Blocked drain", value: "blocked_drain" },
-  { label: "Other", value: "other" }
+  { label: "Other", value: "other" },
 ];
 
 const urgencyOptions: { label: string; value: IncidentUrgency }[] = [
   { label: "Moderate", value: "moderate" },
   { label: "High", value: "high" },
   { label: "Life threatening", value: "life_threatening" },
-  { label: "Low", value: "low" }
+  { label: "Low", value: "low" },
 ];
 
 const supportedMediaTypes: IncidentMediaContentType[] = [
@@ -161,7 +232,7 @@ const supportedMediaTypes: IncidentMediaContentType[] = [
   "video/quicktime",
   "audio/mpeg",
   "audio/mp4",
-  "audio/wav"
+  "audio/wav",
 ];
 
 const mediaSizeLimits: Record<IncidentMediaContentType, number> = {
@@ -172,7 +243,7 @@ const mediaSizeLimits: Record<IncidentMediaContentType, number> = {
   "video/quicktime": 100 * 1024 * 1024,
   "audio/mpeg": 25 * 1024 * 1024,
   "audio/mp4": 25 * 1024 * 1024,
-  "audio/wav": 25 * 1024 * 1024
+  "audio/wav": 25 * 1024 * 1024,
 };
 
 type ReportForm = {
@@ -201,6 +272,13 @@ type RiskState =
   | { status: "error"; message: string }
   | { status: "permission-denied"; message: string };
 
+type AlertFeedView = "current" | "expired" | "all";
+
+type AlertFeedState =
+  | { status: "idle"; message?: string }
+  | { status: "loading"; message: string }
+  | { status: "error"; message: string };
+
 const initialReportForm: ReportForm = {
   hazard: "flood",
   lat: "5.579",
@@ -212,7 +290,7 @@ const initialReportForm: ReportForm = {
   anonymous: false,
   contactPermission: true,
   accessibilityNeeds: "",
-  files: []
+  files: [],
 };
 
 const theme = createTheme({
@@ -222,7 +300,10 @@ const theme = createTheme({
     error: { main: nadaaBrand.colors.red },
     warning: { main: nadaaBrand.colors.gold },
     background: { default: "#F4F7FB", paper: nadaaBrand.colors.white },
-    text: { primary: nadaaBrand.colors.ink, secondary: nadaaBrand.colors.slate }
+    text: {
+      primary: nadaaBrand.colors.ink,
+      secondary: nadaaBrand.colors.slate,
+    },
   },
   shape: { borderRadius: 8 },
   typography: {
@@ -234,53 +315,101 @@ const theme = createTheme({
     h4: { fontWeight: 800 },
     h5: { fontWeight: 800 },
     h6: { fontWeight: 800 },
-    button: { fontWeight: 800, textTransform: "none" }
+    button: { fontWeight: 800, textTransform: "none" },
   },
   components: {
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundImage: "none"
-        }
-      }
+          backgroundImage: "none",
+        },
+      },
     },
     MuiButton: {
       styleOverrides: {
         root: {
-          minHeight: 42
-        }
-      }
-    }
-  }
+          minHeight: 42,
+        },
+      },
+    },
+  },
 });
 
 function App() {
   const [area, setArea] = useState("Accra Central");
   const [risk, setRisk] = useState<AreaRiskResponse>(sampleRisk);
-  const [riskCoordinates, setRiskCoordinates] = useState({ lat: "5.603700", lng: "-0.187000" });
+  const [riskCoordinates, setRiskCoordinates] = useState({
+    lat: "5.603700",
+    lng: "-0.187000",
+  });
   const [riskState, setRiskState] = useState<RiskState>({ status: "idle" });
+  const [alertFeed, setAlertFeed] = useState<CitizenAlertFeedItem[]>(() =>
+    buildFallbackAlerts(),
+  );
+  const [alertFeedView, setAlertFeedView] = useState<AlertFeedView>("current");
+  const [alertFeedState, setAlertFeedState] = useState<AlertFeedState>({
+    status: "idle",
+    message: "Showing saved warnings until the feed refreshes.",
+  });
   const [reportForm, setReportForm] = useState<ReportForm>(initialReportForm);
-  const [reportState, setReportState] = useState<ReportState>({ status: "idle" });
-  const floodRisk = useMemo(() => risk.risks.find((item) => item.type === "flood"), [risk.risks]);
+  const [reportState, setReportState] = useState<ReportState>({
+    status: "idle",
+  });
+  const floodRisk = useMemo(
+    () => risk.risks.find((item) => item.type === "flood"),
+    [risk.risks],
+  );
+  const visibleAlerts = useMemo(
+    () =>
+      alertFeed.filter((alert) => {
+        if (alertFeedView === "all") {
+          return true;
+        }
+        return alert.status === alertFeedView;
+      }),
+    [alertFeed, alertFeedView],
+  );
+  const currentAlertCount = useMemo(
+    () => alertFeed.filter((alert) => alert.status === "current").length,
+    [alertFeed],
+  );
+  const expiredAlertCount = useMemo(
+    () => alertFeed.filter((alert) => alert.status === "expired").length,
+    [alertFeed],
+  );
 
   useEffect(() => {
-    void fetchRisk(areaPresets[0].lat, areaPresets[0].lng, areaPresets[0].label);
+    void fetchRisk(
+      areaPresets[0].lat,
+      areaPresets[0].lng,
+      areaPresets[0].label,
+    );
+    void fetchAlertFeed();
   }, []);
 
-  const updateReportForm = <Key extends keyof ReportForm>(key: Key, value: ReportForm[Key]) => {
+  const updateReportForm = <Key extends keyof ReportForm>(
+    key: Key,
+    value: ReportForm[Key],
+  ) => {
     setReportForm((current) => ({ ...current, [key]: value }));
   };
 
   async function fetchRisk(lat: number, lng: number, label: string) {
     if (!navigator.onLine) {
-      setRiskState({ status: "error", message: "Risk lookup needs a connection. Try again when you are online." });
+      setRiskState({
+        status: "error",
+        message:
+          "Risk lookup needs a connection. Try again when you are online.",
+      });
       return;
     }
 
     setRiskState({ status: "loading", message: "Checking area risk" });
 
     try {
-      const response = await fetch(`${RISK_API_BASE}/risk?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`);
+      const response = await fetch(
+        `${RISK_API_BASE}/risk?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
+      );
       if (!response.ok) {
         throw new Error(await extractAPIError(response));
       }
@@ -289,11 +418,54 @@ function App() {
       setRisk(payload);
       setArea(label);
       setRiskCoordinates({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
-      setRiskState({ status: "idle", message: `Updated for ${payload.location}` });
+      setRiskState({
+        status: "idle",
+        message: `Updated for ${payload.location}`,
+      });
     } catch (error) {
       setRiskState({
         status: "error",
-        message: error instanceof Error ? error.message : "Could not load area risk."
+        message:
+          error instanceof Error ? error.message : "Could not load area risk.",
+      });
+    }
+  }
+
+  async function fetchAlertFeed() {
+    if (!navigator.onLine) {
+      setAlertFeedState({
+        status: "error",
+        message: "Alert feed needs a connection. Showing saved warnings.",
+      });
+      return;
+    }
+
+    setAlertFeedState({ status: "loading", message: "Refreshing alerts" });
+
+    try {
+      const response = await fetch(
+        `${NOTIFICATION_API_BASE}/notifications/alerts?includeExpired=true`,
+      );
+      if (!response.ok) {
+        throw new Error(await extractAPIError(response));
+      }
+
+      const payload = (await response.json()) as CitizenAlertFeedResponse;
+      setAlertFeed(
+        payload.alerts.length > 0 ? payload.alerts : buildFallbackAlerts(),
+      );
+      setAlertFeedState({
+        status: "idle",
+        message: `Alert feed updated ${formatDateTime(payload.generatedAt)}.`,
+      });
+    } catch (error) {
+      setAlertFeed(buildFallbackAlerts());
+      setAlertFeedState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Live alert feed unavailable. Showing saved warnings.",
       });
     }
   }
@@ -305,7 +477,8 @@ function App() {
     if (!lookup) {
       setRiskState({
         status: "error",
-        message: "Choose Accra Metropolitan, Accra flood zone, Kumasi area, or enter coordinates as lat,lng."
+        message:
+          "Choose Accra Metropolitan, Accra flood zone, Kumasi area, or enter coordinates as lat,lng.",
       });
       return;
     }
@@ -315,28 +488,39 @@ function App() {
 
   const useRiskLocation = () => {
     if (!navigator.geolocation) {
-      setRiskState({ status: "error", message: "Location is not available on this device." });
+      setRiskState({
+        status: "error",
+        message: "Location is not available on this device.",
+      });
       return;
     }
 
     setRiskState({ status: "loading", message: "Getting location" });
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        void fetchRisk(position.coords.latitude, position.coords.longitude, "Current location");
+        void fetchRisk(
+          position.coords.latitude,
+          position.coords.longitude,
+          "Current location",
+        );
       },
       () => {
         setRiskState({
           status: "permission-denied",
-          message: "Location permission was not granted. Choose an area or enter coordinates instead."
+          message:
+            "Location permission was not granted. Choose an area or enter coordinates instead.",
         });
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   };
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setReportState({ status: "error", message: "Location is not available on this device." });
+      setReportState({
+        status: "error",
+        message: "Location is not available on this device.",
+      });
       return;
     }
 
@@ -346,14 +530,17 @@ function App() {
         setReportForm((current) => ({
           ...current,
           lat: position.coords.latitude.toFixed(6),
-          lng: position.coords.longitude.toFixed(6)
+          lng: position.coords.longitude.toFixed(6),
         }));
         setReportState({ status: "idle" });
       },
       () => {
-        setReportState({ status: "error", message: "Location permission was not granted." });
+        setReportState({
+          status: "error",
+          message: "Location permission was not granted.",
+        });
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   };
 
@@ -362,22 +549,30 @@ function App() {
     event.currentTarget.value = "";
 
     if (selectedFiles.length > 10) {
-      setReportState({ status: "error", message: "Attach at most 10 media files to one report." });
+      setReportState({
+        status: "error",
+        message: "Attach at most 10 media files to one report.",
+      });
       return;
     }
 
     const invalidFile = selectedFiles.find((file) => {
-      if (!supportedMediaTypes.includes(file.type as IncidentMediaContentType)) {
+      if (
+        !supportedMediaTypes.includes(file.type as IncidentMediaContentType)
+      ) {
         return true;
       }
 
-      return file.size <= 0 || file.size > mediaSizeLimits[file.type as IncidentMediaContentType];
+      return (
+        file.size <= 0 ||
+        file.size > mediaSizeLimits[file.type as IncidentMediaContentType]
+      );
     });
 
     if (invalidFile) {
       setReportState({
         status: "error",
-        message: `${invalidFile.name} is not supported or is too large for this report.`
+        message: `${invalidFile.name} is not supported or is too large for this report.`,
       });
       return;
     }
@@ -393,25 +588,42 @@ function App() {
     const lng = Number(reportForm.lng);
     const peopleAffected = Number(reportForm.peopleAffected || 0);
 
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
-      setReportState({ status: "error", message: "Enter valid coordinates before sending the report." });
+    if (
+      !Number.isFinite(lat) ||
+      lat < -90 ||
+      lat > 90 ||
+      !Number.isFinite(lng) ||
+      lng < -180 ||
+      lng > 180
+    ) {
+      setReportState({
+        status: "error",
+        message: "Enter valid coordinates before sending the report.",
+      });
       return;
     }
 
     if (reportForm.description.trim().length < 5) {
-      setReportState({ status: "error", message: "Add a short description of what happened." });
+      setReportState({
+        status: "error",
+        message: "Add a short description of what happened.",
+      });
       return;
     }
 
     if (!Number.isInteger(peopleAffected) || peopleAffected < 0) {
-      setReportState({ status: "error", message: "People affected must be zero or more." });
+      setReportState({
+        status: "error",
+        message: "People affected must be zero or more.",
+      });
       return;
     }
 
     if (!navigator.onLine) {
       setReportState({
         status: "error",
-        message: "You appear to be offline. Keep this report open and try again when the connection returns."
+        message:
+          "You appear to be offline. Keep this report open and try again when the connection returns.",
       });
       return;
     }
@@ -428,21 +640,23 @@ function App() {
         injuriesReported: reportForm.injuriesReported,
         urgency: reportForm.urgency,
         anonymous: reportForm.anonymous,
-        contactPermission: reportForm.anonymous ? false : reportForm.contactPermission,
+        contactPermission: reportForm.anonymous
+          ? false
+          : reportForm.contactPermission,
         accessibilityNeeds: reportForm.accessibilityNeeds.trim() || undefined,
         media: mediaIds,
         reporter: reportForm.anonymous
           ? undefined
           : {
               userId: "usr_demo_citizen",
-              phone: reportForm.contactPermission ? "+233200000000" : undefined
-            }
+              phone: reportForm.contactPermission ? "+233200000000" : undefined,
+            },
       };
 
       const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -453,13 +667,14 @@ function App() {
       setReportState({
         status: "success",
         reference: incident.reference,
-        priorityReview: incident.priorityReview
+        priorityReview: incident.priorityReview,
       });
       setReportForm(initialReportForm);
     } catch (error) {
       setReportState({
         status: "error",
-        message: error instanceof Error ? error.message : "Could not send report."
+        message:
+          error instanceof Error ? error.message : "Could not send report.",
       });
     }
   };
@@ -470,9 +685,18 @@ function App() {
       <AppBar position="sticky" elevation={0} className="topbar">
         <Toolbar className="toolbar">
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <Box component="img" src="/brand/nadaa-logo.png" alt="NADAA shield" className="brand-logo" />
+            <Box
+              component="img"
+              src="/brand/nadaa-logo.png"
+              alt="NADAA shield"
+              className="brand-logo"
+            />
             <Box>
-              <Typography variant="h6" component="div" className="brand-wordmark">
+              <Typography
+                variant="h6"
+                component="div"
+                className="brand-wordmark"
+              >
                 {nadaaBrand.name}
               </Typography>
               <Typography variant="caption" className="brand-subtitle">
@@ -480,7 +704,12 @@ function App() {
               </Typography>
             </Box>
           </Stack>
-          <Button color="inherit" variant="outlined" startIcon={<Phone size={18} />} className="call-button">
+          <Button
+            color="inherit"
+            variant="outlined"
+            startIcon={<Phone size={18} />}
+            className="call-button"
+          >
             Call 112
           </Button>
         </Toolbar>
@@ -490,21 +719,35 @@ function App() {
         <Grid container spacing={2.5}>
           <Grid size={{ xs: 12, lg: 8 }}>
             <Paper className="surface risk-surface">
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between">
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={2}
+                justifyContent="space-between"
+              >
                 <Box>
                   <Typography variant="overline" color="secondary">
                     Citizen operations
                   </Typography>
-                  <Typography variant="h4">Know your risk before conditions change</Typography>
+                  <Typography variant="h4">
+                    Know your risk before conditions change
+                  </Typography>
                 </Box>
-                <ButtonGroup variant="contained" aria-label="risk view selector" className="mode-group">
+                <ButtonGroup
+                  variant="contained"
+                  aria-label="risk view selector"
+                  className="mode-group"
+                >
                   <Button startIcon={<Waves size={17} />}>Risk</Button>
                   <Button startIcon={<Bell size={17} />}>Alerts</Button>
                   <Button startIcon={<Siren size={17} />}>Report</Button>
                 </ButtonGroup>
               </Stack>
 
-              <Box component="form" className="risk-lookup" onSubmit={submitRiskLookup}>
+              <Box
+                component="form"
+                className="risk-lookup"
+                onSubmit={submitRiskLookup}
+              >
                 <TextField
                   label="Area or coordinates"
                   value={area}
@@ -515,11 +758,17 @@ function App() {
                   type="submit"
                   variant="contained"
                   startIcon={
-                    riskState.status === "loading" ? <Loader2 size={18} className="spin-icon" /> : <MapPin size={18} />
+                    riskState.status === "loading" ? (
+                      <Loader2 size={18} className="spin-icon" />
+                    ) : (
+                      <MapPin size={18} />
+                    )
                   }
                   disabled={riskState.status === "loading"}
                 >
-                  {riskState.status === "loading" ? riskState.message : "Check risk"}
+                  {riskState.status === "loading"
+                    ? riskState.message
+                    : "Check risk"}
                 </Button>
                 <Button
                   type="button"
@@ -531,19 +780,34 @@ function App() {
                   Use location
                 </Button>
               </Box>
-              <Stack direction="row" spacing={1} flexWrap="wrap" className="risk-presets">
+              <Stack
+                direction="row"
+                spacing={1}
+                flexWrap="wrap"
+                className="risk-presets"
+              >
                 {areaPresets.map((preset) => (
                   <Chip
                     key={preset.label}
                     label={preset.label}
-                    onClick={() => void fetchRisk(preset.lat, preset.lng, preset.label)}
+                    onClick={() =>
+                      void fetchRisk(preset.lat, preset.lng, preset.label)
+                    }
                     variant={area === preset.label ? "filled" : "outlined"}
                     color={area === preset.label ? "secondary" : "default"}
                   />
                 ))}
               </Stack>
-              {riskState.status === "error" || riskState.status === "permission-denied" ? (
-                <Alert severity={riskState.status === "permission-denied" ? "warning" : "error"} className="warning-alert">
+              {riskState.status === "error" ||
+              riskState.status === "permission-denied" ? (
+                <Alert
+                  severity={
+                    riskState.status === "permission-denied"
+                      ? "warning"
+                      : "error"
+                  }
+                  className="warning-alert"
+                >
                   {riskState.message}
                 </Alert>
               ) : null}
@@ -557,14 +821,23 @@ function App() {
                 <Grid size={{ xs: 12, md: 5 }}>
                   <Box className="risk-score">
                     <Typography variant="overline">Overall risk</Typography>
-                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      flexWrap="wrap"
+                    >
                       <Typography variant="h2">{risk.overallRisk}</Typography>
                       <Chip label="Rainfall rising" color="warning" />
                     </Stack>
                     <Typography color="text.secondary">
-                      {risk.location} is currently reporting {floodRisk?.level ?? risk.overallRisk} flood risk.
+                      {risk.location} is currently reporting{" "}
+                      {floodRisk?.level ?? risk.overallRisk} flood risk.
                     </Typography>
-                    <Box className="risk-map-preview" aria-label="Selected risk coordinates">
+                    <Box
+                      className="risk-map-preview"
+                      aria-label="Selected risk coordinates"
+                    >
                       <Typography variant="caption" color="text.secondary">
                         {riskCoordinates.lat}, {riskCoordinates.lng}
                       </Typography>
@@ -576,13 +849,39 @@ function App() {
                   <Stack spacing={1.5}>
                     {risk.risks.length > 0 ? (
                       risk.risks.map((item) => (
-                        <Paper variant="outlined" className="risk-row" key={item.type}>
-                          <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                            <ShieldCheck size={22} color={item.type === "flood" ? "#0B6FB8" : nadaaBrand.colors.red} />
+                        <Paper
+                          variant="outlined"
+                          className="risk-row"
+                          key={item.type}
+                        >
+                          <Stack
+                            direction="row"
+                            spacing={1.5}
+                            alignItems="flex-start"
+                          >
+                            <ShieldCheck
+                              size={22}
+                              color={
+                                item.type === "flood"
+                                  ? "#0B6FB8"
+                                  : nadaaBrand.colors.red
+                              }
+                            />
                             <Box>
-                              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                                <Typography variant="subtitle1">{item.type.replace("_", " ")}</Typography>
-                                <Chip size="small" label={item.level} color={riskTone[item.level]} />
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
+                                flexWrap="wrap"
+                              >
+                                <Typography variant="subtitle1">
+                                  {item.type.replace("_", " ")}
+                                </Typography>
+                                <Chip
+                                  size="small"
+                                  label={item.level}
+                                  color={riskTone[item.level]}
+                                />
                                 {item.probability ? (
                                   <Chip
                                     size="small"
@@ -591,7 +890,10 @@ function App() {
                                   />
                                 ) : null}
                               </Stack>
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
                                 {item.reason}
                               </Typography>
                             </Box>
@@ -611,39 +913,200 @@ function App() {
             <Grid container spacing={2.5} className="section-grid">
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper className="surface">
-                  <Stack direction="row" spacing={1} alignItems="center" className="section-heading">
-                    <Megaphone size={21} color={nadaaBrand.colors.red} />
-                    <Typography variant="h6">Live warnings</Typography>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    justifyContent="space-between"
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                    className="section-heading"
+                  >
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Megaphone size={21} color={nadaaBrand.colors.red} />
+                      <Box>
+                        <Typography variant="h6">Live warnings</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {currentAlertCount} current · {expiredAlertCount}{" "}
+                          expired
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      startIcon={
+                        alertFeedState.status === "loading" ? (
+                          <Loader2 size={16} className="spin-icon" />
+                        ) : (
+                          <RefreshCw size={16} />
+                        )
+                      }
+                      onClick={() => void fetchAlertFeed()}
+                      disabled={alertFeedState.status === "loading"}
+                    >
+                      Refresh
+                    </Button>
                   </Stack>
+                  <ButtonGroup
+                    variant="outlined"
+                    size="small"
+                    className="alert-filter-group"
+                    aria-label="alert feed filter"
+                  >
+                    <Button
+                      variant={
+                        alertFeedView === "current" ? "contained" : "outlined"
+                      }
+                      onClick={() => setAlertFeedView("current")}
+                    >
+                      Current
+                    </Button>
+                    <Button
+                      variant={
+                        alertFeedView === "expired" ? "contained" : "outlined"
+                      }
+                      onClick={() => setAlertFeedView("expired")}
+                    >
+                      Expired
+                    </Button>
+                    <Button
+                      variant={
+                        alertFeedView === "all" ? "contained" : "outlined"
+                      }
+                      onClick={() => setAlertFeedView("all")}
+                    >
+                      All
+                    </Button>
+                  </ButtonGroup>
+
+                  {alertFeedState.status === "error" ? (
+                    <Alert severity="warning" className="warning-alert">
+                      {alertFeedState.message}
+                    </Alert>
+                  ) : null}
+                  {alertFeedState.status === "idle" &&
+                  alertFeedState.message ? (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      className="alert-feed-note"
+                    >
+                      {alertFeedState.message}
+                    </Typography>
+                  ) : null}
+
                   <Stack spacing={1.5}>
-                    {alerts.map((alert) => (
-                      <Alert
-                        key={alert.title}
-                        severity={alert.severity.includes("Severe") ? "error" : "warning"}
-                        className="warning-alert"
-                      >
-                        <Typography variant="subtitle2">{alert.title}</Typography>
-                        <Typography variant="body2">{alert.area} · Expires {alert.expires}</Typography>
-                        <Typography variant="body2">{alert.body}</Typography>
+                    {visibleAlerts.length > 0 ? (
+                      visibleAlerts.map((alert) => (
+                        <Alert
+                          key={alert.id}
+                          severity={alertSeverityTone(
+                            alert.severity,
+                            alert.status,
+                          )}
+                          className="warning-alert citizen-alert-card"
+                          icon={
+                            alert.status === "expired" ? (
+                              <Clock3 size={20} />
+                            ) : undefined
+                          }
+                        >
+                          <Stack spacing={0.75}>
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              justifyContent="space-between"
+                              alignItems="flex-start"
+                            >
+                              <Box>
+                                <Typography variant="subtitle2">
+                                  {alert.title}
+                                </Typography>
+                                <Typography variant="body2">
+                                  {alert.targetLabel} ·{" "}
+                                  {alertSeverityLabel(alert.severity)}
+                                </Typography>
+                              </Box>
+                              <Chip
+                                size="small"
+                                label={alertStatusLabel(alert.status)}
+                                color={
+                                  alert.status === "current"
+                                    ? "error"
+                                    : "default"
+                                }
+                              />
+                            </Stack>
+                            <Typography variant="body2">
+                              {alert.message}
+                            </Typography>
+                            <Typography variant="body2">
+                              {alert.recommendedAction}
+                            </Typography>
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              flexWrap="wrap"
+                            >
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                label={hazardLabel(alert.hazardType)}
+                              />
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                label={`Until ${formatDateTime(alert.expiresAt)}`}
+                              />
+                              {alert.evacuationRequired ? (
+                                <Chip
+                                  size="small"
+                                  color="error"
+                                  label="Evacuation possible"
+                                />
+                              ) : null}
+                            </Stack>
+                          </Stack>
+                        </Alert>
+                      ))
+                    ) : (
+                      <Alert severity="info" className="warning-alert">
+                        No {alertFeedView === "all" ? "" : alertFeedView} alerts
+                        are available.
                       </Alert>
-                    ))}
+                    )}
                   </Stack>
                 </Paper>
               </Grid>
 
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper className="surface report-surface">
-                  <Stack direction="row" spacing={1} alignItems="center" className="section-heading">
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    className="section-heading"
+                  >
                     <Siren size={21} color={nadaaBrand.colors.gold} />
                     <Typography variant="h6">Report incident</Typography>
                   </Stack>
-                  <Stack component="form" spacing={1.5} onSubmit={submitReport} noValidate>
+                  <Stack
+                    component="form"
+                    spacing={1.5}
+                    onSubmit={submitReport}
+                    noValidate
+                  >
                     <FormControl fullWidth>
                       <InputLabel>Hazard type</InputLabel>
                       <Select
                         value={reportForm.hazard}
                         label="Hazard type"
-                        onChange={(event) => updateReportForm("hazard", event.target.value as HazardType)}
+                        onChange={(event) =>
+                          updateReportForm(
+                            "hazard",
+                            event.target.value as HazardType,
+                          )
+                        }
                       >
                         {hazardOptions.map((option) => (
                           <MenuItem key={option.value} value={option.value}>
@@ -657,7 +1120,9 @@ function App() {
                         <TextField
                           label="Latitude"
                           value={reportForm.lat}
-                          onChange={(event) => updateReportForm("lat", event.target.value)}
+                          onChange={(event) =>
+                            updateReportForm("lat", event.target.value)
+                          }
                           fullWidth
                           inputMode="decimal"
                         />
@@ -666,7 +1131,9 @@ function App() {
                         <TextField
                           label="Longitude"
                           value={reportForm.lng}
-                          onChange={(event) => updateReportForm("lng", event.target.value)}
+                          onChange={(event) =>
+                            updateReportForm("lng", event.target.value)
+                          }
                           fullWidth
                           inputMode="decimal"
                         />
@@ -684,7 +1151,9 @@ function App() {
                     <TextField
                       label="What happened?"
                       value={reportForm.description}
-                      onChange={(event) => updateReportForm("description", event.target.value)}
+                      onChange={(event) =>
+                        updateReportForm("description", event.target.value)
+                      }
                       multiline
                       minRows={3}
                       inputProps={{ maxLength: 2000 }}
@@ -694,7 +1163,12 @@ function App() {
                         <TextField
                           label="People affected"
                           value={reportForm.peopleAffected}
-                          onChange={(event) => updateReportForm("peopleAffected", event.target.value)}
+                          onChange={(event) =>
+                            updateReportForm(
+                              "peopleAffected",
+                              event.target.value,
+                            )
+                          }
                           fullWidth
                           inputMode="numeric"
                         />
@@ -705,7 +1179,12 @@ function App() {
                           <Select
                             value={reportForm.urgency}
                             label="Urgency"
-                            onChange={(event) => updateReportForm("urgency", event.target.value as IncidentUrgency)}
+                            onChange={(event) =>
+                              updateReportForm(
+                                "urgency",
+                                event.target.value as IncidentUrgency,
+                              )
+                            }
                           >
                             {urgencyOptions.map((option) => (
                               <MenuItem key={option.value} value={option.value}>
@@ -718,16 +1197,27 @@ function App() {
                     </Grid>
                     {reportForm.urgency === "life_threatening" ? (
                       <Alert severity="error" className="warning-alert">
-                        <Typography variant="body2">Call 112 immediately after sending this report.</Typography>
+                        <Typography variant="body2">
+                          Call 112 immediately after sending this report.
+                        </Typography>
                       </Alert>
                     ) : null}
                     <TextField
                       label="Accessibility needs"
                       value={reportForm.accessibilityNeeds}
-                      onChange={(event) => updateReportForm("accessibilityNeeds", event.target.value)}
+                      onChange={(event) =>
+                        updateReportForm(
+                          "accessibilityNeeds",
+                          event.target.value,
+                        )
+                      }
                       inputProps={{ maxLength: 500 }}
                     />
-                    <Button component="label" variant="outlined" startIcon={<ImagePlus size={18} />}>
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<ImagePlus size={18} />}
+                    >
                       Add media
                       <input
                         type="file"
@@ -748,14 +1238,27 @@ function App() {
                         ))}
                       </Stack>
                     ) : null}
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
                       <Typography>Injuries reported</Typography>
                       <Switch
                         checked={reportForm.injuriesReported}
-                        onChange={(event) => updateReportForm("injuriesReported", event.target.checked)}
+                        onChange={(event) =>
+                          updateReportForm(
+                            "injuriesReported",
+                            event.target.checked,
+                          )
+                        }
                       />
                     </Stack>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
                       <Typography>Report anonymously</Typography>
                       <Switch
                         checked={reportForm.anonymous}
@@ -763,16 +1266,29 @@ function App() {
                           setReportForm((current) => ({
                             ...current,
                             anonymous: event.target.checked,
-                            contactPermission: event.target.checked ? false : current.contactPermission
+                            contactPermission: event.target.checked
+                              ? false
+                              : current.contactPermission,
                           }))
                         }
                       />
                     </Stack>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
                       <Typography>Allow contact</Typography>
                       <Switch
-                        checked={!reportForm.anonymous && reportForm.contactPermission}
-                        onChange={(event) => updateReportForm("contactPermission", event.target.checked)}
+                        checked={
+                          !reportForm.anonymous && reportForm.contactPermission
+                        }
+                        onChange={(event) =>
+                          updateReportForm(
+                            "contactPermission",
+                            event.target.checked,
+                          )
+                        }
                         disabled={reportForm.anonymous}
                       />
                     </Stack>
@@ -782,9 +1298,18 @@ function App() {
                       </Alert>
                     ) : null}
                     {reportState.status === "success" ? (
-                      <Alert severity={reportState.priorityReview ? "warning" : "success"} className="warning-alert">
-                        <Typography variant="subtitle2">Report {reportState.reference} received</Typography>
-                        <Typography variant="body2">Call 112 if anyone is in immediate danger.</Typography>
+                      <Alert
+                        severity={
+                          reportState.priorityReview ? "warning" : "success"
+                        }
+                        className="warning-alert"
+                      >
+                        <Typography variant="subtitle2">
+                          Report {reportState.reference} received
+                        </Typography>
+                        <Typography variant="body2">
+                          Call 112 if anyone is in immediate danger.
+                        </Typography>
                       </Alert>
                     ) : null}
                     <Button
@@ -800,7 +1325,9 @@ function App() {
                         )
                       }
                     >
-                      {reportState.status === "loading" ? reportState.message : "Send report"}
+                      {reportState.status === "loading"
+                        ? reportState.message
+                        : "Send report"}
                     </Button>
                   </Stack>
                 </Paper>
@@ -815,32 +1342,62 @@ function App() {
                   <LifeBuoy size={26} />
                   <Box>
                     <Typography variant="h6">Emergency help</Typography>
-                    <Typography variant="body2">Police, fire, ambulance, NADMO and relief agencies.</Typography>
+                    <Typography variant="body2">
+                      Police, fire, ambulance, NADMO and relief agencies.
+                    </Typography>
                   </Box>
                 </Stack>
-                <Button fullWidth variant="contained" color="error" startIcon={<Phone size={18} />}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="error"
+                  startIcon={<Phone size={18} />}
+                >
                   Call 112 now
                 </Button>
               </Paper>
 
               <Paper className="surface">
-                <Stack direction="row" spacing={1} alignItems="center" className="section-heading">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  className="section-heading"
+                >
                   <Cross size={21} color={nadaaBrand.colors.green} />
                   <Typography variant="h6">Nearby shelters</Typography>
                 </Stack>
                 <Stack spacing={1.25}>
                   {risk.nearestShelters.length > 0 ? (
                     risk.nearestShelters.map((shelter) => (
-                      <Paper variant="outlined" className="shelter-row" key={shelter.id}>
-                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                      <Paper
+                        variant="outlined"
+                        className="shelter-row"
+                        key={shelter.id}
+                      >
+                        <Stack
+                          direction="row"
+                          justifyContent="space-between"
+                          spacing={1}
+                        >
                           <Box>
-                            <Typography variant="subtitle2">{shelter.name}</Typography>
+                            <Typography variant="subtitle2">
+                              {shelter.name}
+                            </Typography>
                             <Typography variant="body2" color="text.secondary">
                               {formatOccupancy(shelter)}
-                              {shelter.distanceMeters ? ` · ${formatDistance(shelter.distanceMeters)}` : ""}
+                              {shelter.distanceMeters
+                                ? ` · ${formatDistance(shelter.distanceMeters)}`
+                                : ""}
                             </Typography>
                           </Box>
-                          {shelter.contact ? <Chip size="small" label={shelter.contact} color="success" /> : null}
+                          {shelter.contact ? (
+                            <Chip
+                              size="small"
+                              label={shelter.contact}
+                              color="success"
+                            />
+                          ) : null}
                         </Stack>
                       </Paper>
                     ))
@@ -853,23 +1410,46 @@ function App() {
               </Paper>
 
               <Paper className="surface">
-                <Stack direction="row" spacing={1} alignItems="center" className="section-heading">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  className="section-heading"
+                >
                   <LifeBuoy size={21} color={nadaaBrand.colors.red} />
                   <Typography variant="h6">Nearby responders</Typography>
                 </Stack>
                 <Stack spacing={1.25}>
                   {risk.nearbyFacilities.length > 0 ? (
                     risk.nearbyFacilities.map((facility) => (
-                      <Paper variant="outlined" className="shelter-row" key={facility.id}>
-                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                      <Paper
+                        variant="outlined"
+                        className="shelter-row"
+                        key={facility.id}
+                      >
+                        <Stack
+                          direction="row"
+                          justifyContent="space-between"
+                          spacing={1}
+                        >
                           <Box>
-                            <Typography variant="subtitle2">{facility.name}</Typography>
+                            <Typography variant="subtitle2">
+                              {facility.name}
+                            </Typography>
                             <Typography variant="body2" color="text.secondary">
                               {facility.type.replace("_", " ")}
-                              {facility.distanceMeters ? ` · ${formatDistance(facility.distanceMeters)}` : ""}
+                              {facility.distanceMeters
+                                ? ` · ${formatDistance(facility.distanceMeters)}`
+                                : ""}
                             </Typography>
                           </Box>
-                          {facility.contact ? <Chip size="small" label={facility.contact} color="error" /> : null}
+                          {facility.contact ? (
+                            <Chip
+                              size="small"
+                              label={facility.contact}
+                              color="error"
+                            />
+                          ) : null}
                         </Stack>
                       </Paper>
                     ))
@@ -897,9 +1477,16 @@ function App() {
                 <Grid container spacing={1}>
                   {featurePillars.slice(0, 4).map((pillar) => (
                     <Grid size={{ xs: 6 }} key={pillar.title}>
-                      <Box className="pillar-tile" style={{ borderColor: pillar.accent }}>
-                        <Typography variant="subtitle2">{pillar.title}</Typography>
-                        <Typography variant="caption">{pillar.description}</Typography>
+                      <Box
+                        className="pillar-tile"
+                        style={{ borderColor: pillar.accent }}
+                      >
+                        <Typography variant="subtitle2">
+                          {pillar.title}
+                        </Typography>
+                        <Typography variant="caption">
+                          {pillar.description}
+                        </Typography>
                       </Box>
                     </Grid>
                   ))}
@@ -915,12 +1502,16 @@ function App() {
 
 function resolveAreaLookup(value: string) {
   const normalized = value.trim().toLowerCase();
-  const preset = areaPresets.find((item) => item.label.toLowerCase() === normalized);
+  const preset = areaPresets.find(
+    (item) => item.label.toLowerCase() === normalized,
+  );
   if (preset) {
     return preset;
   }
 
-  const partialPreset = areaPresets.find((item) => item.label.toLowerCase().includes(normalized));
+  const partialPreset = areaPresets.find((item) =>
+    item.label.toLowerCase().includes(normalized),
+  );
   if (partialPreset && normalized.length >= 4) {
     return partialPreset;
   }
@@ -928,15 +1519,74 @@ function resolveAreaLookup(value: string) {
   const [latText, lngText] = value.split(",").map((part) => part.trim());
   const lat = Number(latText);
   const lng = Number(lngText);
-  if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+  if (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  ) {
     return { label: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng };
   }
 
   return null;
 }
 
-function formatOccupancy(shelter: AreaRiskResponse["nearestShelters"][number]): string {
-  if (typeof shelter.currentOccupancy === "number" && typeof shelter.capacity === "number") {
+function alertSeverityTone(
+  severity: AlertSeverity,
+  status: CitizenAlertFeedItem["status"],
+): "success" | "warning" | "error" | "info" {
+  if (status === "expired") {
+    return "info";
+  }
+  if (severity === "emergency" || severity === "severe_warning") {
+    return "error";
+  }
+  if (severity === "warning" || severity === "watch") {
+    return "warning";
+  }
+  return "info";
+}
+
+function alertSeverityLabel(severity: AlertSeverity): string {
+  return severity
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function alertStatusLabel(status: CitizenAlertFeedItem["status"]): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function hazardLabel(hazard: HazardType): string {
+  return hazard
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("en-GH", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatOccupancy(
+  shelter: AreaRiskResponse["nearestShelters"][number],
+): string {
+  if (
+    typeof shelter.currentOccupancy === "number" &&
+    typeof shelter.capacity === "number"
+  ) {
     return `${shelter.currentOccupancy}/${shelter.capacity} occupied`;
   }
 
@@ -964,13 +1614,13 @@ async function initiateMediaUploads(files: File[]): Promise<string[]> {
       fileName: file.name,
       contentType: file.type as IncidentMediaContentType,
       sizeBytes: file.size,
-      uploadedBy: "usr_demo_citizen"
+      uploadedBy: "usr_demo_citizen",
     };
 
     const response = await fetch(`${INCIDENT_API_BASE}/media/uploads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -987,7 +1637,9 @@ async function initiateMediaUploads(files: File[]): Promise<string[]> {
 async function extractAPIError(response: Response): Promise<string> {
   try {
     const payload = (await response.json()) as { error?: { message?: string } };
-    return payload.error?.message ?? `Request failed with status ${response.status}`;
+    return (
+      payload.error?.message ?? `Request failed with status ${response.status}`
+    );
   } catch {
     return `Request failed with status ${response.status}`;
   }

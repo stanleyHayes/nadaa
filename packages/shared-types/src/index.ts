@@ -279,6 +279,66 @@ export interface AlertListResponse {
   alerts: AuthorityAlertRecord[];
 }
 
+export type CitizenAlertFeedStatus = "current" | "expired" | "upcoming";
+
+export interface CitizenAlertFeedItem {
+  id: string;
+  title: string;
+  hazardType: HazardType;
+  severity: AlertSeverity;
+  message: string;
+  target: AlertTarget;
+  targetLabel: string;
+  startsAt: string;
+  expiresAt: string;
+  status: CitizenAlertFeedStatus;
+  recommendedAction: string;
+  evacuationRequired: boolean;
+  shelterIds: string[];
+  source: "alert-service" | "fixture";
+  updatedAt: string;
+}
+
+export interface CitizenAlertFeedResponse {
+  alerts: CitizenAlertFeedItem[];
+  generatedAt: string;
+  source: "alert-service" | "fixture" | "alert-service+fixture";
+}
+
+export type NotificationChannel = "push" | "sms";
+export type NotificationDeliveryStatus =
+  "queued" | "delivered" | "failed" | "skipped";
+
+export interface NotificationDeliveryRequest {
+  recipientId?: string;
+  phone?: string;
+  pushToken?: string;
+  language?: string;
+  channels: NotificationChannel[];
+  dryRun?: boolean;
+}
+
+export interface NotificationDeliveryAttempt {
+  id: string;
+  alertId: string;
+  alertTitle: string;
+  channel: NotificationChannel;
+  provider: string;
+  recipientRef: string;
+  status: NotificationDeliveryStatus;
+  reason?: string;
+  messageId?: string;
+  attemptedAt: string;
+}
+
+export interface NotificationDeliveryResponse {
+  attempts: NotificationDeliveryAttempt[];
+}
+
+export interface NotificationDeliveryLogListResponse {
+  logs: NotificationDeliveryAttempt[];
+}
+
 export interface EmergencyGuideRecord {
   id: string;
   hazardType: HazardType;

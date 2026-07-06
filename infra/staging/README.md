@@ -10,6 +10,10 @@ Create a GitHub environment named `staging` and set these environment variables 
 - `STAGING_AUTHORITY_URL`
 - `STAGING_AUTH_SERVICE_URL`
 - `STAGING_INCIDENT_SERVICE_URL`
+- `STAGING_ALERT_SERVICE_URL`
+- `STAGING_GUIDE_SERVICE_URL`
+- `STAGING_INTEGRATION_SERVICE_URL`
+- `STAGING_NOTIFICATION_SERVICE_URL`
 - `STAGING_RISK_SERVICE_URL`
 
 The web URLs are required. Service URLs are optional until those services are deployed publicly, but when set they must expose `/healthz`.
@@ -26,6 +30,10 @@ The current CI pipeline builds:
 - `nadaa/authority-dashboard`
 - `nadaa/auth-service`
 - `nadaa/incident-service`
+- `nadaa/alert-service`
+- `nadaa/guide-service`
+- `nadaa/integration-service`
+- `nadaa/notification-service`
 - `nadaa/risk-service`
 
 The pipeline validates Docker builds but does not push images yet. Once a registry is selected, add registry login and push steps guarded by the `staging` environment.

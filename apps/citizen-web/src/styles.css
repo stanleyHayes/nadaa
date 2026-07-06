@@ -118,8 +118,7 @@ body {
   border: 1px solid rgba(13, 27, 61, 0.12);
   background:
     linear-gradient(rgba(13, 27, 61, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(13, 27, 61, 0.08) 1px, transparent 1px),
-    #ffffff;
+    linear-gradient(90deg, rgba(13, 27, 61, 0.08) 1px, transparent 1px), #ffffff;
   background-size: 18px 18px;
 }
 
@@ -147,6 +146,24 @@ body {
 
 .section-heading {
   margin-bottom: 16px !important;
+}
+
+.alert-filter-group {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.alert-filter-group .MuiButton-root {
+  flex: 1;
+}
+
+.alert-feed-note {
+  display: block;
+  margin: -4px 0 12px !important;
+}
+
+.citizen-alert-card .MuiAlert-message {
+  width: 100%;
 }
 
 .report-surface {

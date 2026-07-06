@@ -22,6 +22,7 @@ NADAA is the Ghana National Disaster Alert and Response Platform. It is designed
 - `services/incident-service` - Go incident intake starter with validation, rate limiting, media references, and priority review flagging.
 - `services/guide-service` - Go emergency guidance starter with hazard/stage/language lookup, offline availability metadata, and seed-aligned content fixtures.
 - `services/integration-service` - Go integration contract and mock-adapter starter for agency, weather, hydrology, incident, alert, hospital, road, utility, and shelter data exchange.
+- `services/notification-service` - Go citizen alert feed, mock push/SMS provider abstraction, and delivery log starter.
 - `services/risk-service` - first Go service with `GET /healthz` and `GET /api/v1/risk`.
 - `infra/docker/docker-compose.yml` - local PostGIS, Redis, and MinIO.
 - `database/migrations/001_core_geospatial_schema.sql` - core PostGIS schema and indexes.
@@ -115,13 +116,13 @@ Primary dependencies:
 
 ### Notification Service
 
-Owns provider abstraction for push, SMS, email, WhatsApp, voice alerts, delivery logs, retries, and future cell broadcast.
+Owns citizen alert feed aggregation, provider abstraction for push and SMS, delivery logs, and the extension path for email, WhatsApp, voice alerts, retries, and future cell broadcast.
 
 Primary dependencies:
 
-- Alert service.
+- Alert service approved/published alert feed.
 - Provider credentials through environment secrets.
-- Delivery logs.
+- Notification delivery logs.
 
 ### Integration Service
 

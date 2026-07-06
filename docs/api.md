@@ -696,7 +696,78 @@ Rules:
 - Non-system approvers cannot approve their own draft.
 - Emergency override allows only `system_admin` and `nadmo_officer`, requires a reason, marks the alert approved, and creates an `alert.emergency_override` audit event.
 - Alert expiry is mandatory and must be after `startsAt`.
-- Delivery and notification logs land in NADAA-052; this endpoint stops at approved workflow state.
+- Delivery and notification logs are owned by the notification service; this endpoint stops at approved workflow state.
+
+### Notification Delivery
+
+`GET /api/v1/notifications/alerts?includeExpired=true`
+
+Returns citizen-facing alert feed records. The notification service reads approved/published alerts from alert-service when available and includes fixture fallback records for local development.
+
+```json
+{
+  "alerts": [
+    {
+      "id": "alert_feed_current_flood",
+      "title": "Severe flood warning",
+      "hazardType": "flood",
+      "severity": "severe_warning",
+      "message": "Heavy rainfall and rising drains may flood low-lying parts of Accra Metro and Tema.",
+      "targetLabel": "Accra Metro and Tema",
+      "startsAt": "2026-07-06T11:30:00Z",
+      "expiresAt": "2026-07-06T17:00:00Z",
+      "status": "current",
+      "recommendedAction": "Move away from drains, avoid flooded roads, and prepare to go to a shelter if directed.",
+      "evacuationRequired": true,
+      "shelterIds": ["shelter-ama-001"],
+      "source": "fixture",
+      "updatedAt": "2026-07-06T11:40:00Z"
+    }
+  ],
+  "generatedAt": "2026-07-06T12:00:00Z",
+  "source": "alert-service+fixture"
+}
+```
+
+Supported filters: `status=current|expired|upcoming|all`, `includeExpired=true`, `hazard`, `severity`, `targetType`, and `targetId`.
+
+`POST /api/v1/notifications/alerts/{id}/deliver`
+
+Creates push and/or SMS delivery attempts through the configured provider abstraction.
+
+```json
+{
+  "recipientId": "usr_demo_citizen",
+  "phone": "+233200000000",
+  "pushToken": "ExponentPushToken-demo",
+  "channels": ["push", "sms"],
+  "language": "en"
+}
+```
+
+Response:
+
+```json
+{
+  "attempts": [
+    {
+      "id": "delivery_000001",
+      "alertId": "alert_feed_current_flood",
+      "alertTitle": "Severe flood warning",
+      "channel": "push",
+      "provider": "mock_push",
+      "recipientRef": "usr_demo_citizen",
+      "status": "delivered",
+      "messageId": "mock_push_alert_feed_current_flood_1783346400",
+      "attemptedAt": "2026-07-06T12:00:00Z"
+    }
+  ]
+}
+```
+
+`GET /api/v1/notifications/delivery-logs?alertId=alert_feed_current_flood&channel=sms`
+
+Returns logged delivery attempts. `NADAA_SMS_ENABLED=false` keeps SMS disabled in development and logs attempts as `skipped`; mock providers are used by default when push/SMS are enabled.
 
 ### Guidance And Shelters
 

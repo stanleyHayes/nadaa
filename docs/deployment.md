@@ -60,6 +60,13 @@ cd services/alert-service
 go run .
 ```
 
+Run notification service:
+
+```bash
+cd services/notification-service
+go run .
+```
+
 Run guide service:
 
 ```bash
@@ -84,6 +91,7 @@ pnpm go:test
 pnpm smoke:web
 pnpm smoke:alert
 pnpm smoke:alert-geofence
+pnpm smoke:notification
 pnpm smoke:incident-abuse
 pnpm smoke:incident-assignment
 pnpm smoke:incident-merge
@@ -98,6 +106,7 @@ Run staging smoke checks against configured URLs:
 ```bash
 STAGING_CITIZEN_URL=http://127.0.0.1:5173 \
 STAGING_AUTHORITY_URL=http://127.0.0.1:5174 \
+STAGING_NOTIFICATION_SERVICE_URL=http://127.0.0.1:8090 \
 pnpm smoke:staging
 ```
 
@@ -124,12 +133,16 @@ Initial expected groups:
 - `MFA_ISSUER`
 - `NADAA_AUTH_TOKEN_SECRET`
 - `NADAA_ALERT_ADDR`
+- `NADAA_NOTIFICATION_ADDR`
+- `NADAA_ALERT_SERVICE_URL`
 - `SMS_PROVIDER`
 - `SMS_API_KEY`
+- `NADAA_SMS_ENABLED`
 - `WHATSAPP_PROVIDER`
 - `WHATSAPP_API_KEY`
 - `PUSH_PROVIDER`
 - `PUSH_API_KEY`
+- `NADAA_PUSH_ENABLED`
 - `EMAIL_PROVIDER`
 - `EMAIL_API_KEY`
 - `ML_SERVICE_URL`
@@ -155,8 +168,8 @@ The first-pass GitHub Actions workflows live in `.github/workflows/`.
 - TypeScript type checks.
 - Workspace tests.
 - App and package builds.
-- Go tests for `alert-service`, `auth-service`, `incident-service`, `guide-service`, `integration-service`, and `risk-service`.
-- Docker build validation for citizen web, authority dashboard, alert service, auth service, incident service, guide service, integration service, and risk service images.
+- Go tests for `alert-service`, `auth-service`, `incident-service`, `guide-service`, `integration-service`, `notification-service`, and `risk-service`.
+- Docker build validation for citizen web, authority dashboard, alert service, auth service, incident service, guide service, integration service, notification service, and risk service images.
 
 `Staging Smoke` runs manually against the GitHub `staging` environment:
 

@@ -99,6 +99,15 @@ go run .
 
 The authority dashboard uses `VITE_ALERT_API_URL`, defaulting to `http://localhost:8089/api/v1`, for alert draft, geofenced targeting, and approval workflows. With alert-service running on `:8089`, verify alert workflow with `pnpm smoke:alert` and geofenced targeting with `pnpm smoke:alert-geofence`.
 
+Run the Go notification service:
+
+```bash
+cd services/notification-service
+go run .
+```
+
+The citizen app uses `VITE_NOTIFICATION_API_URL`, defaulting to `http://localhost:8090/api/v1`, for current/expired alert feed data. The notification service uses alert-service when available and fixture fallback in development. With notification-service running on `:8090`, verify feed delivery logs with `pnpm smoke:notification`.
+
 Run the Go guide service:
 
 ```bash

@@ -4,9 +4,12 @@ import { join } from "node:path";
 const root = process.cwd();
 const migration = readFileSync(
   join(root, "database/migrations/001_core_geospatial_schema.sql"),
-  "utf8"
+  "utf8",
 );
-const seed = readFileSync(join(root, "database/seeds/001_ghana_mvp_seed.sql"), "utf8");
+const seed = readFileSync(
+  join(root, "database/seeds/001_ghana_mvp_seed.sql"),
+  "utf8",
+);
 
 const requiredTables = [
   "agencies",
@@ -20,7 +23,8 @@ const requiredTables = [
   "emergency_guides",
   "ml_predictions",
   "weather_observations",
-  "audit_logs"
+  "audit_logs",
+  "notification_delivery_logs",
 ];
 
 const requiredGeometryIndexes = [
@@ -31,7 +35,7 @@ const requiredGeometryIndexes = [
   "idx_risk_zones_geometry",
   "idx_shelters_location_geometry",
   "idx_ml_predictions_geometry",
-  "idx_weather_observations_location"
+  "idx_weather_observations_location",
 ];
 
 const requiredEnums = [
@@ -42,7 +46,9 @@ const requiredEnums = [
   "incident_status",
   "alert_severity",
   "alert_status",
-  "guide_stage"
+  "guide_stage",
+  "notification_channel",
+  "notification_delivery_status",
 ];
 
 for (const enumName of requiredEnums) {
@@ -63,7 +69,16 @@ for (const index of requiredGeometryIndexes) {
   }
 }
 
-for (const table of ["agencies", "users", "shelters", "risk_zones", "emergency_guides", "incidents", "alerts", "ml_predictions"]) {
+for (const table of [
+  "agencies",
+  "users",
+  "shelters",
+  "risk_zones",
+  "emergency_guides",
+  "incidents",
+  "alerts",
+  "ml_predictions",
+]) {
   if (!seed.includes(`INSERT INTO ${table}`)) {
     throw new Error(`Missing seed insert for table: ${table}`);
   }
@@ -74,6 +89,5 @@ if (!migration.includes("CREATE EXTENSION IF NOT EXISTS postgis")) {
 }
 
 console.log(
-  `Validated database assets: ${requiredTables.length} tables, ${requiredEnums.length} enums, ${requiredGeometryIndexes.length} geometry indexes.`
+  `Validated database assets: ${requiredTables.length} tables, ${requiredEnums.length} enums, ${requiredGeometryIndexes.length} geometry indexes.`,
 );
-
