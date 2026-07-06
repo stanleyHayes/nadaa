@@ -20,6 +20,7 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 | --- | --- | --- | --- | --- |
 | Citizen risk check | NADAA-021, NADAA-022 | API, E2E | Location lookup returns risk, shelters, guidance, loading/error states | MVP API/UI smoke covered |
 | Agency auth, roles, and MFA | NADAA-011 | API, security | Agency membership, role catalog, MFA-required login, admin-only creation, forbidden role checks | MVP API/security tests covered |
+| Audit logging foundation | NADAA-012 | API, security | Actor/action/target metadata, before/after snapshots, RBAC denial events, system-admin audit read | MVP API/security tests covered |
 | Citizen incident report | NADAA-030, NADAA-032 | API, E2E | GPS, hazard type, description, urgency, affected people, contact permission | MVP API/UI smoke covered |
 | Media upload | NADAA-031 | API, security | File type/size validation, private storage, incident linkage | MVP API/UI smoke covered |
 | Anonymous report privacy | NADAA-090 | API, security | Identity hidden where policy allows, contact permission honored | Todo |
@@ -48,7 +49,7 @@ pnpm smoke:risk
 
 `pnpm smoke:web` expects the citizen app on port `5173` and the authority dashboard on port `5174`.
 `pnpm smoke:risk` expects the risk service on port `8081`.
-Agency auth, RBAC, and mock MFA coverage currently runs through `pnpm go:test`.
+Agency auth, RBAC, mock MFA, and audit foundation coverage currently run through `pnpm go:test`.
 
 ## Release Candidate Checklist
 

@@ -84,6 +84,7 @@ Coordination rules:
 | NADAA-020 | MVP Sprint 1 | Set Up PostGIS And Core Geospatial Models | Done | Codex | main | NADAA-001 | 2026-07-06 | Core PostGIS schema, geospatial indexes, seed data, database docs, configurable compose ports, and asset validation added. |
 | NADAA-010 | MVP Sprint 1 | Implement Citizen Authentication | Done | Codex | main | NADAA-001 | 2026-07-06 | Auth service citizen register/login/profile API, mock OTP flow, signed bearer token, shared auth types, docs, and tests added. |
 | NADAA-011 | MVP Sprint 1 | Implement Agency Users, Roles, And MFA | Done | Codex | main | NADAA-010 | 2026-07-06 | Auth-service now supports agency user creation, authority role catalog, mock MFA setup/verification, agency login, MFA-aware tokens, and RBAC denial tests. |
+| NADAA-012 | MVP Sprint 1 | Implement Audit Logging Foundation | Done | Codex | main | NADAA-011 | 2026-07-06 | Auth-service now records audit events for citizen/agency auth, admin user creation, MFA setup/verify, RBAC denial, and system-admin audit reads with metadata and sanitized snapshots. |
 | NADAA-030 | MVP Sprint 2 | Implement Incident Reporting API | Done | Codex | main | NADAA-020, NADAA-010 | 2026-07-06 | Incident-service report intake API, validation, anonymous/contact-permission behavior, media references, priority review flag, rate limiting, shared types, docs, and tests added. |
 | NADAA-031 | MVP Sprint 2 | Implement Media Upload Flow | Done | Codex | main | NADAA-030 | 2026-07-06 | Controlled media upload initiation, private metadata, content-type and size validation, incident media linkage, shared types, docs, and tests added. |
 | NADAA-032 | MVP Sprint 2 | Build Citizen Incident Reporting UI | Done | Codex | main | NADAA-030, NADAA-031 | 2026-07-06 | Citizen report form now supports GPS/manual coordinates, hazard, urgency, people affected, injuries, anonymous/contact controls, accessibility needs, media initiation, offline retry messaging, and success/error states. |
@@ -96,6 +97,8 @@ Coordination rules:
 
 | Date | Agent | Item | Status | Handoff Notes |
 | --- | --- | --- | --- | --- |
+| 2026-07-06 | Codex | NADAA-012 | Done | Verified `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live auth/audit HTTP smoke on `localhost:8082`. |
+| 2026-07-06 | Codex | NADAA-012 | In Progress | Claimed auth-service audit event model, in-memory audit store/helper, auth/admin event wiring, tests, shared types, and retention docs. |
 | 2026-07-06 | Codex | NADAA-011 | Done | Verified `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live agency auth HTTP smoke on `localhost:8082`. |
 | 2026-07-06 | Codex | NADAA-011 | In Progress | Claimed agency user creation, role catalog, mock MFA setup/verification, and RBAC middleware/tests in auth-service; shared auth contracts and docs may be updated. |
 | 2026-07-06 | Codex | NADAA-022 | Done | Verified `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live `pnpm smoke:risk` on `localhost:8081`. |
@@ -1466,7 +1469,7 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-003 | MVP | Sprint 0 | Create Delivery Dashboard Data Contract | Done | Codex | main | Schema, sample records, and validation script added. |
 | NADAA-010 | MVP | Sprint 1 | Implement Citizen Authentication | Done | Codex | main | Citizen register/login/profile API and tests added in auth-service. |
 | NADAA-011 | MVP | Sprint 1 | Implement Agency Users, Roles, And MFA | Done | Codex | main | Agency user creation, authority role catalog, mock MFA setup/verification, agency login, MFA-aware tokens, shared types, docs, and RBAC tests added. |
-| NADAA-012 | MVP | Sprint 1 | Implement Audit Logging Foundation | Todo | Unassigned | TBD | Depends on NADAA-011. |
+| NADAA-012 | MVP | Sprint 1 | Implement Audit Logging Foundation | Done | Codex | main | Auth-service audit model, helper, auth/admin event wiring, system-admin audit read endpoint, shared types, retention docs, and tests added. |
 | NADAA-020 | MVP | Sprint 1 | Set Up PostGIS And Core Geospatial Models | Done | Codex | main | Migration and seed verified against local PostGIS on port 55432. |
 | NADAA-021 | MVP | Sprint 5 | Implement Area Risk API | Done | Codex | main | Fixture-backed API returns low/high/severe flood scoring, nearby shelters, nearby facilities, recommended actions, and coordinate validation. |
 | NADAA-022 | MVP | Sprint 5 | Build Citizen Risk Checker UI | Done | Codex | main | Risk checker UI integrates the risk API, area presets, coordinate entry, GPS lookup, shelters, facilities, recommended actions, loading/error/permission/empty states, and risk smoke coverage. |
@@ -1532,11 +1535,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 
 Start here:
 
-1. NADAA-012 Implement Audit Logging Foundation.
-2. NADAA-040 Build Incident Command Map.
-3. NADAA-060 Implement Emergency Guide Content Model.
-4. NADAA-080 Define Agency Integration Contracts.
-5. NADAA-050 Implement Alert Creation And Approval Workflow.
+1. NADAA-040 Build Incident Command Map.
+2. NADAA-060 Implement Emergency Guide Content Model.
+3. NADAA-080 Define Agency Integration Contracts.
+4. NADAA-050 Implement Alert Creation And Approval Workflow.
+5. NADAA-041 Implement Verification And Status Workflow.
 
 ## Key Risks And Early Decisions
 
@@ -1564,6 +1567,7 @@ Start here:
 
 | Date | Update | Owner | Status |
 | --- | --- | --- | --- |
+| 2026-07-06 | Completed NADAA-012 with auth-service audit event model, in-memory audit store/helper, system-admin audit read endpoint, auth/admin event wiring, metadata capture, sanitized before/after snapshots, shared audit types, retention docs, and tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-011 with auth-service agency user creation, authority role catalog, mock MFA setup/verification, agency login, MFA-aware bearer tokens, shared agency auth types, API/security docs, and RBAC tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-022 with citizen risk checker API integration, area presets, coordinate entry, GPS lookup, shelters/facilities rendering, loading/error/permission/empty states, and risk smoke coverage. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-021 with fixture-backed risk-service area lookup, baseline flood scoring, nearby shelter/facility aggregation, coordinate validation, shared response types, API docs, and tests. | Codex | Complete |

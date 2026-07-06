@@ -12,6 +12,7 @@ Current endpoints:
 - `POST /api/v1/auth/agency-users/{id}/mfa/setup`
 - `POST /api/v1/auth/agency-users/{id}/mfa/verify`
 - `POST /api/v1/auth/agency/login`
+- `GET /api/v1/audit/logs`
 
 ## Agency Users And MFA
 
@@ -31,6 +32,12 @@ NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE=123456
 ```
 
 Bootstrap credentials must be provided by environment variables only. Do not commit real passwords or MFA codes.
+
+## Audit Logs
+
+The service records in-memory audit events for citizen registration/login, agency login, agency-user creation, MFA setup/verification, RBAC denial, and audit-log viewing. `GET /api/v1/audit/logs` is restricted to `system_admin` users with MFA completed.
+
+Audit records include actor, action, target, timestamp, request id, IP address, user agent, and sanitized before/after context where appropriate. They must not include OTPs, MFA codes, temporary passwords, bearer tokens, or provider secrets.
 
 ## Development OTP
 
@@ -54,4 +61,4 @@ go test ./...
 
 ## Notes
 
-The current implementation uses an in-memory store so the API contract and tests can unblock downstream incident reporting work. The PostGIS user schema already exists; persistence can be wired in a later hardening slice without changing the citizen auth API contract.
+The current implementation uses an in-memory store so the API contract and tests can unblock downstream incident reporting and authority-dashboard work. The PostGIS user and audit schemas already exist; persistence can be wired in a later hardening slice without changing the API contract.

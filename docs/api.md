@@ -316,6 +316,43 @@ Response:
 
 Agency login returns `mfa_setup_required` until setup and verification are complete, and `mfa_required` when a verified agency user omits the MFA code.
 
+### Audit Logs
+
+`GET /api/v1/audit/logs?limit=50`
+
+Requires a `system_admin` bearer token with MFA completed. Returns the latest audit logs first. `limit` defaults to 50 and is capped at 100.
+
+Response:
+
+```json
+{
+  "logs": [
+    {
+      "id": "aud_...",
+      "actorUserId": "usr_...",
+      "actorAgencyId": "00000000-0000-0000-0000-000000000101",
+      "actorRole": "system_admin",
+      "action": "auth.agency_user.created",
+      "targetType": "agency_user",
+      "targetId": "usr_...",
+      "requestId": "req-create-dispatcher",
+      "ipAddress": "203.0.113.10",
+      "userAgent": "nadaa-test/1.0",
+      "after": {
+        "id": "usr_...",
+        "role": "dispatcher",
+        "agencyId": "00000000-0000-0000-0000-000000000101",
+        "mfaRequired": true,
+        "mfaEnabled": false
+      },
+      "createdAt": "2026-07-06T12:00:00Z"
+    }
+  ]
+}
+```
+
+Current auth-service audit actions include citizen registration/login, agency login, agency-user creation, MFA setup/verification, RBAC denial, and audit-log viewing. Audit snapshots must not include OTPs, MFA codes, temporary passwords, tokens, or provider secrets.
+
 ### Incident Reporting
 
 `POST /api/v1/incidents`

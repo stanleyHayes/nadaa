@@ -175,6 +175,26 @@ export interface LoginAgencyResponse {
   user: AgencyUserProfile;
 }
 
+export interface AuditLogRecord {
+  id: string;
+  actorUserId?: string;
+  actorAgencyId?: string;
+  actorRole?: UserRole;
+  action: string;
+  targetType: string;
+  targetId?: string;
+  requestId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AuditLogListResponse {
+  logs: AuditLogRecord[];
+}
+
 export interface IncidentReporterRef {
   userId: string;
   phone?: string;

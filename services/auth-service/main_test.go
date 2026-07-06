@@ -294,6 +294,149 @@ func TestAgencyUserCreationRejectsUnauthorizedRoles(t *testing.T) {
 	}
 }
 
+func TestAuditLogsCaptureAuthAndAdminEvents(t *testing.T) {
+	srv := newTestServer()
+	_, adminToken := seedVerifiedAgencyUser(t, srv, roleSystemAdmin, "admin@nadaa.local", "+233200000001")
+
+	register := httptest.NewRecorder()
+	srv.registerCitizenHandler(register, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/register", jsonBody(registerCitizenRequest{
+		Name:  "Ama Mensah",
+		Phone: "+233200000000",
+	})))
+	if register.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d", http.StatusCreated, register.Code)
+	}
+
+	citizenLogin := httptest.NewRecorder()
+	srv.loginCitizenHandler(citizenLogin, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/login", jsonBody(loginCitizenRequest{
+		Phone: "+233200000000",
+		OTP:   "123456",
+	})))
+	if citizenLogin.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, citizenLogin.Code)
+	}
+
+	create := httptest.NewRecorder()
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency-users", jsonBody(createAgencyUserRequest{
+		Name:     "Dispatcher One",
+		Email:    "dispatcher@nadaa.local",
+		Phone:    "+233200000002",
+		AgencyID: defaultAgencyID,
+		Role:     roleDispatcher,
+	}))
+	createRequest.Header.Set("Authorization", "Bearer "+adminToken)
+	createRequest.Header.Set("X-Request-ID", "req-create-dispatcher")
+	createRequest.Header.Set("X-Forwarded-For", "203.0.113.10")
+	createRequest.Header.Set("User-Agent", "nadaa-test/1.0")
+	srv.createAgencyUserHandler(create, createRequest)
+	if create.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, create.Code, create.Body.String())
+	}
+
+	var createPayload createAgencyUserResponse
+	decodeResponse(t, create, &createPayload)
+
+	setup := httptest.NewRecorder()
+	setupRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency-users/"+createPayload.User.ID+"/mfa/setup", jsonBody(agencyMFASetupRequest{
+		Email:             "dispatcher@nadaa.local",
+		TemporaryPassword: createPayload.TemporaryPassword,
+	}))
+	setupRequest.SetPathValue("id", createPayload.User.ID)
+	srv.setupAgencyMFAHandler(setup, setupRequest)
+	if setup.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, setup.Code, setup.Body.String())
+	}
+
+	var setupPayload agencyMFASetupResponse
+	decodeResponse(t, setup, &setupPayload)
+
+	verify := httptest.NewRecorder()
+	verifyRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency-users/"+createPayload.User.ID+"/mfa/verify", jsonBody(agencyMFAVerifyRequest{
+		Email:             "dispatcher@nadaa.local",
+		TemporaryPassword: createPayload.TemporaryPassword,
+		Code:              setupPayload.DevCode,
+	}))
+	verifyRequest.SetPathValue("id", createPayload.User.ID)
+	srv.verifyAgencyMFAHandler(verify, verifyRequest)
+	if verify.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, verify.Code, verify.Body.String())
+	}
+
+	agencyLogin := httptest.NewRecorder()
+	srv.loginAgencyHandler(agencyLogin, httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/login", jsonBody(loginAgencyRequest{
+		Email:    "dispatcher@nadaa.local",
+		Password: createPayload.TemporaryPassword,
+		MFACode:  setupPayload.DevCode,
+	})))
+	if agencyLogin.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, agencyLogin.Code, agencyLogin.Body.String())
+	}
+
+	for _, action := range []string{
+		"auth.citizen.registered",
+		"auth.citizen_login.succeeded",
+		"auth.agency_user.created",
+		"auth.agency_mfa.setup_started",
+		"auth.agency_mfa.verified",
+		"auth.agency_login.succeeded",
+	} {
+		if !hasAuditAction(srv, action) {
+			t.Fatalf("expected audit action %q", action)
+		}
+	}
+
+	createAudit, ok := findAuditAction(srv, "auth.agency_user.created")
+	if !ok {
+		t.Fatal("expected agency user creation audit record")
+	}
+	if createAudit.ActorRole != roleSystemAdmin || createAudit.TargetID != createPayload.User.ID {
+		t.Fatalf("unexpected actor/target in audit record: %#v", createAudit)
+	}
+	if createAudit.RequestID != "req-create-dispatcher" || createAudit.IPAddress != "203.0.113.10" || createAudit.UserAgent != "nadaa-test/1.0" {
+		t.Fatalf("expected request metadata, got %#v", createAudit)
+	}
+	if createAudit.After["role"] != roleDispatcher || createAudit.After["mfaEnabled"] != false {
+		t.Fatalf("expected sanitized after snapshot, got %#v", createAudit.After)
+	}
+	if _, containsPassword := createAudit.After["temporaryPassword"]; containsPassword {
+		t.Fatal("audit snapshot must not include temporary password")
+	}
+}
+
+func TestAuditLogEndpointRequiresSystemAdmin(t *testing.T) {
+	srv := newTestServer()
+	_, systemAdminToken := seedVerifiedAgencyUser(t, srv, roleSystemAdmin, "admin@nadaa.local", "+233200000001")
+	_, dispatcherToken := seedVerifiedAgencyUser(t, srv, roleDispatcher, "dispatcher@nadaa.local", "+233200000002")
+
+	forbidden := httptest.NewRecorder()
+	forbiddenRequest := httptest.NewRequest(http.MethodGet, "/api/v1/audit/logs", nil)
+	forbiddenRequest.Header.Set("Authorization", "Bearer "+dispatcherToken)
+	srv.listAuditLogsHandler(forbidden, forbiddenRequest)
+	if forbidden.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, forbidden.Code, forbidden.Body.String())
+	}
+	if !hasAuditAction(srv, "auth.rbac.denied") {
+		t.Fatal("expected RBAC denial audit event")
+	}
+
+	list := httptest.NewRecorder()
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/audit/logs?limit=5", nil)
+	listRequest.Header.Set("Authorization", "Bearer "+systemAdminToken)
+	srv.listAuditLogsHandler(list, listRequest)
+	if list.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, list.Code, list.Body.String())
+	}
+
+	var payload auditLogListResponse
+	decodeResponse(t, list, &payload)
+	if len(payload.Logs) == 0 || len(payload.Logs) > 5 {
+		t.Fatalf("expected up to five audit logs, got %#v", payload.Logs)
+	}
+	if !hasAuditAction(srv, "audit.logs.viewed") {
+		t.Fatal("expected audit log view event")
+	}
+}
+
 func seedVerifiedAgencyUser(t *testing.T, srv *server, role string, email string, phone string) (agencyUserProfile, string) {
 	t.Helper()
 
@@ -325,6 +468,20 @@ func seedVerifiedAgencyUser(t *testing.T, srv *server, role string, email string
 	}
 
 	return profile, token
+}
+
+func hasAuditAction(srv *server, action string) bool {
+	_, ok := findAuditAction(srv, action)
+	return ok
+}
+
+func findAuditAction(srv *server, action string) (auditLogRecord, bool) {
+	for _, record := range srv.store.listAuditLogs(100) {
+		if record.Action == action {
+			return record, true
+		}
+	}
+	return auditLogRecord{}, false
 }
 
 func jsonBody(value any) *bytes.Reader {

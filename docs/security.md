@@ -73,6 +73,14 @@ Sensitive actions require authority authentication, RBAC, MFA where applicable, 
 - `after`
 - `createdAt`
 
+## Audit Retention Assumptions
+
+- MVP audit logs are append-only and should be retained for at least 24 months in production unless Ghana legal or agency policy requires a longer period.
+- Production storage should be tamper-evident, backed up, and restricted to authorized system administrators and auditors.
+- Audit records may include internal user identifiers, agency identifiers, request metadata, and sanitized before/after snapshots.
+- Audit records must not store passwords, OTPs, MFA codes, bearer tokens, object-storage credentials, provider API keys, or raw private media.
+- Exports of audit logs are restricted actions and must create their own audit events once export workflows are implemented.
+
 ## Data Classification
 
 | Class | Examples | Default Handling |

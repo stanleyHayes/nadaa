@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +38,7 @@ type memoryStore struct {
 	agencyUsersByPhone  map[string]string
 	challenges          map[string]otpChallenge
 	mfaChallengesByUser map[string]mfaChallenge
+	auditLogs           []auditLogRecord
 }
 
 type otpGenerator interface {
@@ -206,6 +209,43 @@ type loginAgencyResponse struct {
 	User        agencyUserProfile `json:"user"`
 }
 
+type auditLogRecord struct {
+	ID            string         `json:"id"`
+	ActorUserID   string         `json:"actorUserId,omitempty"`
+	ActorAgencyID string         `json:"actorAgencyId,omitempty"`
+	ActorRole     string         `json:"actorRole,omitempty"`
+	Action        string         `json:"action"`
+	TargetType    string         `json:"targetType"`
+	TargetID      string         `json:"targetId,omitempty"`
+	RequestID     string         `json:"requestId,omitempty"`
+	IPAddress     string         `json:"ipAddress,omitempty"`
+	UserAgent     string         `json:"userAgent,omitempty"`
+	Before        map[string]any `json:"before,omitempty"`
+	After         map[string]any `json:"after,omitempty"`
+	CreatedAt     time.Time      `json:"createdAt"`
+}
+
+type auditLogListResponse struct {
+	Logs []auditLogRecord `json:"logs"`
+}
+
+type auditActor struct {
+	UserID   string
+	AgencyID string
+	Role     string
+}
+
+type auditTarget struct {
+	Type string
+	ID   string
+}
+
+type auditRequestContext struct {
+	RequestID string
+	IPAddress string
+	UserAgent string
+}
+
 type apiError struct {
 	Error apiErrorBody `json:"error"`
 }
@@ -252,6 +292,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/agency-users/{id}/mfa/setup", srv.setupAgencyMFAHandler)
 	mux.HandleFunc("POST /api/v1/auth/agency-users/{id}/mfa/verify", srv.verifyAgencyMFAHandler)
 	mux.HandleFunc("POST /api/v1/auth/agency/login", srv.loginAgencyHandler)
+	mux.HandleFunc("GET /api/v1/audit/logs", srv.listAuditLogsHandler)
 
 	addr := envOrDefault("NADAA_AUTH_ADDR", ":8080")
 	log.Printf("auth-service listening on %s", addr)
@@ -293,6 +334,7 @@ func newMemoryStore() *memoryStore {
 		agencyUsersByPhone:  map[string]string{},
 		challenges:          map[string]otpChallenge{},
 		mfaChallengesByUser: map[string]mfaChallenge{},
+		auditLogs:           []auditLogRecord{},
 	}
 	store.agenciesByID[defaultAgencyID] = agencyRecord{
 		ID:            defaultAgencyID,
@@ -396,6 +438,7 @@ func (s *server) registerCitizenHandler(w http.ResponseWriter, r *http.Request) 
 		response.DevOTP = challenge.Code
 	}
 
+	s.recordAudit(r, auditActorFromCitizen(profile), "auth.citizen.registered", auditTarget{Type: "citizen_user", ID: profile.ID}, nil, citizenAuditSnapshot(profile))
 	writeJSON(w, http.StatusCreated, response)
 }
 
@@ -416,6 +459,9 @@ func (s *server) loginCitizenHandler(w http.ResponseWriter, r *http.Request) {
 
 	profile, err := s.store.verifyOTP(request.Phone, request.OTP, s.now())
 	if errors.Is(err, errInvalidCredentials) {
+		s.recordAudit(r, auditActor{}, "auth.citizen_login.failed", auditTarget{Type: "citizen_phone", ID: request.Phone}, nil, map[string]any{
+			"reason": "invalid_credentials",
+		})
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "phone or otp is invalid")
 		return
 	}
@@ -431,6 +477,9 @@ func (s *server) loginCitizenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.recordAudit(r, auditActorFromCitizen(profile), "auth.citizen_login.succeeded", auditTarget{Type: "citizen_user", ID: profile.ID}, nil, map[string]any{
+		"expiresAt": expiresAt,
+	})
 	writeJSON(w, http.StatusOK, loginCitizenResponse{
 		AccessToken: token,
 		TokenType:   "Bearer",
@@ -515,6 +564,11 @@ func (s *server) createAgencyUserHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if actor.Role == roleAgencyAdmin && actor.Agency.ID != request.AgencyID {
+		s.recordAudit(r, auditActorFromAgency(actor), "auth.rbac.denied", auditTarget{Type: "agency_user", ID: request.Email}, nil, map[string]any{
+			"reason":            "agency_scope_forbidden",
+			"requestedRole":     request.Role,
+			"requestedAgencyId": request.AgencyID,
+		})
 		writeError(w, http.StatusForbidden, "agency_scope_forbidden", "agency admins can create users only inside their agency")
 		return
 	}
@@ -542,6 +596,7 @@ func (s *server) createAgencyUserHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	s.recordAudit(r, auditActorFromAgency(actor), "auth.agency_user.created", auditTarget{Type: "agency_user", ID: profile.ID}, nil, agencyUserAuditSnapshot(profile))
 	writeJSON(w, http.StatusCreated, createAgencyUserResponse{
 		User:              profile,
 		TemporaryPassword: temporaryPassword,
@@ -577,6 +632,9 @@ func (s *server) setupAgencyMFAHandler(w http.ResponseWriter, r *http.Request) {
 
 	challenge, err := s.store.startAgencyMFASetup(userID, request.Email, request.TemporaryPassword, newMFASecret(), code, s.now())
 	if errors.Is(err, errInvalidCredentials) {
+		s.recordAudit(r, auditActor{}, "auth.agency_mfa.setup_failed", auditTarget{Type: "agency_user", ID: userID}, nil, map[string]any{
+			"reason": "invalid_credentials",
+		})
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "agency user or temporary password is invalid")
 		return
 	}
@@ -600,6 +658,12 @@ func (s *server) setupAgencyMFAHandler(w http.ResponseWriter, r *http.Request) {
 		response.DevCode = challenge.Code
 	}
 
+	profile, _ := s.store.agencyProfileByID(userID)
+	s.recordAudit(r, auditActorFromAgency(profile), "auth.agency_mfa.setup_started", auditTarget{Type: "agency_user", ID: userID}, nil, map[string]any{
+		"challengeId": challenge.ID,
+		"method":      response.Method,
+		"expiresAt":   challenge.ExpiresAt,
+	})
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -626,6 +690,9 @@ func (s *server) verifyAgencyMFAHandler(w http.ResponseWriter, r *http.Request) 
 
 	profile, err := s.store.verifyAgencyMFA(userID, request.Email, request.TemporaryPassword, request.Code, s.now())
 	if errors.Is(err, errInvalidCredentials) {
+		s.recordAudit(r, auditActor{}, "auth.agency_mfa.verify_failed", auditTarget{Type: "agency_user", ID: userID}, nil, map[string]any{
+			"reason": "invalid_credentials",
+		})
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "agency user, temporary password, or MFA code is invalid")
 		return
 	}
@@ -634,6 +701,7 @@ func (s *server) verifyAgencyMFAHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	s.recordAudit(r, auditActorFromAgency(profile), "auth.agency_mfa.verified", auditTarget{Type: "agency_user", ID: profile.ID}, nil, agencyUserAuditSnapshot(profile))
 	writeJSON(w, http.StatusOK, agencyMFAVerifyResponse{User: profile})
 }
 
@@ -654,14 +722,23 @@ func (s *server) loginAgencyHandler(w http.ResponseWriter, r *http.Request) {
 
 	profile, err := s.store.loginAgencyUser(request.Email, request.Password, request.MFACode)
 	if errors.Is(err, errMFASetupRequired) {
+		s.recordAudit(r, auditActor{}, "auth.agency_login.blocked", auditTarget{Type: "agency_email", ID: request.Email}, nil, map[string]any{
+			"reason": "mfa_setup_required",
+		})
 		writeError(w, http.StatusForbidden, "mfa_setup_required", "MFA must be set up before login")
 		return
 	}
 	if errors.Is(err, errMFARequired) {
+		s.recordAudit(r, auditActor{}, "auth.agency_login.failed", auditTarget{Type: "agency_email", ID: request.Email}, nil, map[string]any{
+			"reason": "mfa_required",
+		})
 		writeError(w, http.StatusUnauthorized, "mfa_required", "MFA code is required")
 		return
 	}
 	if errors.Is(err, errInvalidCredentials) {
+		s.recordAudit(r, auditActor{}, "auth.agency_login.failed", auditTarget{Type: "agency_email", ID: request.Email}, nil, map[string]any{
+			"reason": "invalid_credentials",
+		})
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "email, password, or MFA code is invalid")
 		return
 	}
@@ -677,11 +754,30 @@ func (s *server) loginAgencyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.recordAudit(r, auditActorFromAgency(profile), "auth.agency_login.succeeded", auditTarget{Type: "agency_user", ID: profile.ID}, nil, map[string]any{
+		"expiresAt": expiresAt,
+	})
 	writeJSON(w, http.StatusOK, loginAgencyResponse{
 		AccessToken: token,
 		TokenType:   "Bearer",
 		ExpiresAt:   expiresAt,
 		User:        profile,
+	})
+}
+
+func (s *server) listAuditLogsHandler(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireAgencyRole(w, r, roleSystemAdmin)
+	if !ok {
+		return
+	}
+
+	limit := parseAuditLimit(r.URL.Query().Get("limit"))
+	logs := s.store.listAuditLogs(limit)
+	writeJSON(w, http.StatusOK, auditLogListResponse{Logs: logs})
+
+	s.recordAudit(r, auditActorFromAgency(actor), "audit.logs.viewed", auditTarget{Type: "audit_logs"}, nil, map[string]any{
+		"limit": limit,
+		"count": len(logs),
 	})
 }
 
@@ -925,6 +1021,30 @@ func (m *memoryStore) agencyProfileByID(id string) (agencyUserProfile, bool) {
 	return agencyProfileFromUser(user, agency), true
 }
 
+func (m *memoryStore) appendAuditLog(record auditLogRecord) auditLogRecord {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.auditLogs = append(m.auditLogs, record)
+	return record
+}
+
+func (m *memoryStore) listAuditLogs(limit int) []auditLogRecord {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	logs := make([]auditLogRecord, 0, min(limit, len(m.auditLogs)))
+	for i := len(m.auditLogs) - 1; i >= 0 && len(logs) < limit; i-- {
+		logs = append(logs, m.auditLogs[i])
+	}
+
+	return logs
+}
+
 type tokenClaims struct {
 	UserID    string `json:"sub"`
 	UserType  string `json:"typ"`
@@ -1017,10 +1137,18 @@ func (s *server) requireAgencyRole(w http.ResponseWriter, r *http.Request, allow
 		return agencyUserProfile{}, false
 	}
 	if claims.UserType != "agency" {
+		s.recordAudit(r, auditActor{UserID: claims.UserID, Role: claims.Role}, "auth.rbac.denied", auditTarget{Type: "route", ID: r.URL.Path}, nil, map[string]any{
+			"reason":     "authority_user_required",
+			"actualRole": claims.Role,
+		})
 		writeError(w, http.StatusForbidden, "authority_user_required", "authority user access is required")
 		return agencyUserProfile{}, false
 	}
 	if !claims.MFA {
+		s.recordAudit(r, auditActor{UserID: claims.UserID, AgencyID: claims.AgencyID, Role: claims.Role}, "auth.rbac.denied", auditTarget{Type: "route", ID: r.URL.Path}, nil, map[string]any{
+			"reason":     "mfa_required",
+			"actualRole": claims.Role,
+		})
 		writeError(w, http.StatusForbidden, "mfa_required", "MFA is required for authority workflows")
 		return agencyUserProfile{}, false
 	}
@@ -1031,15 +1159,43 @@ func (s *server) requireAgencyRole(w http.ResponseWriter, r *http.Request, allow
 		return agencyUserProfile{}, false
 	}
 	if !profile.MFAEnabled {
+		s.recordAudit(r, auditActorFromAgency(profile), "auth.rbac.denied", auditTarget{Type: "route", ID: r.URL.Path}, nil, map[string]any{
+			"reason":     "mfa_required",
+			"actualRole": profile.Role,
+		})
 		writeError(w, http.StatusForbidden, "mfa_required", "MFA is required for authority workflows")
 		return agencyUserProfile{}, false
 	}
 	if !roleIn(profile.Role, allowedRoles) {
+		s.recordAudit(r, auditActorFromAgency(profile), "auth.rbac.denied", auditTarget{Type: "route", ID: r.URL.Path}, nil, map[string]any{
+			"allowedRoles": allowedRoles,
+			"actualRole":   profile.Role,
+		})
 		writeError(w, http.StatusForbidden, "forbidden", "role is not allowed to perform this action")
 		return agencyUserProfile{}, false
 	}
 
 	return profile, true
+}
+
+func (s *server) recordAudit(r *http.Request, actor auditActor, action string, target auditTarget, before map[string]any, after map[string]any) auditLogRecord {
+	context := auditContextFromRequest(r)
+	record := auditLogRecord{
+		ID:            newID("aud"),
+		ActorUserID:   actor.UserID,
+		ActorAgencyID: actor.AgencyID,
+		ActorRole:     actor.Role,
+		Action:        action,
+		TargetType:    target.Type,
+		TargetID:      target.ID,
+		RequestID:     context.RequestID,
+		IPAddress:     context.IPAddress,
+		UserAgent:     context.UserAgent,
+		Before:        before,
+		After:         after,
+		CreatedAt:     s.now().UTC(),
+	}
+	return s.store.appendAuditLog(record)
 }
 
 func (s *server) sign(payload string) string {
@@ -1132,6 +1288,14 @@ func validCoordinates(location coordinates) bool {
 	return location.Lat >= -90 && location.Lat <= 90 && location.Lng >= -180 && location.Lng <= 180
 }
 
+func parseAuditLimit(raw string) int {
+	limit, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || limit <= 0 || limit > 100 {
+		return 50
+	}
+	return limit
+}
+
 func validAgencyRole(role string) bool {
 	return agencyRoles[role]
 }
@@ -1152,6 +1316,70 @@ func bearerToken(r *http.Request) (string, bool) {
 		return "", false
 	}
 	return token, true
+}
+
+func auditContextFromRequest(r *http.Request) auditRequestContext {
+	if r == nil {
+		return auditRequestContext{RequestID: newID("req")}
+	}
+
+	requestID := strings.TrimSpace(r.Header.Get("X-Request-ID"))
+	if requestID == "" {
+		requestID = newID("req")
+	}
+
+	return auditRequestContext{
+		RequestID: requestID,
+		IPAddress: requestIPAddress(r),
+		UserAgent: strings.TrimSpace(r.UserAgent()),
+	}
+}
+
+func requestIPAddress(r *http.Request) string {
+	forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+	if forwardedFor != "" {
+		return strings.TrimSpace(strings.Split(forwardedFor, ",")[0])
+	}
+	realIP := strings.TrimSpace(r.Header.Get("X-Real-IP"))
+	if realIP != "" {
+		return realIP
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return host
+	}
+	return strings.TrimSpace(r.RemoteAddr)
+}
+
+func auditActorFromCitizen(profile citizenProfile) auditActor {
+	return auditActor{UserID: profile.ID, Role: profile.Role}
+}
+
+func auditActorFromAgency(profile agencyUserProfile) auditActor {
+	return auditActor{UserID: profile.ID, AgencyID: profile.Agency.ID, Role: profile.Role}
+}
+
+func agencyUserAuditSnapshot(profile agencyUserProfile) map[string]any {
+	return map[string]any{
+		"id":          profile.ID,
+		"name":        profile.Name,
+		"email":       profile.Email,
+		"phone":       profile.Phone,
+		"role":        profile.Role,
+		"agencyId":    profile.Agency.ID,
+		"mfaRequired": profile.MFARequired,
+		"mfaEnabled":  profile.MFAEnabled,
+	}
+}
+
+func citizenAuditSnapshot(profile citizenProfile) map[string]any {
+	return map[string]any{
+		"id":                profile.ID,
+		"phone":             profile.Phone,
+		"role":              profile.Role,
+		"preferredLanguage": profile.PreferredLanguage,
+		"contactPermission": profile.ContactPermission,
+	}
 }
 
 func agencyProfileFromUser(user agencyUser, agency agencyRecord) agencyUserProfile {
