@@ -50,6 +50,7 @@ Sensitive actions require authority authentication, RBAC, MFA where applicable, 
 - Role-based access control for authority workflows.
 - MFA for authority users.
 - Audit logs for alert, incident, assignment, status, and admin actions.
+- Starter incident workflow endpoints require explicit authority actor, role, agency, MFA-completed, and request-id headers until shared bearer-token middleware is wired across services.
 - Explicit contact permission for citizen reports.
 - Anonymous report support where policy allows.
 - Rate limits for public incident intake.
@@ -132,6 +133,14 @@ Use environment variables and deployment secret stores.
 - ML predictions can create drafts but cannot publish alerts.
 - Alert expiry is mandatory.
 - Alerts must keep issuing agency, approver, target geometry, and delivery logs.
+
+## Incident Workflow Safety
+
+- Verification is limited to `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`.
+- Operational status updates are limited to authority workflow roles and require completed MFA.
+- `closed` and `false_report` are terminal incident states.
+- `resolutionNotes` are mandatory for `closed` and `false_report`.
+- Accepted status changes create before/after audit events.
 
 ## AI/ML Safety
 

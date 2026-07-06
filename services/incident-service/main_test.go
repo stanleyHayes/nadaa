@@ -357,12 +357,217 @@ func TestListIncidents(t *testing.T) {
 	}
 }
 
+func TestVerifyIncidentAuditsStatusChange(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/verify",
+		jsonBody(incidentWorkflowRequest{Note: "Confirmed with caller and duplicate report."}),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.verifyIncidentHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload incidentRecord
+	decodeResponse(t, response, &payload)
+	if payload.Status != "verified" || payload.VerifiedBy != "usr_dispatcher_001" || payload.VerifiedAt == nil {
+		t.Fatalf("expected verified incident with verifier metadata, got %#v", payload)
+	}
+
+	logs := srv.store.listAudit(10)
+	if len(logs) != 1 {
+		t.Fatalf("expected one audit event, got %#v", logs)
+	}
+	if logs[0].Action != "incident.verified" || logs[0].Before["status"] != "reported" || logs[0].After["status"] != "verified" {
+		t.Fatalf("expected incident verified audit snapshot, got %#v", logs[0])
+	}
+}
+
+func TestStatusWorkflowAllowsValidOperationalTransitions(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	for _, nextStatus := range []string{"under_review", "verified", "assigned", "response_en_route", "on_scene", "contained", "recovery_ongoing", "closed"} {
+		response := httptest.NewRecorder()
+		body := incidentStatusRequest{
+			Status: nextStatus,
+			Note:   "Operational update from test dispatcher.",
+		}
+		if nextStatus == "closed" {
+			body.ResolutionNotes = "Waters receded and field team closed the incident."
+		}
+		request := authorityRequest(http.MethodPatch, "/api/v1/incidents/"+incident.ID+"/status", jsonBody(body))
+		request.SetPathValue("id", incident.ID)
+		srv.updateIncidentStatusHandler(response, request)
+
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected status %d for %s, got %d: %s", http.StatusOK, nextStatus, response.Code, response.Body.String())
+		}
+
+		var payload incidentRecord
+		decodeResponse(t, response, &payload)
+		if payload.Status != nextStatus {
+			t.Fatalf("expected incident status %s, got %#v", nextStatus, payload)
+		}
+	}
+
+	logs := srv.store.listAudit(20)
+	if len(logs) != 8 {
+		t.Fatalf("expected eight audit events, got %d", len(logs))
+	}
+	if logs[0].Action != "incident.closed" {
+		t.Fatalf("expected latest audit event to be closure, got %#v", logs[0])
+	}
+}
+
+func TestStatusWorkflowRejectsInvalidTransition(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPatch,
+		"/api/v1/incidents/"+incident.ID+"/status",
+		jsonBody(incidentStatusRequest{
+			Status:          "closed",
+			Note:            "Trying to close before review.",
+			ResolutionNotes: "Closure should not be accepted from reported.",
+		}),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.updateIncidentStatusHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+
+	incidents := srv.store.listIncidents()
+	if incidents[0].Status != "reported" {
+		t.Fatalf("expected incident to remain reported, got %#v", incidents[0])
+	}
+}
+
+func TestStatusWorkflowRequiresResolutionNotesForFalseReport(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	missingNotes := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPatch,
+		"/api/v1/incidents/"+incident.ID+"/status",
+		jsonBody(incidentStatusRequest{Status: "false_report", Note: "Caller recanted."}),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.updateIncidentStatusHandler(missingNotes, request)
+
+	if missingNotes.Code != http.StatusBadRequest {
+		t.Fatalf("expected missing resolution notes status %d, got %d", http.StatusBadRequest, missingNotes.Code)
+	}
+
+	response := httptest.NewRecorder()
+	request = authorityRequest(
+		http.MethodPatch,
+		"/api/v1/incidents/"+incident.ID+"/status",
+		jsonBody(incidentStatusRequest{
+			Status:          "false report",
+			Note:            "Caller recanted.",
+			ResolutionNotes: "Dispatcher confirmed the location has no active incident.",
+		}),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.updateIncidentStatusHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload incidentRecord
+	decodeResponse(t, response, &payload)
+	if payload.Status != "false_report" || payload.ResolutionNotes == "" || payload.ClosedAt == nil {
+		t.Fatalf("expected false report resolution metadata, got %#v", payload)
+	}
+}
+
+func TestStatusWorkflowRequiresMFA(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/verify",
+		jsonBody(incidentWorkflowRequest{Note: "Missing MFA"}),
+	)
+	request.Header.Set("X-NADAA-MFA-Completed", "false")
+	request.SetPathValue("id", incident.ID)
+	srv.verifyIncidentHandler(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, response.Code)
+	}
+}
+
+func TestListIncidentAuditRequiresApproverRole(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/verify",
+		jsonBody(incidentWorkflowRequest{Note: "Confirmed."}),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.verifyIncidentHandler(httptest.NewRecorder(), request)
+
+	forbidden := httptest.NewRecorder()
+	viewerRequest := authorityRequest(http.MethodGet, "/api/v1/incidents/audit", nil)
+	viewerRequest.Header.Set("X-NADAA-Actor-Role", "dispatcher")
+	srv.listIncidentAuditHandler(forbidden, viewerRequest)
+	if forbidden.Code != http.StatusForbidden {
+		t.Fatalf("expected dispatcher audit read status %d, got %d", http.StatusForbidden, forbidden.Code)
+	}
+
+	response := httptest.NewRecorder()
+	srv.listIncidentAuditHandler(response, authorityRequest(http.MethodGet, "/api/v1/incidents/audit?limit=1", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload incidentAuditListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Logs) != 1 || payload.Logs[0].Action != "incident.verified" {
+		t.Fatalf("expected one incident audit log, got %#v", payload)
+	}
+}
+
 func jsonBody(value any) *bytes.Reader {
 	body, err := json.Marshal(value)
 	if err != nil {
 		panic(err)
 	}
 	return bytes.NewReader(body)
+}
+
+func authorityRequest(method string, target string, body *bytes.Reader) *http.Request {
+	var reader *bytes.Reader
+	if body == nil {
+		reader = bytes.NewReader(nil)
+	} else {
+		reader = body
+	}
+	request := httptest.NewRequest(method, target, reader)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-NADAA-Actor-ID", "usr_dispatcher_001")
+	request.Header.Set("X-NADAA-Actor-Role", "nadmo_officer")
+	request.Header.Set("X-NADAA-Agency-ID", "00000000-0000-0000-0000-000000000101")
+	request.Header.Set("X-NADAA-MFA-Completed", "true")
+	request.Header.Set("X-NADAA-Request-ID", "test-request-001")
+	return request
 }
 
 func decodeResponse(t *testing.T, response *httptest.ResponseRecorder, target any) {

@@ -56,7 +56,7 @@ Run the authority dashboard:
 pnpm dev:authority
 ```
 
-The authority dashboard uses `VITE_INCIDENT_API_URL`, defaulting to `http://localhost:8084/api/v1`.
+The authority dashboard uses `VITE_INCIDENT_API_URL`, defaulting to `http://localhost:8084/api/v1`, for incident map and status workflow actions.
 Copy `apps/authority-dashboard/.env.example` if you need a different incident service URL.
 
 Run both apps:
@@ -87,6 +87,8 @@ Run the Go incident service:
 cd services/incident-service
 go run .
 ```
+
+With the incident service running on `:8084`, verify the status workflow with `pnpm smoke:incident-workflow`.
 
 Run the Go alert service:
 

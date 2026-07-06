@@ -73,7 +73,7 @@ Primary dependencies:
 
 ### Incident Service
 
-Owns citizen reports, agency reports, media metadata, duplicate candidates, incident verification, severity, and incident record lifecycle.
+Owns citizen reports, agency reports, media metadata, duplicate candidates, incident verification, audited status transitions, severity, and incident record lifecycle.
 
 Primary dependencies:
 

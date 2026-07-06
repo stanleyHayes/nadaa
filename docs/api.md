@@ -421,7 +421,7 @@ Rules:
 
 `GET /api/v1/incidents`
 
-Starter list endpoint for development and authority command-map wiring. Incident records include `location`, `severity`, `status`, `type`, `createdAt`, and `duplicateCandidates` so the dashboard can render map markers, synchronized queue rows, filters, and duplicate review prompts. Backend authority filtering and RBAC enforcement land in later service stories; the current dashboard applies client-side command filters while the API contract stabilizes.
+Starter list endpoint for development and authority command-map wiring. Incident records include `location`, `severity`, `status`, `type`, `createdAt`, `duplicateCandidates`, `verifiedBy`, `verifiedAt`, `statusReason`, `resolutionNotes`, and `closedAt` so the dashboard can render map markers, synchronized queue rows, filters, status controls, and duplicate review prompts. Backend authority filtering and agency scoping land in later service stories; the current dashboard applies client-side command filters while the API contract stabilizes.
 
 ### Media Upload
 
@@ -471,14 +471,46 @@ Starter development endpoint for inspecting private media metadata and incident 
 
 `GET /api/v1/incidents?hazard=flood&district=ama&status=reported`
 
+Authority workflow endpoints require these headers:
+
+- `X-NADAA-Actor-ID`
+- `X-NADAA-Actor-Role`
+- `X-NADAA-Agency-ID`
+- `X-NADAA-MFA-Completed: true`
+- `X-NADAA-Request-ID`
+
+`POST /api/v1/incidents/{id}/verify`
+
+```json
+{
+  "note": "Confirmed through duplicate reports and dispatcher call"
+}
+```
+
+Allowed verification roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. Verification moves `reported` or `under_review` incidents to `verified`, stores verifier metadata, and writes an `incident.verified` audit event.
+
 `PATCH /api/v1/incidents/{id}/status`
 
 ```json
 {
-  "status": "verified",
-  "note": "Confirmed through duplicate reports and dispatcher call"
+  "status": "response_en_route",
+  "note": "Fire crew dispatched from Circle station"
 }
 ```
+
+Supported statuses are `reported`, `under_review`, `verified`, `assigned`, `response_en_route`, `on_scene`, `contained`, `recovery_ongoing`, `closed`, and `false_report`. Status values may be sent with spaces or hyphens; the API normalizes them to underscore form.
+
+Rules:
+
+- Allowed workflow roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`, and `responder`.
+- Status changes must follow the configured transition graph; for example, `reported` can move to `under_review`, `verified`, or `false_report`, but not directly to `closed`.
+- `closed` and `false_report` are terminal.
+- `resolutionNotes` are required for `closed` and `false_report`.
+- Every accepted status change writes an incident audit event with before/after snapshots.
+
+`GET /api/v1/incidents/audit?limit=50`
+
+Returns latest incident workflow audit events for `system_admin`, `agency_admin`, and `nadmo_officer` roles. `limit` defaults to 50 and is capped at 100.
 
 `POST /api/v1/incidents/{id}/assignments`
 

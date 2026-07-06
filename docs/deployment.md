@@ -83,6 +83,7 @@ pnpm build
 pnpm go:test
 pnpm smoke:web
 pnpm smoke:alert
+pnpm smoke:incident-workflow
 pnpm smoke:risk
 pnpm smoke:guide
 pnpm smoke:integration

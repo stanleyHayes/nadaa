@@ -438,6 +438,12 @@ export interface IncidentRecord {
   priorityReview: boolean;
   duplicateCandidates: DuplicateIncidentCandidate[];
   reportedBy?: IncidentReporterRef;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  statusUpdatedBy?: string;
+  statusReason?: string;
+  resolutionNotes?: string;
+  closedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -453,6 +459,33 @@ export interface CreateIncidentResponse {
 
 export interface IncidentListResponse {
   incidents: IncidentRecord[];
+}
+
+export interface IncidentWorkflowRequest {
+  note?: string;
+  resolutionNotes?: string;
+}
+
+export interface IncidentStatusUpdateRequest extends IncidentWorkflowRequest {
+  status: IncidentStatus;
+}
+
+export interface IncidentAuditEvent {
+  id: string;
+  actorUserId: string;
+  actorAgencyId: string;
+  actorRole: AgencyUserRole;
+  action: string;
+  targetType: "incident";
+  targetId: string;
+  requestId?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface IncidentAuditListResponse {
+  logs: IncidentAuditEvent[];
 }
 
 export type IncidentMediaPurpose = "incident_media";

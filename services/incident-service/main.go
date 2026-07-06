@@ -29,6 +29,7 @@ type memoryStore struct {
 	sequence  int
 	incidents map[string]incidentRecord
 	media     map[string]mediaRecord
+	audit     []auditEvent
 }
 
 type rateLimiter struct {
@@ -81,6 +82,12 @@ type incidentRecord struct {
 	PriorityReview      bool                 `json:"priorityReview"`
 	DuplicateCandidates []duplicateCandidate `json:"duplicateCandidates"`
 	ReportedBy          *reporterRef         `json:"reportedBy,omitempty"`
+	VerifiedBy          string               `json:"verifiedBy,omitempty"`
+	VerifiedAt          *time.Time           `json:"verifiedAt,omitempty"`
+	StatusUpdatedBy     string               `json:"statusUpdatedBy,omitempty"`
+	StatusReason        string               `json:"statusReason,omitempty"`
+	ResolutionNotes     string               `json:"resolutionNotes,omitempty"`
+	ClosedAt            *time.Time           `json:"closedAt,omitempty"`
 	CreatedAt           time.Time            `json:"createdAt"`
 	UpdatedAt           time.Time            `json:"updatedAt"`
 }
@@ -105,6 +112,43 @@ type createIncidentResponse struct {
 
 type incidentListResponse struct {
 	Incidents []incidentRecord `json:"incidents"`
+}
+
+type incidentWorkflowRequest struct {
+	Note            string `json:"note"`
+	ResolutionNotes string `json:"resolutionNotes"`
+}
+
+type incidentStatusRequest struct {
+	Status          string `json:"status"`
+	Note            string `json:"note"`
+	ResolutionNotes string `json:"resolutionNotes"`
+}
+
+type incidentAuditListResponse struct {
+	Logs []auditEvent `json:"logs"`
+}
+
+type auditEvent struct {
+	ID            string         `json:"id"`
+	ActorUserID   string         `json:"actorUserId"`
+	ActorAgencyID string         `json:"actorAgencyId"`
+	ActorRole     string         `json:"actorRole"`
+	Action        string         `json:"action"`
+	TargetType    string         `json:"targetType"`
+	TargetID      string         `json:"targetId"`
+	RequestID     string         `json:"requestId,omitempty"`
+	Before        map[string]any `json:"before,omitempty"`
+	After         map[string]any `json:"after,omitempty"`
+	CreatedAt     time.Time      `json:"createdAt"`
+}
+
+type authorityContext struct {
+	ActorUserID   string
+	ActorAgencyID string
+	ActorRole     string
+	MFACompleted  bool
+	RequestID     string
 }
 
 type initiateMediaUploadRequest struct {
@@ -177,6 +221,84 @@ var (
 		"high":             true,
 		"life_threatening": true,
 	}
+	allowedIncidentStatuses = map[string]bool{
+		"reported":          true,
+		"under_review":      true,
+		"verified":          true,
+		"assigned":          true,
+		"response_en_route": true,
+		"on_scene":          true,
+		"contained":         true,
+		"recovery_ongoing":  true,
+		"closed":            true,
+		"false_report":      true,
+	}
+	allowedIncidentTransitions = map[string]map[string]bool{
+		"reported": {
+			"under_review": true,
+			"verified":     true,
+			"false_report": true,
+		},
+		"under_review": {
+			"verified":     true,
+			"false_report": true,
+		},
+		"verified": {
+			"assigned":          true,
+			"response_en_route": true,
+			"false_report":      true,
+		},
+		"assigned": {
+			"response_en_route": true,
+			"on_scene":          true,
+			"contained":         true,
+			"recovery_ongoing":  true,
+			"closed":            true,
+			"false_report":      true,
+		},
+		"response_en_route": {
+			"on_scene":         true,
+			"contained":        true,
+			"recovery_ongoing": true,
+			"closed":           true,
+			"false_report":     true,
+		},
+		"on_scene": {
+			"contained":        true,
+			"recovery_ongoing": true,
+			"closed":           true,
+			"false_report":     true,
+		},
+		"contained": {
+			"recovery_ongoing": true,
+			"closed":           true,
+			"false_report":     true,
+		},
+		"recovery_ongoing": {
+			"closed":       true,
+			"false_report": true,
+		},
+	}
+	statusWorkflowRoles = map[string]bool{
+		"system_admin":     true,
+		"agency_admin":     true,
+		"nadmo_officer":    true,
+		"district_officer": true,
+		"dispatcher":       true,
+		"responder":        true,
+	}
+	verificationRoles = map[string]bool{
+		"system_admin":     true,
+		"agency_admin":     true,
+		"nadmo_officer":    true,
+		"district_officer": true,
+		"dispatcher":       true,
+	}
+	incidentAuditRoles = map[string]bool{
+		"system_admin":  true,
+		"agency_admin":  true,
+		"nadmo_officer": true,
+	}
 	mediaRefPattern   = regexp.MustCompile(`^[A-Za-z0-9_-]{3,128}$`)
 	wordPattern       = regexp.MustCompile(`[a-z0-9]+`)
 	allowedMediaTypes = map[string]int64{
@@ -207,6 +329,9 @@ func main() {
 	mux.HandleFunc("GET /healthz", srv.healthHandler)
 	mux.HandleFunc("POST /api/v1/incidents", srv.createIncidentHandler)
 	mux.HandleFunc("GET /api/v1/incidents", srv.listIncidentsHandler)
+	mux.HandleFunc("GET /api/v1/incidents/audit", srv.listIncidentAuditHandler)
+	mux.HandleFunc("PATCH /api/v1/incidents/{id}/status", srv.updateIncidentStatusHandler)
+	mux.HandleFunc("POST /api/v1/incidents/{id}/verify", srv.verifyIncidentHandler)
 	mux.HandleFunc("POST /api/v1/media/uploads", srv.initiateMediaUploadHandler)
 	mux.HandleFunc("GET /api/v1/media", srv.listMediaHandler)
 
@@ -232,6 +357,7 @@ func newMemoryStore() *memoryStore {
 	return &memoryStore{
 		incidents: map[string]incidentRecord{},
 		media:     map[string]mediaRecord{},
+		audit:     []auditEvent{},
 	}
 }
 
@@ -297,6 +423,84 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) listIncidentsHandler(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, incidentListResponse{Incidents: s.store.listIncidents()})
+}
+
+func (s *server) listIncidentAuditHandler(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireAuthority(w, r, incidentAuditRoles); !ok {
+		return
+	}
+
+	limit := 50
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 {
+			writeError(w, http.StatusBadRequest, "invalid_limit", "limit must be a positive integer")
+			return
+		}
+		limit = parsed
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	writeJSON(w, http.StatusOK, incidentAuditListResponse{Logs: s.store.listAudit(limit)})
+}
+
+func (s *server) verifyIncidentHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, verificationRoles)
+	if !ok {
+		return
+	}
+
+	var request incidentWorkflowRequest
+	if err := optionalDecodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+	request.Note = strings.TrimSpace(request.Note)
+	if len(request.Note) > 1000 || unsafeText(request.Note) {
+		writeError(w, http.StatusBadRequest, "invalid_note", "note must be 1000 safe characters or fewer")
+		return
+	}
+
+	incident, code, message := s.store.transitionIncident(r.PathValue("id"), "verified", ctx, request, s.now())
+	if code != "" {
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	writeJSON(w, http.StatusOK, incident)
+}
+
+func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, statusWorkflowRoles)
+	if !ok {
+		return
+	}
+
+	var request incidentStatusRequest
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+
+	normalized, code, message := normalizeIncidentStatusRequest(request)
+	if code != "" {
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	incident, code, message := s.store.transitionIncident(
+		r.PathValue("id"),
+		normalized.Status,
+		ctx,
+		incidentWorkflowRequest{Note: normalized.Note, ResolutionNotes: normalized.ResolutionNotes},
+		s.now(),
+	)
+	if code != "" {
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	writeJSON(w, http.StatusOK, incident)
 }
 
 func (s *server) initiateMediaUploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -375,6 +579,98 @@ func (m *memoryStore) listIncidents() []incidentRecord {
 		return incidents[i].CreatedAt.After(incidents[j].CreatedAt)
 	})
 	return incidents
+}
+
+func (m *memoryStore) transitionIncident(id string, nextStatus string, ctx authorityContext, request incidentWorkflowRequest, now time.Time) (incidentRecord, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	incident, ok := m.incidents[id]
+	if !ok {
+		return incidentRecord{}, "not_found", "incident was not found"
+	}
+
+	nextStatus = incidentStatusSlug(nextStatus)
+	if !allowedIncidentStatuses[nextStatus] {
+		return incidentRecord{}, "invalid_status", "status must be a supported incident status"
+	}
+	if incident.Status == nextStatus {
+		return incidentRecord{}, "invalid_transition", "incident is already in that status"
+	}
+	if incident.Status == "closed" || incident.Status == "false_report" {
+		return incidentRecord{}, "invalid_transition", "closed and false-report incidents are terminal"
+	}
+	if !allowedIncidentTransitions[incident.Status][nextStatus] {
+		return incidentRecord{}, "invalid_transition", fmt.Sprintf("cannot move incident from %s to %s", incident.Status, nextStatus)
+	}
+
+	note := strings.TrimSpace(request.Note)
+	resolutionNotes := strings.TrimSpace(request.ResolutionNotes)
+	if requiresResolutionNotes(nextStatus) && resolutionNotes == "" {
+		return incidentRecord{}, "missing_resolution_notes", "resolutionNotes are required for closed and false report statuses"
+	}
+
+	before := snapshotIncident(incident)
+	timestamp := now.UTC()
+	incident.Status = nextStatus
+	incident.StatusUpdatedBy = ctx.ActorUserID
+	incident.StatusReason = note
+	incident.UpdatedAt = timestamp
+
+	action := "incident.status_changed"
+	if nextStatus == "verified" {
+		action = "incident.verified"
+		incident.VerifiedBy = ctx.ActorUserID
+		if incident.VerifiedAt == nil {
+			incident.VerifiedAt = &timestamp
+		}
+	}
+	if requiresResolutionNotes(nextStatus) {
+		incident.ResolutionNotes = resolutionNotes
+		incident.ClosedAt = &timestamp
+		if nextStatus == "closed" {
+			action = "incident.closed"
+		} else {
+			action = "incident.false_reported"
+		}
+	}
+
+	m.incidents[incident.ID] = incident
+	m.appendAuditLocked(action, ctx, incident.ID, before, snapshotIncident(incident), timestamp)
+	return incident, "", ""
+}
+
+func (m *memoryStore) listAudit(limit int) []auditEvent {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	logs := append([]auditEvent(nil), m.audit...)
+	sort.Slice(logs, func(i, j int) bool {
+		if logs[i].CreatedAt.Equal(logs[j].CreatedAt) {
+			return logs[i].ID > logs[j].ID
+		}
+		return logs[i].CreatedAt.After(logs[j].CreatedAt)
+	})
+	if len(logs) > limit {
+		return logs[:limit]
+	}
+	return logs
+}
+
+func (m *memoryStore) appendAuditLocked(action string, ctx authorityContext, targetID string, before map[string]any, after map[string]any, now time.Time) {
+	m.audit = append(m.audit, auditEvent{
+		ID:            fmt.Sprintf("aud_%06d", len(m.audit)+1),
+		ActorUserID:   ctx.ActorUserID,
+		ActorAgencyID: ctx.ActorAgencyID,
+		ActorRole:     ctx.ActorRole,
+		Action:        action,
+		TargetType:    "incident",
+		TargetID:      targetID,
+		RequestID:     ctx.RequestID,
+		Before:        before,
+		After:         after,
+		CreatedAt:     now,
+	})
 }
 
 func (m *memoryStore) createMediaUpload(request initiateMediaUploadRequest, now time.Time) mediaRecord {
@@ -758,6 +1054,34 @@ func normalizeMediaUploadRequest(request initiateMediaUploadRequest) (initiateMe
 	return request, "", ""
 }
 
+func normalizeIncidentStatusRequest(request incidentStatusRequest) (incidentStatusRequest, string, string) {
+	request.Status = incidentStatusSlug(request.Status)
+	request.Note = strings.TrimSpace(request.Note)
+	request.ResolutionNotes = strings.TrimSpace(request.ResolutionNotes)
+
+	if !allowedIncidentStatuses[request.Status] {
+		return request, "invalid_status", "status must be reported, under_review, verified, assigned, response_en_route, on_scene, contained, recovery_ongoing, closed, or false_report"
+	}
+	if len(request.Note) > 1000 || unsafeText(request.Note) {
+		return request, "invalid_note", "note must be 1000 safe characters or fewer"
+	}
+	if len(request.ResolutionNotes) > 2000 || unsafeText(request.ResolutionNotes) {
+		return request, "invalid_resolution_notes", "resolutionNotes must be 2000 safe characters or fewer"
+	}
+	if requiresResolutionNotes(request.Status) && request.ResolutionNotes == "" {
+		return request, "missing_resolution_notes", "resolutionNotes are required for closed and false report statuses"
+	}
+	return request, "", ""
+}
+
+func incidentStatusSlug(status string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(status)), "-", "_"), " ", "_")
+}
+
+func requiresResolutionNotes(status string) bool {
+	return status == "closed" || status == "false_report"
+}
+
 func validationCode(request createIncidentRequest) string {
 	switch request.Type {
 	case "invalid_type":
@@ -837,10 +1161,68 @@ func reportedByFor(request createIncidentRequest) *reporterRef {
 	return &reporter
 }
 
+func snapshotIncident(incident incidentRecord) map[string]any {
+	return map[string]any{
+		"id":              incident.ID,
+		"reference":       incident.Reference,
+		"type":            incident.Type,
+		"severity":        incident.Severity,
+		"status":          incident.Status,
+		"priorityReview":  incident.PriorityReview,
+		"verifiedBy":      incident.VerifiedBy,
+		"statusUpdatedBy": incident.StatusUpdatedBy,
+		"statusReason":    incident.StatusReason,
+		"resolutionNotes": incident.ResolutionNotes,
+	}
+}
+
+func requireAuthority(w http.ResponseWriter, r *http.Request, allowedRoles map[string]bool) (authorityContext, bool) {
+	ctx := authorityContext{
+		ActorUserID:   strings.TrimSpace(r.Header.Get("X-NADAA-Actor-ID")),
+		ActorAgencyID: strings.TrimSpace(r.Header.Get("X-NADAA-Agency-ID")),
+		ActorRole:     strings.TrimSpace(strings.ToLower(r.Header.Get("X-NADAA-Actor-Role"))),
+		MFACompleted:  strings.TrimSpace(strings.ToLower(r.Header.Get("X-NADAA-MFA-Completed"))) == "true",
+		RequestID:     strings.TrimSpace(r.Header.Get("X-NADAA-Request-ID")),
+	}
+
+	if ctx.ActorUserID == "" || ctx.ActorAgencyID == "" || ctx.ActorRole == "" {
+		writeError(w, http.StatusUnauthorized, "missing_authority_context", "authority actor id, role, and agency id headers are required")
+		return authorityContext{}, false
+	}
+	if !ctx.MFACompleted {
+		writeError(w, http.StatusForbidden, "mfa_required", "MFA must be completed for incident workflow actions")
+		return authorityContext{}, false
+	}
+	if !allowedRoles[ctx.ActorRole] {
+		writeError(w, http.StatusForbidden, "forbidden", "actor role is not allowed for this incident workflow action")
+		return authorityContext{}, false
+	}
+
+	return ctx, true
+}
+
+func statusForCode(code string) int {
+	switch code {
+	case "not_found":
+		return http.StatusNotFound
+	case "forbidden":
+		return http.StatusForbidden
+	default:
+		return http.StatusBadRequest
+	}
+}
+
 func decodeJSON(r *http.Request, target any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(target)
+}
+
+func optionalDecodeJSON(r *http.Request, target any) error {
+	if r.Body == nil || r.ContentLength == 0 {
+		return nil
+	}
+	return decodeJSON(r, target)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
@@ -858,8 +1240,8 @@ func writeError(w http.ResponseWriter, status int, code string, message string) 
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-NADAA-Actor-ID, X-NADAA-Actor-Role, X-NADAA-Agency-ID, X-NADAA-MFA-Completed, X-NADAA-Request-ID")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

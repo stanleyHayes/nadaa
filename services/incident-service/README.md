@@ -2,13 +2,32 @@
 
 The incident service owns citizen disaster reports, media references, verification workflow, duplicate candidates, and incident timelines.
 
-Current NADAA-030/NADAA-033 endpoints:
+Current NADAA-030/NADAA-033/NADAA-041 endpoints:
 
 - `GET /healthz`
 - `POST /api/v1/incidents`
 - `GET /api/v1/incidents`
+- `POST /api/v1/incidents/{id}/verify`
+- `PATCH /api/v1/incidents/{id}/status`
+- `GET /api/v1/incidents/audit`
 - `POST /api/v1/media/uploads`
 - `GET /api/v1/media`
+
+## Verification And Status Workflow
+
+Authority workflow endpoints use explicit local-development headers:
+
+- `X-NADAA-Actor-ID`
+- `X-NADAA-Actor-Role`
+- `X-NADAA-Agency-ID`
+- `X-NADAA-MFA-Completed: true`
+- `X-NADAA-Request-ID`
+
+`POST /api/v1/incidents/{id}/verify` moves `reported` or `under_review` incidents to `verified`, stores verifier metadata, and records an `incident.verified` audit event. Verification roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`.
+
+`PATCH /api/v1/incidents/{id}/status` supports `reported`, `under_review`, `verified`, `assigned`, `response_en_route`, `on_scene`, `contained`, `recovery_ongoing`, `closed`, and `false_report`. The service enforces valid transitions, treats `closed` and `false_report` as terminal, and requires `resolutionNotes` for `closed` and `false_report`.
+
+`GET /api/v1/incidents/audit?limit=50` returns latest incident workflow audit events with before/after snapshots for `system_admin`, `agency_admin`, and `nadmo_officer`.
 
 ## Media Upload Flow
 
@@ -53,6 +72,12 @@ Environment variables:
 go test ./...
 ```
 
+Run a live local workflow smoke after starting the service on `:8084`:
+
+```bash
+pnpm smoke:incident-workflow
+```
+
 ## Notes
 
-The current implementation uses an in-memory store to lock in the public API contract and validation behavior. PostGIS persistence, media upload storage, duplicate merge review, and verification workflow are planned in later stories.
+The current implementation uses an in-memory store to lock in the public API contract, validation behavior, duplicate candidate baseline, and incident workflow contract. PostGIS persistence, media upload storage, duplicate merge review, agency assignment persistence, and timeline storage land in later stories.

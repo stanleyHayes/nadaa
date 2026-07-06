@@ -55,6 +55,7 @@ import type {
   AuthorityAlertRecord,
   CreateAlertRequest,
   HazardType,
+  IncidentStatusUpdateRequest,
   IncidentListResponse,
   IncidentRecord,
   IncidentStatus,
@@ -142,6 +143,12 @@ type AlertFormState = {
   recommendedAction: string;
   evacuationRequired: boolean;
   shelterIds: string;
+};
+
+type IncidentStatusFormState = {
+  status: IncidentStatus;
+  note: string;
+  resolutionNotes: string;
 };
 
 const fallbackIncidents: CommandIncident[] = [
@@ -338,6 +345,45 @@ const alertSeverityOptions: AlertSeverity[] = [
   "emergency",
 ];
 
+const incidentStatusOptions: IncidentStatus[] = [
+  "reported",
+  "under_review",
+  "verified",
+  "assigned",
+  "response_en_route",
+  "on_scene",
+  "contained",
+  "recovery_ongoing",
+  "closed",
+  "false_report",
+];
+
+const incidentTransitionOptions: Record<IncidentStatus, IncidentStatus[]> = {
+  reported: ["under_review", "verified", "false_report"],
+  under_review: ["verified", "false_report"],
+  verified: ["assigned", "response_en_route", "false_report"],
+  assigned: [
+    "response_en_route",
+    "on_scene",
+    "contained",
+    "recovery_ongoing",
+    "closed",
+    "false_report",
+  ],
+  response_en_route: [
+    "on_scene",
+    "contained",
+    "recovery_ongoing",
+    "closed",
+    "false_report",
+  ],
+  on_scene: ["contained", "recovery_ongoing", "closed", "false_report"],
+  contained: ["recovery_ongoing", "closed", "false_report"],
+  recovery_ongoing: ["closed", "false_report"],
+  closed: [],
+  false_report: [],
+};
+
 function App() {
   const hasCommandAccess =
     commandRoles.includes(authoritySession.role) && authoritySession.mfaEnabled;
@@ -349,6 +395,11 @@ function App() {
   const [selectedIncidentId, setSelectedIncidentId] = useState(
     fallbackIncidents[0]?.id ?? "",
   );
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [statusFeedback, setStatusFeedback] = useState("");
+  const [statusForm, setStatusForm] = useState<IncidentStatusFormState>(
+    buildDefaultStatusForm(fallbackIncidents[0]),
+  );
   const [alerts, setAlerts] = useState<AuthorityAlertRecord[]>(fallbackAlerts);
   const [alertLoadState, setAlertLoadState] =
     useState<AlertLoadState>("loading");
@@ -359,7 +410,7 @@ function App() {
     buildDefaultAlertForm(fallbackIncidents[0]),
   );
 
-  const alertHeaders = () => ({
+  const authorityHeaders = () => ({
     "Content-Type": "application/json",
     "X-NADAA-Actor-ID": authoritySession.id,
     "X-NADAA-Actor-Role": authoritySession.role,
@@ -418,7 +469,7 @@ function App() {
 
     try {
       const response = await fetch(`${ALERT_API_BASE}/alerts`, {
-        headers: alertHeaders(),
+        headers: authorityHeaders(),
         signal,
       });
       if (!response.ok) {
@@ -482,7 +533,9 @@ function App() {
   );
   useEffect(() => {
     setAlertForm(buildDefaultAlertForm(selectedIncident));
-  }, [selectedIncident]);
+    setStatusForm(buildDefaultStatusForm(selectedIncident));
+    setStatusFeedback("");
+  }, [selectedIncident?.id]);
 
   const updateFilter =
     (key: keyof FilterState) => (event: SelectChangeEvent) => {
@@ -501,6 +554,97 @@ function App() {
           : event.target.value;
       setAlertForm((current) => ({ ...current, [key]: value }));
     };
+
+  const updateStatusForm =
+    (key: keyof IncidentStatusFormState) =>
+    (
+      event:
+        ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+    ) => {
+      setStatusForm((current) => ({ ...current, [key]: event.target.value }));
+    };
+
+  const applyIncidentUpdate = (incident: IncidentRecord) => {
+    const enriched = enrichIncidentFromAPI(incident);
+    setIncidents((current) => {
+      const exists = current.some((item) => item.id === incident.id);
+      if (!exists) {
+        return [enriched, ...current];
+      }
+      return current.map((item) => (item.id === incident.id ? enriched : item));
+    });
+    setSelectedIncidentId(incident.id);
+    setStatusForm(buildDefaultStatusForm(enriched));
+    setLoadState("ready");
+  };
+
+  const verifySelectedIncident = async () => {
+    if (!selectedIncident) {
+      return;
+    }
+
+    setStatusBusy(true);
+    setStatusFeedback("");
+    try {
+      const response = await fetch(
+        `${INCIDENT_API_BASE}/incidents/${selectedIncident.id}/verify`,
+        {
+          method: "POST",
+          headers: authorityHeaders(),
+          body: JSON.stringify({ note: statusForm.note }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`incident API returned ${response.status}`);
+      }
+      const incident = (await response.json()) as IncidentRecord;
+      applyIncidentUpdate(incident);
+      setStatusFeedback(`${statusLabel(incident.status)} status saved.`);
+    } catch (error) {
+      setStatusFeedback(
+        "Incident workflow action needs the incident-service API running with this incident.",
+      );
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
+  const updateIncidentStatus = async () => {
+    if (!selectedIncident) {
+      return;
+    }
+
+    const request: IncidentStatusUpdateRequest = {
+      status: statusForm.status,
+      note: statusForm.note,
+      resolutionNotes: statusForm.resolutionNotes,
+    };
+
+    setStatusBusy(true);
+    setStatusFeedback("");
+    try {
+      const response = await fetch(
+        `${INCIDENT_API_BASE}/incidents/${selectedIncident.id}/status`,
+        {
+          method: "PATCH",
+          headers: authorityHeaders(),
+          body: JSON.stringify(request),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`incident API returned ${response.status}`);
+      }
+      const incident = (await response.json()) as IncidentRecord;
+      applyIncidentUpdate(incident);
+      setStatusFeedback(`${statusLabel(incident.status)} status saved.`);
+    } catch (error) {
+      setStatusFeedback(
+        "Incident workflow action needs a valid live incident transition.",
+      );
+    } finally {
+      setStatusBusy(false);
+    }
+  };
 
   const buildAlertRequest = (): CreateAlertRequest => ({
     title: alertForm.title,
@@ -530,7 +674,7 @@ function App() {
     try {
       const response = await fetch(`${ALERT_API_BASE}/alerts`, {
         method: "POST",
-        headers: alertHeaders(),
+        headers: authorityHeaders(),
         body: JSON.stringify(buildAlertRequest()),
       });
       if (!response.ok) {
@@ -570,7 +714,7 @@ function App() {
         `${ALERT_API_BASE}/alerts/${alert.id}/${action}`,
         {
           method: "POST",
-          headers: alertHeaders(),
+          headers: authorityHeaders(),
           body: JSON.stringify(body),
         },
       );
@@ -945,7 +1089,15 @@ function App() {
 
           <Grid size={{ xs: 12, lg: 4 }}>
             <Stack spacing={2.5}>
-              <IncidentDetailPanel incident={selectedIncident} />
+              <IncidentDetailPanel
+                busy={statusBusy}
+                feedback={statusFeedback}
+                form={statusForm}
+                incident={selectedIncident}
+                onUpdateForm={updateStatusForm}
+                onUpdateStatus={updateIncidentStatus}
+                onVerify={verifySelectedIncident}
+              />
 
               <AlertWorkflowPanel
                 alerts={alerts}
@@ -1413,7 +1565,28 @@ function AlertWorkflowPanel({
   );
 }
 
-function IncidentDetailPanel({ incident }: { incident?: CommandIncident }) {
+function IncidentDetailPanel({
+  busy,
+  feedback,
+  form,
+  incident,
+  onUpdateForm,
+  onUpdateStatus,
+  onVerify,
+}: {
+  busy: boolean;
+  feedback: string;
+  form: IncidentStatusFormState;
+  incident?: CommandIncident;
+  onUpdateForm: (
+    key: keyof IncidentStatusFormState,
+  ) => (
+    event:
+      ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+  ) => void;
+  onUpdateStatus: () => void;
+  onVerify: () => void;
+}) {
   if (!incident) {
     return (
       <Paper className="surface">
@@ -1424,6 +1597,11 @@ function IncidentDetailPanel({ incident }: { incident?: CommandIncident }) {
       </Paper>
     );
   }
+
+  const nextStatuses = incidentTransitionOptions[incident.status];
+  const terminal = nextStatuses.length === 0;
+  const resolutionRequired = requiresIncidentResolution(form.status);
+  const canVerify = nextStatuses.includes("verified");
 
   return (
     <Paper className="surface detail-panel">
@@ -1494,12 +1672,95 @@ function IncidentDetailPanel({ incident }: { incident?: CommandIncident }) {
         </>
       ) : null}
 
+      <Divider className="detail-divider" />
+
+      <Stack spacing={1.25}>
+        <Stack direction="row" justifyContent="space-between" gap={1}>
+          <Box>
+            <Typography variant="subtitle2">Status workflow</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {terminal
+                ? "Terminal incident state"
+                : "Audited authority action"}
+            </Typography>
+          </Box>
+          <Chip
+            size="small"
+            label={incident.source === "api" ? "Live" : "Fixture"}
+            color={incident.source === "api" ? "success" : "warning"}
+          />
+        </Stack>
+
+        {feedback ? (
+          <Alert
+            severity={
+              feedback.includes("needs") || feedback.includes("valid")
+                ? "warning"
+                : "success"
+            }
+          >
+            {feedback}
+          </Alert>
+        ) : null}
+
+        <FormControl fullWidth size="small" disabled={terminal}>
+          <InputLabel>Next status</InputLabel>
+          <Select
+            label="Next status"
+            value={form.status}
+            onChange={onUpdateForm("status")}
+          >
+            {(nextStatuses.length ? nextStatuses : [incident.status]).map(
+              (status) => (
+                <MenuItem value={status} key={status}>
+                  {statusLabel(status)}
+                </MenuItem>
+              ),
+            )}
+          </Select>
+        </FormControl>
+
+        <TextField
+          size="small"
+          label="Status note"
+          value={form.note}
+          onChange={onUpdateForm("note")}
+          multiline
+          minRows={2}
+        />
+
+        {resolutionRequired ? (
+          <TextField
+            size="small"
+            label="Resolution notes"
+            value={form.resolutionNotes}
+            onChange={onUpdateForm("resolutionNotes")}
+            multiline
+            minRows={3}
+          />
+        ) : null}
+      </Stack>
+
       <Stack direction="row" spacing={1} className="detail-actions">
-        <Button variant="contained" startIcon={<CheckCheck size={17} />}>
+        <Button
+          variant="contained"
+          disabled={busy || !canVerify}
+          onClick={onVerify}
+          startIcon={<CheckCheck size={17} />}
+        >
           Verify
         </Button>
-        <Button variant="outlined" startIcon={<Truck size={17} />}>
-          Assign
+        <Button
+          variant="outlined"
+          disabled={
+            busy ||
+            terminal ||
+            (resolutionRequired && !form.resolutionNotes.trim())
+          }
+          onClick={onUpdateStatus}
+          startIcon={<Truck size={17} />}
+        >
+          Update status
         </Button>
       </Stack>
     </Paper>
@@ -1662,10 +1923,15 @@ function enrichIncidentFromAPI(incident: IncidentRecord): CommandIncident {
     timeline: [
       `${hazardLabel(incident.type)} report received from incident service`,
       `${statusLabel(incident.status)} status synchronized`,
+      incident.verifiedAt
+        ? `Verified by ${incident.verifiedBy || "authority user"}`
+        : "",
+      incident.statusReason ? `Latest note: ${incident.statusReason}` : "",
+      incident.resolutionNotes ? `Resolution: ${incident.resolutionNotes}` : "",
       incident.priorityReview
         ? "Priority review flag is active"
         : "Dispatcher monitoring normal queue",
-    ],
+    ].filter(Boolean),
     source: "api",
   };
 }
@@ -1727,6 +1993,27 @@ function alertReadiness(incident: CommandIncident) {
   const duplicateWeight = incident.duplicateCandidates.length ? 12 : 0;
   const mediaWeight = incident.media.length ? 8 : 0;
   return Math.min(95, 30 + severityWeight + duplicateWeight + mediaWeight);
+}
+
+function buildDefaultStatusForm(
+  incident?: CommandIncident,
+): IncidentStatusFormState {
+  const status = nextIncidentStatus(incident?.status ?? "reported");
+  return {
+    status,
+    note: incident
+      ? `${statusLabel(status)} update for ${incident.reference}.`
+      : "Authority status update.",
+    resolutionNotes: "",
+  };
+}
+
+function nextIncidentStatus(status: IncidentStatus): IncidentStatus {
+  return incidentTransitionOptions[status][0] ?? status;
+}
+
+function requiresIncidentResolution(status: IncidentStatus) {
+  return status === "closed" || status === "false_report";
 }
 
 function buildDefaultAlertForm(incident?: CommandIncident): AlertFormState {
