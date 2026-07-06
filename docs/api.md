@@ -175,7 +175,11 @@ Authority/admin only.
   "anonymous": false,
   "contactPermission": true,
   "accessibilityNeeds": "Elderly person needs help evacuating",
-  "media": ["media_01H..."]
+  "media": ["media_001"],
+  "reporter": {
+    "userId": "usr_...",
+    "phone": "+233200000000"
+  }
 }
 ```
 
@@ -183,12 +187,29 @@ Response:
 
 ```json
 {
-  "id": "inc_01H...",
-  "reference": "INC-0241",
+  "id": "inc_...",
+  "reference": "INC-000001",
   "status": "reported",
+  "severity": "high",
+  "priorityReview": false,
   "duplicateCandidates": []
 }
 ```
+
+Rules:
+
+- `type` must be a supported hazard.
+- `location.lat` and `location.lng` must be valid coordinates.
+- `description` must be 5 to 2000 safe characters.
+- `urgency` must be `low`, `moderate`, `high`, or `life_threatening`.
+- `life_threatening` or injury reports are flagged for priority review.
+- Anonymous reports do not retain `reportedBy` in standard incident records.
+- If `contactPermission` is false, reporter phone is not retained in the incident record.
+- Starter service rate-limits repeated reports by client address.
+
+`GET /api/v1/incidents`
+
+Starter list endpoint for development and dashboard wiring. Authority filtering and RBAC land in later stories.
 
 ### Media Upload
 

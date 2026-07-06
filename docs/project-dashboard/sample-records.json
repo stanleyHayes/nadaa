@@ -157,5 +157,33 @@
       "Live auth HTTP smoke on localhost:8082"
     ],
     "notes": "Auth service citizen register/login/profile API, mock OTP flow, signed bearer token, shared auth types, docs, and tests added."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 2",
+    "epic": "EPIC 3: Citizen Incident Reporting",
+    "story": "Implement Incident Reporting API",
+    "jiraKey": "NADAA-030",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 13,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-020", "NADAA-010"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:docs",
+      "pnpm typecheck",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm smoke:web",
+      "Live incident HTTP smoke on localhost:8084"
+    ],
+    "notes": "Incident-service report intake API, validation, anonymous/contact-permission behavior, media references, priority review flag, rate limiting, shared types, docs, and tests added."
   }
 ]

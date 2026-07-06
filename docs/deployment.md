@@ -37,6 +37,13 @@ cd services/auth-service
 NADAA_AUTH_MOCK_OTP=123456 NADAA_AUTH_EXPOSE_DEV_OTP=true go run .
 ```
 
+Run incident service:
+
+```bash
+cd services/incident-service
+go run .
+```
+
 Run checks:
 
 ```bash

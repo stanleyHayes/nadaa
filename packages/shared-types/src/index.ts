@@ -38,6 +38,8 @@ export type IncidentStatus =
   | "closed"
   | "false_report";
 
+export type IncidentUrgency = "low" | "moderate" | "high" | "life_threatening";
+
 export type AlertSeverity = "advisory" | "watch" | "warning" | "severe_warning" | "emergency";
 
 export interface Coordinates {
@@ -82,6 +84,59 @@ export interface LoginCitizenResponse {
   tokenType: "Bearer";
   expiresAt: string;
   user: CitizenProfile;
+}
+
+export interface IncidentReporterRef {
+  userId: string;
+  phone?: string;
+}
+
+export interface CreateIncidentRequest {
+  type: HazardType;
+  description: string;
+  location: Coordinates;
+  peopleAffected: number;
+  injuriesReported: boolean;
+  urgency: IncidentUrgency;
+  anonymous: boolean;
+  contactPermission: boolean;
+  accessibilityNeeds?: string;
+  media: string[];
+  reporter?: IncidentReporterRef;
+}
+
+export interface IncidentRecord {
+  id: string;
+  reference: string;
+  type: HazardType;
+  severity: RiskLevel;
+  status: IncidentStatus;
+  description: string;
+  location: Coordinates;
+  peopleAffected: number;
+  injuriesReported: boolean;
+  urgency: IncidentUrgency;
+  anonymous: boolean;
+  contactPermission: boolean;
+  accessibilityNeeds?: string;
+  media: string[];
+  priorityReview: boolean;
+  reportedBy?: IncidentReporterRef;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateIncidentResponse {
+  id: string;
+  reference: string;
+  status: "reported";
+  severity: RiskLevel;
+  priorityReview: boolean;
+  duplicateCandidates: string[];
+}
+
+export interface IncidentListResponse {
+  incidents: IncidentRecord[];
 }
 
 export interface RiskSummary {
