@@ -81,6 +81,8 @@ cd services/integration-service
 go run .
 ```
 
+Set `NADAA_IMPORT_SCHEDULER_ENABLED=true` only when the weather/hydrology fixture importer should run on a timer. Override the default interval with `NADAA_IMPORT_SCHEDULER_INTERVAL`, for example `15m`.
+
 Run checks:
 
 ```bash

@@ -23,6 +23,7 @@ const requiredTables = [
   "emergency_guides",
   "ml_predictions",
   "weather_observations",
+  "weather_import_jobs",
   "audit_logs",
   "notification_delivery_logs",
 ];

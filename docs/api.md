@@ -877,6 +877,46 @@ Rules:
 
 Returns fixture weather and hydrology observations for importer development.
 
+`POST /api/v1/integrations/weather-hydrology/import-jobs`
+
+Starts a weather/hydrology fixture import into the NADAA observation store and returns `202 Accepted`.
+
+```json
+{
+  "metric": "rainfall_mm",
+  "requestedBy": "scheduler",
+  "correlationId": "import-20260706-001"
+}
+```
+
+Response:
+
+```json
+{
+  "id": "import_manual_20260706120000_001",
+  "adapterId": "mock-weather-hydrology-adapter",
+  "source": "mock-weather-hydrology-adapter",
+  "metric": "rainfall_mm",
+  "status": "succeeded",
+  "trigger": "manual",
+  "attempts": 1,
+  "retryable": true,
+  "importedCount": 2,
+  "failedCount": 0,
+  "message": "Imported 2 weather/hydrology observations."
+}
+```
+
+Rules:
+
+- `metric` may be omitted, `rainfall_mm`, or `water_level_m`.
+- Imported records preserve source, station, observed timestamp, validity window, point location, normalized rainfall/water-level fields, metadata, source record, and `weather_observations` storage target.
+- A failed job keeps `status=failed`, `retryable=true`, `error`, `failedCount`, and `nextRetryAt`.
+- `POST /api/v1/integrations/weather-hydrology/import-jobs/{id}/retry` retries a failed job.
+- `GET /api/v1/integrations/weather-hydrology/import-jobs?status=failed` lists import status logs.
+- `GET /api/v1/integrations/weather-hydrology/observations?metric=rainfall_mm` lists imported observations.
+- The service can run a scheduled importer when `NADAA_IMPORT_SCHEDULER_ENABLED=true`; set `NADAA_IMPORT_SCHEDULER_INTERVAL` to a Go duration such as `15m`.
+
 `POST /api/v1/integrations/mock/sync-events`
 
 Accepts mock outbound incident or alert sync events and returns `202 Accepted`.

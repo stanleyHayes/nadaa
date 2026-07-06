@@ -434,6 +434,56 @@ export interface IntegrationObservationListResponse {
   observations: WeatherHydrologyObservation[];
 }
 
+export interface ImportedWeatherHydrologyObservation extends WeatherHydrologyObservation {
+  rainfallMm?: number;
+  waterLevelM?: number;
+  metadata: Record<string, string>;
+  importJobId: string;
+  importedAt: string;
+  sourceRecord: string;
+  storageTarget: "weather_observations";
+}
+
+export interface ImportedObservationListResponse {
+  observations: ImportedWeatherHydrologyObservation[];
+}
+
+export interface ObservationImportRequest {
+  adapterId?: string;
+  metric?: "rainfall_mm" | "water_level_m";
+  simulateFailure?: boolean;
+  failureMessage?: string;
+  requestedBy?: string;
+  correlationId?: string;
+}
+
+export type ObservationImportStatus = "running" | "succeeded" | "failed";
+export type ObservationImportTrigger = "manual" | "scheduled" | "retry";
+
+export interface ObservationImportJob {
+  id: string;
+  adapterId: string;
+  source: string;
+  metric?: "rainfall_mm" | "water_level_m";
+  status: ObservationImportStatus;
+  trigger: ObservationImportTrigger;
+  attempts: number;
+  retryable: boolean;
+  startedAt: string;
+  finishedAt?: string;
+  nextRetryAt?: string;
+  importedCount: number;
+  failedCount: number;
+  error?: string;
+  message: string;
+  requestedBy?: string;
+  correlationId?: string;
+}
+
+export interface ObservationImportJobListResponse {
+  jobs: ObservationImportJob[];
+}
+
 export interface IntegrationSyncRequest {
   type: "incident" | "alert";
   sourceId: string;

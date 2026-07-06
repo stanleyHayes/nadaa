@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -16,10 +17,12 @@ type server struct {
 }
 
 type memoryStore struct {
-	mu           sync.RWMutex
-	contracts    []integrationContract
-	observations []weatherHydrologyObservation
-	syncEvents   []syncEvent
+	mu                   sync.RWMutex
+	contracts            []integrationContract
+	observations         []weatherHydrologyObservation
+	importedObservations []importedWeatherHydrologyObservation
+	importJobs           []observationImportJob
+	syncEvents           []syncEvent
 }
 
 type integrationContract struct {
@@ -80,6 +83,56 @@ type weatherHydrologyObservation struct {
 	GeneratedBy string      `json:"generatedBy"`
 }
 
+type importedWeatherHydrologyObservation struct {
+	ID            string            `json:"id"`
+	Source        string            `json:"source"`
+	Metric        string            `json:"metric"`
+	Value         float64           `json:"value"`
+	Unit          string            `json:"unit"`
+	StationID     string            `json:"stationId"`
+	Location      coordinates       `json:"location"`
+	ObservedAt    time.Time         `json:"observedAt"`
+	ValidFrom     time.Time         `json:"validFrom"`
+	ValidTo       time.Time         `json:"validTo"`
+	RainfallMM    *float64          `json:"rainfallMm,omitempty"`
+	WaterLevelM   *float64          `json:"waterLevelM,omitempty"`
+	Metadata      map[string]string `json:"metadata"`
+	ImportJobID   string            `json:"importJobId"`
+	ImportedAt    time.Time         `json:"importedAt"`
+	SourceRecord  string            `json:"sourceRecord"`
+	StorageTarget string            `json:"storageTarget"`
+}
+
+type observationImportRequest struct {
+	AdapterID        string `json:"adapterId"`
+	Metric           string `json:"metric,omitempty"`
+	SimulateFailure  bool   `json:"simulateFailure,omitempty"`
+	FailureMessage   string `json:"failureMessage,omitempty"`
+	RequestedBy      string `json:"requestedBy,omitempty"`
+	CorrelationID    string `json:"correlationId,omitempty"`
+	ForceManualRetry bool   `json:"forceManualRetry,omitempty"`
+}
+
+type observationImportJob struct {
+	ID            string     `json:"id"`
+	AdapterID     string     `json:"adapterId"`
+	Source        string     `json:"source"`
+	Metric        string     `json:"metric,omitempty"`
+	Status        string     `json:"status"`
+	Trigger       string     `json:"trigger"`
+	Attempts      int        `json:"attempts"`
+	Retryable     bool       `json:"retryable"`
+	StartedAt     time.Time  `json:"startedAt"`
+	FinishedAt    *time.Time `json:"finishedAt,omitempty"`
+	NextRetryAt   *time.Time `json:"nextRetryAt,omitempty"`
+	ImportedCount int        `json:"importedCount"`
+	FailedCount   int        `json:"failedCount"`
+	Error         string     `json:"error,omitempty"`
+	Message       string     `json:"message"`
+	RequestedBy   string     `json:"requestedBy,omitempty"`
+	CorrelationID string     `json:"correlationId,omitempty"`
+}
+
 type coordinates struct {
 	Lat float64 `json:"lat"`
 	Lng float64 `json:"lng"`
@@ -123,6 +176,14 @@ type observationListResponse struct {
 	Observations []weatherHydrologyObservation `json:"observations"`
 }
 
+type importedObservationListResponse struct {
+	Observations []importedWeatherHydrologyObservation `json:"observations"`
+}
+
+type observationImportJobListResponse struct {
+	Jobs []observationImportJob `json:"jobs"`
+}
+
 type syncEventListResponse struct {
 	Events []syncEvent `json:"events"`
 }
@@ -153,6 +214,12 @@ var allowedDomains = map[string]bool{
 	"shelter_status":    true,
 }
 
+var allowedImportStatuses = map[string]bool{
+	"running":   true,
+	"succeeded": true,
+	"failed":    true,
+}
+
 func main() {
 	srv := &server{store: newMemoryStore()}
 
@@ -160,8 +227,16 @@ func main() {
 	mux.HandleFunc("GET /healthz", srv.healthHandler)
 	mux.HandleFunc("GET /api/v1/integrations/contracts", srv.listContractsHandler)
 	mux.HandleFunc("GET /api/v1/integrations/mock/weather-hydrology/observations", srv.listObservationsHandler)
+	mux.HandleFunc("GET /api/v1/integrations/weather-hydrology/observations", srv.listImportedObservationsHandler)
+	mux.HandleFunc("POST /api/v1/integrations/weather-hydrology/import-jobs", srv.createObservationImportJobHandler)
+	mux.HandleFunc("GET /api/v1/integrations/weather-hydrology/import-jobs", srv.listObservationImportJobsHandler)
+	mux.HandleFunc("POST /api/v1/integrations/weather-hydrology/import-jobs/{id}/retry", srv.retryObservationImportJobHandler)
 	mux.HandleFunc("POST /api/v1/integrations/mock/sync-events", srv.createSyncEventHandler)
 	mux.HandleFunc("GET /api/v1/integrations/mock/sync-events", srv.listSyncEventsHandler)
+
+	if observationImportSchedulerEnabled() {
+		go srv.startObservationImportScheduler(observationImportSchedulerInterval())
+	}
 
 	addr := envOrDefault("NADAA_INTEGRATION_ADDR", ":8088")
 	log.Printf("integration-service listening on %s", addr)
@@ -208,6 +283,55 @@ func (s *server) listObservationsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, http.StatusOK, observationListResponse{Observations: s.store.listObservations(source, metric)})
+}
+
+func (s *server) listImportedObservationsHandler(w http.ResponseWriter, r *http.Request) {
+	source := normalizeQueryValue(r.URL.Query().Get("source"))
+	metric := normalizeQueryValue(r.URL.Query().Get("metric"))
+	if metric != "" && metric != "rainfall_mm" && metric != "water_level_m" {
+		writeError(w, http.StatusBadRequest, "invalid_metric", "metric must be rainfall_mm or water_level_m")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, importedObservationListResponse{Observations: s.store.listImportedObservations(source, metric)})
+}
+
+func (s *server) createObservationImportJobHandler(w http.ResponseWriter, r *http.Request) {
+	request, ok := decodeOptionalObservationImportRequest(w, r)
+	if !ok {
+		return
+	}
+	if code, message := validateObservationImportRequest(request); code != "" {
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	job := s.store.createObservationImportJob(request, "manual", time.Now().UTC(), 1)
+	writeJSON(w, http.StatusAccepted, job)
+}
+
+func (s *server) listObservationImportJobsHandler(w http.ResponseWriter, r *http.Request) {
+	status := normalizeQueryValue(r.URL.Query().Get("status"))
+	if status != "" && !allowedImportStatuses[status] {
+		writeError(w, http.StatusBadRequest, "invalid_status", "status must be succeeded, failed, or running")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, observationImportJobListResponse{Jobs: s.store.listObservationImportJobs(status)})
+}
+
+func (s *server) retryObservationImportJobHandler(w http.ResponseWriter, r *http.Request) {
+	job, ok, conflict := s.store.retryObservationImportJob(r.PathValue("id"), time.Now().UTC())
+	if !ok {
+		writeError(w, http.StatusNotFound, "import_job_not_found", "import job was not found")
+		return
+	}
+	if conflict != "" {
+		writeError(w, http.StatusConflict, "import_job_not_retryable", conflict)
+		return
+	}
+
+	writeJSON(w, http.StatusAccepted, job)
 }
 
 func (s *server) createSyncEventHandler(w http.ResponseWriter, r *http.Request) {
@@ -283,6 +407,156 @@ func (m *memoryStore) listObservations(source string, metric string) []weatherHy
 		return observations[i].ObservedAt.Before(observations[j].ObservedAt)
 	})
 	return observations
+}
+
+func (m *memoryStore) listImportedObservations(source string, metric string) []importedWeatherHydrologyObservation {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	observations := make([]importedWeatherHydrologyObservation, 0, len(m.importedObservations))
+	for _, observation := range m.importedObservations {
+		if source != "" && observation.Source != source {
+			continue
+		}
+		if metric != "" && observation.Metric != metric {
+			continue
+		}
+		observations = append(observations, observation)
+	}
+
+	sort.Slice(observations, func(i, j int) bool {
+		return observations[i].ObservedAt.Before(observations[j].ObservedAt)
+	})
+	return observations
+}
+
+func (m *memoryStore) createObservationImportJob(request observationImportRequest, trigger string, now time.Time, attempt int) observationImportJob {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.createObservationImportJobLocked(request, trigger, now, attempt)
+}
+
+func (m *memoryStore) createObservationImportJobLocked(request observationImportRequest, trigger string, now time.Time, attempt int) observationImportJob {
+	request.AdapterID = defaultImportAdapterID(request.AdapterID)
+	request.Metric = normalizeQueryValue(request.Metric)
+	request.RequestedBy = strings.TrimSpace(request.RequestedBy)
+	request.CorrelationID = strings.TrimSpace(request.CorrelationID)
+
+	job := observationImportJob{
+		ID:            fmt.Sprintf("import_%s_%s_%03d", sanitizeID(trigger), now.Format("20060102150405"), len(m.importJobs)+1),
+		AdapterID:     request.AdapterID,
+		Source:        request.AdapterID,
+		Metric:        request.Metric,
+		Status:        "running",
+		Trigger:       trigger,
+		Attempts:      attempt,
+		Retryable:     true,
+		StartedAt:     now,
+		RequestedBy:   request.RequestedBy,
+		CorrelationID: request.CorrelationID,
+	}
+
+	candidates := m.importCandidateObservations(request.Metric)
+	if request.SimulateFailure {
+		finishedAt := now.Add(250 * time.Millisecond)
+		nextRetryAt := now.Add(30 * time.Second)
+		job.Status = "failed"
+		job.FinishedAt = &finishedAt
+		job.NextRetryAt = &nextRetryAt
+		job.FailedCount = len(candidates)
+		job.Error = strings.TrimSpace(request.FailureMessage)
+		if job.Error == "" {
+			job.Error = "fixture importer failure requested"
+		}
+		job.Message = "Import failed before observations were stored; job is retryable."
+		m.importJobs = append(m.importJobs, job)
+		return job
+	}
+
+	imported := 0
+	for _, observation := range candidates {
+		stored := buildImportedObservation(observation, job.ID, now)
+		m.upsertImportedObservation(stored)
+		imported++
+	}
+
+	finishedAt := now.Add(250 * time.Millisecond)
+	job.Status = "succeeded"
+	job.FinishedAt = &finishedAt
+	job.ImportedCount = imported
+	job.Message = fmt.Sprintf("Imported %d weather/hydrology observation%s.", imported, pluralSuffix(imported))
+	m.importJobs = append(m.importJobs, job)
+	return job
+}
+
+func (m *memoryStore) importCandidateObservations(metric string) []weatherHydrologyObservation {
+	candidates := make([]weatherHydrologyObservation, 0, len(m.observations))
+	for _, observation := range m.observations {
+		if metric != "" && observation.Metric != metric {
+			continue
+		}
+		candidates = append(candidates, observation)
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].ObservedAt.Before(candidates[j].ObservedAt)
+	})
+	return candidates
+}
+
+func (m *memoryStore) upsertImportedObservation(next importedWeatherHydrologyObservation) {
+	for index, observation := range m.importedObservations {
+		if observation.ID == next.ID {
+			m.importedObservations[index] = next
+			return
+		}
+	}
+	m.importedObservations = append(m.importedObservations, next)
+}
+
+func (m *memoryStore) listObservationImportJobs(status string) []observationImportJob {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	jobs := make([]observationImportJob, 0, len(m.importJobs))
+	for _, job := range m.importJobs {
+		if status != "" && job.Status != status {
+			continue
+		}
+		jobs = append(jobs, job)
+	}
+	sort.Slice(jobs, func(i, j int) bool {
+		return jobs[i].StartedAt.After(jobs[j].StartedAt)
+	})
+	return jobs
+}
+
+func (m *memoryStore) retryObservationImportJob(jobID string, now time.Time) (observationImportJob, bool, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var previous *observationImportJob
+	for index := range m.importJobs {
+		if m.importJobs[index].ID == jobID {
+			previous = &m.importJobs[index]
+			break
+		}
+	}
+	if previous == nil {
+		return observationImportJob{}, false, ""
+	}
+	if previous.Status != "failed" || !previous.Retryable {
+		return observationImportJob{}, true, "only failed retryable import jobs can be retried"
+	}
+
+	request := observationImportRequest{
+		AdapterID:      previous.AdapterID,
+		Metric:         previous.Metric,
+		RequestedBy:    previous.RequestedBy,
+		CorrelationID:  previous.CorrelationID,
+		FailureMessage: previous.Error,
+	}
+	job := m.createObservationImportJobLocked(request, "retry", now, previous.Attempts+1)
+	return job, true, ""
 }
 
 func (m *memoryStore) createSyncEvent(request syncRequest, now time.Time) syncEvent {
@@ -540,6 +814,106 @@ func adapterIDForSyncType(eventType string) string {
 		return "mock-alert-sync-adapter"
 	}
 	return "mock-incident-sync-adapter"
+}
+
+func decodeOptionalObservationImportRequest(w http.ResponseWriter, r *http.Request) (observationImportRequest, bool) {
+	if r.Body == nil || r.ContentLength == 0 {
+		return observationImportRequest{}, true
+	}
+
+	var request observationImportRequest
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return observationImportRequest{}, false
+	}
+	return request, true
+}
+
+func validateObservationImportRequest(request observationImportRequest) (string, string) {
+	metric := normalizeQueryValue(request.Metric)
+	if metric != "" && metric != "rainfall_mm" && metric != "water_level_m" {
+		return "invalid_metric", "metric must be rainfall_mm or water_level_m"
+	}
+	return "", ""
+}
+
+func defaultImportAdapterID(adapterID string) string {
+	adapterID = strings.TrimSpace(adapterID)
+	if adapterID == "" {
+		return "mock-weather-hydrology-adapter"
+	}
+	return adapterID
+}
+
+func buildImportedObservation(observation weatherHydrologyObservation, jobID string, importedAt time.Time) importedWeatherHydrologyObservation {
+	imported := importedWeatherHydrologyObservation{
+		ID:            "imported_" + observation.ID,
+		Source:        observation.Source,
+		Metric:        observation.Metric,
+		Value:         observation.Value,
+		Unit:          observation.Unit,
+		StationID:     observation.StationID,
+		Location:      observation.Location,
+		ObservedAt:    observation.ObservedAt,
+		ValidFrom:     observation.ValidFrom,
+		ValidTo:       observation.ValidTo,
+		ImportJobID:   jobID,
+		ImportedAt:    importedAt,
+		SourceRecord:  observation.ID,
+		StorageTarget: "weather_observations",
+		Metadata: map[string]string{
+			"quality":     observation.Quality,
+			"generatedBy": observation.GeneratedBy,
+			"unit":        observation.Unit,
+		},
+	}
+	if observation.Metric == "rainfall_mm" {
+		value := observation.Value
+		imported.RainfallMM = &value
+	}
+	if observation.Metric == "water_level_m" {
+		value := observation.Value
+		imported.WaterLevelM = &value
+	}
+	return imported
+}
+
+func pluralSuffix(count int) string {
+	if count == 1 {
+		return ""
+	}
+	return "s"
+}
+
+func (s *server) startObservationImportScheduler(interval time.Duration) {
+	if interval <= 0 {
+		interval = 15 * time.Minute
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	log.Printf("weather/hydrology import scheduler enabled with interval %s", interval)
+	for now := range ticker.C {
+		job := s.store.createObservationImportJob(observationImportRequest{}, "scheduled", now.UTC(), 1)
+		log.Printf("scheduled weather/hydrology import %s finished with status %s and %d imported observations", job.ID, job.Status, job.ImportedCount)
+	}
+}
+
+func observationImportSchedulerEnabled() bool {
+	value := normalizeQueryValue(os.Getenv("NADAA_IMPORT_SCHEDULER_ENABLED"))
+	return value == "true" || value == "1" || value == "yes"
+}
+
+func observationImportSchedulerInterval() time.Duration {
+	value := strings.TrimSpace(os.Getenv("NADAA_IMPORT_SCHEDULER_INTERVAL"))
+	if value == "" {
+		return 15 * time.Minute
+	}
+	interval, err := time.ParseDuration(value)
+	if err != nil || interval <= 0 {
+		return 15 * time.Minute
+	}
+	return interval
 }
 
 func decodeJSON(r *http.Request, target any) error {

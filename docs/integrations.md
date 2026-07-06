@@ -55,6 +55,19 @@ NADAA integrations are contract-first. Official APIs may arrive gradually, so MV
 }
 ```
 
+### Weather/Hydrology Import Job
+
+```json
+{
+  "adapterId": "mock-weather-hydrology-adapter",
+  "metric": "rainfall_mm",
+  "requestedBy": "scheduler",
+  "correlationId": "import-20260706-001"
+}
+```
+
+Import logs keep status, trigger (`manual`, `scheduled`, or `retry`), attempts, retryability, imported and failed counts, errors, and `nextRetryAt` when retry is possible. Imported observations are normalized for the `weather_observations` storage target while preserving source, station, timestamp, point location, validity window, metadata, and source record.
+
 ### Incident Sync
 
 ```json

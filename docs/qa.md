@@ -36,7 +36,7 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 | Shelter lookup/update        | NADAA-062                                  | API, E2E           | Nearby lookup, occupancy update permission, map/list display                                      | Todo                           |
 | Flood ML review              | NADAA-070, NADAA-071, NADAA-072, NADAA-073 | Model, API, E2E    | Confidence, model version, explanation, no auto-publish                                           | Todo                           |
 | Agency integration contracts | NADAA-080                                  | API, Integration   | Partner matrix, ownership, cadence, payloads, auth, retry/dead-letter behavior, mock adapters     | Contract API covered           |
-| Weather/hydrology import     | NADAA-081                                  | Integration        | Fixture import, source metadata, retryable failures                                               | Todo                           |
+| Weather/hydrology import     | NADAA-081                                  | Integration        | Fixture import, source metadata, persisted observation shape, retryable failures, scheduled hook  | MVP API smoke covered          |
 
 ## Current Sprint 0 Commands
 

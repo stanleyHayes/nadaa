@@ -287,6 +287,27 @@ CREATE TABLE IF NOT EXISTS weather_observations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS weather_import_jobs (
+  id TEXT PRIMARY KEY,
+  adapter_id TEXT NOT NULL,
+  source TEXT NOT NULL,
+  metric TEXT CHECK (metric IS NULL OR metric IN ('rainfall_mm', 'water_level_m')),
+  status TEXT NOT NULL CHECK (status IN ('running', 'succeeded', 'failed')),
+  trigger TEXT NOT NULL CHECK (trigger IN ('manual', 'scheduled', 'retry')),
+  attempts INTEGER NOT NULL DEFAULT 1 CHECK (attempts > 0),
+  retryable BOOLEAN NOT NULL DEFAULT true,
+  started_at TIMESTAMPTZ NOT NULL,
+  finished_at TIMESTAMPTZ,
+  next_retry_at TIMESTAMPTZ,
+  imported_count INTEGER NOT NULL DEFAULT 0 CHECK (imported_count >= 0),
+  failed_count INTEGER NOT NULL DEFAULT 0 CHECK (failed_count >= 0),
+  error TEXT,
+  message TEXT NOT NULL,
+  requested_by TEXT,
+  correlation_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_user_id UUID REFERENCES users(id),
@@ -334,6 +355,8 @@ CREATE INDEX IF NOT EXISTS idx_ml_predictions_geometry ON ml_predictions USING G
 CREATE INDEX IF NOT EXISTS idx_ml_predictions_hazard_target_time ON ml_predictions (hazard_type, target_time DESC);
 CREATE INDEX IF NOT EXISTS idx_weather_observations_location ON weather_observations USING GIST (location_geometry);
 CREATE INDEX IF NOT EXISTS idx_weather_observations_source_time ON weather_observations (source, observed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_weather_import_jobs_status_retry ON weather_import_jobs (status, next_retry_at);
+CREATE INDEX IF NOT EXISTS idx_weather_import_jobs_started_at ON weather_import_jobs (started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created_at ON audit_logs (actor_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs (target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_notification_delivery_alert_channel ON notification_delivery_logs (alert_id, channel, attempted_at DESC);

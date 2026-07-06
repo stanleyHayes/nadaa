@@ -749,6 +749,7 @@
       "pnpm test",
       "pnpm build",
       "pnpm go:test",
+      "Local Docker build for integration-service",
       "git diff --check"
     ],
     "notes": "Citizen guide browser now integrates guide-service, stores offline-available guides in localStorage, serves service-worker app-shell and guide caching, supports hazard/stage/language filters with English fallback, keeps 112 visible in emergency guidance, and has docs, smoke, and test coverage."
@@ -783,6 +784,40 @@
       "Local pnpm smoke:staging against 127.0.0.1 web apps",
       "Local Docker build for integration-service"
     ],
-    "notes": "Integration contract matrix, shared integration types, mock weather/hydrology observations, outbound incident/alert sync acceptance, docs, CI/staging smoke wiring, Dockerfile, and smoke coverage are complete. Weather/hydrology persistence remains NADAA-081."
+    "notes": "Integration contract matrix, shared integration types, mock weather/hydrology observations, outbound incident/alert sync acceptance, docs, CI/staging smoke wiring, Dockerfile, and smoke coverage are complete. Weather/hydrology persistence is completed by NADAA-081."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 6",
+    "epic": "EPIC 8: Integrations And External Data",
+    "story": "Implement Weather And Hydrology Import Skeleton",
+    "jiraKey": "NADAA-081",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-020", "NADAA-080"],
+    "blockers": [],
+    "verification": [
+      "services/integration-service go test ./...",
+      "pnpm --filter @nadaa/shared-types typecheck",
+      "pnpm smoke:integration",
+      "pnpm smoke:web",
+      "Local pnpm smoke:staging against 127.0.0.1 web apps and integration-service",
+      "pnpm validate:docs",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "git diff --check"
+    ],
+    "notes": "Integration-service now imports fixture rainfall and water-level observations into a weather_observations-aligned store, logs import job status, supports retryable failed imports, exposes imported observations, includes a scheduled importer hook, shared types, docs, smoke, and tests."
   }
 ]

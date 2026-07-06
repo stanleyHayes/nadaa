@@ -124,7 +124,7 @@ cd services/integration-service
 go run .
 ```
 
-The integration service listens on `:8088` by default and exposes integration contracts plus mock weather, hydrology, incident, and alert sync adapters.
+The integration service listens on `:8088` by default and exposes integration contracts, mock weather/hydrology adapters, weather/hydrology import jobs, imported observation status, and mock incident/alert sync adapters.
 
 ## Project Coordination
 

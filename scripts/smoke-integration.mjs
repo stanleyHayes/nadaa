@@ -53,6 +53,111 @@ console.log(
   `integration observations OK ${observationPayload.observations.length}`,
 );
 
+const importJob = await fetch(
+  `${baseURL}/integrations/weather-hydrology/import-jobs`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      metric: "rainfall_mm",
+      requestedBy: "smoke-test",
+      correlationId: "corr_import_smoke_001",
+    }),
+  },
+);
+if (importJob.status !== 202) {
+  throw new Error(
+    `integration import smoke expected 202, got ${importJob.status}`,
+  );
+}
+const importPayload = await importJob.json();
+if (
+  importPayload.status !== "succeeded" ||
+  importPayload.trigger !== "manual" ||
+  importPayload.importedCount < 1
+) {
+  throw new Error(
+    "integration import smoke did not store fixture observations",
+  );
+}
+console.log(`integration import OK ${importPayload.importedCount}`);
+
+const importedObservations = await fetch(
+  `${baseURL}/integrations/weather-hydrology/observations?metric=rainfall_mm`,
+);
+if (!importedObservations.ok) {
+  throw new Error(
+    `integration imported observations smoke failed: ${importedObservations.status} ${importedObservations.statusText}`,
+  );
+}
+const importedPayload = await importedObservations.json();
+if (
+  !Array.isArray(importedPayload.observations) ||
+  importedPayload.observations.length < importPayload.importedCount ||
+  !importedPayload.observations.every(
+    (observation) =>
+      observation.importJobId &&
+      observation.storageTarget === "weather_observations" &&
+      observation.rainfallMm !== undefined,
+  )
+) {
+  throw new Error(
+    "integration imported observations smoke returned invalid records",
+  );
+}
+console.log(
+  `integration imported observations OK ${importedPayload.observations.length}`,
+);
+
+const failedImport = await fetch(
+  `${baseURL}/integrations/weather-hydrology/import-jobs`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      metric: "water_level_m",
+      simulateFailure: true,
+      failureMessage: "smoke retry check",
+      correlationId: "corr_import_smoke_retry",
+    }),
+  },
+);
+if (failedImport.status !== 202) {
+  throw new Error(
+    `integration failed import smoke expected 202, got ${failedImport.status}`,
+  );
+}
+const failedImportPayload = await failedImport.json();
+if (
+  failedImportPayload.status !== "failed" ||
+  !failedImportPayload.retryable ||
+  !failedImportPayload.nextRetryAt
+) {
+  throw new Error(
+    "integration failed import smoke did not log retryable failure",
+  );
+}
+
+const retryImport = await fetch(
+  `${baseURL}/integrations/weather-hydrology/import-jobs/${failedImportPayload.id}/retry`,
+  { method: "POST" },
+);
+if (retryImport.status !== 202) {
+  throw new Error(
+    `integration import retry smoke expected 202, got ${retryImport.status}`,
+  );
+}
+const retryPayload = await retryImport.json();
+if (
+  retryPayload.status !== "succeeded" ||
+  retryPayload.trigger !== "retry" ||
+  retryPayload.attempts !== 2 ||
+  retryPayload.importedCount < 1
+) {
+  throw new Error("integration import retry smoke did not succeed");
+}
+console.log("integration import retry OK");
+
 const sync = await fetch(`${baseURL}/integrations/mock/sync-events`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
