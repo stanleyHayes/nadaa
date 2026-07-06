@@ -25,7 +25,7 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 | Media upload | NADAA-031 | API, security | File type/size validation, private storage, incident linkage | MVP API/UI smoke covered |
 | Anonymous report privacy | NADAA-090 | API, security | Identity hidden where policy allows, contact permission honored | Todo |
 | Duplicate detection | NADAA-033, NADAA-043 | Unit, API | Nearby/time-window duplicate candidates are reviewable, not deleted | MVP baseline covered; merge review pending |
-| Authority incident map | NADAA-040 | E2E | Filters, map/list sync, role-protected access | Todo |
+| Authority incident map | NADAA-040 | E2E | Filters, map/list sync, role-protected access, loading/empty/error fallback | MVP UI smoke covered |
 | Incident verification/status | NADAA-041 | API, E2E, audit | Valid transitions, invalid transition rejection, closure notes | Todo |
 | Agency assignment/timeline | NADAA-042 | API, E2E, audit | Assignment permissions, timeline event creation | Todo |
 | Alert draft/approval | NADAA-050 | API, E2E, security | Draft, submit, approve/reject, emergency override audit | Todo |

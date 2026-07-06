@@ -89,6 +89,7 @@ Coordination rules:
 | NADAA-031 | MVP Sprint 2 | Implement Media Upload Flow | Done | Codex | main | NADAA-030 | 2026-07-06 | Controlled media upload initiation, private metadata, content-type and size validation, incident media linkage, shared types, docs, and tests added. |
 | NADAA-032 | MVP Sprint 2 | Build Citizen Incident Reporting UI | Done | Codex | main | NADAA-030, NADAA-031 | 2026-07-06 | Citizen report form now supports GPS/manual coordinates, hazard, urgency, people affected, injuries, anonymous/contact controls, accessibility needs, media initiation, offline retry messaging, and success/error states. |
 | NADAA-033 | MVP Sprint 2 | Add Incident Deduplication Baseline | Done | Codex | main | NADAA-030 | 2026-07-06 | Incident-service now stores same-hazard duplicate candidates scored by distance, time window, and description similarity without merging or deleting reports. |
+| NADAA-040 | MVP Sprint 3 | Build Incident Command Map | Done | Codex | main | NADAA-011, NADAA-030 | 2026-07-06 | Authority dashboard now has a Leaflet incident command map, API-backed incident feed with fixture fallback, map/list sync, filters, selected-incident detail, role-protected framing, and loading/empty/error states. |
 | NADAA-101 | MVP Sprint 1/7 | Set Up CI/CD And Staging Environment | Done | Codex | main | NADAA-001 | 2026-07-06 | GitHub Actions CI, manual staging smoke workflow, Docker build validation, staging env template, and staging runbook added; registry push/deploy credentials remain environment-owned. |
 | NADAA-021 | MVP Sprint 5 | Implement Area Risk API | Done | Codex | main | NADAA-020 | 2026-07-06 | Risk service now returns fixture-backed geospatial risk lookup with low/high/severe flood scoring, nearby shelters, nearby facilities, recommended actions, validation, docs, and tests. |
 | NADAA-022 | MVP Sprint 5 | Build Citizen Risk Checker UI | Done | Codex | main | NADAA-021 | 2026-07-06 | Citizen risk surface now uses the risk API with area presets, coordinate entry, GPS lookup, loading/error/permission/empty states, shelters, facilities, recommended actions, and smoke coverage. |
@@ -97,6 +98,8 @@ Coordination rules:
 
 | Date | Agent | Item | Status | Handoff Notes |
 | --- | --- | --- | --- | --- |
+| 2026-07-06 | Codex | NADAA-040 | Done | Verified `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live incident command API smoke on `localhost:8084`. |
+| 2026-07-06 | Codex | NADAA-040 | In Progress | Claimed authority-dashboard incident command map, API-backed list fallback, map/list sync, filters, role-protected framing, and UI states. |
 | 2026-07-06 | Codex | NADAA-012 | Done | Verified `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live auth/audit HTTP smoke on `localhost:8082`. |
 | 2026-07-06 | Codex | NADAA-012 | In Progress | Claimed auth-service audit event model, in-memory audit store/helper, auth/admin event wiring, tests, shared types, and retention docs. |
 | 2026-07-06 | Codex | NADAA-011 | Done | Verified `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm smoke:web`, and live agency auth HTTP smoke on `localhost:8082`. |
@@ -1477,7 +1480,7 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-031 | MVP | Sprint 2 | Implement Media Upload Flow | Done | Codex | main | Controlled upload initiation and private media linkage added in incident-service. |
 | NADAA-032 | MVP | Sprint 2 | Build Citizen Incident Reporting UI | Done | Codex | main | Citizen incident form integrated with media upload initiation, GPS/manual location, validation, offline retry messaging, and API success/error states. |
 | NADAA-033 | MVP | Sprint 2 | Add Incident Deduplication Baseline | Done | Codex | main | Same-hazard duplicate candidates are scored by location distance, report time, and description similarity; reports remain reviewable and are never automatically merged or deleted. |
-| NADAA-040 | MVP | Sprint 3 | Build Incident Command Map | Todo | Unassigned | TBD | Depends on NADAA-011, NADAA-030. |
+| NADAA-040 | MVP | Sprint 3 | Build Incident Command Map | Done | Codex | main | Leaflet command map, API-backed incident feed with fixture fallback, map/list sync, filters, selected-incident detail, role-protected framing, docs, and UI states added. |
 | NADAA-041 | MVP | Sprint 3 | Implement Verification And Status Workflow | Todo | Unassigned | TBD | Depends on NADAA-040, NADAA-012. |
 | NADAA-042 | MVP | Sprint 3 | Implement Agency Assignment And Incident Timeline | Todo | Unassigned | TBD | Depends on NADAA-041. |
 | NADAA-043 | MVP | Sprint 3 | Implement Duplicate Merge Review | Todo | Unassigned | TBD | Depends on NADAA-033, NADAA-041. |
@@ -1535,11 +1538,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 
 Start here:
 
-1. NADAA-040 Build Incident Command Map.
-2. NADAA-060 Implement Emergency Guide Content Model.
-3. NADAA-080 Define Agency Integration Contracts.
-4. NADAA-050 Implement Alert Creation And Approval Workflow.
-5. NADAA-041 Implement Verification And Status Workflow.
+1. NADAA-060 Implement Emergency Guide Content Model.
+2. NADAA-080 Define Agency Integration Contracts.
+3. NADAA-050 Implement Alert Creation And Approval Workflow.
+4. NADAA-041 Implement Verification And Status Workflow.
+5. NADAA-042 Implement Agency Assignment And Incident Timeline.
 
 ## Key Risks And Early Decisions
 
@@ -1567,6 +1570,7 @@ Start here:
 
 | Date | Update | Owner | Status |
 | --- | --- | --- | --- |
+| 2026-07-06 | Completed NADAA-040 with authority-dashboard Leaflet incident command map, API-backed incident feed with fixture fallback, map/list synchronization, hazard/district/severity/status/time filters, selected-incident detail, role-protected framing, docs, and UI states. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-012 with auth-service audit event model, in-memory audit store/helper, system-admin audit read endpoint, auth/admin event wiring, metadata capture, sanitized before/after snapshots, shared audit types, retention docs, and tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-011 with auth-service agency user creation, authority role catalog, mock MFA setup/verification, agency login, MFA-aware bearer tokens, shared agency auth types, API/security docs, and RBAC tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-022 with citizen risk checker API integration, area presets, coordinate entry, GPS lookup, shelters/facilities rendering, loading/error/permission/empty states, and risk smoke coverage. | Codex | Complete |

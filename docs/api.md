@@ -421,7 +421,7 @@ Rules:
 
 `GET /api/v1/incidents`
 
-Starter list endpoint for development and dashboard wiring. Incident records include `duplicateCandidates` so authority review screens can surface possible duplicate clusters. Authority filtering and RBAC land in later stories.
+Starter list endpoint for development and authority command-map wiring. Incident records include `location`, `severity`, `status`, `type`, `createdAt`, and `duplicateCandidates` so the dashboard can render map markers, synchronized queue rows, filters, and duplicate review prompts. Backend authority filtering and RBAC enforcement land in later service stories; the current dashboard applies client-side command filters while the API contract stabilizes.
 
 ### Media Upload
 

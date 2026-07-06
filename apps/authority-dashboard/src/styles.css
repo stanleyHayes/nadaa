@@ -29,6 +29,10 @@ body {
   gap: 16px;
 }
 
+.brand-lockup {
+  min-width: 240px;
+}
+
 .brand-logo {
   width: 54px;
   height: 54px;
@@ -37,9 +41,45 @@ body {
   background: #ffffff;
 }
 
+.topbar-actions {
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.session-chip {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
 .dashboard-shell {
   padding-top: 24px;
   padding-bottom: 40px;
+}
+
+.access-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.access-panel {
+  padding: 28px;
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.page-heading {
+  margin-bottom: 18px;
+}
+
+.feed-alert {
+  margin-bottom: 16px;
+}
+
+.feed-progress {
+  margin-bottom: 16px;
 }
 
 .metric-card,
@@ -57,13 +97,15 @@ body {
   width: 52px;
   height: 52px;
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
   border-radius: 8px;
   background: #f5f8fc;
 }
 
-.main-grid {
-  margin-top: 2px;
+.main-grid,
+.filter-surface {
+  margin-top: 20px;
 }
 
 .surface {
@@ -78,65 +120,84 @@ body {
   margin-bottom: 20px;
 }
 
-.map-panel {
+.map-frame {
   position: relative;
-  height: 430px;
+  height: 452px;
   margin-top: 18px;
   overflow: hidden;
   border-radius: 8px;
   border: 1px solid rgba(13, 27, 61, 0.12);
-  background:
-    radial-gradient(circle at 24% 35%, rgba(229, 57, 53, 0.18), transparent 12%),
-    radial-gradient(circle at 68% 54%, rgba(17, 141, 78, 0.2), transparent 14%),
-    linear-gradient(135deg, #eaf3f8 0%, #d7e6ef 48%, #eef3e7 100%);
+  background: #dfeaf2;
 }
 
-.map-grid {
+.leaflet-command-map {
   position: absolute;
   inset: 0;
-  background-image:
-    linear-gradient(rgba(13, 27, 61, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(13, 27, 61, 0.08) 1px, transparent 1px);
-  background-size: 44px 44px;
+  min-height: 452px;
 }
 
-.map-marker {
-  position: absolute;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 12px;
+.leaflet-container {
+  font: inherit;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
   border-radius: 8px;
-  color: #ffffff;
-  font-weight: 800;
-  box-shadow: 0 14px 28px rgba(13, 27, 61, 0.2);
 }
 
-.marker-one {
-  top: 28%;
-  left: 22%;
-  background: #e53935;
-}
-
-.marker-two {
-  top: 50%;
-  left: 63%;
-  background: #118d4e;
-}
-
-.marker-three {
-  top: 70%;
-  left: 42%;
-  background: #0d1b3d;
+.map-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(243, 246, 250, 0.86);
 }
 
 .incident-table {
   overflow-x: auto;
 }
 
+.incident-table table {
+  min-width: 860px;
+}
+
+.incident-row {
+  cursor: pointer;
+}
+
+.incident-row.Mui-selected td {
+  background: rgba(17, 141, 78, 0.08);
+}
+
+.severity-chip {
+  min-width: 78px;
+  font-weight: 800 !important;
+}
+
 .alert-panel {
   border-top: 6px solid #e53935;
+}
+
+.detail-panel {
+  border-top: 6px solid #118d4e;
+}
+
+.detail-divider {
+  margin: 16px 0 !important;
+}
+
+.detail-actions {
+  margin-top: 18px;
+}
+
+.fact {
+  min-height: 66px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  background: #f8fafc;
 }
 
 .timeline-row {
@@ -155,25 +216,47 @@ body {
   background: #118d4e;
 }
 
-@media (max-width: 760px) {
+.empty-state {
+  min-height: 160px;
+  padding: 22px;
+}
+
+@media (max-width: 900px) {
   .toolbar {
     align-items: flex-start;
-    min-height: 118px;
+    min-height: 136px;
     padding-top: 12px;
     padding-bottom: 12px;
     flex-direction: column;
   }
 
-  .toolbar .MuiStack-root:last-child {
+  .topbar-actions {
     width: 100%;
+    justify-content: flex-start;
   }
 
-  .toolbar .MuiButton-root {
-    flex: 1;
-  }
-
-  .map-panel {
-    height: 340px;
+  .topbar-actions .MuiButton-root {
+    flex: 1 1 150px;
   }
 }
 
+@media (max-width: 760px) {
+  .dashboard-shell {
+    padding-top: 18px;
+  }
+
+  .surface,
+  .metric-card {
+    padding: 16px;
+  }
+
+  .map-frame,
+  .leaflet-command-map {
+    height: 360px;
+    min-height: 360px;
+  }
+
+  .page-heading .MuiTypography-h4 {
+    font-size: 1.75rem;
+  }
+}
