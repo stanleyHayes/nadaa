@@ -18,7 +18,7 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 
 | Flow | Primary Stories | Test Type | Acceptance Focus | Status |
 | --- | --- | --- | --- | --- |
-| Citizen risk check | NADAA-021, NADAA-022 | API, E2E | Location lookup returns risk, shelters, guidance, loading/error states | MVP API covered; UI pending |
+| Citizen risk check | NADAA-021, NADAA-022 | API, E2E | Location lookup returns risk, shelters, guidance, loading/error states | MVP API/UI smoke covered |
 | Citizen incident report | NADAA-030, NADAA-032 | API, E2E | GPS, hazard type, description, urgency, affected people, contact permission | MVP API/UI smoke covered |
 | Media upload | NADAA-031 | API, security | File type/size validation, private storage, incident linkage | MVP API/UI smoke covered |
 | Anonymous report privacy | NADAA-090 | API, security | Identity hidden where policy allows, contact permission honored | Todo |
@@ -42,9 +42,11 @@ pnpm typecheck
 pnpm build
 pnpm go:test
 pnpm smoke:web
+pnpm smoke:risk
 ```
 
 `pnpm smoke:web` expects the citizen app on port `5173` and the authority dashboard on port `5174`.
+`pnpm smoke:risk` expects the risk service on port `8081`.
 
 ## Release Candidate Checklist
 

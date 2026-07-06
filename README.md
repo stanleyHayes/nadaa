@@ -46,8 +46,8 @@ Run the citizen web app:
 pnpm dev:citizen
 ```
 
-The incident report form uses `VITE_INCIDENT_API_URL` and defaults to `http://localhost:8084/api/v1`.
-Copy `apps/citizen-web/.env.example` if you need a different incident-service URL.
+The citizen app uses `VITE_RISK_API_URL` and `VITE_INCIDENT_API_URL`, defaulting to `http://localhost:8081/api/v1` and `http://localhost:8084/api/v1`.
+Copy `apps/citizen-web/.env.example` if you need different service URLs.
 
 Run the authority dashboard:
 

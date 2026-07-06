@@ -81,9 +81,17 @@ body {
 
 .risk-lookup {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 12px;
-  margin: 24px 0;
+  margin: 24px 0 12px;
+}
+
+.risk-presets {
+  margin-bottom: 16px;
+}
+
+.risk-presets .MuiChip-root {
+  margin-bottom: 8px;
 }
 
 .risk-score {
@@ -98,6 +106,33 @@ body {
   text-transform: capitalize;
   letter-spacing: 0;
   color: #0d1b3d;
+}
+
+.risk-map-preview {
+  position: relative;
+  min-height: 84px;
+  margin-top: 16px;
+  padding: 12px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(13, 27, 61, 0.12);
+  background:
+    linear-gradient(rgba(13, 27, 61, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(13, 27, 61, 0.08) 1px, transparent 1px),
+    #ffffff;
+  background-size: 18px 18px;
+}
+
+.risk-map-point {
+  position: absolute;
+  left: 56%;
+  top: 52%;
+  width: 16px;
+  height: 16px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #e53935;
+  box-shadow: 0 0 0 6px rgba(229, 57, 53, 0.16);
 }
 
 .risk-row,

@@ -330,5 +330,35 @@
       "Live risk HTTP smoke on localhost:8081"
     ],
     "notes": "Risk service area lookup now returns low/high/severe fixture-backed flood scoring, nearby shelters, nearby response facilities, recommended actions, shared response types, docs, and API tests."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 5",
+    "epic": "EPIC 2: Geospatial Data And Risk Checker",
+    "story": "Build Citizen Risk Checker UI",
+    "jiraKey": "NADAA-022",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 13,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-021"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:docs",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm smoke:web",
+      "Live pnpm smoke:risk on localhost:8081"
+    ],
+    "notes": "Citizen risk checker integrates the risk API with area presets, coordinate entry, GPS lookup, shelters, response facilities, recommended actions, loading/error/permission/empty states, and risk smoke coverage."
   }
 ]
