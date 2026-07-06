@@ -26,11 +26,35 @@ The MVP should focus on:
 - Initial clients/users: citizens, emergency dispatchers, NADMO/district officers, police/fire/ambulance/rescue teams, and system admins.
 - Recommended architecture from the spec is accepted unless revised during solution design:
   - Frontend: React, TypeScript, MUI, Mapbox GL or Leaflet, PWA support.
-  - Mobile: React Native later or after web/PWA validation.
+  - Mobile: React Native after the web/PWA workflows prove the API contracts, with citizen and dispatcher mobile apps planned as separate products.
   - Backend: Golang, hexagonal architecture, REST + WebSocket.
   - Data: PostgreSQL/PostGIS, MongoDB for flexible media/report metadata if needed, Redis for cache/queues/rate limits.
   - ML: Python/FastAPI, MLflow, Airflow or Prefect later.
   - Infra: Docker first, then Kubernetes/Swarm when deployment maturity requires it.
+
+## Target Platform Portfolio
+
+The build must converge on role-specific products rather than one oversized dashboard. Each platform should share design tokens, auth contracts, API clients, and domain types through `packages/ui`, `packages/config`, and `packages/shared-types`, but keep app shells, routing, and feature composition separate.
+
+| Audience/Role | Platform | Target App Path | Primary Phase | Primary Jobs | Build Notes |
+| ------------- | -------- | --------------- | ------------- | ------------ | ----------- |
+| Citizens | Web/PWA | `apps/citizen-web` | MVP | Risk checks, alerts, incident reports, media upload, emergency guides, shelters, recovery support | Current citizen web app is the MVP public surface and should stay mobile-first/PWA-ready. |
+| Citizens | Mobile | `apps/citizen-mobile` | Phase 2 | Push alerts, offline guides, GPS reporting, shelter/recovery support, risk checks | React Native app should reuse citizen contracts proven by `apps/citizen-web`. |
+| Dispatchers | Web | `apps/dispatcher-web` | MVP hardening | Incident command map, verification, assignment, timelines, duplicate review, abuse review, ML review | Current `apps/authority-dashboard` command-center work should be split into this dedicated app. |
+| Dispatchers | Mobile | `apps/dispatcher-mobile` | Phase 2 | Triage queue, critical incident review, assignment/status updates, push escalation, offline refresh | React Native app should focus on field/shift use, not full admin configuration. |
+| Agency users | Web | `apps/agency-web` | Phase 2 | Assigned incidents, responder updates, agency notes, shelter/capacity updates, relief/road context | Agency users should see agency-scoped work only, with RBAC and audit coverage. |
+| System/admin users | Web | `apps/admin-web` | MVP hardening | Agencies, users, roles, MFA support, audit logs, data sources, alert rules, platform configuration | Admin work must be isolated from dispatcher operations and protected by stricter roles. |
+
+### Platform Build Board
+
+| Platform | App Path | Status | Owner | Phase/Sprint | Driving Stories | Notes |
+| -------- | -------- | ------ | ----- | ------------ | --------------- | ----- |
+| Citizen web | `apps/citizen-web` | In Progress | Mixed/Codex | MVP Sprints 2, 4, 5 | NADAA-022, NADAA-032, NADAA-052, NADAA-061, NADAA-062 | Core flows exist; shelter/recovery remains open. |
+| Citizen mobile | `apps/citizen-mobile` | Todo | Unassigned | Phase 2 Sprints 8/9 | NADAA-113 | Build after citizen web API and offline patterns stabilize. |
+| Dispatcher web | `apps/dispatcher-web` | Todo | Unassigned | MVP Sprints 3/7 | NADAA-040, NADAA-041, NADAA-042, NADAA-043, NADAA-044, NADAA-073, NADAA-091 | Extract current command-center surface from `apps/authority-dashboard`. |
+| Dispatcher mobile | `apps/dispatcher-mobile` | Todo | Unassigned | Phase 2 Sprint 10 | NADAA-124 | Keep to dispatch triage and urgent updates. |
+| Agency web | `apps/agency-web` | Todo | Unassigned | Phase 2 Sprints 10/11 | NADAA-042, NADAA-062, NADAA-121, NADAA-122, NADAA-125 | Agency-scoped operations portal. |
+| Admin web | `apps/admin-web` | Todo | Unassigned | MVP Sprint 7 | NADAA-014 | Dedicated governance console for system/admin users. |
 
 ## Operating Rules For Agents
 
@@ -88,6 +112,7 @@ Coordination rules:
 | NADAA-001 | MVP Sprint 0   | Create Repository And Monorepo Foundation              | Done   | Codex | main      | None                            | 2026-07-06  | Monorepo foundation, brand assets, starter apps, risk service, infra, docs, and Git remote are in place.                                                                                                                                                                               |
 | NADAA-002 | MVP Sprint 0   | Define Product, API, Security, ML, And Deployment Docs | Done   | Codex | main      | NADAA-001                       | 2026-07-06  | Product, architecture, API, security, ML, deployment, data ownership, and integration assumptions documented.                                                                                                                                                                          |
 | NADAA-003 | MVP Sprint 0   | Create Delivery Dashboard Data Contract                | Done   | Codex | main      | NADAA-001                       | 2026-07-06  | Dashboard schema, sample records, README, and validation script added under `docs/project-dashboard/`.                                                                                                                                                                                 |
+| NADAA-004 | MVP Sprint 0   | Define Multi-Platform App Portfolio And Build Lanes    | Done   | Codex | main      | NADAA-001                       | 2026-07-06  | Planned role-specific citizen web/mobile, dispatcher web/mobile, agency web, and admin web app lanes with target paths, phase placement, and driving stories.                                                                                                                          |
 | NADAA-100 | MVP Sprint 0   | Build Test Strategy And QA Matrix                      | Done   | Codex | main      | NADAA-002                       | 2026-07-06  | QA strategy, MVP test matrix, release checklist, UAT outline, severity model, and web smoke script added.                                                                                                                                                                              |
 | NADAA-020 | MVP Sprint 1   | Set Up PostGIS And Core Geospatial Models              | Done   | Codex | main      | NADAA-001                       | 2026-07-06  | Core PostGIS schema, geospatial indexes, seed data, database docs, configurable compose ports, and asset validation added.                                                                                                                                                             |
 | NADAA-010 | MVP Sprint 1   | Implement Citizen Authentication                       | Done   | Codex | main      | NADAA-001                       | 2026-07-06  | Auth service citizen register/login/profile API, mock OTP flow, signed bearer token, shared auth types, docs, and tests added.                                                                                                                                                         |
@@ -112,11 +137,14 @@ Coordination rules:
 | NADAA-042 | MVP Sprint 3   | Implement Agency Assignment And Incident Timeline      | Done   | Codex | main      | NADAA-041                       | 2026-07-06  | Incident-service assignment endpoint/model, timeline events, assigned-agency filtering, RBAC/MFA gates, authority dashboard assignment controls, shared types, docs, smoke, tests, and Docker build added.                                                                             |
 | NADAA-043 | MVP Sprint 3   | Implement Duplicate Merge Review                       | Done   | Codex | main      | NADAA-033, NADAA-041            | 2026-07-06  | Incident-service duplicate review and merge endpoints, merge trace fields, audit/timeline events, authority dashboard side-by-side review UI, shared types, docs, smoke, tests, and Docker build added.                                                                                |
 | NADAA-091 | MVP Sprint 3   | Implement Abuse, Spam, And False Report Handling       | Done   | Codex | main      | NADAA-030, NADAA-041            | 2026-07-06  | Incident-service suspicious report signals, abuse review endpoint, false-report review workflow, authority dashboard moderation controls, shared types, docs, smoke, tests, and Docker build added.                                                                                    |
+| NADAA-044 | MVP Sprint 3/7 | Create Dedicated Dispatcher Web Command Console        | Todo   | Unassigned | TBD       | NADAA-040, NADAA-041, NADAA-042, NADAA-043, NADAA-091 | 2026-07-06  | Split dispatcher operations from `apps/authority-dashboard` into `apps/dispatcher-web` while preserving command-center workflows, smoke tests, and shared feature modules.                                                                                                            |
+| NADAA-014 | MVP Sprint 7   | Build Admin Web Governance Console                     | Todo   | Unassigned | TBD       | NADAA-011, NADAA-012            | 2026-07-06  | Create `apps/admin-web` for system/admin users: agencies, roles, users, MFA support, audit logs, data sources, alert rules, and platform configuration.                                                                                                                                 |
 
 ### Agent Handoff Log
 
 | Date       | Agent | Item                | Status      | Handoff Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ---------- | ----- | ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-06 | Codex | NADAA-004           | Done        | Added a target platform portfolio and platform build board covering citizens web/mobile, dispatchers web/mobile, agency web, and admin web. Added backlog stories for admin web, dedicated dispatcher web, citizen mobile, dispatcher mobile, and agency web so future agents can build role-specific apps instead of expanding one authority dashboard.                                                                                                                                                                                                              |
 | 2026-07-06 | Codex | NADAA-081           | Done        | Verified `services/integration-service go test ./...`, `pnpm --filter @nadaa/shared-types typecheck`, `pnpm smoke:integration`, `pnpm smoke:web`, local `pnpm smoke:staging`, `pnpm validate:docs`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, integration-service Docker build, and `git diff --check`.                                                                                                                                                                                                                             |
 | 2026-07-06 | Codex | NADAA-081           | In Progress | Claimed integration-service weather/hydrology fixture import job, imported observation store aligned to `weather_observations`, import status logging, retryable failed imports, scheduled importer hook, shared integration types, docs, smoke, and tests.                                                                                                                                                                                                                                                                                                         |
 | 2026-07-06 | Codex | Web modularization  | Done        | Refactored both web apps so root `src/App.tsx` files are thin delegates. Authority dashboard now separates `src/app/` config/session/theme from `features/command-center/` app, components, data, types, and utilities. Citizen web now separates `src/app/` config/theme from `features/citizen/` app, data, types, and utilities. Verified `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm go:test`, `pnpm validate:docs`, `pnpm smoke:web`, `pnpm smoke:guide`, `pnpm smoke:citizen-guides`, local `pnpm smoke:staging`, and `git diff --check`. |
@@ -186,8 +214,12 @@ A feature is done only when:
 
 - Apps:
   - `apps/citizen-web` - citizen PWA for alerts, risk checks, incident reporting, shelters, and emergency guidance.
-  - `apps/authority-dashboard` - incident command, verification, alerts, assignment, maps, and audit views.
-  - `apps/mobile-app` - phase 2 unless mobile is prioritized earlier.
+  - `apps/citizen-mobile` - planned React Native citizen app for push alerts, GPS reporting, offline guides, shelters, and recovery support.
+  - `apps/dispatcher-web` - dedicated dispatcher command console for incident intake, verification, duplicate review, assignment, status, maps, and ML review.
+  - `apps/dispatcher-mobile` - planned React Native dispatcher app for urgent triage, assignment/status updates, and shift-based incident monitoring.
+  - `apps/agency-web` - agency-scoped operations portal for assigned incidents, responder updates, capacity/shelter updates, relief context, and agency notes.
+  - `apps/admin-web` - system/admin governance console for agencies, roles, users, MFA support, audit logs, data sources, alert rules, and platform configuration.
+  - `apps/authority-dashboard` - current MVP compatibility shell; new authority work should migrate into `apps/dispatcher-web`, `apps/agency-web`, or `apps/admin-web` by role.
 - Services:
   - `services/auth-service`
   - `services/incident-service`
@@ -267,6 +299,22 @@ Stories:
 - Estimate: 3 points.
 - Dependencies: NADAA-001.
 
+#### NADAA-004: Define Multi-Platform App Portfolio And Build Lanes
+
+- User story: As the delivery team, we need clear app boundaries for citizens, dispatchers, agencies, and admins so each platform can be built without bloating a shared dashboard.
+- Business value: Keeps role-specific workflows modular, makes multi-agent ownership clearer, and prevents web/mobile work from becoming tangled.
+- Acceptance criteria:
+  - Target platforms are documented as citizen web, citizen mobile, dispatcher web, dispatcher mobile, agency web, and admin web.
+  - Each platform has a target app path, phase/sprint lane, and driving stories.
+  - Current MVP authority-dashboard work has a documented migration path into dedicated dispatcher, agency, and admin apps.
+- Tasks:
+  - Add platform portfolio and platform build board to `agent_plan.md`.
+  - Update app workstream list with target app paths.
+  - Add platform-specific stories to the MVP and Phase 2 trackers.
+  - Update ready queue and ledger with the new build lanes.
+- Estimate: 3 points.
+- Dependencies: NADAA-001.
+
 ### EPIC 1: Identity, Access Control, And Agency Model
 
 Goal: provide secure identity for citizens, agency users, dispatchers, responders, and admins.
@@ -322,6 +370,25 @@ Stories:
   - Document audit retention assumptions.
 - Estimate: 5 points.
 - Dependencies: NADAA-011.
+
+#### NADAA-014: Build Admin Web Governance Console
+
+- User story: As a system/admin user, I need a dedicated web console so I can manage agencies, users, roles, MFA support, audit logs, data sources, alert rules, and platform configuration without entering dispatcher operations.
+- Business value: Separates governance work from incident command, reduces accidental operational changes, and gives the platform a controlled administration surface.
+- Acceptance criteria:
+  - `apps/admin-web` exists as a dedicated React/Vite app with its own app shell, routing, session guard, and feature modules.
+  - Only authorized `system_admin` and permitted admin roles can access the console.
+  - Admin users can view/manage agencies, agency users, role assignments, MFA support state, audit logs, configured data sources, and alert-rule configuration where APIs exist.
+  - Admin actions surface audit context and avoid exposing secrets or sensitive citizen report data.
+  - Empty, loading, error, unauthorized, and success states are covered.
+- Tasks:
+  - Scaffold `apps/admin-web` using shared config, theme tokens, and shared types.
+  - Build admin navigation and role-protected route/session shell.
+  - Add agency/user/role management views from auth-service contracts.
+  - Add audit log and data-source configuration views.
+  - Add smoke/typecheck coverage and update deployment docs/scripts for the new app.
+- Estimate: 13 points.
+- Dependencies: NADAA-011, NADAA-012, NADAA-080.
 
 ### EPIC 2: Geospatial Data And Risk Checker
 
@@ -530,6 +597,25 @@ Stories:
   - Add audit records for merge actions.
 - Estimate: 8 points.
 - Dependencies: NADAA-033, NADAA-041.
+
+#### NADAA-044: Create Dedicated Dispatcher Web Command Console
+
+- User story: As a dispatcher, I need a dedicated web console for incident command so operational triage is separate from agency and admin workflows.
+- Business value: Keeps high-pressure dispatch work focused, reduces accidental access to governance features, and creates a clean target for dispatcher mobile parity later.
+- Acceptance criteria:
+  - `apps/dispatcher-web` exists as a dedicated React/Vite app with thin `src/App.tsx`, `src/app/` shell code, and `src/features/dispatch-command/` modules.
+  - Existing command-center capabilities from `apps/authority-dashboard` are available in dispatcher web: incident map/list, filters, verification/status, assignment, timeline, duplicate merge review, and abuse/false-report handling.
+  - Dispatcher web uses dispatcher-appropriate RBAC and does not expose system-admin configuration or broad agency administration.
+  - Shared UI/data/type modules are extracted only when reuse with agency/admin apps is real and bounded.
+  - Smoke/typecheck/build coverage includes the new dispatcher web app.
+- Tasks:
+  - Scaffold `apps/dispatcher-web` and workspace scripts.
+  - Move or reuse command-center feature modules from `apps/authority-dashboard`.
+  - Keep `apps/authority-dashboard` as a compatibility shell or remove it only after routes/scripts/docs are updated.
+  - Update docs, environment examples, smoke tests, and staging script coverage.
+  - Add regression coverage for incident selection, verification/status, assignment, duplicate review, and abuse review flows.
+- Estimate: 13 points.
+- Dependencies: NADAA-040, NADAA-041, NADAA-042, NADAA-043, NADAA-091.
 
 ### EPIC 5: Alerts And Notification Delivery
 
@@ -875,6 +961,7 @@ Stories:
 - NADAA-001 Create Repository And Monorepo Foundation.
 - NADAA-002 Define Product, API, Security, ML, And Deployment Docs.
 - NADAA-003 Create Delivery Dashboard Data Contract.
+- NADAA-004 Define Multi-Platform App Portfolio And Build Lanes.
 - NADAA-100 Build Test Strategy And QA Matrix.
 
 Deliverables:
@@ -883,6 +970,7 @@ Deliverables:
 - Project docs.
 - Initial API/security/ML/deployment plans.
 - QA matrix.
+- Platform portfolio and role-specific app boundaries.
 - First sprint backlog ready for implementation.
 
 ### Sprint 1: Core Platform, Auth, And Geospatial Base
@@ -934,6 +1022,7 @@ Stories:
 - NADAA-041 Implement Verification And Status Workflow.
 - NADAA-042 Implement Agency Assignment And Incident Timeline.
 - NADAA-043 Implement Duplicate Merge Review.
+- NADAA-044 Create Dedicated Dispatcher Web Command Console, initial extraction if capacity allows.
 - NADAA-091 Implement Abuse, Spam, And False Report Handling, first pass.
 
 Deliverables:
@@ -943,6 +1032,7 @@ Deliverables:
 - Verification and status workflow.
 - Agency assignment and timeline.
 - Duplicate merge workflow.
+- Dedicated dispatcher web app path and migration plan.
 
 ### Sprint 4: Alerts And Public Warning
 
@@ -1007,6 +1097,7 @@ Objective: prepare the MVP for stakeholder testing and controlled release.
 Stories:
 
 - NADAA-092 Security Review And Hardening.
+- NADAA-014 Build Admin Web Governance Console.
 - NADAA-100 Build Test Strategy And QA Matrix, final pass.
 - NADAA-101 Set Up CI/CD And Staging Environment, final pass.
 - NADAA-102 Conduct UAT, Beta, And Production Readiness.
@@ -1014,6 +1105,7 @@ Stories:
 Deliverables:
 
 - Security review and risk register.
+- Dedicated admin web governance console.
 - Staging release candidate.
 - UAT scripts and sign-off package.
 - Beta monitoring plan.
@@ -1021,7 +1113,7 @@ Deliverables:
 
 ## Phase 2 Detailed Plan
 
-Phase 2 extends the MVP from web-first emergency reporting and alerts into inclusive access, field coordination, recovery logistics, and richer operational data.
+Phase 2 extends the MVP from web-first emergency reporting and alerts into inclusive access, citizen/dispatcher mobile apps, agency-scoped operations, field coordination, recovery logistics, and richer operational data.
 
 ### EPIC 11: Inclusive Warning And Access Channels
 
@@ -1076,6 +1168,25 @@ Goal: reach citizens who do not have smartphones, stable internet, or high liter
 - Estimate: 13 points.
 - Dependencies: NADAA-050, NADAA-052.
 
+#### NADAA-113: Build Citizen Mobile App Foundation
+
+- Outcome: citizens can use a native mobile app for alerts, GPS reporting, risk checks, offline guides, shelters, and recovery support.
+- Acceptance criteria:
+  - `apps/citizen-mobile` exists as a React Native app using shared types, config, design tokens, and API contracts from citizen web.
+  - App supports authentication/session handling, current alert feed, incident report draft/submission, risk lookup, offline guide cache, shelter/recovery lookup, and push registration where provider configuration exists.
+  - Offline and interrupted-network behavior is explicit for guides and report drafts.
+  - Mobile permissions for location, media, and push notifications are requested with clear product copy.
+  - Basic mobile smoke/build checks are documented and runnable locally/CI where possible.
+- Tasks:
+  - Choose React Native/Expo structure and workspace integration.
+  - Scaffold `apps/citizen-mobile` with shared theme/config/types.
+  - Build mobile navigation and session shell.
+  - Port citizen web flows into native screens with offline draft/cache handling.
+  - Wire push registration abstraction and permission copy.
+  - Add build/typecheck/smoke documentation.
+- Estimate: 21 points.
+- Dependencies: NADAA-010, NADAA-021, NADAA-030, NADAA-052, NADAA-060, NADAA-061.
+
 ### EPIC 12: Community Response And Health Operations
 
 Goal: help emergency actors coordinate volunteers, hospital capacity, relief distribution, and donated support during and after events.
@@ -1111,6 +1222,42 @@ Goal: help emergency actors coordinate volunteers, hospital capacity, relief dis
   - Add fixture integration adapter.
 - Estimate: 13 points.
 - Dependencies: NADAA-020, NADAA-080.
+
+#### NADAA-124: Build Dispatcher Mobile Triage App
+
+- Outcome: dispatchers can monitor urgent incidents, review core details, and make time-sensitive updates from a mobile device during shifts or field operations.
+- Acceptance criteria:
+  - `apps/dispatcher-mobile` exists as a React Native app with dispatcher authentication, MFA-aware session handling, and role-protected navigation.
+  - App supports incident queue, selected incident details, status update, assignment handoff, critical alert/incident push notifications, and timeline notes.
+  - Mobile app does not expose system-admin configuration, broad data-source management, or unrelated agency administration.
+  - Offline refresh behavior is explicit, with clear stale-data indicators.
+  - Mobile smoke/build checks and dispatcher safety test cases are documented.
+- Tasks:
+  - Scaffold `apps/dispatcher-mobile` with shared auth/config/types.
+  - Build incident queue and selected incident views.
+  - Add status, assignment, and timeline-note actions.
+  - Wire push notification registration for critical incident escalation.
+  - Add stale/offline indicators and mobile QA checklist.
+- Estimate: 21 points.
+- Dependencies: NADAA-041, NADAA-042, NADAA-091, NADAA-044.
+
+#### NADAA-125: Build Agency Web Operations Portal
+
+- Outcome: agency users can manage their assigned incidents, responder updates, capacity/shelter updates, and agency-scoped notes without entering dispatcher or admin consoles.
+- Acceptance criteria:
+  - `apps/agency-web` exists as a dedicated React/Vite app with agency-scoped route guards and feature modules.
+  - Agency users can see only incidents assigned to their agency unless their role grants broader visibility.
+  - Agency responders can update response status, add operational notes, and view relevant timeline/history.
+  - Shelter, hospital capacity, relief, and road context appear when the corresponding APIs are available.
+  - Agency web has empty/loading/error/unauthorized states and smoke/typecheck/build coverage.
+- Tasks:
+  - Scaffold `apps/agency-web` using shared config, theme tokens, and shared types.
+  - Build agency session shell and assigned-incident dashboard.
+  - Add responder status/timeline update views.
+  - Add capacity/shelter/relief context modules as APIs become available.
+  - Update deployment docs, smoke scripts, and RBAC tests for agency-scoped access.
+- Estimate: 21 points.
+- Dependencies: NADAA-011, NADAA-042, NADAA-062, NADAA-121.
 
 #### NADAA-122: Relief Distribution Tracking
 
@@ -1238,44 +1385,54 @@ Goal: bring drone and satellite evidence into incident verification, flood mappi
 
 - NADAA-110 SMS/USSD Emergency Access.
 - NADAA-111 WhatsApp Emergency Chatbot, first pass.
+- NADAA-113 Build Citizen Mobile App Foundation, first pass.
 
 Deliverables:
 
 - SMS/USSD provider abstraction.
 - USSD menu and inbound report flow.
 - WhatsApp conversation skeleton.
+- Citizen mobile app shell, shared contracts, and core navigation.
 
 #### Sprint 9: Multilingual Alerts And Chat Completion
 
 - NADAA-111 WhatsApp Emergency Chatbot, completion.
 - NADAA-112 Multilingual Voice Alerts.
+- NADAA-113 Build Citizen Mobile App Foundation, completion.
 
 Deliverables:
 
 - WhatsApp incident/report/shelter flows.
 - Voice alert review and delivery workflow.
 - Multilingual alert template library.
+- Citizen mobile alerts, risk, reporting, offline guides, and push registration foundation.
 
 #### Sprint 10: Field And Health Operations
 
 - NADAA-120 Community Volunteer App.
 - NADAA-121 Hospital Capacity Tracker.
+- NADAA-124 Build Dispatcher Mobile Triage App.
+- NADAA-125 Build Agency Web Operations Portal, first pass.
 
 Deliverables:
 
 - Volunteer registration, verification, and assignment.
 - Hospital capacity map/list and update workflow.
+- Dispatcher mobile triage queue and urgent update flow.
+- Agency web shell and assigned-incident dashboard.
 
 #### Sprint 11: Relief, Aid, And Mobility Data
 
 - NADAA-122 Relief Distribution Tracking.
 - NADAA-123 Donation And Aid Coordination.
+- NADAA-125 Build Agency Web Operations Portal, completion.
 - NADAA-131 Road Closure Integration.
 
 Deliverables:
 
 - Relief point management.
 - Aid request and pledge tracking.
+- Agency web capacity, shelter, relief, and road context modules.
 - Road closure map layer and management workflow.
 
 #### Sprint 12: Recovery, Routing, And Remote Sensing
@@ -1512,9 +1669,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-001 | MVP   | Sprint 0   | Create Repository And Monorepo Foundation                   | Done   | Codex      | main      | Monorepo foundation, starter apps, risk service, infra, and docs created.                                                                                                                                           |
 | NADAA-002 | MVP   | Sprint 0   | Define Product, API, Security, ML, And Deployment Docs      | Done   | Codex      | main      | Docs expanded and linked from README.                                                                                                                                                                               |
 | NADAA-003 | MVP   | Sprint 0   | Create Delivery Dashboard Data Contract                     | Done   | Codex      | main      | Schema, sample records, and validation script added.                                                                                                                                                                |
+| NADAA-004 | MVP   | Sprint 0   | Define Multi-Platform App Portfolio And Build Lanes         | Done   | Codex      | main      | Planned citizen web/mobile, dispatcher web/mobile, agency web, and admin web lanes with target app paths, phase placement, and driving stories.                                                                     |
 | NADAA-010 | MVP   | Sprint 1   | Implement Citizen Authentication                            | Done   | Codex      | main      | Citizen register/login/profile API and tests added in auth-service.                                                                                                                                                 |
 | NADAA-011 | MVP   | Sprint 1   | Implement Agency Users, Roles, And MFA                      | Done   | Codex      | main      | Agency user creation, authority role catalog, mock MFA setup/verification, agency login, MFA-aware tokens, shared types, docs, and RBAC tests added.                                                                |
 | NADAA-012 | MVP   | Sprint 1   | Implement Audit Logging Foundation                          | Done   | Codex      | main      | Auth-service audit model, helper, auth/admin event wiring, system-admin audit read endpoint, shared types, retention docs, and tests added.                                                                         |
+| NADAA-014 | MVP   | Sprint 7   | Build Admin Web Governance Console                          | Todo   | Unassigned | TBD       | Dedicated `apps/admin-web` for agencies, users, roles, MFA support, audit logs, data sources, alert rules, and platform configuration.                                                                              |
 | NADAA-020 | MVP   | Sprint 1   | Set Up PostGIS And Core Geospatial Models                   | Done   | Codex      | main      | Migration and seed verified against local PostGIS on port 55432.                                                                                                                                                    |
 | NADAA-021 | MVP   | Sprint 5   | Implement Area Risk API                                     | Done   | Codex      | main      | Fixture-backed API returns low/high/severe flood scoring, nearby shelters, nearby facilities, recommended actions, and coordinate validation.                                                                       |
 | NADAA-022 | MVP   | Sprint 5   | Build Citizen Risk Checker UI                               | Done   | Codex      | main      | Risk checker UI integrates the risk API, area presets, coordinate entry, GPS lookup, shelters, facilities, recommended actions, loading/error/permission/empty states, and risk smoke coverage.                     |
@@ -1526,6 +1685,7 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-041 | MVP   | Sprint 3   | Implement Verification And Status Workflow                  | Done   | Codex      | main      | Incident-service transition rules, verification/status endpoints, audited status changes, closure/false-report notes, authority dashboard controls, shared types, docs, smoke, tests, and Docker build added.       |
 | NADAA-042 | MVP   | Sprint 3   | Implement Agency Assignment And Incident Timeline           | Done   | Codex      | main      | Incident-service assignment/timeline models, assignment endpoint, assigned-agency filtering, authority dashboard assignment controls, docs, smoke, tests, and Docker build added.                                   |
 | NADAA-043 | MVP   | Sprint 3   | Implement Duplicate Merge Review                            | Done   | Codex      | main      | Duplicate review and merge endpoints, traceability fields, audit/timeline events, side-by-side authority dashboard UI, shared types, docs, smoke, tests, and Docker build added.                                    |
+| NADAA-044 | MVP   | Sprint 3/7 | Create Dedicated Dispatcher Web Command Console             | Todo   | Unassigned | TBD       | Split dispatcher operations from `apps/authority-dashboard` into `apps/dispatcher-web` with preserved command-center workflows and smoke coverage.                                                                  |
 | NADAA-050 | MVP   | Sprint 4   | Implement Alert Creation And Approval Workflow              | Done   | Codex      | main      | Alert-service workflow API, emergency override path, RBAC/MFA/audit hooks, authority dashboard alert form/queue, shared types, docs, smoke, CI, tests, and Docker build added.                                      |
 | NADAA-051 | MVP   | Sprint 4   | Implement Geofenced Alert Targeting                         | Done   | Codex      | main      | Alert-service target geometry handling, preview endpoint, target query filters, district/radius/custom validation, authority dashboard selectors/preview, shared types, docs, smoke, tests, and Docker build added. |
 | NADAA-052 | MVP   | Sprint 4   | Implement In-App Alert Feed And Push/SMS Abstraction        | Done   | Codex      | main      | Notification-service citizen feed API, mock/disabled push/SMS providers, delivery logs, delivery-log schema, citizen current/expired feed UI, shared types, docs, smoke, tests, CI, and Docker build added.         |
@@ -1552,8 +1712,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-110 | Phase 2 | Sprint 8   | SMS/USSD Emergency Access                  | Todo   | Unassigned | TBD       | Inclusive access channel.              |
 | NADAA-111 | Phase 2 | Sprint 8/9 | WhatsApp Emergency Chatbot                 | Todo   | Unassigned | TBD       | Spans two sprints.                     |
 | NADAA-112 | Phase 2 | Sprint 9   | Multilingual Voice Alerts                  | Todo   | Unassigned | TBD       | English, Twi, Ga, Ewe, Dagbani, Hausa. |
+| NADAA-113 | Phase 2 | Sprint 8/9 | Build Citizen Mobile App Foundation        | Todo   | Unassigned | TBD       | Citizen React Native app.              |
 | NADAA-120 | Phase 2 | Sprint 10  | Community Volunteer App                    | Todo   | Unassigned | TBD       | Field coordination.                    |
 | NADAA-121 | Phase 2 | Sprint 10  | Hospital Capacity Tracker                  | Todo   | Unassigned | TBD       | Facility operations.                   |
+| NADAA-124 | Phase 2 | Sprint 10  | Build Dispatcher Mobile Triage App         | Todo   | Unassigned | TBD       | Dispatcher React Native app.           |
+| NADAA-125 | Phase 2 | Sprint 10/11 | Build Agency Web Operations Portal       | Todo   | Unassigned | TBD       | Agency-scoped operations web app.      |
 | NADAA-122 | Phase 2 | Sprint 11  | Relief Distribution Tracking               | Todo   | Unassigned | TBD       | Recovery logistics.                    |
 | NADAA-123 | Phase 2 | Sprint 11  | Donation And Aid Coordination              | Todo   | Unassigned | TBD       | Partner/donor workflow.                |
 | NADAA-130 | Phase 2 | Sprint 12  | Evacuation Route Planner                   | Todo   | Unassigned | TBD       | Depends on road closures and shelters. |
@@ -1580,9 +1743,11 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 
 Start here:
 
-1. NADAA-090 Implement Location Privacy And Anonymous Reporting Controls.
-2. NADAA-062 Implement Shelter And Recovery Support Module.
-3. NADAA-070 Create Flood Risk Dataset And Feature Pipeline.
+1. NADAA-044 Create Dedicated Dispatcher Web Command Console.
+2. NADAA-014 Build Admin Web Governance Console.
+3. NADAA-090 Implement Location Privacy And Anonymous Reporting Controls.
+4. NADAA-062 Implement Shelter And Recovery Support Module.
+5. NADAA-070 Create Flood Risk Dataset And Feature Pipeline.
 
 ## Key Risks And Early Decisions
 
@@ -1592,6 +1757,7 @@ Start here:
 - Citizen reporting can attract spam or false reports. Use rate limits, duplicate detection, suspicious report flags, and human review.
 - Offline and low-literacy needs are important. Keep PWA/offline guidance in MVP and plan voice/USSD/WhatsApp for phase 2.
 - Geospatial targeting must be correct. Prioritize PostGIS indexes, district boundaries, geometry validation, and map QA.
+- Role-specific apps can drift if they fork too much shared behavior. Keep shells separate but share tokens, types, API clients, and domain utilities only where reuse is real.
 
 ## Success Metrics
 
@@ -1610,6 +1776,7 @@ Start here:
 
 | Date       | Update                                                                                                                                                                                                                                                                             | Owner | Status   |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------- |
+| 2026-07-06 | Added the target platform portfolio for citizen web/mobile, dispatcher web/mobile, agency web, and admin web; added platform build board rows, app workstream paths, MVP stories for admin and dispatcher web, Phase 2 stories for citizen mobile, dispatcher mobile, and agency web, plus updated sprint plans and ready queue. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-041 with incident-service status transition rules, verification endpoint, RBAC/MFA gates, audited before/after status changes, terminal closure/false-report resolution notes, shared workflow types, authority dashboard controls, docs, smoke script, and tests. | Codex | Complete |
 | 2026-07-06 | Completed NADAA-040 with authority-dashboard Leaflet incident command map, API-backed incident feed with fixture fallback, map/list synchronization, hazard/district/severity/status/time filters, selected-incident detail, role-protected framing, docs, and UI states.          | Codex | Complete |
 | 2026-07-06 | Completed NADAA-012 with auth-service audit event model, in-memory audit store/helper, system-admin audit read endpoint, auth/admin event wiring, metadata capture, sanitized before/after snapshots, shared audit types, retention docs, and tests.                               | Codex | Complete |
