@@ -121,7 +121,7 @@ VALUES
   )
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO emergency_guides (id, hazard_type, stage, title, body, language, offline_available)
+INSERT INTO emergency_guides (id, hazard_type, stage, title, body, language, offline_available, sort_order)
 VALUES
   (
     '00000000-0000-0000-0000-000000000501',
@@ -130,7 +130,8 @@ VALUES
     'Prepare before flooding',
     'Know your nearest shelter, avoid dumping refuse in drains, keep documents dry, and prepare an emergency bag.',
     'en',
-    true
+    true,
+    10
   ),
   (
     '00000000-0000-0000-0000-000000000502',
@@ -139,18 +140,108 @@ VALUES
     'Stay safe during flooding',
     'Move to higher ground, avoid walking or driving through floodwater, turn off electricity if safe, and call 112 for emergencies.',
     'en',
-    true
+    true,
+    20
   ),
   (
     '00000000-0000-0000-0000-000000000503',
+    'flood',
+    'after',
+    'Return safely after flooding',
+    'Wait for official guidance, avoid contaminated water, photograph damage before cleanup, and report blocked drains or damaged utilities.',
+    'en',
+    true,
+    30
+  ),
+  (
+    '00000000-0000-0000-0000-000000000504',
     'fire',
     'during',
-    'Fire emergency response',
-    'Leave the area, warn others nearby, avoid smoke, and call 112 for fire service support.',
+    'Fire safety response',
+    'Leave immediately, warn people nearby, stay low under smoke, never use lifts, and call 112 for Ghana National Fire Service support.',
     'en',
-    true
+    true,
+    40
+  ),
+  (
+    '00000000-0000-0000-0000-000000000505',
+    'road_crash',
+    'during',
+    'Road crash first response',
+    'Move to a safe place, switch on hazard lights if possible, do not move injured people unless there is immediate danger, and call 112.',
+    'en',
+    true,
+    50
+  ),
+  (
+    '00000000-0000-0000-0000-000000000506',
+    'electrical_hazard',
+    'during',
+    'Electrical hazard safety',
+    'Stay away from fallen wires, flooded electrical equipment, and sparking poles. Keep others clear and call 112 or the utility emergency line.',
+    'en',
+    true,
+    60
+  ),
+  (
+    '00000000-0000-0000-0000-000000000507',
+    'disease_outbreak',
+    'before',
+    'Disease prevention basics',
+    'Wash hands often, isolate when symptomatic, follow Ghana Health Service guidance, keep medicine supplies ready, and protect vulnerable family members.',
+    'en',
+    true,
+    70
+  ),
+  (
+    '00000000-0000-0000-0000-000000000508',
+    'other',
+    'during',
+    'Safe evacuation',
+    'Take only essentials, follow official routes, help children and elderly people first, avoid floodwater or smoke, and tell relatives where you are going.',
+    'en',
+    true,
+    80
+  ),
+  (
+    '00000000-0000-0000-0000-000000000509',
+    'other',
+    'before',
+    'Emergency bag checklist',
+    'Pack water, food, torch, radio, power bank, first aid, medicine, copies of documents, cash, hygiene items, and child or disability-specific supplies.',
+    'en',
+    true,
+    90
+  ),
+  (
+    '00000000-0000-0000-0000-000000000510',
+    'other',
+    'before',
+    'Family emergency plan',
+    'Choose meeting points, store emergency contacts, teach children how to call 112, plan transport, and decide who checks on vulnerable relatives.',
+    'en',
+    true,
+    100
+  ),
+  (
+    '00000000-0000-0000-0000-000000000511',
+    'other',
+    'during',
+    'Calling 112',
+    'Call 112 for life-threatening emergencies. Share the hazard, exact location, people affected, injuries, and a safe callback number if available.',
+    'en',
+    true,
+    110
   )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  hazard_type = EXCLUDED.hazard_type,
+  stage = EXCLUDED.stage,
+  title = EXCLUDED.title,
+  body = EXCLUDED.body,
+  language = EXCLUDED.language,
+  offline_available = EXCLUDED.offline_available,
+  sort_order = EXCLUDED.sort_order,
+  updated_at = now();
 
 INSERT INTO incidents (
   id,
@@ -247,4 +338,3 @@ VALUES (
   'development-fixture-0.1.0'
 )
 ON CONFLICT (id) DO NOTHING;
-

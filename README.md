@@ -17,6 +17,7 @@ services/
   incident-service/
   alert-service/
   risk-service/
+  guide-service/
   dispatch-service/
   notification-service/
   integration-service/
@@ -86,6 +87,15 @@ Run the Go incident service:
 cd services/incident-service
 go run .
 ```
+
+Run the Go guide service:
+
+```bash
+cd services/guide-service
+go run .
+```
+
+The guide service listens on `:8086` by default and exposes `GET /api/v1/guides` for emergency preparedness and response content.
 
 ## Project Coordination
 

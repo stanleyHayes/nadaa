@@ -53,6 +53,13 @@ cd services/incident-service
 go run .
 ```
 
+Run guide service:
+
+```bash
+cd services/guide-service
+go run .
+```
+
 Run checks:
 
 ```bash
@@ -61,6 +68,8 @@ pnpm typecheck
 pnpm build
 pnpm go:test
 pnpm smoke:web
+pnpm smoke:risk
+pnpm smoke:guide
 ```
 
 Run staging smoke checks against configured URLs:
@@ -123,8 +132,8 @@ The first-pass GitHub Actions workflows live in `.github/workflows/`.
 - TypeScript type checks.
 - Workspace tests.
 - App and package builds.
-- Go tests for `auth-service`, `incident-service`, and `risk-service`.
-- Docker build validation for citizen web, authority dashboard, auth service, incident service, and risk service images.
+- Go tests for `auth-service`, `incident-service`, `guide-service`, and `risk-service`.
+- Docker build validation for citizen web, authority dashboard, auth service, incident service, guide service, and risk service images.
 
 `Staging Smoke` runs manually against the GitHub `staging` environment:
 

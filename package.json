@@ -17,6 +17,7 @@
     "validate:docs": "pnpm validate:dashboard && pnpm validate:database",
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:risk": "node scripts/smoke-risk.mjs",
+    "smoke:guide": "node scripts/smoke-guide.mjs",
     "smoke:staging": "node scripts/smoke-staging.mjs",
     "go:test": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && go test ./...); done",
     "format": "prettier --write \"**/*.{md,json,ts,tsx,css,yml,yaml}\""

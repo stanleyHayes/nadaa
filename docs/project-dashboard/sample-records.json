@@ -450,5 +450,38 @@
       "Live pnpm smoke:risk on localhost:8081"
     ],
     "notes": "Citizen risk checker integrates the risk API with area presets, coordinate entry, GPS lookup, shelters, response facilities, recommended actions, loading/error/permission/empty states, and risk smoke coverage."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 5",
+    "epic": "EPIC 6: Emergency Guidance, Shelters, And Recovery Support",
+    "story": "Implement Emergency Guide Content Model",
+    "jiraKey": "NADAA-060",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-020"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:docs",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm smoke:web",
+      "Live pnpm smoke:guide on localhost:8087",
+      "Live pnpm smoke:risk on localhost:8081",
+      "Local pnpm smoke:staging against 127.0.0.1 web apps",
+      "Disposable PostGIS migration and seed apply"
+    ],
+    "notes": "Guide-service API, seed-aligned emergency guide content, shared guide types, Docker/CI wiring, staging smoke wiring, docs, and smoke coverage are complete. Citizen offline UI remains NADAA-061."
   }
 ]

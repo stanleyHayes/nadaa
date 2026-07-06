@@ -59,6 +59,7 @@ jobs:
         service:
           - services/auth-service
           - services/incident-service
+          - services/guide-service
           - services/risk-service
     steps:
       - name: Check out repository
@@ -91,6 +92,8 @@ jobs:
             dockerfile: services/auth-service/Dockerfile
           - name: incident-service
             dockerfile: services/incident-service/Dockerfile
+          - name: guide-service
+            dockerfile: services/guide-service/Dockerfile
           - name: risk-service
             dockerfile: services/risk-service/Dockerfile
     steps:

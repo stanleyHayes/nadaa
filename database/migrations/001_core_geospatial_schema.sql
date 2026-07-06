@@ -240,6 +240,7 @@ CREATE TABLE IF NOT EXISTS emergency_guides (
   body TEXT NOT NULL,
   language TEXT NOT NULL DEFAULT 'en',
   offline_available BOOLEAN NOT NULL DEFAULT true,
+  sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -308,4 +309,3 @@ CREATE INDEX IF NOT EXISTS idx_weather_observations_location ON weather_observat
 CREATE INDEX IF NOT EXISTS idx_weather_observations_source_time ON weather_observations (source, observed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created_at ON audit_logs (actor_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs (target_type, target_id);
-

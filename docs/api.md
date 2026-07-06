@@ -533,6 +533,37 @@ Starter development endpoint for inspecting private media metadata and incident 
 
 `GET /api/v1/guides?hazard=flood&stage=before&language=en`
 
+Returns emergency guide records for the requested hazard, stage, and language.
+
+```json
+{
+  "guides": [
+    {
+      "id": "guide_flood_before_en",
+      "hazardType": "flood",
+      "stage": "before",
+      "title": "Prepare before flooding",
+      "body": "Know your nearest shelter, keep documents dry, clear drains safely, prepare drinking water, and agree on a family meeting point.",
+      "language": "en",
+      "offlineAvailable": true,
+      "sortOrder": 10,
+      "createdAt": "2026-07-06T12:00:00Z",
+      "updatedAt": "2026-07-06T12:00:00Z"
+    }
+  ]
+}
+```
+
+Rules:
+
+- `hazard` must be a supported NADAA hazard type when provided.
+- `stage` must be `before`, `during`, `after`, or `recovery` when provided.
+- `language` defaults to `en`.
+- If a requested non-English language has no exact match, the guide service falls back to English for the same filters.
+- `offline=true` returns only guides marked as offline available.
+- Initial content covers floods, fire safety, road crash response, electrical hazard safety, disease prevention, safe evacuation, emergency bag checklist, family emergency planning, and contacting 112.
+- General preparedness topics use hazard type `other`.
+
 `GET /api/v1/shelters/nearby?lat=5.6037&lng=-0.1870`
 
 `PATCH /api/v1/shelters/{id}/occupancy`

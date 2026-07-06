@@ -58,6 +58,8 @@ export type IncidentUrgency = "low" | "moderate" | "high" | "life_threatening";
 export type AlertSeverity =
   "advisory" | "watch" | "warning" | "severe_warning" | "emergency";
 
+export type GuideStage = "before" | "during" | "after" | "recovery";
+
 export interface Coordinates {
   lat: number;
   lng: number;
@@ -193,6 +195,23 @@ export interface AuditLogRecord {
 
 export interface AuditLogListResponse {
   logs: AuditLogRecord[];
+}
+
+export interface EmergencyGuideRecord {
+  id: string;
+  hazardType: HazardType;
+  stage: GuideStage;
+  title: string;
+  body: string;
+  language: string;
+  offlineAvailable: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GuideListResponse {
+  guides: EmergencyGuideRecord[];
 }
 
 export interface IncidentReporterRef {

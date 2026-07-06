@@ -19,6 +19,7 @@ NADAA is the Ghana National Disaster Alert and Response Platform. It is designed
 - `packages/shared-types` - shared TypeScript domain contracts.
 - `services/auth-service` - Go citizen and agency authentication starter with mock OTP/MFA, signed bearer tokens, RBAC, and audit events.
 - `services/incident-service` - Go incident intake starter with validation, rate limiting, media references, and priority review flagging.
+- `services/guide-service` - Go emergency guidance starter with hazard/stage/language lookup, offline availability metadata, and seed-aligned content fixtures.
 - `services/risk-service` - first Go service with `GET /healthz` and `GET /api/v1/risk`.
 - `infra/docker/docker-compose.yml` - local PostGIS, Redis, and MinIO.
 - `database/migrations/001_core_geospatial_schema.sql` - core PostGIS schema and indexes.
@@ -37,7 +38,7 @@ API Gateway / Edge Routing
         +--> Incident Service -> PostGIS + Object Storage
         +--> Alert Service ----> Notification Service
         +--> Dispatch Service -> Agency Users + Timelines
-        +--> Knowledge Service
+        +--> Guide Service
         +--> Integration Service -> GMet, Hydro, NADMO, Police, Fire, Ambulance, Hospitals
 
 Authority Dashboard
@@ -99,6 +100,16 @@ Primary dependencies:
 - Agency model.
 - Incident service.
 - Notification service for responder updates.
+
+### Guide Service
+
+Owns emergency preparedness, response, and recovery guide content, including hazard type, stage, language, offline availability, and stable ordering for citizen offline caching.
+
+Primary dependencies:
+
+- Emergency guide records in PostGIS.
+- Future CMS/editor workflow.
+- Citizen PWA cache.
 
 ### Notification Service
 
