@@ -97,7 +97,7 @@ cd services/alert-service
 go run .
 ```
 
-The authority dashboard uses `VITE_ALERT_API_URL`, defaulting to `http://localhost:8089/api/v1`, for alert draft and approval workflows.
+The authority dashboard uses `VITE_ALERT_API_URL`, defaulting to `http://localhost:8089/api/v1`, for alert draft, geofenced targeting, and approval workflows. With alert-service running on `:8089`, verify alert workflow with `pnpm smoke:alert` and geofenced targeting with `pnpm smoke:alert-geofence`.
 
 Run the Go guide service:
 

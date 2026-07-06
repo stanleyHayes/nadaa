@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"sort"
@@ -51,9 +52,24 @@ type authorityAlert struct {
 }
 
 type alertTarget struct {
-	Type  string   `json:"type"`
-	IDs   []string `json:"ids"`
-	Label string   `json:"label"`
+	Type                string          `json:"type"`
+	IDs                 []string        `json:"ids"`
+	Label               string          `json:"label"`
+	Center              *coordinates    `json:"center,omitempty"`
+	RadiusMeters        float64         `json:"radiusMeters,omitempty"`
+	Geometry            *targetGeometry `json:"geometry,omitempty"`
+	AreaSqKm            float64         `json:"areaSqKm,omitempty"`
+	EstimatedPopulation int             `json:"estimatedPopulation,omitempty"`
+}
+
+type coordinates struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
+}
+
+type targetGeometry struct {
+	Type        string        `json:"type"`
+	Coordinates [][][]float64 `json:"coordinates"`
 }
 
 type createAlertRequest struct {
@@ -76,6 +92,12 @@ type workflowRequest struct {
 
 type alertListResponse struct {
 	Alerts []authorityAlert `json:"alerts"`
+}
+
+type targetPreviewResponse struct {
+	Target   alertTarget `json:"target"`
+	Summary  string      `json:"summary"`
+	Warnings []string    `json:"warnings"`
 }
 
 type auditListResponse struct {
@@ -111,6 +133,16 @@ type apiError struct {
 type apiErrorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+type targetCatalogRecord struct {
+	ID                  string
+	Type                string
+	Label               string
+	Center              coordinates
+	RadiusMeters        float64
+	AreaSqKm            float64
+	EstimatedPopulation int
 }
 
 var allowedHazards = map[string]bool{
@@ -166,6 +198,54 @@ var overrideRoles = map[string]bool{
 	"nadmo_officer": true,
 }
 
+var targetCatalog = map[string]targetCatalogRecord{
+	"region:greater-accra": {
+		ID:                  "greater-accra",
+		Type:                "region",
+		Label:               "Greater Accra Region",
+		Center:              coordinates{Lat: 5.75, Lng: -0.11},
+		RadiusMeters:        52000,
+		AreaSqKm:            3245,
+		EstimatedPopulation: 5455000,
+	},
+	"district:accra-metropolitan": {
+		ID:                  "accra-metropolitan",
+		Type:                "district",
+		Label:               "Accra Metropolitan",
+		Center:              coordinates{Lat: 5.56, Lng: -0.2},
+		RadiusMeters:        9000,
+		AreaSqKm:            61,
+		EstimatedPopulation: 284000,
+	},
+	"district:tema-metropolitan": {
+		ID:                  "tema-metropolitan",
+		Type:                "district",
+		Label:               "Tema Metropolitan",
+		Center:              coordinates{Lat: 5.642, Lng: -0.028},
+		RadiusMeters:        12000,
+		AreaSqKm:            565,
+		EstimatedPopulation: 402000,
+	},
+	"district:ablekuma-west": {
+		ID:                  "ablekuma-west",
+		Type:                "district",
+		Label:               "Ablekuma West",
+		Center:              coordinates{Lat: 5.601, Lng: -0.286},
+		RadiusMeters:        7000,
+		AreaSqKm:            15,
+		EstimatedPopulation: 220000,
+	},
+	"community:accra-central": {
+		ID:                  "accra-central",
+		Type:                "community",
+		Label:               "Accra Central",
+		Center:              coordinates{Lat: 5.556, Lng: -0.202},
+		RadiusMeters:        3000,
+		AreaSqKm:            8,
+		EstimatedPopulation: 75000,
+	},
+}
+
 func main() {
 	srv := &server{store: newMemoryStore()}
 
@@ -174,6 +254,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/alerts", srv.createAlertHandler)
 	mux.HandleFunc("GET /api/v1/alerts", srv.listAlertsHandler)
 	mux.HandleFunc("GET /api/v1/alerts/audit", srv.listAuditHandler)
+	mux.HandleFunc("POST /api/v1/alerts/targets/preview", srv.previewTargetHandler)
 	mux.HandleFunc("PATCH /api/v1/alerts/{id}", srv.updateAlertHandler)
 	mux.HandleFunc("POST /api/v1/alerts/{id}/submit", srv.submitAlertHandler)
 	mux.HandleFunc("POST /api/v1/alerts/{id}/approve", srv.approveAlertHandler)
@@ -231,25 +312,32 @@ func (s *server) createAlertHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if code, message := validateAlertRequest(request); code != "" {
+	normalized := normalizeAlertRequest(request)
+	if code, message := validateAlertRequest(normalized); code != "" {
 		writeError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
-	alert := s.store.createAlert(request, ctx, time.Now().UTC())
+	alert := s.store.createAlert(normalized, ctx, time.Now().UTC())
 	writeJSON(w, http.StatusCreated, alert)
 }
 
 func (s *server) listAlertsHandler(w http.ResponseWriter, r *http.Request) {
 	status := normalizeQueryValue(r.URL.Query().Get("status"))
 	currentOnly := normalizeQueryValue(r.URL.Query().Get("current")) == "true"
+	targetType := normalizeQueryValue(r.URL.Query().Get("targetType"))
+	targetID := normalizeQueryValue(r.URL.Query().Get("targetId"))
 	if status != "" && !validAlertStatus(status) {
 		writeError(w, http.StatusBadRequest, "invalid_status", "status must be draft, submitted, approved, rejected, published, expired, or cancelled")
 		return
 	}
+	if targetType != "" && !allowedTargetTypes[targetType] {
+		writeError(w, http.StatusBadRequest, "invalid_target_type", "targetType must be national, region, district, radius, community, or custom")
+		return
+	}
 
 	publicOnly := !hasAuthorityHeaders(r)
-	writeJSON(w, http.StatusOK, alertListResponse{Alerts: s.store.listAlerts(status, currentOnly, publicOnly, time.Now().UTC())})
+	writeJSON(w, http.StatusOK, alertListResponse{Alerts: s.store.listAlerts(status, currentOnly, publicOnly, targetType, targetID, time.Now().UTC())})
 }
 
 func (s *server) listAuditHandler(w http.ResponseWriter, r *http.Request) {
@@ -273,6 +361,30 @@ func (s *server) listAuditHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, auditListResponse{Logs: s.store.listAudit(limit)})
 }
 
+func (s *server) previewTargetHandler(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireAuthority(w, r, draftRoles); !ok {
+		return
+	}
+
+	var target alertTarget
+	if err := decodeJSON(r, &target); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+
+	normalized := normalizeTarget(target)
+	if code, message := validateTarget(normalized); code != "" {
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, targetPreviewResponse{
+		Target:   normalized,
+		Summary:  targetSummary(normalized),
+		Warnings: targetWarnings(normalized),
+	})
+}
+
 func (s *server) updateAlertHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, ok := requireAuthority(w, r, draftRoles)
 	if !ok {
@@ -284,12 +396,13 @@ func (s *server) updateAlertHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
-	if code, message := validateAlertRequest(request); code != "" {
+	normalized := normalizeAlertRequest(request)
+	if code, message := validateAlertRequest(normalized); code != "" {
 		writeError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
-	alert, code, message := s.store.updateAlert(r.PathValue("id"), request, ctx, time.Now().UTC())
+	alert, code, message := s.store.updateAlert(r.PathValue("id"), normalized, ctx, time.Now().UTC())
 	if code != "" {
 		writeError(w, statusForCode(code), code, message)
 		return
@@ -508,7 +621,7 @@ func (m *memoryStore) transitionAlert(id string, nextStatus string, ctx authorit
 	return alert, "", ""
 }
 
-func (m *memoryStore) listAlerts(status string, currentOnly bool, publicOnly bool, now time.Time) []authorityAlert {
+func (m *memoryStore) listAlerts(status string, currentOnly bool, publicOnly bool, targetType string, targetID string, now time.Time) []authorityAlert {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -521,6 +634,12 @@ func (m *memoryStore) listAlerts(status string, currentOnly bool, publicOnly boo
 			continue
 		}
 		if currentOnly && (alert.StartsAt.After(now) || !alert.ExpiresAt.After(now)) {
+			continue
+		}
+		if targetType != "" && alert.Target.Type != targetType {
+			continue
+		}
+		if targetID != "" && !containsString(alert.Target.IDs, targetID) {
 			continue
 		}
 		alerts = append(alerts, alert)
@@ -602,13 +721,23 @@ func hasAuthorityHeaders(r *http.Request) bool {
 		strings.TrimSpace(r.Header.Get("X-NADAA-Agency-ID")) != ""
 }
 
+func normalizeAlertRequest(request createAlertRequest) createAlertRequest {
+	request.Title = strings.TrimSpace(request.Title)
+	request.HazardType = normalizeQueryValue(request.HazardType)
+	request.Severity = normalizeQueryValue(request.Severity)
+	request.Message = strings.TrimSpace(request.Message)
+	request.Target = normalizeTarget(request.Target)
+	request.RecommendedAction = strings.TrimSpace(request.RecommendedAction)
+	request.ShelterIDs = compactStrings(request.ShelterIDs)
+	return request
+}
+
 func validateAlertRequest(request createAlertRequest) (string, string) {
 	title := strings.TrimSpace(request.Title)
 	message := strings.TrimSpace(request.Message)
 	action := strings.TrimSpace(request.RecommendedAction)
 	hazard := normalizeQueryValue(request.HazardType)
 	severity := normalizeQueryValue(request.Severity)
-	target := normalizeTarget(request.Target)
 
 	if len(title) < 4 || len(title) > 140 {
 		return "invalid_title", "title must be 4 to 140 characters"
@@ -622,14 +751,8 @@ func validateAlertRequest(request createAlertRequest) (string, string) {
 	if len(message) < 10 || len(message) > 1000 {
 		return "invalid_message", "message must be 10 to 1000 characters"
 	}
-	if !allowedTargetTypes[target.Type] {
-		return "invalid_target", "target.type must be national, region, district, radius, community, or custom"
-	}
-	if target.Type != "national" && len(target.IDs) == 0 {
-		return "missing_target_ids", "target.ids are required unless target.type is national"
-	}
-	if strings.TrimSpace(target.Label) == "" {
-		return "missing_target_label", "target.label is required"
+	if code, message := validateTarget(request.Target); code != "" {
+		return code, message
 	}
 	if request.StartsAt.IsZero() {
 		return "missing_starts_at", "startsAt is required"
@@ -645,11 +768,352 @@ func validateAlertRequest(request createAlertRequest) (string, string) {
 }
 
 func normalizeTarget(target alertTarget) alertTarget {
-	return alertTarget{
-		Type:  normalizeQueryValue(target.Type),
-		IDs:   compactStrings(target.IDs),
-		Label: strings.TrimSpace(target.Label),
+	normalized := alertTarget{
+		Type:                normalizeQueryValue(target.Type),
+		IDs:                 normalizeTargetIDs(target.IDs),
+		Label:               strings.TrimSpace(target.Label),
+		Center:              normalizeCenter(target.Center),
+		RadiusMeters:        roundMeters(target.RadiusMeters),
+		Geometry:            normalizeGeometry(target.Geometry),
+		AreaSqKm:            roundArea(target.AreaSqKm),
+		EstimatedPopulation: target.EstimatedPopulation,
 	}
+
+	switch normalized.Type {
+	case "national":
+		normalized.IDs = []string{"ghana"}
+		if normalized.Label == "" {
+			normalized.Label = "Ghana"
+		}
+		normalized.Center = &coordinates{Lat: 7.9465, Lng: -1.0232}
+		normalized.RadiusMeters = 365000
+		normalized.AreaSqKm = 238533
+		normalized.EstimatedPopulation = 33480000
+		normalized.Geometry = geometryFromBounds(4.54, -3.26, 11.18, 1.2)
+	case "region", "district", "community":
+		applyCatalogTarget(&normalized)
+	case "radius":
+		if normalized.IDs == nil {
+			normalized.IDs = []string{"radius"}
+		}
+		if normalized.Label == "" {
+			normalized.Label = "Radius target"
+		}
+		if normalized.RadiusMeters > 0 {
+			normalized.AreaSqKm = roundArea(math.Pi * math.Pow(normalized.RadiusMeters/1000, 2))
+		}
+		if normalized.AreaSqKm > 0 && normalized.EstimatedPopulation == 0 {
+			normalized.EstimatedPopulation = int(math.Round(normalized.AreaSqKm * 4500))
+		}
+	case "custom":
+		if normalized.IDs == nil {
+			normalized.IDs = []string{"custom"}
+		}
+		if normalized.Label == "" {
+			normalized.Label = "Custom geometry"
+		}
+		if normalized.Geometry != nil {
+			normalized.Center = polygonCenter(normalized.Geometry)
+			normalized.AreaSqKm = polygonAreaSqKm(normalized.Geometry)
+			if normalized.AreaSqKm > 0 && normalized.EstimatedPopulation == 0 {
+				normalized.EstimatedPopulation = int(math.Round(normalized.AreaSqKm * 5000))
+			}
+		}
+	}
+
+	return normalized
+}
+
+func validateTarget(target alertTarget) (string, string) {
+	if !allowedTargetTypes[target.Type] {
+		return "invalid_target", "target.type must be national, region, district, radius, community, or custom"
+	}
+	if target.Type != "national" && len(target.IDs) == 0 {
+		return "missing_target_ids", "target.ids are required unless target.type is national"
+	}
+	if strings.TrimSpace(target.Label) == "" {
+		return "missing_target_label", "target.label is required"
+	}
+	switch target.Type {
+	case "region", "district", "community":
+		for _, id := range target.IDs {
+			if _, ok := targetCatalog[target.Type+":"+id]; !ok {
+				return "unknown_target_id", "target.ids must match a supported region, district, or community"
+			}
+		}
+		if target.Geometry == nil || target.Center == nil {
+			return "missing_target_geometry", "target geometry could not be resolved"
+		}
+	case "radius":
+		if target.Center == nil || !validCoordinates(*target.Center) {
+			return "invalid_target_center", "radius targets require a valid center"
+		}
+		if target.RadiusMeters < 250 || target.RadiusMeters > 100000 {
+			return "invalid_target_radius", "radiusMeters must be between 250 and 100000"
+		}
+	case "custom":
+		if target.Geometry == nil || !validPolygonGeometry(*target.Geometry) {
+			return "invalid_target_geometry", "custom targets require a closed polygon geometry"
+		}
+		if target.AreaSqKm <= 0 || target.AreaSqKm > 50000 {
+			return "invalid_target_area", "custom target area must be greater than 0 and at most 50000 square kilometers"
+		}
+	}
+	return "", ""
+}
+
+func applyCatalogTarget(target *alertTarget) {
+	records := make([]targetCatalogRecord, 0, len(target.IDs))
+	for _, id := range target.IDs {
+		record, ok := targetCatalog[target.Type+":"+id]
+		if !ok {
+			continue
+		}
+		records = append(records, record)
+	}
+	if len(records) == 0 {
+		return
+	}
+
+	if target.Label == "" {
+		labels := make([]string, 0, len(records))
+		for _, record := range records {
+			labels = append(labels, record.Label)
+		}
+		target.Label = strings.Join(labels, ", ")
+	}
+
+	lat := 0.0
+	lng := 0.0
+	area := 0.0
+	population := 0
+	for _, record := range records {
+		lat += record.Center.Lat
+		lng += record.Center.Lng
+		area += record.AreaSqKm
+		population += record.EstimatedPopulation
+	}
+	target.Center = &coordinates{Lat: roundCoordinate(lat / float64(len(records))), Lng: roundCoordinate(lng / float64(len(records)))}
+	target.RadiusMeters = maxCatalogRadius(records)
+	target.AreaSqKm = roundArea(area)
+	target.EstimatedPopulation = population
+	target.Geometry = geometryFromCatalogRecords(records)
+}
+
+func normalizeCenter(center *coordinates) *coordinates {
+	if center == nil {
+		return nil
+	}
+	return &coordinates{Lat: roundCoordinate(center.Lat), Lng: roundCoordinate(center.Lng)}
+}
+
+func normalizeGeometry(geometry *targetGeometry) *targetGeometry {
+	if geometry == nil {
+		return nil
+	}
+	return &targetGeometry{
+		Type:        strings.TrimSpace(geometry.Type),
+		Coordinates: geometry.Coordinates,
+	}
+}
+
+func normalizeTargetIDs(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		value = normalizeQueryValue(value)
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func geometryFromCatalogRecords(records []targetCatalogRecord) *targetGeometry {
+	if len(records) == 0 {
+		return nil
+	}
+
+	minLat := 90.0
+	minLng := 180.0
+	maxLat := -90.0
+	maxLng := -180.0
+	for _, record := range records {
+		deltaLat, deltaLng := degreeDeltas(record.Center, record.RadiusMeters)
+		minLat = math.Min(minLat, record.Center.Lat-deltaLat)
+		maxLat = math.Max(maxLat, record.Center.Lat+deltaLat)
+		minLng = math.Min(minLng, record.Center.Lng-deltaLng)
+		maxLng = math.Max(maxLng, record.Center.Lng+deltaLng)
+	}
+	return geometryFromBounds(minLat, minLng, maxLat, maxLng)
+}
+
+func geometryFromBounds(minLat float64, minLng float64, maxLat float64, maxLng float64) *targetGeometry {
+	return &targetGeometry{
+		Type: "Polygon",
+		Coordinates: [][][]float64{{
+			{roundCoordinate(minLng), roundCoordinate(minLat)},
+			{roundCoordinate(maxLng), roundCoordinate(minLat)},
+			{roundCoordinate(maxLng), roundCoordinate(maxLat)},
+			{roundCoordinate(minLng), roundCoordinate(maxLat)},
+			{roundCoordinate(minLng), roundCoordinate(minLat)},
+		}},
+	}
+}
+
+func maxCatalogRadius(records []targetCatalogRecord) float64 {
+	maxRadius := 0.0
+	for _, record := range records {
+		if record.RadiusMeters > maxRadius {
+			maxRadius = record.RadiusMeters
+		}
+	}
+	return roundMeters(maxRadius)
+}
+
+func degreeDeltas(center coordinates, radiusMeters float64) (float64, float64) {
+	latDelta := radiusMeters / 111320
+	lngDelta := radiusMeters / (111320 * math.Cos(center.Lat*math.Pi/180))
+	if math.IsInf(lngDelta, 0) || math.IsNaN(lngDelta) {
+		lngDelta = latDelta
+	}
+	return latDelta, lngDelta
+}
+
+func validCoordinates(center coordinates) bool {
+	return center.Lat >= -90 && center.Lat <= 90 && center.Lng >= -180 && center.Lng <= 180
+}
+
+func validPolygonGeometry(geometry targetGeometry) bool {
+	if geometry.Type != "Polygon" || len(geometry.Coordinates) != 1 {
+		return false
+	}
+	ring := geometry.Coordinates[0]
+	if len(ring) < 4 {
+		return false
+	}
+	first := ring[0]
+	last := ring[len(ring)-1]
+	if len(first) != 2 || len(last) != 2 || first[0] != last[0] || first[1] != last[1] {
+		return false
+	}
+	for _, point := range ring {
+		if len(point) != 2 {
+			return false
+		}
+		if !validCoordinates(coordinates{Lat: point[1], Lng: point[0]}) {
+			return false
+		}
+	}
+	return true
+}
+
+func polygonCenter(geometry *targetGeometry) *coordinates {
+	if geometry == nil || len(geometry.Coordinates) == 0 || len(geometry.Coordinates[0]) == 0 {
+		return nil
+	}
+	ring := geometry.Coordinates[0]
+	lat := 0.0
+	lng := 0.0
+	count := 0
+	for index, point := range ring {
+		if index == len(ring)-1 {
+			continue
+		}
+		if len(point) != 2 {
+			return nil
+		}
+		lat += point[1]
+		lng += point[0]
+		count++
+	}
+	if count == 0 {
+		return nil
+	}
+	return &coordinates{Lat: roundCoordinate(lat / float64(count)), Lng: roundCoordinate(lng / float64(count))}
+}
+
+func polygonAreaSqKm(geometry *targetGeometry) float64 {
+	if geometry == nil || len(geometry.Coordinates) == 0 || len(geometry.Coordinates[0]) < 4 {
+		return 0
+	}
+	center := polygonCenter(geometry)
+	if center == nil {
+		return 0
+	}
+
+	ring := geometry.Coordinates[0]
+	sum := 0.0
+	for index := 0; index < len(ring)-1; index++ {
+		if len(ring[index]) != 2 || len(ring[index+1]) != 2 {
+			return 0
+		}
+		x1, y1 := lonLatToMeters(ring[index][0], ring[index][1], center.Lat)
+		x2, y2 := lonLatToMeters(ring[index+1][0], ring[index+1][1], center.Lat)
+		sum += x1*y2 - x2*y1
+	}
+	return roundArea(math.Abs(sum) / 2 / 1000000)
+}
+
+func lonLatToMeters(lng float64, lat float64, referenceLat float64) (float64, float64) {
+	x := lng * 111320 * math.Cos(referenceLat*math.Pi/180)
+	y := lat * 110540
+	return x, y
+}
+
+func targetSummary(target alertTarget) string {
+	switch target.Type {
+	case "radius":
+		return fmt.Sprintf("%s radius target, approximately %.1f sq km and %d people.", metersLabel(target.RadiusMeters), target.AreaSqKm, target.EstimatedPopulation)
+	case "custom":
+		return fmt.Sprintf("Custom polygon target, approximately %.1f sq km and %d people.", target.AreaSqKm, target.EstimatedPopulation)
+	default:
+		return fmt.Sprintf("%s target covering approximately %.1f sq km and %d people.", target.Label, target.AreaSqKm, target.EstimatedPopulation)
+	}
+}
+
+func targetWarnings(target alertTarget) []string {
+	warnings := []string{}
+	if target.Type == "national" {
+		warnings = append(warnings, "National alerts should be reserved for broad life-safety threats.")
+	}
+	if target.AreaSqKm > 1000 {
+		warnings = append(warnings, "Large target area may increase alert fatigue; confirm scope before approval.")
+	}
+	if target.Type == "custom" {
+		warnings = append(warnings, "Custom geometry should be reviewed against official district boundaries before publishing.")
+	}
+	return warnings
+}
+
+func metersLabel(value float64) string {
+	if value >= 1000 {
+		return fmt.Sprintf("%.1f km", value/1000)
+	}
+	return fmt.Sprintf("%.0f m", value)
+}
+
+func roundMeters(value float64) float64 {
+	return math.Round(value)
+}
+
+func roundCoordinate(value float64) float64 {
+	return math.Round(value*1000000) / 1000000
+}
+
+func roundArea(value float64) float64 {
+	return math.Round(value*10) / 10
+}
+
+func containsString(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }
 
 func compactStrings(values []string) []string {

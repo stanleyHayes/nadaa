@@ -83,6 +83,7 @@ pnpm build
 pnpm go:test
 pnpm smoke:web
 pnpm smoke:alert
+pnpm smoke:alert-geofence
 pnpm smoke:incident-abuse
 pnpm smoke:incident-assignment
 pnpm smoke:incident-merge

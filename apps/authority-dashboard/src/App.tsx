@@ -56,7 +56,11 @@ import type {
   AlertListResponse,
   AlertSeverity,
   AlertStatus,
+  AlertTarget,
+  AlertTargetGeometry,
+  AlertTargetType,
   AuthorityAlertRecord,
+  Coordinates,
   CreateAlertRequest,
   IncidentAbuseReviewDecision,
   IncidentAbuseReviewRequest,
@@ -149,7 +153,13 @@ type AlertFormState = {
   title: string;
   severity: AlertSeverity;
   message: string;
+  targetType: AlertTargetType;
+  targetIds: string;
   targetLabel: string;
+  targetLatitude: string;
+  targetLongitude: string;
+  targetRadiusMeters: string;
+  targetGeometry: string;
   startsAt: string;
   expiresAt: string;
   recommendedAction: string;
@@ -516,6 +526,73 @@ const alertSeverityOptions: AlertSeverity[] = [
   "severe_warning",
   "emergency",
 ];
+
+const alertTargetTypeOptions: AlertTargetType[] = [
+  "district",
+  "radius",
+  "custom",
+  "region",
+  "community",
+  "national",
+];
+
+type AlertTargetCatalogItem = {
+  id: string;
+  type: AlertTargetType;
+  label: string;
+  center: Coordinates;
+  radiusMeters: number;
+  areaSqKm: number;
+  estimatedPopulation: number;
+};
+
+const alertTargetCatalog: Record<string, AlertTargetCatalogItem> = {
+  "region:greater-accra": {
+    id: "greater-accra",
+    type: "region",
+    label: "Greater Accra Region",
+    center: { lat: 5.75, lng: -0.11 },
+    radiusMeters: 52000,
+    areaSqKm: 3245,
+    estimatedPopulation: 5455000,
+  },
+  "district:accra-metropolitan": {
+    id: "accra-metropolitan",
+    type: "district",
+    label: "Accra Metropolitan",
+    center: { lat: 5.56, lng: -0.2 },
+    radiusMeters: 9000,
+    areaSqKm: 61,
+    estimatedPopulation: 284000,
+  },
+  "district:tema-metropolitan": {
+    id: "tema-metropolitan",
+    type: "district",
+    label: "Tema Metropolitan",
+    center: { lat: 5.642, lng: -0.028 },
+    radiusMeters: 12000,
+    areaSqKm: 565,
+    estimatedPopulation: 402000,
+  },
+  "district:ablekuma-west": {
+    id: "ablekuma-west",
+    type: "district",
+    label: "Ablekuma West",
+    center: { lat: 5.601, lng: -0.286 },
+    radiusMeters: 7000,
+    areaSqKm: 15,
+    estimatedPopulation: 220000,
+  },
+  "community:accra-central": {
+    id: "accra-central",
+    type: "community",
+    label: "Accra Central",
+    center: { lat: 5.556, lng: -0.202 },
+    radiusMeters: 3000,
+    areaSqKm: 8,
+    estimatedPopulation: 75000,
+  },
+};
 
 const incidentStatusOptions: IncidentStatus[] = [
   "reported",
@@ -1069,13 +1146,7 @@ function App() {
     hazardType: selectedIncident?.type ?? "flood",
     severity: alertForm.severity,
     message: alertForm.message,
-    target: {
-      type: "district",
-      ids: selectedIncident
-        ? [districtSlug(selectedIncident.district)]
-        : ["accra-metropolitan"],
-      label: alertForm.targetLabel,
-    },
+    target: buildAlertTarget(alertForm),
     startsAt: new Date(alertForm.startsAt).toISOString(),
     expiresAt: new Date(alertForm.expiresAt).toISOString(),
     recommendedAction: alertForm.recommendedAction,
@@ -1713,6 +1784,137 @@ function IncidentMap({
   );
 }
 
+function AlertTargetPreview({ target }: { target: AlertTarget }) {
+  const warnings = alertTargetWarnings(target);
+  return (
+    <Box className="target-preview">
+      <Stack direction="row" justifyContent="space-between" gap={1}>
+        <Box>
+          <Typography variant="subtitle2">Affected area preview</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {alertTargetSummary(target)}
+          </Typography>
+        </Box>
+        <Chip
+          size="small"
+          label={alertTargetTypeLabel(target.type)}
+          color={target.type === "national" ? "error" : "warning"}
+        />
+      </Stack>
+
+      <TargetPreviewMap target={target} />
+
+      <Grid container spacing={1}>
+        <Grid size={4}>
+          <Fact
+            label="Area"
+            value={`${Math.round((target.areaSqKm ?? 0) * 10) / 10} sq km`}
+          />
+        </Grid>
+        <Grid size={4}>
+          <Fact
+            label="Population"
+            value={`${target.estimatedPopulation ?? 0}`}
+          />
+        </Grid>
+        <Grid size={4}>
+          <Fact
+            label="Radius"
+            value={
+              target.radiusMeters
+                ? `${Math.round(target.radiusMeters / 100) / 10} km`
+                : "Geometry"
+            }
+          />
+        </Grid>
+      </Grid>
+
+      {warnings.map((warning) => (
+        <Alert severity="warning" key={warning}>
+          {warning}
+        </Alert>
+      ))}
+    </Box>
+  );
+}
+
+function TargetPreviewMap({ target }: { target: AlertTarget }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const layerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) {
+      return;
+    }
+
+    const map = L.map(containerRef.current, {
+      center: [target.center?.lat ?? 5.586, target.center?.lng ?? -0.18],
+      zoom: 11,
+      zoomControl: false,
+      scrollWheelZoom: false,
+      dragging: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    mapRef.current = map;
+    layerRef.current = L.layerGroup().addTo(map);
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      layerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const layer = layerRef.current;
+    const map = mapRef.current;
+    if (!layer || !map) {
+      return;
+    }
+
+    layer.clearLayers();
+    const color =
+      target.type === "national" ? nadaaBrand.colors.red : "#0B6FB8";
+    if (target.geometry?.coordinates?.[0]?.length) {
+      const polygonPoints = target.geometry.coordinates[0].map(
+        ([lng, lat]) => [lat, lng] as [number, number],
+      );
+      const polygon = L.polygon(polygonPoints, {
+        color,
+        fillColor: color,
+        fillOpacity: 0.18,
+        weight: 2,
+      }).addTo(layer);
+      map.fitBounds(polygon.getBounds().pad(0.12), { animate: false });
+      return;
+    }
+
+    if (target.center) {
+      const radius = target.radiusMeters || 2000;
+      const circle = L.circle([target.center.lat, target.center.lng], {
+        radius,
+        color,
+        fillColor: color,
+        fillOpacity: 0.18,
+        weight: 2,
+      }).addTo(layer);
+      map.fitBounds(circle.getBounds().pad(0.12), { animate: false });
+    }
+  }, [target]);
+
+  return <Box ref={containerRef} className="target-preview-map" />;
+}
+
 function AlertWorkflowPanel({
   alerts,
   busy,
@@ -1814,14 +2016,84 @@ function AlertWorkflowPanel({
               </FormControl>
             </Grid>
             <Grid size={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Target type</InputLabel>
+                <Select
+                  label="Target type"
+                  value={form.targetType}
+                  onChange={onUpdateForm("targetType")}
+                >
+                  {alertTargetTypeOptions.map((type) => (
+                    <MenuItem key={type} value={type}>
+                      {alertTargetTypeLabel(type)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 5 }}>
               <TextField
                 size="small"
-                label="Target"
+                label="Target IDs"
+                value={form.targetIds}
+                onChange={onUpdateForm("targetIds")}
+                fullWidth
+                disabled={form.targetType === "national"}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 7 }}>
+              <TextField
+                size="small"
+                label="Target label"
                 value={form.targetLabel}
                 onChange={onUpdateForm("targetLabel")}
                 fullWidth
               />
             </Grid>
+            {form.targetType === "radius" ? (
+              <>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    size="small"
+                    label="Latitude"
+                    value={form.targetLatitude}
+                    onChange={onUpdateForm("targetLatitude")}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    size="small"
+                    label="Longitude"
+                    value={form.targetLongitude}
+                    onChange={onUpdateForm("targetLongitude")}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    size="small"
+                    label="Radius meters"
+                    value={form.targetRadiusMeters}
+                    onChange={onUpdateForm("targetRadiusMeters")}
+                    fullWidth
+                  />
+                </Grid>
+              </>
+            ) : null}
+            {form.targetType === "custom" ? (
+              <Grid size={12}>
+                <TextField
+                  size="small"
+                  label="Custom polygon JSON"
+                  value={form.targetGeometry}
+                  onChange={onUpdateForm("targetGeometry")}
+                  multiline
+                  minRows={3}
+                  fullWidth
+                />
+              </Grid>
+            ) : null}
             <Grid size={6}>
               <TextField
                 size="small"
@@ -1845,6 +2117,8 @@ function AlertWorkflowPanel({
               />
             </Grid>
           </Grid>
+
+          <AlertTargetPreview target={buildAlertTarget(form)} />
 
           <TextField
             size="small"
@@ -3033,12 +3307,280 @@ function canAssignIncident(status: IncidentStatus) {
   );
 }
 
+function buildAlertTarget(form: AlertFormState): AlertTarget {
+  const type = form.targetType;
+  const ids =
+    type === "national" ? ["ghana"] : commaValues(form.targetIds || type);
+  const target: AlertTarget = {
+    type,
+    ids,
+    label: form.targetLabel.trim() || alertTargetTypeLabel(type),
+  };
+
+  if (type === "national") {
+    return {
+      ...target,
+      center: { lat: 7.9465, lng: -1.0232 },
+      radiusMeters: 365000,
+      geometry: geometryFromBounds(4.54, -3.26, 11.18, 1.2),
+      areaSqKm: 238533,
+      estimatedPopulation: 33480000,
+    };
+  }
+
+  if (type === "region" || type === "district" || type === "community") {
+    const catalogItems = ids
+      .map((id) => alertTargetCatalog[`${type}:${id}`])
+      .filter(Boolean);
+    if (catalogItems.length) {
+      return enrichCatalogTarget(target, catalogItems);
+    }
+  }
+
+  if (type === "radius") {
+    const center = {
+      lat: Number(form.targetLatitude) || 5.56,
+      lng: Number(form.targetLongitude) || -0.2,
+    };
+    const radiusMeters = Number(form.targetRadiusMeters) || 5000;
+    const areaSqKm = roundArea(Math.PI * (radiusMeters / 1000) ** 2);
+    return {
+      ...target,
+      center,
+      radiusMeters,
+      areaSqKm,
+      estimatedPopulation: Math.round(areaSqKm * 4500),
+    };
+  }
+
+  if (type === "custom") {
+    const geometry = parseTargetGeometry(form.targetGeometry);
+    const center = geometry ? polygonCenter(geometry) : undefined;
+    const areaSqKm = geometry ? polygonAreaSqKm(geometry) : 0;
+    return {
+      ...target,
+      geometry,
+      center,
+      areaSqKm,
+      estimatedPopulation: Math.round(areaSqKm * 5000),
+    };
+  }
+
+  return target;
+}
+
+function enrichCatalogTarget(
+  target: AlertTarget,
+  items: AlertTargetCatalogItem[],
+): AlertTarget {
+  const center = {
+    lat: roundCoordinate(
+      items.reduce((sum, item) => sum + item.center.lat, 0) / items.length,
+    ),
+    lng: roundCoordinate(
+      items.reduce((sum, item) => sum + item.center.lng, 0) / items.length,
+    ),
+  };
+  const areaSqKm = roundArea(
+    items.reduce((sum, item) => sum + item.areaSqKm, 0),
+  );
+  return {
+    ...target,
+    label:
+      target.label === alertTargetTypeLabel(target.type)
+        ? items.map((item) => item.label).join(", ")
+        : target.label,
+    center,
+    radiusMeters: Math.max(...items.map((item) => item.radiusMeters)),
+    geometry: geometryFromCatalogItems(items),
+    areaSqKm,
+    estimatedPopulation: items.reduce(
+      (sum, item) => sum + item.estimatedPopulation,
+      0,
+    ),
+  };
+}
+
+function geometryFromCatalogItems(
+  items: AlertTargetCatalogItem[],
+): AlertTargetGeometry {
+  let minLat = 90;
+  let minLng = 180;
+  let maxLat = -90;
+  let maxLng = -180;
+  for (const item of items) {
+    const { latDelta, lngDelta } = degreeDeltas(item.center, item.radiusMeters);
+    minLat = Math.min(minLat, item.center.lat - latDelta);
+    maxLat = Math.max(maxLat, item.center.lat + latDelta);
+    minLng = Math.min(minLng, item.center.lng - lngDelta);
+    maxLng = Math.max(maxLng, item.center.lng + lngDelta);
+  }
+  return geometryFromBounds(minLat, minLng, maxLat, maxLng);
+}
+
+function geometryFromBounds(
+  minLat: number,
+  minLng: number,
+  maxLat: number,
+  maxLng: number,
+): AlertTargetGeometry {
+  return {
+    type: "Polygon",
+    coordinates: [
+      [
+        [roundCoordinate(minLng), roundCoordinate(minLat)],
+        [roundCoordinate(maxLng), roundCoordinate(minLat)],
+        [roundCoordinate(maxLng), roundCoordinate(maxLat)],
+        [roundCoordinate(minLng), roundCoordinate(maxLat)],
+        [roundCoordinate(minLng), roundCoordinate(minLat)],
+      ],
+    ],
+  };
+}
+
+function customGeometryAround(center: Coordinates): AlertTargetGeometry {
+  return geometryFromBounds(
+    center.lat - 0.02,
+    center.lng - 0.025,
+    center.lat + 0.02,
+    center.lng + 0.025,
+  );
+}
+
+function parseTargetGeometry(value: string): AlertTargetGeometry | undefined {
+  try {
+    const parsed = JSON.parse(value) as AlertTargetGeometry;
+    if (parsed?.type !== "Polygon" || !Array.isArray(parsed.coordinates)) {
+      return undefined;
+    }
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+function polygonCenter(geometry: AlertTargetGeometry): Coordinates | undefined {
+  const ring = geometry.coordinates[0];
+  if (!ring?.length) {
+    return undefined;
+  }
+  const points = ring.slice(0, -1);
+  if (!points.length) {
+    return undefined;
+  }
+  return {
+    lat: roundCoordinate(
+      points.reduce((sum, point) => sum + point[1], 0) / points.length,
+    ),
+    lng: roundCoordinate(
+      points.reduce((sum, point) => sum + point[0], 0) / points.length,
+    ),
+  };
+}
+
+function polygonAreaSqKm(geometry: AlertTargetGeometry): number {
+  const center = polygonCenter(geometry);
+  const ring = geometry.coordinates[0];
+  if (!center || !ring || ring.length < 4) {
+    return 0;
+  }
+  let sum = 0;
+  for (let index = 0; index < ring.length - 1; index += 1) {
+    const [x1, y1] = lonLatToMeters(ring[index][0], ring[index][1], center.lat);
+    const [x2, y2] = lonLatToMeters(
+      ring[index + 1][0],
+      ring[index + 1][1],
+      center.lat,
+    );
+    sum += x1 * y2 - x2 * y1;
+  }
+  return roundArea(Math.abs(sum) / 2 / 1_000_000);
+}
+
+function lonLatToMeters(lng: number, lat: number, referenceLat: number) {
+  return [
+    lng * 111_320 * Math.cos((referenceLat * Math.PI) / 180),
+    lat * 110_540,
+  ] as const;
+}
+
+function degreeDeltas(center: Coordinates, radiusMeters: number) {
+  const latDelta = radiusMeters / 111_320;
+  const lngDelta =
+    radiusMeters / (111_320 * Math.cos((center.lat * Math.PI) / 180));
+  return {
+    latDelta,
+    lngDelta: Number.isFinite(lngDelta) ? lngDelta : latDelta,
+  };
+}
+
+function alertTargetSummary(target: AlertTarget) {
+  if (target.type === "radius") {
+    return `${metersLabel(target.radiusMeters ?? 0)} radius around ${target.label}`;
+  }
+  if (target.type === "custom") {
+    return `${target.label} custom polygon`;
+  }
+  return `${target.label} ${alertTargetTypeLabel(target.type).toLowerCase()} target`;
+}
+
+function alertTargetWarnings(target: AlertTarget) {
+  const warnings: string[] = [];
+  if (target.type === "national") {
+    warnings.push(
+      "National alerts should be reserved for broad life-safety threats.",
+    );
+  }
+  if ((target.areaSqKm ?? 0) > 1000) {
+    warnings.push(
+      "Large target area may increase alert fatigue; confirm scope before approval.",
+    );
+  }
+  if (target.type === "custom") {
+    warnings.push(
+      "Custom geometry should be checked against official boundaries before publishing.",
+    );
+  }
+  return warnings;
+}
+
+function alertTargetTypeLabel(type: AlertTargetType) {
+  return type
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function metersLabel(value: number) {
+  if (value >= 1000) {
+    return `${Math.round(value / 100) / 10} km`;
+  }
+  return `${Math.round(value)} m`;
+}
+
+function commaValues(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function roundCoordinate(value: number) {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function roundArea(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
 function buildDefaultAlertForm(incident?: CommandIncident): AlertFormState {
   const startsAt = new Date(Date.now() + 30 * 60 * 1000);
   const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
   const hazard = incident ? hazardLabel(incident.type).toLowerCase() : "flood";
   const district = incident?.district ?? "Accra Metropolitan";
+  const districtId = districtSlug(district);
   const severity = riskToAlertSeverity(incident?.severity ?? "high");
+  const center = incident?.location ?? { lat: 5.56, lng: -0.2 };
 
   return {
     title: `${alertSeverityLabel(severity)} ${hazard} alert`,
@@ -3046,7 +3588,13 @@ function buildDefaultAlertForm(incident?: CommandIncident): AlertFormState {
     message: incident
       ? `${incident.description} Avoid the affected area and follow official NADMO instructions.`
       : "Avoid low-lying roads and follow official NADMO instructions.",
+    targetType: "district",
+    targetIds: districtId,
     targetLabel: district,
+    targetLatitude: `${center.lat}`,
+    targetLongitude: `${center.lng}`,
+    targetRadiusMeters: "5000",
+    targetGeometry: JSON.stringify(customGeometryAround(center), null, 2),
     startsAt: formatDateTimeLocal(startsAt),
     expiresAt: formatDateTimeLocal(expiresAt),
     recommendedAction:

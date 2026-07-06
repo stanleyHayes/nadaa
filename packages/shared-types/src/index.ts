@@ -213,6 +213,22 @@ export interface AlertTarget {
   type: AlertTargetType;
   ids: string[];
   label: string;
+  center?: Coordinates;
+  radiusMeters?: number;
+  geometry?: AlertTargetGeometry;
+  areaSqKm?: number;
+  estimatedPopulation?: number;
+}
+
+export interface AlertTargetGeometry {
+  type: "Polygon";
+  coordinates: number[][][];
+}
+
+export interface AlertTargetPreviewResponse {
+  target: AlertTarget;
+  summary: string;
+  warnings: string[];
 }
 
 export interface CreateAlertRequest {

@@ -586,7 +586,8 @@ Requires authority headers:
   "message": "Avoid low-lying roads and move to higher ground.",
   "target": {
     "type": "district",
-    "ids": ["ama", "tema"]
+    "ids": ["accra-metropolitan"],
+    "label": "Accra Metropolitan"
   },
   "startsAt": "2026-07-06T16:00:00Z",
   "expiresAt": "2026-07-07T18:00:00Z",
@@ -607,8 +608,24 @@ Response:
   "message": "Avoid low-lying roads and move to higher ground.",
   "target": {
     "type": "district",
-    "ids": ["ama", "tema"],
-    "label": "Accra Metropolitan and Tema"
+    "ids": ["accra-metropolitan"],
+    "label": "Accra Metropolitan",
+    "center": { "lat": 5.56, "lng": -0.2 },
+    "radiusMeters": 9000,
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [-0.281, 5.479],
+          [-0.119, 5.479],
+          [-0.119, 5.641],
+          [-0.281, 5.641],
+          [-0.281, 5.479]
+        ]
+      ]
+    },
+    "areaSqKm": 61,
+    "estimatedPopulation": 284000
   },
   "startsAt": "2026-07-06T16:00:00Z",
   "expiresAt": "2026-07-07T18:00:00Z",
@@ -623,6 +640,16 @@ Response:
   "updatedAt": "2026-07-06T12:00:00Z"
 }
 ```
+
+Targets support `national`, `region`, `district`, `radius`, `community`, and `custom`. `region`, `district`, and `community` targets currently resolve against the starter catalog. `radius` targets require `center` and `radiusMeters`. `custom` targets require a closed GeoJSON-style polygon geometry.
+
+`POST /api/v1/alerts/targets/preview`
+
+Returns the normalized target with geometry, approximate area, estimated population, summary text, and warnings before the alert is created.
+
+`GET /api/v1/alerts?current=true&targetType=district&targetId=accra-metropolitan`
+
+Lists current alerts queryable by target type and target id.
 
 `PATCH /api/v1/alerts/{id}`
 

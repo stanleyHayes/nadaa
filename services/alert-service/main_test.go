@@ -182,6 +182,107 @@ func TestPublicListOnlyReturnsApprovedCurrentAlerts(t *testing.T) {
 	}
 }
 
+func TestPreviewDistrictTargetReturnsGeometry(t *testing.T) {
+	srv := &server{store: newMemoryStore()}
+
+	response := httptest.NewRecorder()
+	request := authorizedRequest(http.MethodPost, "/api/v1/alerts/targets/preview", `{
+		"type": "district",
+		"ids": ["accra-metropolitan"],
+		"label": "Accra Metropolitan"
+	}`)
+	srv.previewTargetHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected preview status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload targetPreviewResponse
+	decodeResponse(t, response, &payload)
+	if payload.Target.Geometry == nil || payload.Target.Center == nil || payload.Target.AreaSqKm <= 0 {
+		t.Fatalf("expected district target geometry and area, got %#v", payload.Target)
+	}
+	if payload.Target.EstimatedPopulation == 0 || payload.Summary == "" {
+		t.Fatalf("expected population and summary, got %#v", payload)
+	}
+}
+
+func TestRadiusTargetIsStoredAndQueryable(t *testing.T) {
+	srv := &server{store: newMemoryStore()}
+	target := `{
+		"type": "radius",
+		"ids": ["accra-central-radius"],
+		"label": "Accra Central 5km",
+		"center": { "lat": 5.556, "lng": -0.202 },
+		"radiusMeters": 5000
+	}`
+	draft := createAlertWithBody(t, srv, alertBodyWithTarget(target))
+
+	if draft.Target.Center == nil || draft.Target.RadiusMeters != 5000 || draft.Target.AreaSqKm <= 0 {
+		t.Fatalf("expected radius target metadata, got %#v", draft.Target)
+	}
+
+	overrideResponse := httptest.NewRecorder()
+	overrideRequest := approverRequest(http.MethodPost, "/api/v1/alerts/"+draft.ID+"/emergency-override", `{"reason":"Immediate life-safety warning"}`)
+	srv.emergencyOverrideHandler(overrideResponse, overrideRequest)
+	if overrideResponse.Code != http.StatusOK {
+		t.Fatalf("override failed: %s", overrideResponse.Body.String())
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/alerts?current=true&targetType=radius&targetId=accra-central-radius", nil)
+	srv.listAlertsHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected list status %d, got %d", http.StatusOK, response.Code)
+	}
+
+	var payload alertListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Alerts) != 1 || payload.Alerts[0].ID != draft.ID {
+		t.Fatalf("expected radius alert from target query, got %#v", payload.Alerts)
+	}
+}
+
+func TestCustomTargetRejectsInvalidPolygon(t *testing.T) {
+	srv := &server{store: newMemoryStore()}
+	target := `{
+		"type": "custom",
+		"ids": ["bad-polygon"],
+		"label": "Bad Polygon",
+		"geometry": {
+			"type": "Polygon",
+			"coordinates": [[[-0.22,5.55],[-0.18,5.55],[-0.18,5.59]]]
+		}
+	}`
+
+	response := httptest.NewRecorder()
+	request := authorizedRequest(http.MethodPost, "/api/v1/alerts", alertBodyWithTarget(target))
+	srv.createAlertHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid custom polygon status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
+
+func TestCustomTargetStoresPolygonGeometry(t *testing.T) {
+	srv := &server{store: newMemoryStore()}
+	target := `{
+		"type": "custom",
+		"ids": ["kaneshie-flood-box"],
+		"label": "Kaneshie Flood Box",
+		"geometry": {
+			"type": "Polygon",
+			"coordinates": [[[-0.24,5.55],[-0.19,5.55],[-0.19,5.59],[-0.24,5.59],[-0.24,5.55]]]
+		}
+	}`
+
+	draft := createAlertWithBody(t, srv, alertBodyWithTarget(target))
+	if draft.Target.Geometry == nil || draft.Target.AreaSqKm <= 0 || draft.Target.Center == nil {
+		t.Fatalf("expected custom target geometry metadata, got %#v", draft.Target)
+	}
+}
+
 func createAndSubmitAlert(t *testing.T, srv *server) authorityAlert {
 	t.Helper()
 	draft := createAlert(t, srv)
@@ -200,8 +301,13 @@ func createAndSubmitAlert(t *testing.T, srv *server) authorityAlert {
 
 func createAlert(t *testing.T, srv *server) authorityAlert {
 	t.Helper()
+	return createAlertWithBody(t, srv, validAlertBody())
+}
+
+func createAlertWithBody(t *testing.T, srv *server, body string) authorityAlert {
+	t.Helper()
 	response := httptest.NewRecorder()
-	request := authorizedRequest(http.MethodPost, "/api/v1/alerts", validAlertBody())
+	request := authorizedRequest(http.MethodPost, "/api/v1/alerts", body)
 	srv.createAlertHandler(response, request)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("create alert: %s", response.Body.String())
@@ -210,6 +316,23 @@ func createAlert(t *testing.T, srv *server) authorityAlert {
 	var alert authorityAlert
 	decodeResponse(t, response, &alert)
 	return alert
+}
+
+func alertBodyWithTarget(target string) string {
+	startsAt := time.Now().UTC().Add(-5 * time.Minute).Format(time.RFC3339)
+	expiresAt := time.Now().UTC().Add(8 * time.Hour).Format(time.RFC3339)
+	return `{
+		"title": "Severe flood warning",
+		"hazardType": "flood",
+		"severity": "severe_warning",
+		"message": "Avoid low-lying roads and move to higher ground immediately.",
+		"target": ` + target + `,
+		"startsAt": "` + startsAt + `",
+		"expiresAt": "` + expiresAt + `",
+		"recommendedAction": "Prepare to evacuate if instructed by NADMO.",
+		"evacuationRequired": false,
+		"shelterIds": ["00000000-0000-0000-0000-000000000301"]
+	}`
 }
 
 func validAlertBody() string {
