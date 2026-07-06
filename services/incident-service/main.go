@@ -27,6 +27,7 @@ type memoryStore struct {
 	mu        sync.RWMutex
 	sequence  int
 	incidents map[string]incidentRecord
+	media     map[string]mediaRecord
 }
 
 type rateLimiter struct {
@@ -95,6 +96,44 @@ type incidentListResponse struct {
 	Incidents []incidentRecord `json:"incidents"`
 }
 
+type initiateMediaUploadRequest struct {
+	Purpose     string `json:"purpose"`
+	FileName    string `json:"fileName"`
+	ContentType string `json:"contentType"`
+	SizeBytes   int64  `json:"sizeBytes"`
+	UploadedBy  string `json:"uploadedBy,omitempty"`
+}
+
+type mediaUploadResponse struct {
+	MediaID      string            `json:"mediaId"`
+	UploadURL    string            `json:"uploadUrl"`
+	Method       string            `json:"method"`
+	Headers      map[string]string `json:"headers"`
+	ExpiresAt    time.Time         `json:"expiresAt"`
+	MaxSizeBytes int64             `json:"maxSizeBytes"`
+	Access       string            `json:"access"`
+}
+
+type mediaRecord struct {
+	ID          string     `json:"id"`
+	Purpose     string     `json:"purpose"`
+	FileName    string     `json:"fileName"`
+	ContentType string     `json:"contentType"`
+	SizeBytes   int64      `json:"sizeBytes"`
+	UploadedBy  string     `json:"uploadedBy,omitempty"`
+	IncidentID  string     `json:"incidentId,omitempty"`
+	Access      string     `json:"access"`
+	Status      string     `json:"status"`
+	UploadURL   string     `json:"uploadUrl"`
+	ExpiresAt   time.Time  `json:"expiresAt"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	LinkedAt    *time.Time `json:"linkedAt,omitempty"`
+}
+
+type mediaListResponse struct {
+	Media []mediaRecord `json:"media"`
+}
+
 type apiError struct {
 	Error apiErrorBody `json:"error"`
 }
@@ -127,7 +166,17 @@ var (
 		"high":             true,
 		"life_threatening": true,
 	}
-	mediaRefPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{3,128}$`)
+	mediaRefPattern   = regexp.MustCompile(`^[A-Za-z0-9_-]{3,128}$`)
+	allowedMediaTypes = map[string]int64{
+		"image/jpeg":      10 * 1024 * 1024,
+		"image/png":       10 * 1024 * 1024,
+		"image/webp":      10 * 1024 * 1024,
+		"video/mp4":       100 * 1024 * 1024,
+		"video/quicktime": 100 * 1024 * 1024,
+		"audio/mpeg":      25 * 1024 * 1024,
+		"audio/mp4":       25 * 1024 * 1024,
+		"audio/wav":       25 * 1024 * 1024,
+	}
 )
 
 func main() {
@@ -137,6 +186,8 @@ func main() {
 	mux.HandleFunc("GET /healthz", srv.healthHandler)
 	mux.HandleFunc("POST /api/v1/incidents", srv.createIncidentHandler)
 	mux.HandleFunc("GET /api/v1/incidents", srv.listIncidentsHandler)
+	mux.HandleFunc("POST /api/v1/media/uploads", srv.initiateMediaUploadHandler)
+	mux.HandleFunc("GET /api/v1/media", srv.listMediaHandler)
 
 	addr := envOrDefault("NADAA_INCIDENT_ADDR", ":8084")
 	log.Printf("incident-service listening on %s", addr)
@@ -157,7 +208,10 @@ func newServerFromEnv() *server {
 }
 
 func newMemoryStore() *memoryStore {
-	return &memoryStore{incidents: map[string]incidentRecord{}}
+	return &memoryStore{
+		incidents: map[string]incidentRecord{},
+		media:     map[string]mediaRecord{},
+	}
 }
 
 func newRateLimiter(limit int, window time.Duration, now func() time.Time) *rateLimiter {
@@ -197,7 +251,19 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := s.store.validateMediaReferences(normalized.Media); errors.Is(err, errUnknownMedia) {
+		writeError(w, http.StatusBadRequest, "unknown_media", "media references must be created through the upload initiation endpoint before reporting")
+		return
+	} else if errors.Is(err, errMediaAlreadyLinked) {
+		writeError(w, http.StatusBadRequest, "media_already_linked", "one or more media references are already linked to another incident")
+		return
+	} else if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_media", err.Error())
+		return
+	}
+
 	record := s.store.createIncident(normalized, s.now())
+	s.store.linkMediaToIncident(record.ID, record.Media, s.now())
 	writeJSON(w, http.StatusCreated, createIncidentResponse{
 		ID:                  record.ID,
 		Reference:           record.Reference,
@@ -210,6 +276,37 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) listIncidentsHandler(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, incidentListResponse{Incidents: s.store.listIncidents()})
+}
+
+func (s *server) initiateMediaUploadHandler(w http.ResponseWriter, r *http.Request) {
+	var request initiateMediaUploadRequest
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
+		return
+	}
+
+	normalized, code, message := normalizeMediaUploadRequest(request)
+	if code != "" {
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	record := s.store.createMediaUpload(normalized, s.now())
+	writeJSON(w, http.StatusCreated, mediaUploadResponse{
+		MediaID:   record.ID,
+		UploadURL: record.UploadURL,
+		Method:    "PUT",
+		Headers: map[string]string{
+			"Content-Type": record.ContentType,
+		},
+		ExpiresAt:    record.ExpiresAt,
+		MaxSizeBytes: allowedMediaTypes[record.ContentType],
+		Access:       record.Access,
+	})
+}
+
+func (s *server) listMediaHandler(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, mediaListResponse{Media: s.store.listMedia()})
 }
 
 func (m *memoryStore) createIncident(request createIncidentRequest, now time.Time) incidentRecord {
@@ -255,6 +352,85 @@ func (m *memoryStore) listIncidents() []incidentRecord {
 		return incidents[i].CreatedAt.After(incidents[j].CreatedAt)
 	})
 	return incidents
+}
+
+func (m *memoryStore) createMediaUpload(request initiateMediaUploadRequest, now time.Time) mediaRecord {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	timestamp := now.UTC()
+	id := newID("media")
+	record := mediaRecord{
+		ID:          id,
+		Purpose:     request.Purpose,
+		FileName:    request.FileName,
+		ContentType: request.ContentType,
+		SizeBytes:   request.SizeBytes,
+		UploadedBy:  request.UploadedBy,
+		Access:      "private",
+		Status:      "pending_upload",
+		UploadURL:   fmt.Sprintf("/dev/uploads/%s/%s", id, request.FileName),
+		ExpiresAt:   timestamp.Add(15 * time.Minute),
+		CreatedAt:   timestamp,
+	}
+	m.media[record.ID] = record
+	return record
+}
+
+var (
+	errUnknownMedia       = errors.New("unknown media")
+	errMediaAlreadyLinked = errors.New("media already linked")
+	errDuplicateMediaRef  = errors.New("duplicate media reference")
+)
+
+func (m *memoryStore) validateMediaReferences(mediaIDs []string) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	seen := map[string]bool{}
+	for _, mediaID := range mediaIDs {
+		if seen[mediaID] {
+			return errDuplicateMediaRef
+		}
+		seen[mediaID] = true
+
+		record, ok := m.media[mediaID]
+		if !ok {
+			return errUnknownMedia
+		}
+		if record.IncidentID != "" || record.Status == "linked" {
+			return errMediaAlreadyLinked
+		}
+	}
+	return nil
+}
+
+func (m *memoryStore) linkMediaToIncident(incidentID string, mediaIDs []string, now time.Time) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	linkedAt := now.UTC()
+	for _, mediaID := range mediaIDs {
+		record := m.media[mediaID]
+		record.IncidentID = incidentID
+		record.Status = "linked"
+		record.LinkedAt = &linkedAt
+		m.media[mediaID] = record
+	}
+}
+
+func (m *memoryStore) listMedia() []mediaRecord {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	media := make([]mediaRecord, 0, len(m.media))
+	for _, record := range m.media {
+		media = append(media, record)
+	}
+	sort.Slice(media, func(i, j int) bool {
+		return media[i].CreatedAt.After(media[j].CreatedAt)
+	})
+	return media
 }
 
 func (r *rateLimiter) Allow(key string) bool {
@@ -350,6 +526,39 @@ func normalizeIncidentRequest(request createIncidentRequest) (createIncidentRequ
 	}
 
 	return request, nil
+}
+
+func normalizeMediaUploadRequest(request initiateMediaUploadRequest) (initiateMediaUploadRequest, string, string) {
+	request.Purpose = strings.TrimSpace(strings.ToLower(request.Purpose))
+	request.FileName = strings.TrimSpace(request.FileName)
+	request.ContentType = strings.TrimSpace(strings.ToLower(request.ContentType))
+	request.UploadedBy = strings.TrimSpace(request.UploadedBy)
+
+	if request.Purpose == "" {
+		request.Purpose = "incident_media"
+	}
+	if request.Purpose != "incident_media" {
+		return request, "invalid_purpose", "purpose must be incident_media"
+	}
+
+	if !validFileName(request.FileName) {
+		return request, "invalid_file_name", "fileName must be 1 to 180 safe characters without path separators"
+	}
+
+	maxSize, ok := allowedMediaTypes[request.ContentType]
+	if !ok {
+		return request, "unsupported_media_type", "contentType must be a supported image, video, or audio type"
+	}
+
+	if request.SizeBytes <= 0 || request.SizeBytes > maxSize {
+		return request, "invalid_file_size", fmt.Sprintf("sizeBytes must be between 1 and %d for %s", maxSize, request.ContentType)
+	}
+
+	if request.UploadedBy != "" && !mediaRefPattern.MatchString(request.UploadedBy) {
+		return request, "invalid_uploaded_by", "uploadedBy must be a safe user reference when supplied"
+	}
+
+	return request, "", ""
 }
 
 func validationCode(request createIncidentRequest) string {
@@ -465,6 +674,16 @@ func withCORS(next http.Handler) http.Handler {
 
 func validCoordinates(location coordinates) bool {
 	return location.Lat >= -90 && location.Lat <= 90 && location.Lng >= -180 && location.Lng <= 180
+}
+
+func validFileName(fileName string) bool {
+	if fileName == "" || len(fileName) > 180 || unsafeText(fileName) {
+		return false
+	}
+	if strings.Contains(fileName, "/") || strings.Contains(fileName, "\\") || strings.Contains(fileName, "..") {
+		return false
+	}
+	return true
 }
 
 func unsafeText(value string) bool {

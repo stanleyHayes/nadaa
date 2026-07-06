@@ -220,11 +220,40 @@ Starter list endpoint for development and dashboard wiring. Authority filtering 
   "purpose": "incident_media",
   "fileName": "flooded-road.jpg",
   "contentType": "image/jpeg",
-  "sizeBytes": 820000
+  "sizeBytes": 820000,
+  "uploadedBy": "usr_..."
 }
 ```
 
 Returns a signed upload URL or controlled upload target.
+
+```json
+{
+  "mediaId": "media_...",
+  "uploadUrl": "/dev/uploads/media_.../flooded-road.jpg",
+  "method": "PUT",
+  "headers": {
+    "Content-Type": "image/jpeg"
+  },
+  "expiresAt": "2026-07-06T12:15:00Z",
+  "maxSizeBytes": 10485760,
+  "access": "private"
+}
+```
+
+Starter service rules:
+
+- Supported types: `image/jpeg`, `image/png`, `image/webp`, `video/mp4`, `video/quicktime`, `audio/mpeg`, `audio/mp4`, and `audio/wav`.
+- Images are limited to 10 MB.
+- Audio is limited to 25 MB.
+- Video is limited to 100 MB.
+- Media is private by default.
+- Incident reports must reference media IDs created through this endpoint.
+- When an incident is created, known media IDs are marked as linked to that incident.
+
+`GET /api/v1/media`
+
+Starter development endpoint for inspecting private media metadata and incident linkage. Authority RBAC lands in later stories.
 
 ### Incident Command
 

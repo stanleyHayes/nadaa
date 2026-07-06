@@ -2,11 +2,23 @@
 
 The incident service owns citizen disaster reports, media references, verification workflow, duplicate candidates, and incident timelines.
 
-Current NADAA-030 endpoints:
+Current NADAA-030/NADAA-031 endpoints:
 
 - `GET /healthz`
 - `POST /api/v1/incidents`
 - `GET /api/v1/incidents`
+- `POST /api/v1/media/uploads`
+- `GET /api/v1/media`
+
+## Media Upload Flow
+
+`POST /api/v1/media/uploads` creates private media metadata and returns a controlled development upload target. Incident reports can reference returned media IDs. Known media IDs are marked `linked` when the incident is created.
+
+Supported content types and limits:
+
+- Images: `image/jpeg`, `image/png`, `image/webp`, up to 10 MB.
+- Video: `video/mp4`, `video/quicktime`, up to 100 MB.
+- Audio: `audio/mpeg`, `audio/mp4`, `audio/wav`, up to 25 MB.
 
 ## Run
 
@@ -34,4 +46,3 @@ go test ./...
 ## Notes
 
 The current implementation uses an in-memory store to lock in the public API contract and validation behavior. PostGIS persistence, media upload storage, duplicate detection, and verification workflow are planned in later stories.
-

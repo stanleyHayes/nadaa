@@ -185,5 +185,33 @@
       "Live incident HTTP smoke on localhost:8084"
     ],
     "notes": "Incident-service report intake API, validation, anonymous/contact-permission behavior, media references, priority review flag, rate limiting, shared types, docs, and tests added."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 2",
+    "epic": "EPIC 3: Citizen Incident Reporting",
+    "story": "Implement Media Upload Flow",
+    "jiraKey": "NADAA-031",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 1.5,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-030"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:docs",
+      "pnpm typecheck",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm smoke:web",
+      "Live media upload and linked incident HTTP smoke on localhost:8084"
+    ],
+    "notes": "Controlled media upload initiation, private metadata, content-type and size validation, incident media linkage, shared types, docs, and tests added."
   }
 ]

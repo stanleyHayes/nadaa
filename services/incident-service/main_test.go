@@ -29,15 +29,29 @@ func validIncidentRequest() createIncidentRequest {
 		Anonymous:          false,
 		ContactPermission:  true,
 		AccessibilityNeeds: "Elderly person needs evacuation support",
-		Media:              []string{"media_001"},
+		Media:              nil,
 		Reporter:           &reporterRef{UserID: "usr_001", Phone: "+233200000000"},
+	}
+}
+
+func validMediaUploadRequest() initiateMediaUploadRequest {
+	return initiateMediaUploadRequest{
+		Purpose:     "incident_media",
+		FileName:    "flooded-road.jpg",
+		ContentType: "image/jpeg",
+		SizeBytes:   820000,
+		UploadedBy:  "usr_001",
 	}
 }
 
 func TestCreateIncident(t *testing.T) {
 	srv := newTestServer()
+	mediaID := initiateMediaUpload(t, srv)
+	body := validIncidentRequest()
+	body.Media = []string{mediaID}
+
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(validIncidentRequest()))
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body))
 
 	srv.createIncidentHandler(response, request)
 
@@ -53,6 +67,58 @@ func TestCreateIncident(t *testing.T) {
 	}
 	if payload.Status != "reported" || payload.Severity != "high" {
 		t.Fatalf("expected reported high incident, got %#v", payload)
+	}
+
+	media := srv.store.listMedia()
+	if len(media) != 1 || media[0].Status != "linked" || media[0].IncidentID != payload.ID {
+		t.Fatalf("expected media to be linked to incident, got %#v", media)
+	}
+}
+
+func TestInitiateMediaUpload(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/media/uploads", jsonBody(validMediaUploadRequest()))
+
+	srv.initiateMediaUploadHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+
+	var payload mediaUploadResponse
+	decodeResponse(t, response, &payload)
+	if payload.MediaID == "" || payload.Method != "PUT" || payload.Access != "private" {
+		t.Fatalf("expected private media upload response, got %#v", payload)
+	}
+	if payload.MaxSizeBytes != allowedMediaTypes["image/jpeg"] {
+		t.Fatalf("expected max size for image/jpeg, got %d", payload.MaxSizeBytes)
+	}
+}
+
+func TestInitiateMediaUploadRejectsUnsupportedType(t *testing.T) {
+	srv := newTestServer()
+	body := validMediaUploadRequest()
+	body.ContentType = "application/pdf"
+
+	response := httptest.NewRecorder()
+	srv.initiateMediaUploadHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/media/uploads", jsonBody(body)))
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
+
+func TestInitiateMediaUploadRejectsOversizedFile(t *testing.T) {
+	srv := newTestServer()
+	body := validMediaUploadRequest()
+	body.SizeBytes = allowedMediaTypes["image/jpeg"] + 1
+
+	response := httptest.NewRecorder()
+	srv.initiateMediaUploadHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/media/uploads", jsonBody(body)))
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
 	}
 }
 
@@ -101,6 +167,39 @@ func TestCreateIncidentRejectsUnsupportedHazard(t *testing.T) {
 
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
+
+func TestCreateIncidentRejectsUnknownMedia(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.Media = []string{"media_missing"}
+
+	response := httptest.NewRecorder()
+	srv.createIncidentHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
+
+func TestCreateIncidentRejectsAlreadyLinkedMedia(t *testing.T) {
+	srv := newTestServer()
+	mediaID := initiateMediaUpload(t, srv)
+	body := validIncidentRequest()
+	body.Media = []string{mediaID}
+
+	first := httptest.NewRecorder()
+	srv.createIncidentHandler(first, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+	if first.Code != http.StatusCreated {
+		t.Fatalf("expected first incident status %d, got %d", http.StatusCreated, first.Code)
+	}
+
+	second := httptest.NewRecorder()
+	srv.createIncidentHandler(second, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+
+	if second.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, second.Code)
 	}
 }
 
@@ -179,4 +278,18 @@ func decodeResponse(t *testing.T, response *httptest.ResponseRecorder, target an
 	if err := json.NewDecoder(response.Body).Decode(target); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
+}
+
+func initiateMediaUpload(t *testing.T, srv *server) string {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	srv.initiateMediaUploadHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/media/uploads", jsonBody(validMediaUploadRequest())))
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected media upload status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+
+	var payload mediaUploadResponse
+	decodeResponse(t, response, &payload)
+	return payload.MediaID
 }

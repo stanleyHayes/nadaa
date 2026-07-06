@@ -139,6 +139,56 @@ export interface IncidentListResponse {
   incidents: IncidentRecord[];
 }
 
+export type IncidentMediaPurpose = "incident_media";
+
+export type IncidentMediaContentType =
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "video/mp4"
+  | "video/quicktime"
+  | "audio/mpeg"
+  | "audio/mp4"
+  | "audio/wav";
+
+export interface InitiateMediaUploadRequest {
+  purpose: IncidentMediaPurpose;
+  fileName: string;
+  contentType: IncidentMediaContentType;
+  sizeBytes: number;
+  uploadedBy?: string;
+}
+
+export interface MediaUploadResponse {
+  mediaId: string;
+  uploadUrl: string;
+  method: "PUT";
+  headers: Record<string, string>;
+  expiresAt: string;
+  maxSizeBytes: number;
+  access: "private";
+}
+
+export interface IncidentMediaRecord {
+  id: string;
+  purpose: IncidentMediaPurpose;
+  fileName: string;
+  contentType: IncidentMediaContentType;
+  sizeBytes: number;
+  uploadedBy?: string;
+  incidentId?: string;
+  access: "private";
+  status: "pending_upload" | "linked";
+  uploadUrl: string;
+  expiresAt: string;
+  createdAt: string;
+  linkedAt?: string;
+}
+
+export interface MediaListResponse {
+  media: IncidentMediaRecord[];
+}
+
 export interface RiskSummary {
   type: HazardType;
   level: RiskLevel;
