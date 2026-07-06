@@ -483,5 +483,37 @@
       "Disposable PostGIS migration and seed apply"
     ],
     "notes": "Guide-service API, seed-aligned emergency guide content, shared guide types, Docker/CI wiring, staging smoke wiring, docs, and smoke coverage are complete. Citizen offline UI remains NADAA-061."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 6",
+    "epic": "EPIC 8: Integrations And External Data",
+    "story": "Define Agency Integration Contracts",
+    "jiraKey": "NADAA-080",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 2,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-06",
+    "dependencies": ["NADAA-002"],
+    "blockers": [],
+    "verification": [
+      "pnpm validate:docs",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm smoke:web",
+      "Live pnpm smoke:integration on localhost:8088",
+      "Local pnpm smoke:staging against 127.0.0.1 web apps",
+      "Local Docker build for integration-service"
+    ],
+    "notes": "Integration contract matrix, shared integration types, mock weather/hydrology observations, outbound incident/alert sync acceptance, docs, CI/staging smoke wiring, Dockerfile, and smoke coverage are complete. Weather/hydrology persistence remains NADAA-081."
   }
 ]

@@ -214,6 +214,118 @@ export interface GuideListResponse {
   guides: EmergencyGuideRecord[];
 }
 
+export type IntegrationDirection = "inbound" | "outbound" | "bidirectional";
+
+export type IntegrationDomain =
+  | "weather"
+  | "hydrology"
+  | "incident_sync"
+  | "alert_sync"
+  | "road_closure"
+  | "hospital_capacity"
+  | "utility_outage"
+  | "shelter_status";
+
+export interface IntegrationAuthentication {
+  mode: "none" | "api_key" | "oauth2" | "mtls" | "signed_webhook" | "sftp";
+  requiredHeaders?: string[];
+  secretScope?: string;
+}
+
+export interface IntegrationPayloadContract {
+  name: string;
+  contentType: "application/json";
+  requiredFields: string[];
+  optionalFields?: string[];
+  pii: "none" | "minimal_operational" | "aggregate_only";
+  geometry?: string;
+  exampleRef: string;
+}
+
+export interface IntegrationFailureBehavior {
+  retryable: boolean;
+  maxAttempts: number;
+  backoffSeconds: number[];
+  deadLetterQueue: string;
+  manualFallback: string;
+}
+
+export interface IntegrationContract {
+  id: string;
+  partner: string;
+  partnerType: AgencyType;
+  domain: IntegrationDomain;
+  direction: IntegrationDirection;
+  dataOwner: string;
+  cadence: string;
+  authentication: IntegrationAuthentication;
+  payloads: IntegrationPayloadContract[];
+  failureBehavior: IntegrationFailureBehavior;
+  sourceOfTruth: "originating_partner" | "nadaa" | "field_specific";
+  freshnessWindowMinutes: number;
+  contactPoint: string;
+  status: "mock_contract" | "pilot" | "production";
+  notes: string;
+  updatedAt: string;
+}
+
+export interface IntegrationContractListResponse {
+  contracts: IntegrationContract[];
+}
+
+export interface WeatherHydrologyObservation {
+  id: string;
+  source: string;
+  metric: "rainfall_mm" | "water_level_m";
+  value: number;
+  unit: "mm" | "m";
+  stationId: string;
+  location: Coordinates;
+  observedAt: string;
+  validFrom: string;
+  validTo: string;
+  quality: string;
+  generatedBy: "mock_adapter" | "partner_adapter";
+}
+
+export interface IntegrationObservationListResponse {
+  observations: WeatherHydrologyObservation[];
+}
+
+export interface IntegrationSyncRequest {
+  type: "incident" | "alert";
+  sourceId: string;
+  reference: string;
+  hazardType: HazardType;
+  status: string;
+  severity: string;
+  title?: string;
+  summary?: string;
+  message?: string;
+  location?: Coordinates;
+  targetLabel?: string;
+  targetAgencyIds: string[];
+  correlationId: string;
+  occurredAt?: string;
+}
+
+export interface IntegrationSyncEvent {
+  id: string;
+  type: "incident" | "alert";
+  sourceId: string;
+  reference: string;
+  targetAgencyIds: string[];
+  correlationId: string;
+  status: "accepted";
+  adapterId: string;
+  queuedAt: string;
+  retryable: boolean;
+}
+
+export interface IntegrationSyncEventListResponse {
+  events: IntegrationSyncEvent[];
+}
+
 export interface IncidentReporterRef {
   userId: string;
   phone?: string;

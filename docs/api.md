@@ -578,6 +578,83 @@ Authority only.
 }
 ```
 
+### Integrations
+
+`GET /api/v1/integrations/contracts?domain=weather&direction=inbound`
+
+Returns integration contracts for official agencies and fixture/mock adapters.
+
+```json
+{
+  "contracts": [
+    {
+      "id": "gmet-rainfall-nowcast",
+      "partner": "Ghana Meteorological Agency",
+      "partnerType": "meteorological",
+      "domain": "weather",
+      "direction": "inbound",
+      "dataOwner": "GMet",
+      "cadence": "Every 15 minutes during watch/warning periods",
+      "authentication": {
+        "mode": "api_key",
+        "requiredHeaders": ["X-NADAA-Source", "X-NADAA-Signature"],
+        "secretScope": "environment_secret_manager"
+      },
+      "payloads": [
+        {
+          "name": "WeatherObservation",
+          "contentType": "application/json",
+          "requiredFields": [
+            "source",
+            "observedAt",
+            "validFrom",
+            "validTo",
+            "location.lat",
+            "location.lng",
+            "rainfallMm"
+          ],
+          "pii": "none",
+          "geometry": "Point WGS84",
+          "exampleRef": "docs/integrations.md#weather-observation"
+        }
+      ],
+      "freshnessWindowMinutes": 30,
+      "status": "mock_contract"
+    }
+  ]
+}
+```
+
+Rules:
+
+- `domain` may be `weather`, `hydrology`, `incident_sync`, `alert_sync`, `road_closure`, `hospital_capacity`, `utility_outage`, or `shelter_status`.
+- `direction` may be `inbound`, `outbound`, or `bidirectional`.
+- Contracts define data ownership, cadence, expected payloads, authentication, freshness windows, retry/dead-letter behavior, and manual fallback.
+- Mock contracts do not imply official production access or credentials.
+
+`GET /api/v1/integrations/mock/weather-hydrology/observations?metric=rainfall_mm`
+
+Returns fixture weather and hydrology observations for importer development.
+
+`POST /api/v1/integrations/mock/sync-events`
+
+Accepts mock outbound incident or alert sync events and returns `202 Accepted`.
+
+```json
+{
+  "type": "incident",
+  "sourceId": "inc_001",
+  "reference": "INC-000001",
+  "hazardType": "flood",
+  "status": "verified",
+  "severity": "high",
+  "summary": "Flooded road near market",
+  "location": { "lat": 5.6037, "lng": -0.187 },
+  "targetAgencyIds": ["00000000-0000-0000-0000-000000000101"],
+  "correlationId": "corr_001"
+}
+```
+
 ### ML Predictions
 
 `GET /api/v1/ml/predictions/flood?lat=5.6037&lng=-0.1870`

@@ -97,6 +97,15 @@ go run .
 
 The guide service listens on `:8086` by default and exposes `GET /api/v1/guides` for emergency preparedness and response content.
 
+Run the Go integration service:
+
+```bash
+cd services/integration-service
+go run .
+```
+
+The integration service listens on `:8088` by default and exposes integration contracts plus mock weather, hydrology, incident, and alert sync adapters.
+
 ## Project Coordination
 
 Use `agent_plan.md` as the living project board. Before starting work, agents should claim a row in the Active Work Board, update the Master Story Tracker, and record handoff notes when finished or blocked.
@@ -108,6 +117,7 @@ Use `agent_plan.md` as the living project board. Before starting work, agents sh
 - [API](docs/api.md)
 - [Security](docs/security.md)
 - [ML](docs/ml.md)
+- [Integrations](docs/integrations.md)
 - [Deployment](docs/deployment.md)
 - [QA Strategy](docs/qa.md)
 - [Database](database/README.md)

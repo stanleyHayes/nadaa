@@ -34,7 +34,8 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 | Emergency guides offline     | NADAA-060, NADAA-061                       | API, E2E/PWA       | Guide API/content model and language fallback covered; citizen offline cache remains              | API covered; PWA pending                   |
 | Shelter lookup/update        | NADAA-062                                  | API, E2E           | Nearby lookup, occupancy update permission, map/list display                                      | Todo                                       |
 | Flood ML review              | NADAA-070, NADAA-071, NADAA-072, NADAA-073 | Model, API, E2E    | Confidence, model version, explanation, no auto-publish                                           | Todo                                       |
-| Weather/hydrology import     | NADAA-080, NADAA-081                       | Integration        | Fixture import, source metadata, retryable failures                                               | Todo                                       |
+| Agency integration contracts | NADAA-080                                  | API, Integration   | Partner matrix, ownership, cadence, payloads, auth, retry/dead-letter behavior, mock adapters     | Contract API covered                       |
+| Weather/hydrology import     | NADAA-081                                  | Integration        | Fixture import, source metadata, retryable failures                                               | Todo                                       |
 
 ## Current Sprint 0 Commands
 
@@ -46,11 +47,13 @@ pnpm go:test
 pnpm smoke:web
 pnpm smoke:risk
 pnpm smoke:guide
+pnpm smoke:integration
 ```
 
 `pnpm smoke:web` expects the citizen app on port `5173` and the authority dashboard on port `5174`.
 `pnpm smoke:risk` expects the risk service on port `8081`.
 `pnpm smoke:guide` expects the guide service on port `8086`.
+`pnpm smoke:integration` expects the integration service on port `8088`.
 Agency auth, RBAC, mock MFA, and audit foundation coverage currently run through `pnpm go:test`.
 
 ## Release Candidate Checklist

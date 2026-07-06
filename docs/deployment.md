@@ -60,6 +60,13 @@ cd services/guide-service
 go run .
 ```
 
+Run integration service:
+
+```bash
+cd services/integration-service
+go run .
+```
+
 Run checks:
 
 ```bash
@@ -70,6 +77,7 @@ pnpm go:test
 pnpm smoke:web
 pnpm smoke:risk
 pnpm smoke:guide
+pnpm smoke:integration
 ```
 
 Run staging smoke checks against configured URLs:
@@ -111,6 +119,7 @@ Initial expected groups:
 - `EMAIL_PROVIDER`
 - `EMAIL_API_KEY`
 - `ML_SERVICE_URL`
+- `NADAA_INTEGRATION_ADDR`
 
 Do not commit real values. Use `.env.example` when a service needs a template. Use `infra/staging/staging.env.example` as the staging environment checklist.
 
@@ -132,8 +141,8 @@ The first-pass GitHub Actions workflows live in `.github/workflows/`.
 - TypeScript type checks.
 - Workspace tests.
 - App and package builds.
-- Go tests for `auth-service`, `incident-service`, `guide-service`, and `risk-service`.
-- Docker build validation for citizen web, authority dashboard, auth service, incident service, guide service, and risk service images.
+- Go tests for `auth-service`, `incident-service`, `guide-service`, `integration-service`, and `risk-service`.
+- Docker build validation for citizen web, authority dashboard, auth service, incident service, guide service, integration service, and risk service images.
 
 `Staging Smoke` runs manually against the GitHub `staging` environment:
 
