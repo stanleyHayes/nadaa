@@ -417,7 +417,7 @@ Rules:
 - `urgency` must be `low`, `moderate`, `high`, or `life_threatening`.
 - `life_threatening` or injury reports are flagged for priority review.
 - Anonymous reports do not retain `reportedBy` in standard incident records.
-- If `contactPermission` is false, reporter phone is not retained in the incident record.
+- If `contactPermission` is false, reporter phone is not retained in the incident record and authority views hide reporter identity.
 - Starter service rate-limits repeated reports by client address.
 - Suspicious report signals are stored as transparent `abuseSignals` with a weighted `abuseScore` and `abuseReviewRequired` flag for dispatchers.
 - Automated suspicion does not block report creation or suppress life-threatening reports.
@@ -426,7 +426,31 @@ Rules:
 
 `GET /api/v1/incidents`
 
-Starter list endpoint for development and authority command-map wiring. Incident records include `location`, `severity`, `status`, `type`, `createdAt`, `abuseSignals`, `abuseScore`, `abuseReviewRequired`, `duplicateCandidates`, `mergedIncidentIds`, `mergedIntoId`, `verifiedBy`, `verifiedAt`, `statusReason`, `resolutionNotes`, and `closedAt` so the dashboard can render map markers, synchronized queue rows, filters, status controls, assignment controls, safety review controls, and duplicate review prompts.
+Authority-only incident list endpoint for command-map wiring. Calls require authority actor, role, agency, MFA-completed, and request-id headers. Incident records include `location`, `severity`, `status`, `type`, `createdAt`, `abuseSignals`, `abuseScore`, `abuseReviewRequired`, `duplicateCandidates`, `mergedIncidentIds`, `mergedIntoId`, `verifiedBy`, `verifiedAt`, `statusReason`, `resolutionNotes`, `closedAt`, and `privacy` so dashboards can render map markers, synchronized queue rows, filters, status controls, assignment controls, safety review controls, duplicate review prompts, and privacy indicators.
+
+Privacy metadata is returned with each authority incident view:
+
+```json
+{
+  "privacy": {
+    "reporterIdentityVisible": true,
+    "reporterContactVisible": true,
+    "locationPrecision": "exact",
+    "locationUse": "emergency_response",
+    "disclosure": "Location is used to route emergency response, detect duplicates, and coordinate verified authority actions.",
+    "notes": [
+      "Exact incident location is available only to MFA-verified authority users for emergency response coordination."
+    ]
+  }
+}
+```
+
+Privacy rules:
+
+- Reporter identity and contact are visible only when the report is not anonymous, contact permission is granted, reporter details exist, and the authority role is allowed to view contact details.
+- `responder` and `agency_viewer` receive standard operational incident views without `reportedBy`.
+- Exact location is available only through MFA-verified authority incident endpoints for emergency response, duplicate detection, and verified authority coordination.
+- Duplicate review and merge response payloads apply the same incident privacy rules to primary and candidate records.
 
 ### Media Upload
 

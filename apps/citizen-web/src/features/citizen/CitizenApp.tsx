@@ -1193,6 +1193,13 @@ function CitizenApp() {
                         disabled={reportForm.anonymous}
                       />
                     </Stack>
+                    <Alert severity="info" className="warning-alert">
+                      NADAA uses report location to route emergency response,
+                      detect duplicates, and coordinate verified authority
+                      actions. Anonymous reports hide your identity; disabling
+                      contact means responders cannot call you back through this
+                      report.
+                    </Alert>
                     {reportState.status === "error" ? (
                       <Alert severity="error" className="warning-alert">
                         {reportState.message}

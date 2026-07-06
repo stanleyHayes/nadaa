@@ -60,6 +60,7 @@ import {
   EmptyState,
   IncidentDetailPanel,
   IncidentMap,
+  PrivacyChip,
   StatusLine,
 } from "./components";
 import {
@@ -101,7 +102,8 @@ import {
 
 function DispatcherCommandApp() {
   const hasCommandAccess =
-    commandRoles.includes(dispatcherSession.role) && dispatcherSession.mfaEnabled;
+    commandRoles.includes(dispatcherSession.role) &&
+    dispatcherSession.mfaEnabled;
   const [incidents, setIncidents] =
     useState<CommandIncident[]>(fallbackIncidents);
   const [loadState, setLoadState] = useState<IncidentLoadState>("loading");
@@ -151,6 +153,7 @@ function DispatcherCommandApp() {
 
     try {
       const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {
+        headers: dispatcherHeaders(),
         signal,
       });
       if (!response.ok) {
@@ -980,6 +983,7 @@ function DispatcherCommandApp() {
                       <TableCell>District</TableCell>
                       <TableCell>Severity</TableCell>
                       <TableCell>Status</TableCell>
+                      <TableCell>Privacy</TableCell>
                       <TableCell>Assigned</TableCell>
                       <TableCell>Age</TableCell>
                     </TableRow>
@@ -1016,6 +1020,9 @@ function DispatcherCommandApp() {
                           />
                         </TableCell>
                         <TableCell>{statusLabel(incident.status)}</TableCell>
+                        <TableCell>
+                          <PrivacyChip incident={incident} />
+                        </TableCell>
                         <TableCell>{incident.assignedAgency}</TableCell>
                         <TableCell>
                           {formatIncidentAge(incident.createdAt)}

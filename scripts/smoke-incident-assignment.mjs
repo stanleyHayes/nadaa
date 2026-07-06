@@ -86,8 +86,18 @@ if (!assignedToMe.ok) {
   throw new Error(`assigned-to-me smoke failed: ${assignedToMe.status}`);
 }
 const assignedToMePayload = await assignedToMe.json();
-if (!assignedToMePayload.incidents?.some((item) => item.id === incident.id)) {
+const assignedToMeIncident = assignedToMePayload.incidents?.find(
+  (item) => item.id === incident.id,
+);
+if (!assignedToMeIncident) {
   throw new Error("assigned-to-me smoke did not return assigned incident");
+}
+if (
+  assignedToMeIncident.reportedBy ||
+  assignedToMeIncident.privacy?.reporterIdentityVisible ||
+  assignedToMeIncident.privacy?.reporterContactVisible
+) {
+  throw new Error("assigned-to-me responder view should hide reporter details");
 }
 console.log(`assigned-to-me OK ${assignedToMePayload.incidents.length}`);
 

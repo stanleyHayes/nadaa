@@ -581,6 +581,17 @@ export interface CreateIncidentRequest {
   reporter?: IncidentReporterRef;
 }
 
+export type IncidentLocationPrecision = "exact" | "approximate";
+
+export interface IncidentPrivacyPolicy {
+  reporterIdentityVisible: boolean;
+  reporterContactVisible: boolean;
+  locationPrecision: IncidentLocationPrecision;
+  locationUse: "emergency_response";
+  disclosure: string;
+  notes: string[];
+}
+
 export interface IncidentRecord {
   id: string;
   reference: string;
@@ -594,6 +605,7 @@ export interface IncidentRecord {
   urgency: IncidentUrgency;
   anonymous: boolean;
   contactPermission: boolean;
+  privacy?: IncidentPrivacyPolicy;
   accessibilityNeeds?: string;
   media: string[];
   priorityReview: boolean;

@@ -92,6 +92,16 @@ Sensitive actions require authority authentication, RBAC, MFA where applicable, 
 | Restricted          | Admin credentials, provider tokens, Jira/GitHub/cloud secrets                | Secret manager only         |
 | Open Data Candidate | Aggregated incident counts, anonymized risk zones                            | Requires privacy review     |
 
+## Incident Privacy Controls
+
+- Public incident intake may accept reporter metadata, but anonymous reports do not retain `reportedBy`.
+- Reports without contact permission must not expose reporter phone or identity in authority incident views.
+- Authority incident list, duplicate-review, merge, verify, status, abuse-review, and assignment responses apply server-side incident sanitization before returning records.
+- Reporter identity and contact visibility are limited to MFA-verified `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher` actors when the citizen has granted contact permission.
+- `responder` and `agency_viewer` roles receive standard operational incident views without reporter identity or phone.
+- Exact incident location is available only through MFA-verified authority incident endpoints and is used for emergency response routing, duplicate detection, assignment, and verified authority coordination.
+- Command UIs must surface privacy state so operators understand whether reporter identity, contact, and location use are restricted.
+
 ## Secret Handling
 
 Never commit:

@@ -77,6 +77,7 @@ type incidentRecord struct {
 	Urgency             string               `json:"urgency"`
 	Anonymous           bool                 `json:"anonymous"`
 	ContactPermission   bool                 `json:"contactPermission"`
+	Privacy             incidentPrivacy      `json:"privacy"`
 	AccessibilityNeeds  string               `json:"accessibilityNeeds,omitempty"`
 	Media               []string             `json:"media"`
 	PriorityReview      bool                 `json:"priorityReview"`
@@ -104,6 +105,15 @@ type incidentRecord struct {
 	ClosedAt            *time.Time           `json:"closedAt,omitempty"`
 	CreatedAt           time.Time            `json:"createdAt"`
 	UpdatedAt           time.Time            `json:"updatedAt"`
+}
+
+type incidentPrivacy struct {
+	ReporterIdentityVisible bool     `json:"reporterIdentityVisible"`
+	ReporterContactVisible  bool     `json:"reporterContactVisible"`
+	LocationPrecision       string   `json:"locationPrecision"`
+	LocationUse             string   `json:"locationUse"`
+	Disclosure              string   `json:"disclosure"`
+	Notes                   []string `json:"notes"`
 }
 
 type duplicateCandidate struct {
@@ -412,6 +422,13 @@ var (
 		"responder":        true,
 		"agency_viewer":    true,
 	}
+	reporterContactRoles = map[string]bool{
+		"system_admin":     true,
+		"agency_admin":     true,
+		"nadmo_officer":    true,
+		"district_officer": true,
+		"dispatcher":       true,
+	}
 	allowedAgencyTypes = map[string]bool{
 		"nadmo":             true,
 		"district_assembly": true,
@@ -569,26 +586,26 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listIncidentsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, incidentReadRoles)
+	if !ok {
+		return
+	}
+
 	assignedToMe := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("assignedToMe"))) == "true"
 	assignedAgencyID := strings.TrimSpace(r.URL.Query().Get("assignedAgencyId"))
 
 	if assignedToMe {
-		ctx, ok := requireAuthority(w, r, incidentReadRoles)
-		if !ok {
-			return
-		}
 		assignedAgencyID = ctx.ActorAgencyID
-	} else if assignedAgencyID != "" {
-		if _, ok := requireAuthority(w, r, incidentReadRoles); !ok {
-			return
-		}
 	}
 
-	writeJSON(w, http.StatusOK, incidentListResponse{Incidents: s.store.listIncidents(assignedAgencyID)})
+	writeJSON(w, http.StatusOK, incidentListResponse{
+		Incidents: sanitizeIncidentsForAuthority(s.store.listIncidents(assignedAgencyID), ctx),
+	})
 }
 
 func (s *server) duplicateReviewHandler(w http.ResponseWriter, r *http.Request) {
-	if _, ok := requireAuthority(w, r, incidentReadRoles); !ok {
+	ctx, ok := requireAuthority(w, r, incidentReadRoles)
+	if !ok {
 		return
 	}
 
@@ -597,7 +614,7 @@ func (s *server) duplicateReviewHandler(w http.ResponseWriter, r *http.Request) 
 		writeError(w, statusForCode(code), code, message)
 		return
 	}
-	writeJSON(w, http.StatusOK, payload)
+	writeJSON(w, http.StatusOK, sanitizeDuplicateReviewForAuthority(payload, ctx))
 }
 
 func (s *server) listIncidentAuditHandler(w http.ResponseWriter, r *http.Request) {
@@ -643,7 +660,7 @@ func (s *server) verifyIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, statusForCode(code), code, message)
 		return
 	}
-	writeJSON(w, http.StatusOK, incident)
+	writeJSON(w, http.StatusOK, sanitizeIncidentForAuthority(incident, ctx))
 }
 
 func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Request) {
@@ -675,7 +692,7 @@ func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Requ
 		writeError(w, statusForCode(code), code, message)
 		return
 	}
-	writeJSON(w, http.StatusOK, incident)
+	writeJSON(w, http.StatusOK, sanitizeIncidentForAuthority(incident, ctx))
 }
 
 func (s *server) mergeIncidentHandler(w http.ResponseWriter, r *http.Request) {
@@ -701,7 +718,7 @@ func (s *server) mergeIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, statusForCode(code), code, message)
 		return
 	}
-	writeJSON(w, http.StatusOK, payload)
+	writeJSON(w, http.StatusOK, sanitizeMergeResponseForAuthority(payload, ctx))
 }
 
 func (s *server) reviewAbuseHandler(w http.ResponseWriter, r *http.Request) {
@@ -727,7 +744,7 @@ func (s *server) reviewAbuseHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, statusForCode(code), code, message)
 		return
 	}
-	writeJSON(w, http.StatusOK, incident)
+	writeJSON(w, http.StatusOK, sanitizeIncidentForAuthority(incident, ctx))
 }
 
 func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
@@ -753,7 +770,7 @@ func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, statusForCode(code), code, message)
 		return
 	}
-	writeJSON(w, http.StatusCreated, incident)
+	writeJSON(w, http.StatusCreated, sanitizeIncidentForAuthority(incident, ctx))
 }
 
 func (s *server) initiateMediaUploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -1988,6 +2005,74 @@ func severityFromUrgency(urgency string) string {
 
 func priorityReview(request createIncidentRequest) bool {
 	return request.Urgency == "life_threatening" || request.InjuriesReported
+}
+
+func sanitizeIncidentsForAuthority(incidents []incidentRecord, ctx authorityContext) []incidentRecord {
+	sanitized := make([]incidentRecord, 0, len(incidents))
+	for _, incident := range incidents {
+		sanitized = append(sanitized, sanitizeIncidentForAuthority(incident, ctx))
+	}
+	return sanitized
+}
+
+func sanitizeDuplicateReviewForAuthority(payload duplicateReviewResponse, ctx authorityContext) duplicateReviewResponse {
+	payload.Incident = sanitizeIncidentForAuthority(payload.Incident, ctx)
+	for index := range payload.Candidates {
+		payload.Candidates[index].Incident = sanitizeIncidentForAuthority(payload.Candidates[index].Incident, ctx)
+	}
+	return payload
+}
+
+func sanitizeMergeResponseForAuthority(payload mergeIncidentsResponse, ctx authorityContext) mergeIncidentsResponse {
+	payload.Incident = sanitizeIncidentForAuthority(payload.Incident, ctx)
+	payload.MergedIncidents = sanitizeIncidentsForAuthority(payload.MergedIncidents, ctx)
+	return payload
+}
+
+func sanitizeIncidentForAuthority(incident incidentRecord, ctx authorityContext) incidentRecord {
+	privacy := privacyForIncident(incident, ctx)
+	incident.Privacy = privacy
+
+	if !privacy.ReporterIdentityVisible {
+		incident.ReportedBy = nil
+		return incident
+	}
+
+	if !privacy.ReporterContactVisible && incident.ReportedBy != nil {
+		reporter := *incident.ReportedBy
+		reporter.Phone = ""
+		incident.ReportedBy = &reporter
+	}
+	return incident
+}
+
+func privacyForIncident(incident incidentRecord, ctx authorityContext) incidentPrivacy {
+	canViewContact := reporterContactRoles[ctx.ActorRole]
+	hasReporter := incident.ReportedBy != nil
+	reporterIdentityVisible := hasReporter && !incident.Anonymous && incident.ContactPermission && canViewContact
+	reporterContactVisible := reporterIdentityVisible && incident.ReportedBy.Phone != ""
+
+	notes := []string{
+		"Exact incident location is available only to MFA-verified authority users for emergency response coordination.",
+	}
+	if incident.Anonymous {
+		notes = append(notes, "Reporter chose anonymous reporting; citizen identity is hidden in authority views.")
+	}
+	if !incident.ContactPermission {
+		notes = append(notes, "Reporter did not grant contact permission; contact details are hidden.")
+	}
+	if hasReporter && !canViewContact {
+		notes = append(notes, "Current authority role receives a standard operational view without reporter contact details.")
+	}
+
+	return incidentPrivacy{
+		ReporterIdentityVisible: reporterIdentityVisible,
+		ReporterContactVisible:  reporterContactVisible,
+		LocationPrecision:       "exact",
+		LocationUse:             "emergency_response",
+		Disclosure:              "Location is used to route emergency response, detect duplicates, and coordinate verified authority actions.",
+		Notes:                   notes,
+	}
 }
 
 func reportedByFor(request createIncidentRequest) *reporterRef {

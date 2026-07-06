@@ -478,6 +478,38 @@ func TestDuplicateReviewReturnsSideBySideCandidates(t *testing.T) {
 	}
 }
 
+func TestDuplicateReviewSanitizesReporterForResponder(t *testing.T) {
+	srv := newTestServer()
+	primary := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Description = "Vehicles are trapped on the same flooded road"
+	body.Reporter = &reporterRef{UserID: "usr_002", Phone: "+233200000002"}
+	createIncidentForTest(t, srv, body)
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodGet, "/api/v1/incidents/"+primary.ID+"/duplicates", nil)
+	request.Header.Set("X-NADAA-Actor-Role", "responder")
+	request.SetPathValue("id", primary.ID)
+	srv.duplicateReviewHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload duplicateReviewResponse
+	decodeResponse(t, response, &payload)
+	if payload.Incident.ReportedBy != nil {
+		t.Fatalf("expected responder duplicate review to hide primary reporter, got %#v", payload.Incident.ReportedBy)
+	}
+	if payload.Candidates[0].Incident.ReportedBy != nil {
+		t.Fatalf("expected responder duplicate review to hide candidate reporter, got %#v", payload.Candidates[0].Incident.ReportedBy)
+	}
+	if payload.Incident.Privacy.ReporterIdentityVisible || payload.Candidates[0].Incident.Privacy.ReporterContactVisible {
+		t.Fatalf("expected duplicate review privacy flags to hide reporter details, got primary=%#v candidate=%#v", payload.Incident.Privacy, payload.Candidates[0].Incident.Privacy)
+	}
+}
+
 func TestMergeDuplicateIncidentsClosesDuplicateAndAudits(t *testing.T) {
 	srv := newTestServer()
 	primary := createIncidentForTest(t, srv, validIncidentRequest())
@@ -603,7 +635,7 @@ func TestListIncidents(t *testing.T) {
 	srv.createIncidentHandler(create, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(validIncidentRequest())))
 
 	response := httptest.NewRecorder()
-	srv.listIncidentsHandler(response, httptest.NewRequest(http.MethodGet, "/api/v1/incidents", nil))
+	srv.listIncidentsHandler(response, authorityRequest(http.MethodGet, "/api/v1/incidents", nil))
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
@@ -613,6 +645,69 @@ func TestListIncidents(t *testing.T) {
 	decodeResponse(t, response, &payload)
 	if len(payload.Incidents) != 1 {
 		t.Fatalf("expected one incident, got %#v", payload)
+	}
+}
+
+func TestListIncidentsRequiresAuthorityContext(t *testing.T) {
+	srv := newTestServer()
+	createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	srv.listIncidentsHandler(response, httptest.NewRequest(http.MethodGet, "/api/v1/incidents", nil))
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestListIncidentsSanitizesReporterPrivacy(t *testing.T) {
+	srv := newTestServer()
+	createIncidentForTest(t, srv, validIncidentRequest())
+
+	dispatcherResponse := httptest.NewRecorder()
+	srv.listIncidentsHandler(dispatcherResponse, authorityRequest(http.MethodGet, "/api/v1/incidents", nil))
+
+	var dispatcherPayload incidentListResponse
+	decodeResponse(t, dispatcherResponse, &dispatcherPayload)
+	if dispatcherPayload.Incidents[0].ReportedBy == nil || dispatcherPayload.Incidents[0].ReportedBy.Phone == "" {
+		t.Fatalf("expected permitted dispatcher view to include reporter contact, got %#v", dispatcherPayload.Incidents[0])
+	}
+	if !dispatcherPayload.Incidents[0].Privacy.ReporterIdentityVisible || !dispatcherPayload.Incidents[0].Privacy.ReporterContactVisible {
+		t.Fatalf("expected privacy policy to show visible contact, got %#v", dispatcherPayload.Incidents[0].Privacy)
+	}
+
+	responderRequest := authorityRequest(http.MethodGet, "/api/v1/incidents", nil)
+	responderRequest.Header.Set("X-NADAA-Actor-Role", "responder")
+	responderResponse := httptest.NewRecorder()
+	srv.listIncidentsHandler(responderResponse, responderRequest)
+
+	var responderPayload incidentListResponse
+	decodeResponse(t, responderResponse, &responderPayload)
+	if responderPayload.Incidents[0].ReportedBy != nil {
+		t.Fatalf("expected responder standard view to hide reporter identity, got %#v", responderPayload.Incidents[0].ReportedBy)
+	}
+	if responderPayload.Incidents[0].Privacy.ReporterIdentityVisible || responderPayload.Incidents[0].Privacy.ReporterContactVisible {
+		t.Fatalf("expected privacy policy to hide reporter contact, got %#v", responderPayload.Incidents[0].Privacy)
+	}
+}
+
+func TestAnonymousIncidentStaysAnonymousInAuthorityList(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.Anonymous = true
+	body.ContactPermission = false
+	createIncidentForTest(t, srv, body)
+
+	response := httptest.NewRecorder()
+	srv.listIncidentsHandler(response, authorityRequest(http.MethodGet, "/api/v1/incidents", nil))
+
+	var payload incidentListResponse
+	decodeResponse(t, response, &payload)
+	if payload.Incidents[0].ReportedBy != nil {
+		t.Fatalf("expected anonymous authority view to hide reporter, got %#v", payload.Incidents[0].ReportedBy)
+	}
+	if payload.Incidents[0].Privacy.ReporterIdentityVisible || payload.Incidents[0].Privacy.ReporterContactVisible {
+		t.Fatalf("expected anonymous privacy policy to hide identity and contact, got %#v", payload.Incidents[0].Privacy)
 	}
 }
 

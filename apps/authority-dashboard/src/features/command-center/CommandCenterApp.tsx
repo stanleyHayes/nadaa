@@ -60,6 +60,7 @@ import {
   EmptyState,
   IncidentDetailPanel,
   IncidentMap,
+  PrivacyChip,
   StatusLine,
 } from "./components";
 import {
@@ -151,6 +152,7 @@ function CommandCenterApp() {
 
     try {
       const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {
+        headers: authorityHeaders(),
         signal,
       });
       if (!response.ok) {
@@ -980,6 +982,7 @@ function CommandCenterApp() {
                       <TableCell>District</TableCell>
                       <TableCell>Severity</TableCell>
                       <TableCell>Status</TableCell>
+                      <TableCell>Privacy</TableCell>
                       <TableCell>Assigned</TableCell>
                       <TableCell>Age</TableCell>
                     </TableRow>
@@ -1016,6 +1019,9 @@ function CommandCenterApp() {
                           />
                         </TableCell>
                         <TableCell>{statusLabel(incident.status)}</TableCell>
+                        <TableCell>
+                          <PrivacyChip incident={incident} />
+                        </TableCell>
                         <TableCell>{incident.assignedAgency}</TableCell>
                         <TableCell>
                           {formatIncidentAge(incident.createdAt)}

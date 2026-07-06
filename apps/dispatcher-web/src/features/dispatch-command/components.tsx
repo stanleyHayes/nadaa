@@ -829,6 +829,36 @@ export function IncidentDetailPanel({
         </Grid>
       </Grid>
 
+      <Alert
+        severity={
+          incident.anonymous || !incident.privacy?.reporterContactVisible
+            ? "info"
+            : "success"
+        }
+        icon={<ShieldAlert size={18} />}
+        className="privacy-alert"
+      >
+        <Stack spacing={0.75}>
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Chip size="small" label={privacyReporterLabel(incident)} />
+            <Chip size="small" label={privacyContactLabel(incident)} />
+            <Chip
+              size="small"
+              label={`${incident.privacy?.locationPrecision ?? "exact"} location`}
+            />
+          </Stack>
+          <Typography variant="body2">
+            {incident.privacy?.disclosure ??
+              "Location is used for emergency response coordination."}
+          </Typography>
+          {incident.privacy?.notes?.length ? (
+            <Typography variant="caption" color="text.secondary">
+              {incident.privacy.notes[0]}
+            </Typography>
+          ) : null}
+        </Stack>
+      </Alert>
+
       <Divider className="detail-divider" />
 
       <Stack spacing={1.25}>
@@ -1314,6 +1344,36 @@ export function Fact({ label, value }: { label: string; value: string }) {
       <Typography variant="subtitle2">{value}</Typography>
     </Box>
   );
+}
+
+export function PrivacyChip({ incident }: { incident: CommandIncident }) {
+  return (
+    <Chip
+      size="small"
+      label={privacyReporterLabel(incident)}
+      color={incident.anonymous ? "warning" : "default"}
+    />
+  );
+}
+
+function privacyReporterLabel(incident: CommandIncident) {
+  if (incident.anonymous) {
+    return "Anonymous";
+  }
+  if (incident.privacy?.reporterIdentityVisible) {
+    return "Identity visible";
+  }
+  return "Identity hidden";
+}
+
+function privacyContactLabel(incident: CommandIncident) {
+  if (incident.privacy?.reporterContactVisible) {
+    return "Contact visible";
+  }
+  if (incident.contactPermission) {
+    return "Contact restricted";
+  }
+  return "Contact denied";
 }
 
 export function StatusLine({
