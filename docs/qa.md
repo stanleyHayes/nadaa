@@ -28,7 +28,7 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 | Authority incident map       | NADAA-040                                  | E2E                | Filters, map/list sync, role-protected access, loading/empty/error fallback                       | MVP UI smoke covered                       |
 | Incident verification/status | NADAA-041                                  | API, E2E, audit    | Valid transitions, invalid transition rejection, closure notes                                    | Todo                                       |
 | Agency assignment/timeline   | NADAA-042                                  | API, E2E, audit    | Assignment permissions, timeline event creation                                                   | Todo                                       |
-| Alert draft/approval         | NADAA-050                                  | API, E2E, security | Draft, submit, approve/reject, emergency override audit                                           | Todo                                       |
+| Alert draft/approval         | NADAA-050                                  | API, E2E, security | Draft, submit, approve/reject, emergency override audit                                           | MVP API/UI smoke covered                   |
 | Geofenced targeting          | NADAA-051                                  | API, geospatial    | District/radius/custom geometry stored and previewable                                            | Todo                                       |
 | Alert feed/delivery logs     | NADAA-052                                  | API, E2E           | Current alerts visible, mock delivery attempts logged                                             | Todo                                       |
 | Emergency guides offline     | NADAA-060, NADAA-061                       | API, E2E/PWA       | Guide API/content model and language fallback covered; citizen offline cache remains              | API covered; PWA pending                   |
@@ -45,12 +45,14 @@ pnpm typecheck
 pnpm build
 pnpm go:test
 pnpm smoke:web
+pnpm smoke:alert
 pnpm smoke:risk
 pnpm smoke:guide
 pnpm smoke:integration
 ```
 
 `pnpm smoke:web` expects the citizen app on port `5173` and the authority dashboard on port `5174`.
+`pnpm smoke:alert` expects the alert service on port `8089`.
 `pnpm smoke:risk` expects the risk service on port `8081`.
 `pnpm smoke:guide` expects the guide service on port `8086`.
 `pnpm smoke:integration` expects the integration service on port `8088`.

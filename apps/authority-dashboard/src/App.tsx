@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   AppBar,
@@ -9,6 +9,7 @@ import {
   CssBaseline,
   Divider,
   FormControl,
+  FormControlLabel,
   Grid,
   InputLabel,
   LinearProgress,
@@ -16,15 +17,17 @@ import {
   Paper,
   Select,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
   ThemeProvider,
+  TextField,
   Toolbar,
   Typography,
-  createTheme
+  createTheme,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import L from "leaflet";
@@ -41,19 +44,27 @@ import {
   RadioTower,
   RefreshCw,
   ShieldAlert,
-  Truck
+  Truck,
 } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   AgencyUserRole,
+  AlertListResponse,
+  AlertSeverity,
+  AlertStatus,
+  AuthorityAlertRecord,
+  CreateAlertRequest,
   HazardType,
   IncidentListResponse,
   IncidentRecord,
   IncidentStatus,
-  RiskLevel
+  RiskLevel,
 } from "@nadaa/shared-types";
 
-const INCIDENT_API_BASE = import.meta.env.VITE_INCIDENT_API_URL ?? "http://localhost:8084/api/v1";
+const INCIDENT_API_BASE =
+  import.meta.env.VITE_INCIDENT_API_URL ?? "http://localhost:8084/api/v1";
+const ALERT_API_BASE =
+  import.meta.env.VITE_ALERT_API_URL ?? "http://localhost:8089/api/v1";
 
 const commandRoles: AgencyUserRole[] = [
   "system_admin",
@@ -62,14 +73,16 @@ const commandRoles: AgencyUserRole[] = [
   "district_officer",
   "dispatcher",
   "responder",
-  "agency_viewer"
+  "agency_viewer",
 ];
 
 const authoritySession = {
-  name: "Accra Dispatcher",
-  role: "dispatcher" as AgencyUserRole,
+  id: "usr_nadmo_accra",
+  name: "NADMO Officer",
+  role: "nadmo_officer" as AgencyUserRole,
+  agencyId: "00000000-0000-0000-0000-000000000101",
   agency: "NADMO Accra Metro",
-  mfaEnabled: true
+  mfaEnabled: true,
 };
 
 const theme = createTheme({
@@ -79,7 +92,10 @@ const theme = createTheme({
     error: { main: nadaaBrand.colors.red },
     warning: { main: nadaaBrand.colors.gold },
     background: { default: "#F3F6FA", paper: "#FFFFFF" },
-    text: { primary: nadaaBrand.colors.ink, secondary: nadaaBrand.colors.slate }
+    text: {
+      primary: nadaaBrand.colors.ink,
+      secondary: nadaaBrand.colors.slate,
+    },
   },
   shape: { borderRadius: 8 },
   typography: {
@@ -91,8 +107,8 @@ const theme = createTheme({
     h4: { fontWeight: 800 },
     h5: { fontWeight: 800 },
     h6: { fontWeight: 800 },
-    button: { textTransform: "none", fontWeight: 800 }
-  }
+    button: { textTransform: "none", fontWeight: 800 },
+  },
 });
 
 type CommandIncident = IncidentRecord & {
@@ -114,6 +130,19 @@ type FilterState = {
 };
 
 type IncidentLoadState = "loading" | "ready" | "fallback" | "empty" | "error";
+type AlertLoadState = "loading" | "ready" | "fallback" | "error";
+
+type AlertFormState = {
+  title: string;
+  severity: AlertSeverity;
+  message: string;
+  targetLabel: string;
+  startsAt: string;
+  expiresAt: string;
+  recommendedAction: string;
+  evacuationRequired: boolean;
+  shelterIds: string;
+};
 
 const fallbackIncidents: CommandIncident[] = [
   {
@@ -122,7 +151,8 @@ const fallbackIncidents: CommandIncident[] = [
     type: "flood",
     severity: "severe",
     status: "under_review",
-    description: "Water is rising near a low-lying road and vehicles are trapped.",
+    description:
+      "Water is rising near a low-lying road and vehicles are trapped.",
     location: { lat: 5.579, lng: -0.212 },
     peopleAffected: 28,
     injuriesReported: false,
@@ -138,8 +168,8 @@ const fallbackIncidents: CommandIncident[] = [
         score: 0.82,
         distanceMeters: 214,
         minutesApart: 16,
-        reasons: ["same_hazard", "nearby_location", "recent_report"]
-      }
+        reasons: ["same_hazard", "nearby_location", "recent_report"],
+      },
     ],
     reportedBy: { userId: "usr_ama", phone: "+233200000003" },
     createdAt: "2026-07-06T18:42:00Z",
@@ -152,9 +182,9 @@ const fallbackIncidents: CommandIncident[] = [
     timeline: [
       "Citizen report received with photo evidence",
       "Duplicate reports grouped near Accra Central",
-      "NADMO AMA dispatcher reviewing severity"
+      "NADMO AMA dispatcher reviewing severity",
     ],
-    source: "fixture"
+    source: "fixture",
   },
   {
     id: "inc_tema_crash_0239",
@@ -182,9 +212,9 @@ const fallbackIncidents: CommandIncident[] = [
     timeline: [
       "Dispatcher verified multiple injured persons",
       "Ambulance and police units assigned",
-      "Motorway patrol requested lane control"
+      "Motorway patrol requested lane control",
     ],
-    source: "fixture"
+    source: "fixture",
   },
   {
     id: "inc_ablekuma_drain_0236",
@@ -212,9 +242,9 @@ const fallbackIncidents: CommandIncident[] = [
     timeline: [
       "District officer verified blocked drain",
       "Sanitation crew notified",
-      "Resident contact hidden due anonymous report"
+      "Resident contact hidden due anonymous report",
     ],
-    source: "fixture"
+    source: "fixture",
   },
   {
     id: "inc_korle_fire_0232",
@@ -242,10 +272,38 @@ const fallbackIncidents: CommandIncident[] = [
     timeline: [
       "Fire service call confirmed smoke visible",
       "Hydrant access checked by dispatcher",
-      "Engine crew en route"
+      "Engine crew en route",
     ],
-    source: "fixture"
-  }
+    source: "fixture",
+  },
+];
+
+const fallbackAlerts: AuthorityAlertRecord[] = [
+  {
+    id: "alert_fixture_submitted",
+    title: "Accra flood watch",
+    hazardType: "flood",
+    severity: "warning",
+    message: "Heavy rainfall may cause flooding in low-lying communities.",
+    target: {
+      type: "district",
+      ids: ["accra-metropolitan"],
+      label: "Accra Metropolitan",
+    },
+    startsAt: "2026-07-06T19:30:00Z",
+    expiresAt: "2026-07-07T07:00:00Z",
+    recommendedAction:
+      "Avoid flooded roads and prepare to move to higher ground.",
+    evacuationRequired: false,
+    shelterIds: ["00000000-0000-0000-0000-000000000301"],
+    issuingAgencyId: "00000000-0000-0000-0000-000000000101",
+    issuedBy: "usr_dispatcher_fixture",
+    status: "submitted",
+    emergencyOverride: false,
+    createdAt: "2026-07-06T18:15:00Z",
+    updatedAt: "2026-07-06T18:45:00Z",
+    submittedAt: "2026-07-06T18:45:00Z",
+  },
 ];
 
 const defaultFilters: FilterState = {
@@ -253,7 +311,7 @@ const defaultFilters: FilterState = {
   regionDistrict: "all",
   severity: "all",
   status: "all",
-  time: "all"
+  time: "all",
 };
 
 const severityOrder: Record<RiskLevel, number> = {
@@ -261,7 +319,7 @@ const severityOrder: Record<RiskLevel, number> = {
   severe: 4,
   high: 3,
   moderate: 2,
-  low: 1
+  low: 1,
 };
 
 const severityColors: Record<RiskLevel, string> = {
@@ -269,23 +327,55 @@ const severityColors: Record<RiskLevel, string> = {
   severe: nadaaBrand.colors.red,
   high: "#D97706",
   moderate: nadaaBrand.colors.gold,
-  low: nadaaBrand.colors.green
+  low: nadaaBrand.colors.green,
 };
 
+const alertSeverityOptions: AlertSeverity[] = [
+  "advisory",
+  "watch",
+  "warning",
+  "severe_warning",
+  "emergency",
+];
+
 function App() {
-  const hasCommandAccess = commandRoles.includes(authoritySession.role) && authoritySession.mfaEnabled;
-  const [incidents, setIncidents] = useState<CommandIncident[]>(fallbackIncidents);
+  const hasCommandAccess =
+    commandRoles.includes(authoritySession.role) && authoritySession.mfaEnabled;
+  const [incidents, setIncidents] =
+    useState<CommandIncident[]>(fallbackIncidents);
   const [loadState, setLoadState] = useState<IncidentLoadState>("loading");
   const [loadMessage, setLoadMessage] = useState("Loading incident feed");
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
-  const [selectedIncidentId, setSelectedIncidentId] = useState(fallbackIncidents[0]?.id ?? "");
+  const [selectedIncidentId, setSelectedIncidentId] = useState(
+    fallbackIncidents[0]?.id ?? "",
+  );
+  const [alerts, setAlerts] = useState<AuthorityAlertRecord[]>(fallbackAlerts);
+  const [alertLoadState, setAlertLoadState] =
+    useState<AlertLoadState>("loading");
+  const [alertMessage, setAlertMessage] = useState("Loading alert workflow");
+  const [alertBusy, setAlertBusy] = useState(false);
+  const [alertFeedback, setAlertFeedback] = useState("");
+  const [alertForm, setAlertForm] = useState<AlertFormState>(
+    buildDefaultAlertForm(fallbackIncidents[0]),
+  );
+
+  const alertHeaders = () => ({
+    "Content-Type": "application/json",
+    "X-NADAA-Actor-ID": authoritySession.id,
+    "X-NADAA-Actor-Role": authoritySession.role,
+    "X-NADAA-Agency-ID": authoritySession.agencyId,
+    "X-NADAA-MFA-Completed": authoritySession.mfaEnabled ? "true" : "false",
+    "X-NADAA-Request-ID": `authority-ui-${Date.now()}`,
+  });
 
   const refreshIncidents = async (signal?: AbortSignal) => {
     setLoadState("loading");
     setLoadMessage("Loading incident feed");
 
     try {
-      const response = await fetch(`${INCIDENT_API_BASE}/incidents`, { signal });
+      const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {
+        signal,
+      });
       if (!response.ok) {
         throw new Error(`incident API returned ${response.status}`);
       }
@@ -322,9 +412,43 @@ function App() {
     return () => controller.abort();
   }, []);
 
+  const refreshAlerts = async (signal?: AbortSignal) => {
+    setAlertLoadState("loading");
+    setAlertMessage("Loading alert workflow");
+
+    try {
+      const response = await fetch(`${ALERT_API_BASE}/alerts`, {
+        headers: alertHeaders(),
+        signal,
+      });
+      if (!response.ok) {
+        throw new Error(`alert API returned ${response.status}`);
+      }
+
+      const payload = (await response.json()) as AlertListResponse;
+      setAlerts(payload.alerts.length ? payload.alerts : []);
+      setAlertLoadState("ready");
+      setAlertMessage("Alert workflow API connected.");
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setAlerts(fallbackAlerts);
+      setAlertLoadState("fallback");
+      setAlertMessage("Alert API unavailable. Showing approval fixture data.");
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshAlerts(controller.signal);
+    return () => controller.abort();
+  }, []);
+
   const filteredIncidents = useMemo(
     () => incidents.filter((incident) => matchesFilters(incident, filters)),
-    [filters, incidents]
+    [filters, incidents],
   );
 
   const selectedIncident = useMemo(() => {
@@ -332,8 +456,9 @@ function App() {
       return undefined;
     }
     return (
-      filteredIncidents.find((incident) => incident.id === selectedIncidentId) ??
-      filteredIncidents[0]
+      filteredIncidents.find(
+        (incident) => incident.id === selectedIncidentId,
+      ) ?? filteredIncidents[0]
     );
   }, [filteredIncidents, selectedIncidentId]);
 
@@ -343,22 +468,128 @@ function App() {
       return;
     }
 
-    if (!filteredIncidents.some((incident) => incident.id === selectedIncidentId)) {
+    if (
+      !filteredIncidents.some((incident) => incident.id === selectedIncidentId)
+    ) {
       setSelectedIncidentId(filteredIncidents[0].id);
     }
   }, [filteredIncidents, selectedIncidentId]);
 
   const metrics = useMemo(() => buildQueueMetrics(incidents), [incidents]);
-  const filterOptions = useMemo(() => buildFilterOptions(incidents), [incidents]);
-  const pendingAlertIncident = useMemo(
-    () =>
-      filteredIncidents.find((incident) => incident.severity === "severe" || incident.severity === "emergency") ??
-      filteredIncidents[0],
-    [filteredIncidents]
+  const filterOptions = useMemo(
+    () => buildFilterOptions(incidents),
+    [incidents],
   );
+  useEffect(() => {
+    setAlertForm(buildDefaultAlertForm(selectedIncident));
+  }, [selectedIncident]);
 
-  const updateFilter = (key: keyof FilterState) => (event: SelectChangeEvent) => {
-    setFilters((current) => ({ ...current, [key]: event.target.value }));
+  const updateFilter =
+    (key: keyof FilterState) => (event: SelectChangeEvent) => {
+      setFilters((current) => ({ ...current, [key]: event.target.value }));
+    };
+
+  const updateAlertForm =
+    (key: keyof AlertFormState) =>
+    (
+      event:
+        ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+    ) => {
+      const value =
+        "checked" in event.target && typeof event.target.checked === "boolean"
+          ? event.target.checked
+          : event.target.value;
+      setAlertForm((current) => ({ ...current, [key]: value }));
+    };
+
+  const buildAlertRequest = (): CreateAlertRequest => ({
+    title: alertForm.title,
+    hazardType: selectedIncident?.type ?? "flood",
+    severity: alertForm.severity,
+    message: alertForm.message,
+    target: {
+      type: "district",
+      ids: selectedIncident
+        ? [districtSlug(selectedIncident.district)]
+        : ["accra-metropolitan"],
+      label: alertForm.targetLabel,
+    },
+    startsAt: new Date(alertForm.startsAt).toISOString(),
+    expiresAt: new Date(alertForm.expiresAt).toISOString(),
+    recommendedAction: alertForm.recommendedAction,
+    evacuationRequired: alertForm.evacuationRequired,
+    shelterIds: alertForm.shelterIds
+      .split(",")
+      .map((shelterId) => shelterId.trim())
+      .filter(Boolean),
+  });
+
+  const createAlertDraft = async () => {
+    setAlertBusy(true);
+    setAlertFeedback("");
+    try {
+      const response = await fetch(`${ALERT_API_BASE}/alerts`, {
+        method: "POST",
+        headers: alertHeaders(),
+        body: JSON.stringify(buildAlertRequest()),
+      });
+      if (!response.ok) {
+        throw new Error(`alert API returned ${response.status}`);
+      }
+      const alert = (await response.json()) as AuthorityAlertRecord;
+      setAlerts((current) => [
+        alert,
+        ...current.filter((item) => item.id !== alert.id),
+      ]);
+      setAlertLoadState("ready");
+      setAlertFeedback("Draft created.");
+    } catch (error) {
+      setAlertFeedback(
+        "Alert API unavailable. Start alert-service to create drafts.",
+      );
+    } finally {
+      setAlertBusy(false);
+    }
+  };
+
+  const runAlertAction = async (
+    alert: AuthorityAlertRecord,
+    action: "submit" | "approve" | "reject" | "emergency-override",
+  ) => {
+    setAlertBusy(true);
+    setAlertFeedback("");
+    const body =
+      action === "reject"
+        ? { reason: "Rejected from authority dashboard review queue." }
+        : action === "emergency-override"
+          ? { reason: "Emergency override from authority dashboard." }
+          : { note: `Authority dashboard ${action}.` };
+
+    try {
+      const response = await fetch(
+        `${ALERT_API_BASE}/alerts/${alert.id}/${action}`,
+        {
+          method: "POST",
+          headers: alertHeaders(),
+          body: JSON.stringify(body),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`alert API returned ${response.status}`);
+      }
+      const updatedAlert = (await response.json()) as AuthorityAlertRecord;
+      setAlerts((current) =>
+        current.map((item) =>
+          item.id === updatedAlert.id ? updatedAlert : item,
+        ),
+      );
+      setAlertLoadState("ready");
+      setAlertFeedback(`${alertStatusLabel(updatedAlert.status)} alert saved.`);
+    } catch (error) {
+      setAlertFeedback("Alert action needs the alert-service API running.");
+    } finally {
+      setAlertBusy(false);
+    }
   };
 
   if (!hasCommandAccess) {
@@ -370,7 +601,8 @@ function App() {
             <ShieldAlert size={38} color={nadaaBrand.colors.red} />
             <Typography variant="h5">Authority access required</Typography>
             <Typography color="text.secondary">
-              Incident command requires an agency account, an approved role, and completed MFA.
+              Incident command requires an agency account, an approved role, and
+              completed MFA.
             </Typography>
           </Paper>
         </Container>
@@ -383,11 +615,23 @@ function App() {
       <CssBaseline />
       <AppBar position="sticky" elevation={0} className="topbar">
         <Toolbar className="toolbar">
-          <Stack direction="row" spacing={1.5} alignItems="center" className="brand-lockup">
-            <Box component="img" src="/brand/nadaa-logo.png" alt="NADAA shield" className="brand-logo" />
+          <Stack
+            direction="row"
+            spacing={1.5}
+            alignItems="center"
+            className="brand-lockup"
+          >
+            <Box
+              component="img"
+              src="/brand/nadaa-logo.png"
+              alt="NADAA shield"
+              className="brand-logo"
+            />
             <Box>
               <Typography variant="h6">NADAA Command</Typography>
-              <Typography variant="caption">National Disaster Alert & Response Platform</Typography>
+              <Typography variant="caption">
+                National Disaster Alert & Response Platform
+              </Typography>
             </Box>
           </Stack>
           <Stack direction="row" spacing={1} className="topbar-actions">
@@ -397,10 +641,18 @@ function App() {
               label={`${authoritySession.name} / MFA`}
               className="session-chip"
             />
-            <Button color="inherit" variant="outlined" startIcon={<RadioTower size={17} />}>
+            <Button
+              color="inherit"
+              variant="outlined"
+              startIcon={<RadioTower size={17} />}
+            >
               Issue alert
             </Button>
-            <Button color="secondary" variant="contained" startIcon={<Truck size={17} />}>
+            <Button
+              color="secondary"
+              variant="contained"
+              startIcon={<Truck size={17} />}
+            >
               Assign team
             </Button>
           </Stack>
@@ -408,21 +660,46 @@ function App() {
       </AppBar>
 
       <Container maxWidth="xl" className="dashboard-shell">
-        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2} className="page-heading">
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          justifyContent="space-between"
+          gap={2}
+          className="page-heading"
+        >
           <Box>
             <Typography variant="overline" color="secondary">
               Incident command
             </Typography>
-            <Typography variant="h4">Live Greater Accra operations map</Typography>
+            <Typography variant="h4">
+              Live Greater Accra operations map
+            </Typography>
             <Typography color="text.secondary">
-              Monitor emergencies by place, severity, hazard, time, and response status.
+              Monitor emergencies by place, severity, hazard, time, and response
+              status.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            flexWrap="wrap"
+          >
             <Chip
               icon={<Eye size={16} />}
-              label={loadState === "ready" ? "Live API" : loadState === "empty" ? "No active incidents" : "Fixture mode"}
-              color={loadState === "ready" ? "success" : loadState === "empty" ? "default" : "warning"}
+              label={
+                loadState === "ready"
+                  ? "Live API"
+                  : loadState === "empty"
+                    ? "No active incidents"
+                    : "Fixture mode"
+              }
+              color={
+                loadState === "ready"
+                  ? "success"
+                  : loadState === "empty"
+                    ? "default"
+                    : "warning"
+              }
             />
             <Button
               variant="outlined"
@@ -435,12 +712,19 @@ function App() {
           </Stack>
         </Stack>
 
-        {loadState === "fallback" || loadState === "error" || loadState === "empty" ? (
-          <Alert severity={loadState === "empty" ? "info" : "warning"} className="feed-alert">
+        {loadState === "fallback" ||
+        loadState === "error" ||
+        loadState === "empty" ? (
+          <Alert
+            severity={loadState === "empty" ? "info" : "warning"}
+            className="feed-alert"
+          >
             {loadMessage}
           </Alert>
         ) : null}
-        {loadState === "loading" ? <LinearProgress className="feed-progress" /> : null}
+        {loadState === "loading" ? (
+          <LinearProgress className="feed-progress" />
+        ) : null}
 
         <Grid container spacing={2.5}>
           {metrics.map((item) => {
@@ -448,7 +732,11 @@ function App() {
             return (
               <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={item.label}>
                 <Paper className="metric-card">
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
                     <Box>
                       <Typography variant="body2" color="text.secondary">
                         {item.label}
@@ -466,13 +754,22 @@ function App() {
         </Grid>
 
         <Paper className="surface filter-surface">
-          <Stack direction="row" spacing={1} alignItems="center" className="section-heading">
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            className="section-heading"
+          >
             <Filter size={20} color={nadaaBrand.colors.navy} />
             <Typography variant="h6">Filters</Typography>
           </Stack>
           <Grid container spacing={1.5}>
             <Grid size={{ xs: 12, md: 2.4 }}>
-              <CommandSelect label="Hazard" value={filters.hazard} onChange={updateFilter("hazard")}>
+              <CommandSelect
+                label="Hazard"
+                value={filters.hazard}
+                onChange={updateFilter("hazard")}
+              >
                 <MenuItem value="all">All hazards</MenuItem>
                 {filterOptions.hazards.map((hazard) => (
                   <MenuItem value={hazard} key={hazard}>
@@ -496,7 +793,11 @@ function App() {
               </CommandSelect>
             </Grid>
             <Grid size={{ xs: 12, md: 2.4 }}>
-              <CommandSelect label="Severity" value={filters.severity} onChange={updateFilter("severity")}>
+              <CommandSelect
+                label="Severity"
+                value={filters.severity}
+                onChange={updateFilter("severity")}
+              >
                 <MenuItem value="all">All severities</MenuItem>
                 {filterOptions.severities.map((severity) => (
                   <MenuItem value={severity} key={severity}>
@@ -506,7 +807,11 @@ function App() {
               </CommandSelect>
             </Grid>
             <Grid size={{ xs: 12, md: 2.4 }}>
-              <CommandSelect label="Status" value={filters.status} onChange={updateFilter("status")}>
+              <CommandSelect
+                label="Status"
+                value={filters.status}
+                onChange={updateFilter("status")}
+              >
                 <MenuItem value="all">All statuses</MenuItem>
                 {filterOptions.statuses.map((status) => (
                   <MenuItem value={status} key={status}>
@@ -516,7 +821,11 @@ function App() {
               </CommandSelect>
             </Grid>
             <Grid size={{ xs: 12, md: 2.4 }}>
-              <CommandSelect label="Time" value={filters.time} onChange={updateFilter("time")}>
+              <CommandSelect
+                label="Time"
+                value={filters.time}
+                onChange={updateFilter("time")}
+              >
                 <MenuItem value="all">Any time</MenuItem>
                 <MenuItem value="1h">Last hour</MenuItem>
                 <MenuItem value="6h">Last 6 hours</MenuItem>
@@ -529,19 +838,28 @@ function App() {
         <Grid container spacing={2.5} className="main-grid">
           <Grid size={{ xs: 12, lg: 8 }}>
             <Paper className="surface map-surface">
-              <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                justifyContent="space-between"
+                spacing={2}
+              >
                 <Box>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <MapPinned size={21} color={nadaaBrand.colors.navy} />
                     <Typography variant="h5">Incident map</Typography>
                   </Stack>
                   <Typography color="text.secondary">
-                    {filteredIncidents.length} visible of {incidents.length} incidents
+                    {filteredIncidents.length} visible of {incidents.length}{" "}
+                    incidents
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   {filterOptions.hazards.slice(0, 4).map((hazard) => (
-                    <Chip key={hazard} label={hazardLabel(hazard)} size="small" />
+                    <Chip
+                      key={hazard}
+                      label={hazardLabel(hazard)}
+                      size="small"
+                    />
                   ))}
                 </Stack>
               </Stack>
@@ -554,7 +872,12 @@ function App() {
             </Paper>
 
             <Paper className="surface incident-table">
-              <Stack direction="row" spacing={1} alignItems="center" className="section-heading">
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                className="section-heading"
+              >
                 <LocateFixed size={21} color={nadaaBrand.colors.navy} />
                 <Typography variant="h6">Incident queue</Typography>
               </Stack>
@@ -581,7 +904,9 @@ function App() {
                         className="incident-row"
                       >
                         <TableCell>
-                          <Typography variant="subtitle2">{incident.reference}</Typography>
+                          <Typography variant="subtitle2">
+                            {incident.reference}
+                          </Typography>
                           <Typography variant="caption" color="text.secondary">
                             {incident.locality}
                           </Typography>
@@ -594,20 +919,26 @@ function App() {
                             label={severityLabel(incident.severity)}
                             className="severity-chip"
                             style={{
-                              backgroundColor: severityColors[incident.severity],
-                              color: "#FFFFFF"
+                              backgroundColor:
+                                severityColors[incident.severity],
+                              color: "#FFFFFF",
                             }}
                           />
                         </TableCell>
                         <TableCell>{statusLabel(incident.status)}</TableCell>
                         <TableCell>{incident.assignedAgency}</TableCell>
-                        <TableCell>{formatIncidentAge(incident.createdAt)}</TableCell>
+                        <TableCell>
+                          {formatIncidentAge(incident.createdAt)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               ) : (
-                <EmptyState title="No incidents match these filters" detail="Adjust filters or refresh the feed." />
+                <EmptyState
+                  title="No incidents match these filters"
+                  detail="Adjust filters or refresh the feed."
+                />
               )}
             </Paper>
           </Grid>
@@ -616,47 +947,43 @@ function App() {
             <Stack spacing={2.5}>
               <IncidentDetailPanel incident={selectedIncident} />
 
-              <Paper className="surface alert-panel">
-                <Stack direction="row" spacing={1} alignItems="center" className="section-heading">
-                  <BellRing size={21} color={nadaaBrand.colors.red} />
-                  <Typography variant="h6">Alert approval</Typography>
-                </Stack>
-                {pendingAlertIncident ? (
-                  <Stack spacing={1.5}>
-                    <Box>
-                      <Stack direction="row" justifyContent="space-between" gap={1}>
-                        <Typography variant="subtitle2">
-                          {severityLabel(pendingAlertIncident.severity)} {hazardLabel(pendingAlertIncident.type)} watch
-                        </Typography>
-                        <Chip size="small" label="Draft" color="warning" />
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary">
-                        {pendingAlertIncident.district} · {pendingAlertIncident.responderEta} responder ETA
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={alertReadiness(pendingAlertIncident)}
-                      color={pendingAlertIncident.priorityReview ? "error" : "warning"}
-                    />
-                    <Button variant="contained" color="error" startIcon={<BellRing size={17} />}>
-                      Review alert
-                    </Button>
-                  </Stack>
-                ) : (
-                  <EmptyState title="No alert candidates" detail="Filtered incidents do not currently require alert review." />
-                )}
-              </Paper>
+              <AlertWorkflowPanel
+                alerts={alerts}
+                busy={alertBusy}
+                feedback={alertFeedback || alertMessage}
+                form={alertForm}
+                loadState={alertLoadState}
+                onCreateDraft={createAlertDraft}
+                onRunAction={runAlertAction}
+                onUpdateForm={updateAlertForm}
+                selectedIncident={selectedIncident}
+              />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">
                   Operating posture
                 </Typography>
                 <Stack spacing={1.25}>
-                  <StatusLine label="Incident feed" value={loadState === "ready" ? "Live" : "Fixture"} color={loadState === "ready" ? "success" : "warning"} />
-                  <StatusLine label="Authority session" value={authoritySession.agency} color="success" />
-                  <StatusLine label="ML alerts" value="Human review" color="warning" />
-                  <StatusLine label="Audit trail" value="Required" color="success" />
+                  <StatusLine
+                    label="Incident feed"
+                    value={loadState === "ready" ? "Live" : "Fixture"}
+                    color={loadState === "ready" ? "success" : "warning"}
+                  />
+                  <StatusLine
+                    label="Authority session"
+                    value={authoritySession.agency}
+                    color="success"
+                  />
+                  <StatusLine
+                    label="ML alerts"
+                    value="Human review"
+                    color="warning"
+                  />
+                  <StatusLine
+                    label="Audit trail"
+                    value="Required"
+                    color="success"
+                  />
                 </Stack>
               </Paper>
             </Stack>
@@ -671,7 +998,7 @@ function CommandSelect({
   children,
   label,
   onChange,
-  value
+  value,
 }: {
   children: React.ReactNode;
   label: string;
@@ -691,7 +1018,7 @@ function CommandSelect({
 function IncidentMap({
   incidents,
   onSelect,
-  selectedIncidentId
+  selectedIncidentId,
 }: {
   incidents: CommandIncident[];
   onSelect: (incidentId: string) => void;
@@ -710,12 +1037,13 @@ function IncidentMap({
       center: [5.586, -0.18],
       zoom: 11,
       zoomControl: true,
-      scrollWheelZoom: false
+      scrollWheelZoom: false,
     });
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
     }).addTo(map);
 
     mapRef.current = map;
@@ -743,15 +1071,18 @@ function IncidentMap({
     const bounds = L.latLngBounds([]);
     incidents.forEach((incident) => {
       const isSelected = incident.id === selectedIncidentId;
-      const marker = L.circleMarker([incident.location.lat, incident.location.lng], {
-        radius: isSelected ? 13 : 9,
-        color: "#FFFFFF",
-        weight: isSelected ? 4 : 2,
-        fillColor: severityColors[incident.severity],
-        fillOpacity: isSelected ? 0.95 : 0.78
-      });
+      const marker = L.circleMarker(
+        [incident.location.lat, incident.location.lng],
+        {
+          radius: isSelected ? 13 : 9,
+          color: "#FFFFFF",
+          weight: isSelected ? 4 : 2,
+          fillColor: severityColors[incident.severity],
+          fillOpacity: isSelected ? 0.95 : 0.78,
+        },
+      );
       marker.bindPopup(
-        `<strong>${incident.reference}</strong><br>${hazardLabel(incident.type)} · ${severityLabel(incident.severity)}<br>${incident.locality}`
+        `<strong>${incident.reference}</strong><br>${hazardLabel(incident.type)} · ${severityLabel(incident.severity)}<br>${incident.locality}`,
       );
       marker.on("click", () => onSelect(incident.id));
       marker.addTo(layer);
@@ -765,14 +1096,20 @@ function IncidentMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    const selected = incidents.find((incident) => incident.id === selectedIncidentId);
+    const selected = incidents.find(
+      (incident) => incident.id === selectedIncidentId,
+    );
     if (!map || !selected) {
       return;
     }
-    map.flyTo([selected.location.lat, selected.location.lng], Math.max(map.getZoom(), 12), {
-      animate: true,
-      duration: 0.45
-    });
+    map.flyTo(
+      [selected.location.lat, selected.location.lng],
+      Math.max(map.getZoom(), 12),
+      {
+        animate: true,
+        duration: 0.45,
+      },
+    );
   }, [incidents, selectedIncidentId]);
 
   return (
@@ -780,10 +1117,299 @@ function IncidentMap({
       <Box ref={containerRef} className="leaflet-command-map" />
       {!incidents.length ? (
         <Box className="map-empty">
-          <EmptyState title="No map markers" detail="No incidents match the current command filters." />
+          <EmptyState
+            title="No map markers"
+            detail="No incidents match the current command filters."
+          />
         </Box>
       ) : null}
     </Box>
+  );
+}
+
+function AlertWorkflowPanel({
+  alerts,
+  busy,
+  feedback,
+  form,
+  loadState,
+  onCreateDraft,
+  onRunAction,
+  onUpdateForm,
+  selectedIncident,
+}: {
+  alerts: AuthorityAlertRecord[];
+  busy: boolean;
+  feedback: string;
+  form: AlertFormState;
+  loadState: AlertLoadState;
+  onCreateDraft: () => void;
+  onRunAction: (
+    alert: AuthorityAlertRecord,
+    action: "submit" | "approve" | "reject" | "emergency-override",
+  ) => void;
+  onUpdateForm: (
+    key: keyof AlertFormState,
+  ) => (
+    event:
+      ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+  ) => void;
+  selectedIncident?: CommandIncident;
+}) {
+  const queueAlerts = alerts.filter(
+    (alert) => alert.status !== "published" && alert.status !== "expired",
+  );
+
+  return (
+    <Paper className="surface alert-panel">
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        className="section-heading"
+      >
+        <BellRing size={21} color={nadaaBrand.colors.red} />
+        <Box>
+          <Typography variant="h6">Alert workflow</Typography>
+          <Typography variant="caption" color="text.secondary">
+            Draft, submit, approve, reject, or override with audit.
+          </Typography>
+        </Box>
+      </Stack>
+
+      {selectedIncident ? (
+        <Stack spacing={1.5}>
+          <Box>
+            <Stack direction="row" justifyContent="space-between" gap={1}>
+              <Typography variant="subtitle2">
+                Draft from {selectedIncident.reference}
+              </Typography>
+              <Chip
+                size="small"
+                label={alertSeverityLabel(form.severity)}
+                color={form.severity === "emergency" ? "error" : "warning"}
+              />
+            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              {hazardLabel(selectedIncident.type)} · {selectedIncident.district}
+            </Typography>
+          </Box>
+
+          <TextField
+            size="small"
+            label="Title"
+            value={form.title}
+            onChange={onUpdateForm("title")}
+          />
+          <TextField
+            size="small"
+            label="Message"
+            value={form.message}
+            onChange={onUpdateForm("message")}
+            multiline
+            minRows={3}
+          />
+
+          <Grid container spacing={1.25}>
+            <Grid size={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Severity</InputLabel>
+                <Select
+                  label="Severity"
+                  value={form.severity}
+                  onChange={onUpdateForm("severity")}
+                >
+                  {alertSeverityOptions.map((severity) => (
+                    <MenuItem key={severity} value={severity}>
+                      {alertSeverityLabel(severity)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={6}>
+              <TextField
+                size="small"
+                label="Target"
+                value={form.targetLabel}
+                onChange={onUpdateForm("targetLabel")}
+                fullWidth
+              />
+            </Grid>
+            <Grid size={6}>
+              <TextField
+                size="small"
+                label="Starts"
+                value={form.startsAt}
+                onChange={onUpdateForm("startsAt")}
+                type="datetime-local"
+                fullWidth
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+            <Grid size={6}>
+              <TextField
+                size="small"
+                label="Expires"
+                value={form.expiresAt}
+                onChange={onUpdateForm("expiresAt")}
+                type="datetime-local"
+                fullWidth
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+          </Grid>
+
+          <TextField
+            size="small"
+            label="Recommended action"
+            value={form.recommendedAction}
+            onChange={onUpdateForm("recommendedAction")}
+          />
+          <TextField
+            size="small"
+            label="Shelter IDs"
+            value={form.shelterIds}
+            onChange={onUpdateForm("shelterIds")}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.evacuationRequired}
+                onChange={onUpdateForm("evacuationRequired")}
+              />
+            }
+            label="Evacuation required"
+          />
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<BellRing size={17} />}
+            disabled={busy}
+            onClick={onCreateDraft}
+          >
+            Create draft
+          </Button>
+        </Stack>
+      ) : (
+        <EmptyState
+          title="No incident selected"
+          detail="Choose an incident before drafting an alert."
+        />
+      )}
+
+      <Divider className="detail-divider" />
+
+      <Stack spacing={1.25}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          gap={1}
+        >
+          <Typography variant="subtitle2">Approval queue</Typography>
+          <Chip
+            size="small"
+            label={
+              loadState === "ready"
+                ? "Live"
+                : loadState === "loading"
+                  ? "Loading"
+                  : "Fixture"
+            }
+            color={loadState === "ready" ? "success" : "warning"}
+          />
+        </Stack>
+        {feedback ? (
+          <Alert
+            severity={
+              loadState === "ready"
+                ? "success"
+                : loadState === "loading"
+                  ? "info"
+                  : "warning"
+            }
+          >
+            {feedback}
+          </Alert>
+        ) : null}
+        {queueAlerts.length ? (
+          queueAlerts.slice(0, 4).map((alert) => (
+            <Box key={alert.id} className="alert-queue-row">
+              <Stack direction="row" justifyContent="space-between" gap={1}>
+                <Box>
+                  <Typography variant="subtitle2">{alert.title}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {alert.target.label} · {alertSeverityLabel(alert.severity)}
+                  </Typography>
+                </Box>
+                <Chip
+                  size="small"
+                  label={alertStatusLabel(alert.status)}
+                  color={alertStatusColor(alert.status)}
+                />
+              </Stack>
+              <Stack
+                direction="row"
+                spacing={1}
+                flexWrap="wrap"
+                className="alert-actions"
+              >
+                {alert.status === "draft" ? (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={busy}
+                    onClick={() => onRunAction(alert, "submit")}
+                  >
+                    Submit
+                  </Button>
+                ) : null}
+                {alert.status === "submitted" ? (
+                  <>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      disabled={busy}
+                      onClick={() => onRunAction(alert, "approve")}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      disabled={busy}
+                      onClick={() => onRunAction(alert, "reject")}
+                    >
+                      Reject
+                    </Button>
+                  </>
+                ) : null}
+                {alert.status === "draft" ||
+                alert.status === "submitted" ||
+                alert.status === "rejected" ? (
+                  <Button
+                    size="small"
+                    color="error"
+                    disabled={busy}
+                    onClick={() => onRunAction(alert, "emergency-override")}
+                  >
+                    Override
+                  </Button>
+                ) : null}
+              </Stack>
+            </Box>
+          ))
+        ) : (
+          <EmptyState
+            title="No alerts in queue"
+            detail="Create a draft to begin the approval workflow."
+          />
+        )}
+      </Stack>
+    </Paper>
   );
 }
 
@@ -791,14 +1417,22 @@ function IncidentDetailPanel({ incident }: { incident?: CommandIncident }) {
   if (!incident) {
     return (
       <Paper className="surface">
-        <EmptyState title="No incident selected" detail="Choose a map marker or queue row to inspect the incident." />
+        <EmptyState
+          title="No incident selected"
+          detail="Choose a map marker or queue row to inspect the incident."
+        />
       </Paper>
     );
   }
 
   return (
     <Paper className="surface detail-panel">
-      <Stack direction="row" justifyContent="space-between" gap={1} className="section-heading">
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        gap={1}
+        className="section-heading"
+      >
         <Box>
           <Typography variant="overline" color="secondary">
             Selected incident
@@ -808,7 +1442,10 @@ function IncidentDetailPanel({ incident }: { incident?: CommandIncident }) {
         <Chip
           size="small"
           label={severityLabel(incident.severity)}
-          style={{ backgroundColor: severityColors[incident.severity], color: "#FFFFFF" }}
+          style={{
+            backgroundColor: severityColors[incident.severity],
+            color: "#FFFFFF",
+          }}
         />
       </Stack>
 
@@ -883,14 +1520,19 @@ function Fact({ label, value }: { label: string; value: string }) {
 function StatusLine({
   color,
   label,
-  value
+  value,
 }: {
   color: "success" | "warning" | "default";
   label: string;
   value: string;
 }) {
   return (
-    <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+    <Stack
+      direction="row"
+      justifyContent="space-between"
+      alignItems="center"
+      gap={1}
+    >
       <Typography variant="body2">{label}</Typography>
       <Chip size="small" label={value} color={color} />
     </Stack>
@@ -899,7 +1541,12 @@ function StatusLine({
 
 function EmptyState({ detail, title }: { detail: string; title: string }) {
   return (
-    <Stack alignItems="center" justifyContent="center" spacing={1} className="empty-state">
+    <Stack
+      alignItems="center"
+      justifyContent="center"
+      spacing={1}
+      className="empty-state"
+    >
       <Crosshair size={28} color={nadaaBrand.colors.slate} />
       <Typography variant="subtitle2">{title}</Typography>
       <Typography variant="body2" color="text.secondary" textAlign="center">
@@ -913,39 +1560,51 @@ function buildQueueMetrics(incidents: CommandIncident[]) {
   return [
     {
       label: "New reports",
-      value: incidents.filter((incident) => incident.status === "reported" || incident.status === "under_review").length,
+      value: incidents.filter(
+        (incident) =>
+          incident.status === "reported" || incident.status === "under_review",
+      ).length,
       icon: ShieldAlert,
-      color: nadaaBrand.colors.red
+      color: nadaaBrand.colors.red,
     },
     {
       label: "Verified",
-      value: incidents.filter((incident) => incident.status === "verified" || incident.status === "assigned").length,
+      value: incidents.filter(
+        (incident) =>
+          incident.status === "verified" || incident.status === "assigned",
+      ).length,
       icon: CheckCheck,
-      color: nadaaBrand.colors.green
+      color: nadaaBrand.colors.green,
     },
     {
       label: "Teams en route",
-      value: incidents.filter((incident) => incident.status === "response_en_route" || incident.status === "on_scene").length,
+      value: incidents.filter(
+        (incident) =>
+          incident.status === "response_en_route" ||
+          incident.status === "on_scene",
+      ).length,
       icon: Truck,
-      color: "#0B6FB8"
+      color: "#0B6FB8",
     },
     {
       label: "Priority review",
       value: incidents.filter((incident) => incident.priorityReview).length,
       icon: AlertTriangle,
-      color: nadaaBrand.colors.gold
-    }
+      color: nadaaBrand.colors.gold,
+    },
   ];
 }
 
 function buildFilterOptions(incidents: CommandIncident[]) {
   return {
     hazards: uniqueSorted(incidents.map((incident) => incident.type)),
-    regionDistricts: uniqueSorted(incidents.map((incident) => `${incident.region} / ${incident.district}`)),
-    severities: uniqueSorted(incidents.map((incident) => incident.severity)).sort(
-      (a, b) => severityOrder[b] - severityOrder[a]
+    regionDistricts: uniqueSorted(
+      incidents.map((incident) => `${incident.region} / ${incident.district}`),
     ),
-    statuses: uniqueSorted(incidents.map((incident) => incident.status))
+    severities: uniqueSorted(
+      incidents.map((incident) => incident.severity),
+    ).sort((a, b) => severityOrder[b] - severityOrder[a]),
+    statuses: uniqueSorted(incidents.map((incident) => incident.status)),
   };
 }
 
@@ -953,7 +1612,10 @@ function matchesFilters(incident: CommandIncident, filters: FilterState) {
   if (filters.hazard !== "all" && incident.type !== filters.hazard) {
     return false;
   }
-  if (filters.regionDistrict !== "all" && `${incident.region} / ${incident.district}` !== filters.regionDistrict) {
+  if (
+    filters.regionDistrict !== "all" &&
+    `${incident.region} / ${incident.district}` !== filters.regionDistrict
+  ) {
     return false;
   }
   if (filters.severity !== "all" && incident.severity !== filters.severity) {
@@ -962,14 +1624,24 @@ function matchesFilters(incident: CommandIncident, filters: FilterState) {
   if (filters.status !== "all" && incident.status !== filters.status) {
     return false;
   }
-  if (filters.time !== "all" && !withinTimeWindow(incident.createdAt, filters.time)) {
+  if (
+    filters.time !== "all" &&
+    !withinTimeWindow(incident.createdAt, filters.time)
+  ) {
     return false;
   }
   return true;
 }
 
 function withinTimeWindow(createdAt: string, timeFilter: FilterState["time"]) {
-  const hours = timeFilter === "1h" ? 1 : timeFilter === "6h" ? 6 : timeFilter === "24h" ? 24 : 0;
+  const hours =
+    timeFilter === "1h"
+      ? 1
+      : timeFilter === "6h"
+        ? 6
+        : timeFilter === "24h"
+          ? 24
+          : 0;
   if (!hours) {
     return true;
   }
@@ -990,23 +1662,41 @@ function enrichIncidentFromAPI(incident: IncidentRecord): CommandIncident {
     timeline: [
       `${hazardLabel(incident.type)} report received from incident service`,
       `${statusLabel(incident.status)} status synchronized`,
-      incident.priorityReview ? "Priority review flag is active" : "Dispatcher monitoring normal queue"
+      incident.priorityReview
+        ? "Priority review flag is active"
+        : "Dispatcher monitoring normal queue",
     ],
-    source: "api"
+    source: "api",
   };
 }
 
 function districtFromCoordinates(location: { lat: number; lng: number }) {
   if (location.lng > -0.08) {
-    return { region: "Greater Accra", district: "Tema Metropolitan", locality: "Tema" };
+    return {
+      region: "Greater Accra",
+      district: "Tema Metropolitan",
+      locality: "Tema",
+    };
   }
   if (location.lng < -0.25) {
-    return { region: "Greater Accra", district: "Ablekuma West", locality: "Ablekuma" };
+    return {
+      region: "Greater Accra",
+      district: "Ablekuma West",
+      locality: "Ablekuma",
+    };
   }
   if (location.lat < 5.56) {
-    return { region: "Greater Accra", district: "Accra Metropolitan", locality: "Korle Gonno" };
+    return {
+      region: "Greater Accra",
+      district: "Accra Metropolitan",
+      locality: "Korle Gonno",
+    };
   }
-  return { region: "Greater Accra", district: "Accra Metropolitan", locality: "Accra Central" };
+  return {
+    region: "Greater Accra",
+    district: "Accra Metropolitan",
+    locality: "Accra Central",
+  };
 }
 
 function assignmentForIncident(incident: IncidentRecord) {
@@ -1039,6 +1729,52 @@ function alertReadiness(incident: CommandIncident) {
   return Math.min(95, 30 + severityWeight + duplicateWeight + mediaWeight);
 }
 
+function buildDefaultAlertForm(incident?: CommandIncident): AlertFormState {
+  const startsAt = new Date(Date.now() + 30 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
+  const hazard = incident ? hazardLabel(incident.type).toLowerCase() : "flood";
+  const district = incident?.district ?? "Accra Metropolitan";
+  const severity = riskToAlertSeverity(incident?.severity ?? "high");
+
+  return {
+    title: `${alertSeverityLabel(severity)} ${hazard} alert`,
+    severity,
+    message: incident
+      ? `${incident.description} Avoid the affected area and follow official NADMO instructions.`
+      : "Avoid low-lying roads and follow official NADMO instructions.",
+    targetLabel: district,
+    startsAt: formatDateTimeLocal(startsAt),
+    expiresAt: formatDateTimeLocal(expiresAt),
+    recommendedAction:
+      incident?.severity === "emergency" || incident?.severity === "severe"
+        ? "Prepare to evacuate if instructed by authorities."
+        : "Stay alert, avoid the affected area, and monitor NADAA updates.",
+    evacuationRequired: incident?.severity === "emergency",
+    shelterIds: "00000000-0000-0000-0000-000000000301",
+  };
+}
+
+function riskToAlertSeverity(severity: RiskLevel): AlertSeverity {
+  if (severity === "emergency") {
+    return "emergency";
+  }
+  if (severity === "severe") {
+    return "severe_warning";
+  }
+  if (severity === "high") {
+    return "warning";
+  }
+  if (severity === "moderate") {
+    return "watch";
+  }
+  return "advisory";
+}
+
+function formatDateTimeLocal(date: Date) {
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
 function uniqueSorted<T extends string>(values: T[]) {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
@@ -1054,6 +1790,13 @@ function severityLabel(severity: RiskLevel) {
   return severity[0].toUpperCase() + severity.slice(1);
 }
 
+function alertSeverityLabel(severity: AlertSeverity) {
+  return severity
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function statusLabel(status: IncidentStatus) {
   return status
     .split("_")
@@ -1061,9 +1804,41 @@ function statusLabel(status: IncidentStatus) {
     .join(" ");
 }
 
+function alertStatusLabel(status: AlertStatus) {
+  return status
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function alertStatusColor(
+  status: AlertStatus,
+): "default" | "warning" | "success" | "error" {
+  if (status === "approved" || status === "published") {
+    return "success";
+  }
+  if (status === "submitted" || status === "draft") {
+    return "warning";
+  }
+  if (status === "rejected" || status === "cancelled" || status === "expired") {
+    return "error";
+  }
+  return "default";
+}
+
+function districtSlug(district: string) {
+  return district
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 function formatIncidentAge(createdAt: string) {
   const latestFixtureTime = new Date("2026-07-06T19:00:00Z").getTime();
-  const minutes = Math.max(1, Math.round((latestFixtureTime - new Date(createdAt).getTime()) / 60000));
+  const minutes = Math.max(
+    1,
+    Math.round((latestFixtureTime - new Date(createdAt).getTime()) / 60000),
+  );
   if (minutes < 60) {
     return `${minutes} min`;
   }

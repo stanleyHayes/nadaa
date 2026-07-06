@@ -83,13 +83,13 @@ Sensitive actions require authority authentication, RBAC, MFA where applicable, 
 
 ## Data Classification
 
-| Class | Examples | Default Handling |
-| --- | --- | --- |
-| Public | Approved alerts, public guidance, approved shelter listings | Cacheable, no personal data |
-| Internal | Incident status, assignments, operational notes | Authority-only |
-| Sensitive | Citizen phone, exact home location, report contact permission, private media | Need-to-know access |
-| Restricted | Admin credentials, provider tokens, Jira/GitHub/cloud secrets | Secret manager only |
-| Open Data Candidate | Aggregated incident counts, anonymized risk zones | Requires privacy review |
+| Class               | Examples                                                                     | Default Handling            |
+| ------------------- | ---------------------------------------------------------------------------- | --------------------------- |
+| Public              | Approved alerts, public guidance, approved shelter listings                  | Cacheable, no personal data |
+| Internal            | Incident status, assignments, operational notes                              | Authority-only              |
+| Sensitive           | Citizen phone, exact home location, report contact permission, private media | Need-to-know access         |
+| Restricted          | Admin credentials, provider tokens, Jira/GitHub/cloud secrets                | Secret manager only         |
+| Open Data Candidate | Aggregated incident counts, anonymized risk zones                            | Requires privacy review     |
 
 ## Secret Handling
 
@@ -127,6 +127,8 @@ Use environment variables and deployment secret stores.
 - Alert drafts do not reach citizens until approved.
 - Mass alerts require approval.
 - Emergency override is restricted, audited, and visible in review reports.
+- MVP alert-service write endpoints require authority actor, role, agency, MFA-completed, and request-id headers until shared bearer-token middleware is wired across services.
+- Non-system approvers cannot approve their own draft; emergency override is the audited exception path for urgent public warnings.
 - ML predictions can create drafts but cannot publish alerts.
 - Alert expiry is mandatory.
 - Alerts must keep issuing agency, approver, target geometry, and delivery logs.

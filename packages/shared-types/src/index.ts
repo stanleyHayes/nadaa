@@ -58,6 +58,18 @@ export type IncidentUrgency = "low" | "moderate" | "high" | "life_threatening";
 export type AlertSeverity =
   "advisory" | "watch" | "warning" | "severe_warning" | "emergency";
 
+export type AlertStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "published"
+  | "expired"
+  | "cancelled";
+
+export type AlertTargetType =
+  "national" | "region" | "district" | "radius" | "community" | "custom";
+
 export type GuideStage = "before" | "during" | "after" | "recovery";
 
 export interface Coordinates {
@@ -195,6 +207,60 @@ export interface AuditLogRecord {
 
 export interface AuditLogListResponse {
   logs: AuditLogRecord[];
+}
+
+export interface AlertTarget {
+  type: AlertTargetType;
+  ids: string[];
+  label: string;
+}
+
+export interface CreateAlertRequest {
+  title: string;
+  hazardType: HazardType;
+  severity: AlertSeverity;
+  message: string;
+  target: AlertTarget;
+  startsAt: string;
+  expiresAt: string;
+  recommendedAction: string;
+  evacuationRequired: boolean;
+  shelterIds: string[];
+}
+
+export interface AlertWorkflowRequest {
+  note?: string;
+  reason?: string;
+}
+
+export interface AuthorityAlertRecord {
+  id: string;
+  title: string;
+  hazardType: HazardType;
+  severity: AlertSeverity;
+  message: string;
+  target: AlertTarget;
+  startsAt: string;
+  expiresAt: string;
+  recommendedAction: string;
+  evacuationRequired: boolean;
+  shelterIds: string[];
+  issuingAgencyId: string;
+  issuedBy: string;
+  approvedBy?: string;
+  rejectedBy?: string;
+  status: AlertStatus;
+  emergencyOverride: boolean;
+  statusReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+}
+
+export interface AlertListResponse {
+  alerts: AuthorityAlertRecord[];
 }
 
 export interface EmergencyGuideRecord {

@@ -4,6 +4,7 @@ const requiredWebTargets = [
 ];
 
 const optionalServiceTargets = [
+  ["alert-service", "STAGING_ALERT_SERVICE_URL"],
   ["auth-service", "STAGING_AUTH_SERVICE_URL"],
   ["incident-service", "STAGING_INCIDENT_SERVICE_URL"],
   ["guide-service", "STAGING_GUIDE_SERVICE_URL"],

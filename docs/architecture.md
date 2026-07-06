@@ -18,6 +18,7 @@ NADAA is the Ghana National Disaster Alert and Response Platform. It is designed
 - `packages/brand` - brand constants, slogan, palette, and feature pillars.
 - `packages/shared-types` - shared TypeScript domain contracts.
 - `services/auth-service` - Go citizen and agency authentication starter with mock OTP/MFA, signed bearer tokens, RBAC, and audit events.
+- `services/alert-service` - Go alert draft, submission, approval, rejection, emergency override, and audit-event starter.
 - `services/incident-service` - Go incident intake starter with validation, rate limiting, media references, and priority review flagging.
 - `services/guide-service` - Go emergency guidance starter with hazard/stage/language lookup, offline availability metadata, and seed-aligned content fixtures.
 - `services/integration-service` - Go integration contract and mock-adapter starter for agency, weather, hydrology, incident, alert, hospital, road, utility, and shelter data exchange.
@@ -83,7 +84,7 @@ Primary dependencies:
 
 ### Alert Service
 
-Owns alert drafts, approval workflow, targeting geometry, publication status, expiry, audit, and alert history.
+Owns alert drafts, approval workflow, emergency override, targeting metadata, publication status, expiry, audit, and alert history.
 
 Primary dependencies:
 

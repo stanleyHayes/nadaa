@@ -180,6 +180,19 @@ body {
   border-top: 6px solid #e53935;
 }
 
+.alert-queue-row {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.alert-actions {
+  row-gap: 8px;
+}
+
 .detail-panel {
   border-top: 6px solid #118d4e;
 }

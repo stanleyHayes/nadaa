@@ -53,6 +53,13 @@ cd services/incident-service
 go run .
 ```
 
+Run alert service:
+
+```bash
+cd services/alert-service
+go run .
+```
+
 Run guide service:
 
 ```bash
@@ -75,6 +82,7 @@ pnpm typecheck
 pnpm build
 pnpm go:test
 pnpm smoke:web
+pnpm smoke:alert
 pnpm smoke:risk
 pnpm smoke:guide
 pnpm smoke:integration
@@ -110,6 +118,7 @@ Initial expected groups:
 - `JWT_SECRET`
 - `MFA_ISSUER`
 - `NADAA_AUTH_TOKEN_SECRET`
+- `NADAA_ALERT_ADDR`
 - `SMS_PROVIDER`
 - `SMS_API_KEY`
 - `WHATSAPP_PROVIDER`
@@ -141,8 +150,8 @@ The first-pass GitHub Actions workflows live in `.github/workflows/`.
 - TypeScript type checks.
 - Workspace tests.
 - App and package builds.
-- Go tests for `auth-service`, `incident-service`, `guide-service`, `integration-service`, and `risk-service`.
-- Docker build validation for citizen web, authority dashboard, auth service, incident service, guide service, integration service, and risk service images.
+- Go tests for `alert-service`, `auth-service`, `incident-service`, `guide-service`, `integration-service`, and `risk-service`.
+- Docker build validation for citizen web, authority dashboard, alert service, auth service, incident service, guide service, integration service, and risk service images.
 
 `Staging Smoke` runs manually against the GitHub `staging` environment:
 

@@ -57,6 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         service:
+          - services/alert-service
           - services/auth-service
           - services/incident-service
           - services/guide-service
@@ -89,6 +90,8 @@ jobs:
             dockerfile: apps/citizen-web/Dockerfile
           - name: authority-dashboard
             dockerfile: apps/authority-dashboard/Dockerfile
+          - name: alert-service
+            dockerfile: services/alert-service/Dockerfile
           - name: auth-service
             dockerfile: services/auth-service/Dockerfile
           - name: incident-service

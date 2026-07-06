@@ -503,6 +503,14 @@ Starter development endpoint for inspecting private media metadata and incident 
 
 `POST /api/v1/alerts`
 
+Requires authority headers:
+
+- `X-NADAA-Actor-ID`
+- `X-NADAA-Actor-Role`
+- `X-NADAA-Agency-ID`
+- `X-NADAA-MFA-Completed: true`
+- `X-NADAA-Request-ID`
+
 ```json
 {
   "title": "Severe Flood Warning",
@@ -521,13 +529,80 @@ Starter development endpoint for inspecting private media metadata and incident 
 }
 ```
 
+Response:
+
+```json
+{
+  "id": "alert_000001",
+  "title": "Severe Flood Warning",
+  "hazardType": "flood",
+  "severity": "severe_warning",
+  "message": "Avoid low-lying roads and move to higher ground.",
+  "target": {
+    "type": "district",
+    "ids": ["ama", "tema"],
+    "label": "Accra Metropolitan and Tema"
+  },
+  "startsAt": "2026-07-06T16:00:00Z",
+  "expiresAt": "2026-07-07T18:00:00Z",
+  "recommendedAction": "Prepare to evacuate if instructed.",
+  "evacuationRequired": false,
+  "shelterIds": ["shelter-ama-001"],
+  "issuingAgencyId": "00000000-0000-0000-0000-000000000101",
+  "issuedBy": "usr_...",
+  "status": "draft",
+  "emergencyOverride": false,
+  "createdAt": "2026-07-06T12:00:00Z",
+  "updatedAt": "2026-07-06T12:00:00Z"
+}
+```
+
+`PATCH /api/v1/alerts/{id}`
+
+Updates a `draft` or `rejected` alert using the same body as create.
+
 `POST /api/v1/alerts/{id}/submit`
 
 `POST /api/v1/alerts/{id}/approve`
 
+```json
+{
+  "note": "Reviewed target, timing, and recommended action."
+}
+```
+
 `POST /api/v1/alerts/{id}/reject`
 
+```json
+{
+  "reason": "Target area is too broad for the current incident."
+}
+```
+
+`POST /api/v1/alerts/{id}/emergency-override`
+
+```json
+{
+  "reason": "Immediate life-safety warning approved by NADMO officer."
+}
+```
+
 `GET /api/v1/alerts?current=true&lat=5.6037&lng=-0.1870`
+
+Without authority headers, alert listing returns only approved or published public alerts. With authority headers, the service returns draft, submitted, approved, and rejected workflow records. `status` may filter by `draft`, `submitted`, `approved`, `rejected`, `published`, `expired`, or `cancelled`.
+
+`GET /api/v1/alerts/audit?limit=50`
+
+Returns alert workflow audit events for authorized approvers.
+
+Rules:
+
+- Draft/update/submit actions allow `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`.
+- Approve/reject actions allow `system_admin`, `agency_admin`, and `nadmo_officer`.
+- Non-system approvers cannot approve their own draft.
+- Emergency override allows only `system_admin` and `nadmo_officer`, requires a reason, marks the alert approved, and creates an `alert.emergency_override` audit event.
+- Alert expiry is mandatory and must be after `startsAt`.
+- Delivery and notification logs land in NADAA-052; this endpoint stops at approved workflow state.
 
 ### Guidance And Shelters
 

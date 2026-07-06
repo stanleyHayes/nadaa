@@ -88,6 +88,15 @@ cd services/incident-service
 go run .
 ```
 
+Run the Go alert service:
+
+```bash
+cd services/alert-service
+go run .
+```
+
+The authority dashboard uses `VITE_ALERT_API_URL`, defaulting to `http://localhost:8089/api/v1`, for alert draft and approval workflows.
+
 Run the Go guide service:
 
 ```bash
