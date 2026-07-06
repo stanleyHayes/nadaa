@@ -96,7 +96,7 @@
     "dependencies": ["NADAA-001"],
     "blockers": [],
     "verification": ["pnpm validate:docs", "git diff --check"],
-    "notes": "Platform portfolio, platform build board, target app paths, sprint placement, ready queue, and tracker stories added for citizen web/mobile, dispatcher web/mobile, agency web, and admin web."
+    "notes": "Platform portfolio, platform build board, delivery breakdown, ownership boundaries, shared dependencies, release gates, build sequence, ready queue, and tracker stories added for citizen web/mobile, dispatcher web/mobile, agency web, and admin web."
   },
   {
     "client": "NADAA Ghana",
