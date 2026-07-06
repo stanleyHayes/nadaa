@@ -89,6 +89,7 @@ pnpm typecheck
 pnpm build
 pnpm go:test
 pnpm smoke:web
+pnpm smoke:citizen-guides
 pnpm smoke:alert
 pnpm smoke:alert-geofence
 pnpm smoke:notification

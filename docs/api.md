@@ -803,6 +803,7 @@ Rules:
 - `offline=true` returns only guides marked as offline available.
 - Initial content covers floods, fire safety, road crash response, electrical hazard safety, disease prevention, safe evacuation, emergency bag checklist, family emergency planning, and contacting 112.
 - General preparedness topics use hazard type `other`.
+- The citizen web app stores offline-available guides in browser storage and registers a small service worker for the app shell and guide responses.
 
 `GET /api/v1/shelters/nearby?lat=5.6037&lng=-0.1870`
 

@@ -47,7 +47,7 @@ Run the citizen web app:
 pnpm dev:citizen
 ```
 
-The citizen app uses `VITE_RISK_API_URL` and `VITE_INCIDENT_API_URL`, defaulting to `http://localhost:8081/api/v1` and `http://localhost:8084/api/v1`.
+The citizen app uses `VITE_RISK_API_URL`, `VITE_INCIDENT_API_URL`, `VITE_NOTIFICATION_API_URL`, and `VITE_GUIDE_API_URL`, defaulting to local service URLs for risk, incident, notification, and guide APIs.
 Copy `apps/citizen-web/.env.example` if you need different service URLs.
 
 Run the authority dashboard:
@@ -115,7 +115,7 @@ cd services/guide-service
 go run .
 ```
 
-The guide service listens on `:8086` by default and exposes `GET /api/v1/guides` for emergency preparedness and response content.
+The guide service listens on `:8086` by default and exposes `GET /api/v1/guides` for emergency preparedness and response content. With the citizen app on `:5173` and guide-service on `:8086`, verify offline-first guide integration with `pnpm smoke:citizen-guides`.
 
 Run the Go integration service:
 

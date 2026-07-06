@@ -199,6 +199,38 @@ body {
   margin: 18px 0 !important;
 }
 
+.guide-filter-grid {
+  margin-bottom: 14px;
+}
+
+.select-leading-icon {
+  margin-left: 10px;
+  margin-right: 4px;
+  color: #667085;
+}
+
+.guide-cache-alert {
+  margin-bottom: 14px;
+}
+
+.guide-feature {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(17, 141, 78, 0.22);
+  background: #eefbf4;
+}
+
+.guide-body {
+  color: #334155;
+}
+
+.guide-list-row {
+  padding: 12px;
+  border-radius: 8px !important;
+}
+
 .pillar-tile {
   min-height: 112px;
   padding: 12px;

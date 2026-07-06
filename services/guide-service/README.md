@@ -40,4 +40,6 @@ go test ./...
 
 ## Notes
 
-The current implementation uses an in-memory store to lock in the API contract and content model for the offline-first citizen guidance UI. PostGIS persistence and CMS publishing workflow can be added later without changing the lookup contract.
+The current implementation uses an in-memory store to lock in the API contract and content model for the offline-first citizen guidance UI. The citizen app caches offline-available guide records and serves a small service worker for the app shell and guide responses. Verify that integration with `pnpm smoke:citizen-guides` when guide-service and citizen-web are running.
+
+PostGIS persistence and CMS publishing workflow can be added later without changing the lookup contract.

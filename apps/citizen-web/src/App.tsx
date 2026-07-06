@@ -25,10 +25,12 @@ import {
 } from "@mui/material";
 import {
   Bell,
+  BookOpen,
   CheckCircle2,
   Clock3,
   Cross,
   ImagePlus,
+  Languages,
   LifeBuoy,
   Loader2,
   LocateFixed,
@@ -39,8 +41,9 @@ import {
   ShieldCheck,
   Siren,
   Waves,
+  WifiOff,
 } from "lucide-react";
-import { featurePillars, nadaaBrand } from "@nadaa/brand";
+import { nadaaBrand } from "@nadaa/brand";
 import type {
   AreaRiskResponse,
   AlertSeverity,
@@ -48,6 +51,9 @@ import type {
   CitizenAlertFeedResponse,
   CreateIncidentRequest,
   CreateIncidentResponse,
+  EmergencyGuideRecord,
+  GuideListResponse,
+  GuideStage,
   HazardType,
   IncidentMediaContentType,
   IncidentUrgency,
@@ -62,6 +68,9 @@ const RISK_API_BASE =
   import.meta.env.VITE_RISK_API_URL ?? "http://localhost:8081/api/v1";
 const NOTIFICATION_API_BASE =
   import.meta.env.VITE_NOTIFICATION_API_URL ?? "http://localhost:8090/api/v1";
+const GUIDE_API_BASE =
+  import.meta.env.VITE_GUIDE_API_URL ?? "http://localhost:8086/api/v1";
+const GUIDE_CACHE_KEY = "nadaa.citizen.guides.v1";
 
 const riskTone: Record<RiskLevel, "success" | "warning" | "error" | "info"> = {
   low: "success",
@@ -207,6 +216,96 @@ function buildFallbackAlerts(): CitizenAlertFeedItem[] {
   ];
 }
 
+const guideHazardOptions: { label: string; value: GuideHazardFilter }[] = [
+  { label: "All hazards", value: "all" },
+  { label: "Flood", value: "flood" },
+  { label: "Fire", value: "fire" },
+  { label: "Road crash", value: "road_crash" },
+  { label: "Electrical", value: "electrical_hazard" },
+  { label: "Disease", value: "disease_outbreak" },
+  { label: "General", value: "other" },
+];
+
+const guideStageOptions: { label: string; value: GuideStageFilter }[] = [
+  { label: "All stages", value: "all" },
+  { label: "Before", value: "before" },
+  { label: "During", value: "during" },
+  { label: "After", value: "after" },
+  { label: "Recovery", value: "recovery" },
+];
+
+const guideLanguageOptions = [
+  { label: "English", value: "en" },
+  { label: "Twi", value: "tw" },
+  { label: "Ga", value: "ga" },
+];
+
+function buildFallbackGuides(): EmergencyGuideRecord[] {
+  const now = new Date().toISOString();
+  return [
+    {
+      id: "guide_flood_before_en",
+      hazardType: "flood",
+      stage: "before",
+      title: "Prepare before flooding",
+      body: "Know your nearest shelter, keep documents dry, clear drains safely, prepare drinking water, and agree on a family meeting point.",
+      language: "en",
+      offlineAvailable: true,
+      sortOrder: 10,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "guide_flood_during_en",
+      hazardType: "flood",
+      stage: "during",
+      title: "Stay safe during flooding",
+      body: "Move to higher ground, avoid walking or driving through floodwater, turn off electricity only if safe, and call 112 for life-threatening danger.",
+      language: "en",
+      offlineAvailable: true,
+      sortOrder: 20,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "guide_fire_during_en",
+      hazardType: "fire",
+      stage: "during",
+      title: "Fire safety response",
+      body: "Leave immediately, warn people nearby, stay low under smoke, never use lifts, and call 112 for Ghana National Fire Service support.",
+      language: "en",
+      offlineAvailable: true,
+      sortOrder: 40,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "guide_evacuation_during_en",
+      hazardType: "other",
+      stage: "during",
+      title: "Safe evacuation",
+      body: "Take only essentials, follow official routes, help children and elderly people first, avoid floodwater or smoke, and tell relatives where you are going.",
+      language: "en",
+      offlineAvailable: true,
+      sortOrder: 80,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "guide_112_during_en",
+      hazardType: "other",
+      stage: "during",
+      title: "Calling 112",
+      body: "Call 112 for life-threatening emergencies. Share the hazard, exact location, people affected, injuries, and a safe callback number if available.",
+      language: "en",
+      offlineAvailable: true,
+      sortOrder: 110,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
+}
+
 const hazardOptions: { label: string; value: HazardType }[] = [
   { label: "Flood", value: "flood" },
   { label: "Fire", value: "fire" },
@@ -278,6 +377,33 @@ type AlertFeedState =
   | { status: "idle"; message?: string }
   | { status: "loading"; message: string }
   | { status: "error"; message: string };
+
+type GuideHazardFilter = "all" | HazardType;
+type GuideStageFilter = "all" | GuideStage;
+
+type GuideFilters = {
+  hazard: GuideHazardFilter;
+  stage: GuideStageFilter;
+  language: string;
+};
+
+type GuideState =
+  | { status: "idle"; message?: string }
+  | { status: "loading"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "error"; message: string };
+
+type GuideCachePayload = {
+  guides: EmergencyGuideRecord[];
+  cachedAt: string;
+  language: string;
+};
+
+type GuideCacheInfo = {
+  cachedAt: string;
+  source: "cache" | "fixture" | "network";
+  language: string;
+};
 
 const initialReportForm: ReportForm = {
   hazard: "flood",
@@ -351,6 +477,33 @@ function App() {
     status: "idle",
     message: "Showing saved warnings until the feed refreshes.",
   });
+  const [guideFilters, setGuideFilters] = useState<GuideFilters>({
+    hazard: "all",
+    stage: "during",
+    language: "en",
+  });
+  const [guides, setGuides] = useState<EmergencyGuideRecord[]>(() => {
+    const cached = readGuideCache();
+    return cached?.guides ?? buildFallbackGuides();
+  });
+  const [guideCacheInfo, setGuideCacheInfo] = useState<GuideCacheInfo>(() => {
+    const cached = readGuideCache();
+    return cached
+      ? {
+          cachedAt: cached.cachedAt,
+          source: "cache",
+          language: cached.language,
+        }
+      : {
+          cachedAt: new Date().toISOString(),
+          source: "fixture",
+          language: "en",
+        };
+  });
+  const [guideState, setGuideState] = useState<GuideState>({
+    status: "idle",
+    message: "Offline guides are ready.",
+  });
   const [reportForm, setReportForm] = useState<ReportForm>(initialReportForm);
   const [reportState, setReportState] = useState<ReportState>({
     status: "idle",
@@ -377,6 +530,15 @@ function App() {
     () => alertFeed.filter((alert) => alert.status === "expired").length,
     [alertFeed],
   );
+  const visibleGuides = useMemo(
+    () => filterGuides(guides, guideFilters),
+    [guides, guideFilters],
+  );
+  const featuredGuide = visibleGuides[0];
+  const offlineGuideCount = useMemo(
+    () => guides.filter((guide) => guide.offlineAvailable).length,
+    [guides],
+  );
 
   useEffect(() => {
     void fetchRisk(
@@ -385,6 +547,8 @@ function App() {
       areaPresets[0].label,
     );
     void fetchAlertFeed();
+    void fetchGuides(guideFilters.language);
+    registerCitizenServiceWorker();
   }, []);
 
   const updateReportForm = <Key extends keyof ReportForm>(
@@ -468,6 +632,95 @@ function App() {
             : "Live alert feed unavailable. Showing saved warnings.",
       });
     }
+  }
+
+  async function fetchGuides(language = guideFilters.language) {
+    if (!navigator.onLine) {
+      const cached = readGuideCache();
+      if (cached?.guides.length) {
+        setGuides(cached.guides);
+        setGuideCacheInfo({
+          cachedAt: cached.cachedAt,
+          source: "cache",
+          language: cached.language,
+        });
+        setGuideState({
+          status: "offline",
+          message: `Offline guide cache ready from ${formatDateTime(cached.cachedAt)}.`,
+        });
+        return;
+      }
+
+      setGuides(buildFallbackGuides());
+      setGuideCacheInfo({
+        cachedAt: new Date().toISOString(),
+        source: "fixture",
+        language: "en",
+      });
+      setGuideState({
+        status: "offline",
+        message: "Showing starter emergency guides until connection returns.",
+      });
+      return;
+    }
+
+    setGuideState({ status: "loading", message: "Refreshing guides" });
+
+    try {
+      const params = new URLSearchParams({ language, offline: "true" });
+
+      const response = await fetch(`${GUIDE_API_BASE}/guides?${params}`);
+      if (!response.ok) {
+        throw new Error(await extractAPIError(response));
+      }
+
+      const payload = (await response.json()) as GuideListResponse;
+      const nextGuides = payload.guides.length
+        ? payload.guides
+        : buildFallbackGuides();
+      const cachedAt = new Date().toISOString();
+      setGuides(nextGuides);
+      setGuideCacheInfo({ cachedAt, source: "network", language });
+      writeGuideCache(nextGuides, language, cachedAt);
+      setGuideState({
+        status: "idle",
+        message: `Saved ${nextGuides.length} offline guides for ${guideLanguageLabel(language)}.`,
+      });
+    } catch (error) {
+      const cached = readGuideCache();
+      if (cached?.guides.length) {
+        setGuides(cached.guides);
+        setGuideCacheInfo({
+          cachedAt: cached.cachedAt,
+          source: "cache",
+          language: cached.language,
+        });
+        setGuideState({
+          status: "offline",
+          message: `Live guide service unavailable. Using offline cache from ${formatDateTime(cached.cachedAt)}.`,
+        });
+        return;
+      }
+
+      setGuides(buildFallbackGuides());
+      setGuideCacheInfo({
+        cachedAt: new Date().toISOString(),
+        source: "fixture",
+        language: "en",
+      });
+      setGuideState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not load emergency guides.",
+      });
+    }
+  }
+
+  function updateGuideLanguage(language: string) {
+    setGuideFilters((current) => ({ ...current, language }));
+    void fetchGuides(language);
   }
 
   const submitRiskLookup = (event: FormEvent<HTMLFormElement>) => {
@@ -1462,35 +1715,199 @@ function App() {
               </Paper>
 
               <Paper className="surface">
-                <Typography variant="h6" className="section-heading">
-                  Preparedness guides
-                </Typography>
-                <Stack spacing={1.25}>
-                  {risk.recommendedActions.map((action) => (
-                    <Stack direction="row" spacing={1.25} key={action}>
-                      <CheckCircle2 size={19} color={nadaaBrand.colors.green} />
-                      <Typography variant="body2">{action}</Typography>
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "stretch", sm: "center" }}
+                  className="section-heading"
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <BookOpen size={21} color={nadaaBrand.colors.green} />
+                    <Box>
+                      <Typography variant="h6">Emergency guides</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {offlineGuideCount} saved for offline use
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    size="small"
+                    startIcon={
+                      guideState.status === "loading" ? (
+                        <Loader2 size={16} className="spin-icon" />
+                      ) : (
+                        <RefreshCw size={16} />
+                      )
+                    }
+                    onClick={() => void fetchGuides()}
+                    disabled={guideState.status === "loading"}
+                  >
+                    Refresh
+                  </Button>
+                </Stack>
+
+                <Grid container spacing={1.25} className="guide-filter-grid">
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Hazard</InputLabel>
+                      <Select
+                        value={guideFilters.hazard}
+                        label="Hazard"
+                        onChange={(event) =>
+                          setGuideFilters((current) => ({
+                            ...current,
+                            hazard: event.target.value as GuideHazardFilter,
+                          }))
+                        }
+                      >
+                        {guideHazardOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Stage</InputLabel>
+                      <Select
+                        value={guideFilters.stage}
+                        label="Stage"
+                        onChange={(event) =>
+                          setGuideFilters((current) => ({
+                            ...current,
+                            stage: event.target.value as GuideStageFilter,
+                          }))
+                        }
+                      >
+                        {guideStageOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Language</InputLabel>
+                      <Select
+                        value={guideFilters.language}
+                        label="Language"
+                        onChange={(event) =>
+                          updateGuideLanguage(event.target.value)
+                        }
+                        startAdornment={
+                          <Languages
+                            size={16}
+                            className="select-leading-icon"
+                          />
+                        }
+                      >
+                        {guideLanguageOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+
+                <Alert
+                  severity={
+                    guideState.status === "error"
+                      ? "error"
+                      : guideState.status === "offline"
+                        ? "warning"
+                        : "info"
+                  }
+                  icon={
+                    guideState.status === "offline" ? <WifiOff /> : undefined
+                  }
+                  className="warning-alert guide-cache-alert"
+                >
+                  {guideState.message ??
+                    `Cached ${guideLanguageLabel(guideCacheInfo.language)} guides ${formatDateTime(guideCacheInfo.cachedAt)}.`}
+                </Alert>
+
+                {featuredGuide ? (
+                  <Box className="guide-feature">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Chip
+                        size="small"
+                        color="success"
+                        label={guideStageLabel(featuredGuide.stage)}
+                      />
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={hazardLabel(featuredGuide.hazardType)}
+                      />
                     </Stack>
+                    <Typography variant="subtitle1">
+                      {featuredGuide.title}
+                    </Typography>
+                    <Typography variant="body2" className="guide-body">
+                      {featuredGuide.body}
+                    </Typography>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      color="error"
+                      startIcon={<Phone size={18} />}
+                    >
+                      Call 112
+                    </Button>
+                  </Box>
+                ) : (
+                  <Alert severity="info" className="warning-alert">
+                    No guide matches this filter yet. Try all hazards or all
+                    stages.
+                  </Alert>
+                )}
+
+                <Divider className="guide-divider" />
+
+                <Stack spacing={1}>
+                  {visibleGuides.slice(0, 5).map((guide) => (
+                    <Paper
+                      variant="outlined"
+                      className="guide-list-row"
+                      key={guide.id}
+                    >
+                      <Stack direction="row" spacing={1.25}>
+                        <CheckCircle2
+                          size={18}
+                          color={nadaaBrand.colors.green}
+                        />
+                        <Box>
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            alignItems="center"
+                            flexWrap="wrap"
+                          >
+                            <Typography variant="subtitle2">
+                              {guide.title}
+                            </Typography>
+                            {guide.offlineAvailable ? (
+                              <Chip size="small" label="Offline" />
+                            ) : null}
+                          </Stack>
+                          <Typography variant="body2" color="text.secondary">
+                            {guideStageLabel(guide.stage)} ·{" "}
+                            {hazardLabel(guide.hazardType)}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </Paper>
                   ))}
                 </Stack>
-                <Divider className="guide-divider" />
-                <Grid container spacing={1}>
-                  {featurePillars.slice(0, 4).map((pillar) => (
-                    <Grid size={{ xs: 6 }} key={pillar.title}>
-                      <Box
-                        className="pillar-tile"
-                        style={{ borderColor: pillar.accent }}
-                      >
-                        <Typography variant="subtitle2">
-                          {pillar.title}
-                        </Typography>
-                        <Typography variant="caption">
-                          {pillar.description}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
               </Paper>
             </Stack>
           </Grid>
@@ -1578,6 +1995,120 @@ function formatDateTime(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function filterGuides(
+  guides: EmergencyGuideRecord[],
+  filters: GuideFilters,
+): EmergencyGuideRecord[] {
+  const stageAndHazardMatches = guides.filter((guide) => {
+    if (filters.hazard !== "all" && guide.hazardType !== filters.hazard) {
+      return false;
+    }
+    if (filters.stage !== "all" && guide.stage !== filters.stage) {
+      return false;
+    }
+    return true;
+  });
+
+  const languageMatches = stageAndHazardMatches.filter(
+    (guide) => guide.language === filters.language,
+  );
+  const fallbackMatches =
+    languageMatches.length > 0 || filters.language === "en"
+      ? languageMatches
+      : stageAndHazardMatches.filter((guide) => guide.language === "en");
+
+  return [...fallbackMatches].sort((a, b) => {
+    if (a.sortOrder === b.sortOrder) {
+      return a.title.localeCompare(b.title);
+    }
+    return a.sortOrder - b.sortOrder;
+  });
+}
+
+function readGuideCache(): GuideCachePayload | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(GUIDE_CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const payload = JSON.parse(raw) as GuideCachePayload;
+    if (!isGuideCachePayload(payload)) {
+      return null;
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function writeGuideCache(
+  guides: EmergencyGuideRecord[],
+  language: string,
+  cachedAt: string,
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const offlineGuides = guides.filter((guide) => guide.offlineAvailable);
+  if (!offlineGuides.length) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      GUIDE_CACHE_KEY,
+      JSON.stringify({ guides: offlineGuides, language, cachedAt }),
+    );
+  } catch {
+    // Local storage can be unavailable in private or restricted browser modes.
+  }
+}
+
+function registerCitizenServiceWorker() {
+  if (
+    typeof window === "undefined" ||
+    !("serviceWorker" in navigator) ||
+    !import.meta.env.PROD
+  ) {
+    return;
+  }
+
+  navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+}
+
+function isGuideCachePayload(value: unknown): value is GuideCachePayload {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as GuideCachePayload).guides) &&
+    typeof (value as GuideCachePayload).cachedAt === "string" &&
+    typeof (value as GuideCachePayload).language === "string" &&
+    (value as GuideCachePayload).guides.every(
+      (guide) =>
+        typeof guide.id === "string" &&
+        typeof guide.title === "string" &&
+        typeof guide.body === "string" &&
+        typeof guide.language === "string",
+    )
+  );
+}
+
+function guideStageLabel(stage: GuideStage): string {
+  return stage.charAt(0).toUpperCase() + stage.slice(1);
+}
+
+function guideLanguageLabel(language: string): string {
+  return (
+    guideLanguageOptions.find((option) => option.value === language)?.label ??
+    language.toUpperCase()
+  );
 }
 
 function formatOccupancy(

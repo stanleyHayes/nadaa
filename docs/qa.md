@@ -32,7 +32,7 @@ NADAA QA must validate product behavior, safety gates, and operational readiness
 | Alert draft/approval         | NADAA-050                                  | API, E2E, security | Draft, submit, approve/reject, emergency override audit                                           | MVP API/UI smoke covered       |
 | Geofenced targeting          | NADAA-051                                  | API, geospatial    | District/radius/custom geometry stored and previewable                                            | MVP API/UI smoke covered       |
 | Alert feed/delivery logs     | NADAA-052                                  | API, E2E           | Current/expired alerts visible, mock delivery attempts logged                                     | MVP API/UI smoke covered       |
-| Emergency guides offline     | NADAA-060, NADAA-061                       | API, E2E/PWA       | Guide API/content model and language fallback covered; citizen offline cache remains              | API covered; PWA pending       |
+| Emergency guides offline     | NADAA-060, NADAA-061                       | API, E2E/PWA       | Guide API/content model, language fallback, citizen guide browsing, and offline cache             | MVP API/UI smoke covered       |
 | Shelter lookup/update        | NADAA-062                                  | API, E2E           | Nearby lookup, occupancy update permission, map/list display                                      | Todo                           |
 | Flood ML review              | NADAA-070, NADAA-071, NADAA-072, NADAA-073 | Model, API, E2E    | Confidence, model version, explanation, no auto-publish                                           | Todo                           |
 | Agency integration contracts | NADAA-080                                  | API, Integration   | Partner matrix, ownership, cadence, payloads, auth, retry/dead-letter behavior, mock adapters     | Contract API covered           |
@@ -46,6 +46,7 @@ pnpm typecheck
 pnpm build
 pnpm go:test
 pnpm smoke:web
+pnpm smoke:citizen-guides
 pnpm smoke:alert
 pnpm smoke:alert-geofence
 pnpm smoke:notification
@@ -59,6 +60,7 @@ pnpm smoke:integration
 ```
 
 `pnpm smoke:web` expects the citizen app on port `5173` and the authority dashboard on port `5174`.
+`pnpm smoke:citizen-guides` expects the citizen app on port `5173` and guide service on port `8086`.
 `pnpm smoke:alert` expects the alert service on port `8089`.
 `pnpm smoke:alert-geofence` expects the alert service on port `8089`.
 `pnpm smoke:notification` expects the notification service on port `8090`.
