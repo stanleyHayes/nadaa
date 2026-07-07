@@ -453,10 +453,10 @@ func writeError(w http.ResponseWriter, status int, code string, message string) 
 }
 
 func withCORS(next http.Handler) http.Handler {
+	allowedOrigins := allowedOriginsFromEnv()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		applySecurityHeaders(w)
+		applyCORSHeaders(w, r, allowedOrigins)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -464,6 +464,45 @@ func withCORS(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func applySecurityHeaders(w http.ResponseWriter) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	w.Header().Set("Cache-Control", "no-store")
+}
+
+func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool) {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if len(allowedOrigins) == 0 {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	} else {
+		w.Header().Add("Vary", "Origin")
+		if allowedOrigins[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+}
+
+func allowedOriginsFromEnv() map[string]bool {
+	raw := strings.TrimSpace(os.Getenv("NADAA_ALLOWED_ORIGINS"))
+	if raw == "" || raw == "*" {
+		return nil
+	}
+
+	allowed := map[string]bool{}
+	for _, origin := range strings.Split(raw, ",") {
+		origin = strings.TrimSpace(origin)
+		if origin != "" {
+			allowed[origin] = true
+		}
+	}
+	return allowed
 }
 
 func envOrDefault(key string, fallback string) string {

@@ -12,6 +12,9 @@ import type {
   CreateAlertRequest,
   DuplicateReviewCandidate,
   HazardType,
+  HospitalCapacityRecord,
+  HospitalCapacityStatus,
+  HospitalEmergencyUnitStatus,
   IncidentAbuseReviewDecision,
   IncidentAssignmentPriority,
   IncidentRecord,
@@ -671,6 +674,53 @@ export function metersLabel(value: number) {
     return `${Math.round(value / 100) / 10} km`;
   }
   return `${Math.round(value)} m`;
+}
+
+export function hospitalCapacityLabel(status: HospitalCapacityStatus) {
+  return status
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+export function hospitalUnitStatusLabel(status: HospitalEmergencyUnitStatus) {
+  return status
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+export function hospitalCapacityColor(
+  status: HospitalCapacityStatus,
+): "success" | "warning" | "error" | "default" {
+  if (status === "available") {
+    return "success";
+  }
+  if (status === "limited" || status === "unknown") {
+    return "warning";
+  }
+  if (status === "full" || status === "offline") {
+    return "error";
+  }
+  return "default";
+}
+
+export function hospitalBedPercent(facility: HospitalCapacityRecord) {
+  if (facility.totalBeds <= 0) {
+    return 0;
+  }
+  return Math.round((facility.availableBeds / facility.totalBeds) * 100);
+}
+
+export function hospitalUpdatedLabel(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+  return new Intl.DateTimeFormat("en-GH", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 export function commaValues(value: string) {

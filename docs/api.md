@@ -606,6 +606,90 @@ Allowed assignment roles are `system_admin`, `agency_admin`, `nadmo_officer`, `d
 
 Accepted assignments append an active assignment record, move a `verified` incident to `assigned`, preserve later operational statuses, append an `incident.assigned` timeline event, and write an `incident.assigned` audit event with assignment counts and assigned agency ids.
 
+### Community Volunteers
+
+`POST /api/v1/volunteers`
+
+Registers a citizen as a community volunteer candidate and joins them to a district/community response group. Profiles start as `pending` until an authorized officer verifies them.
+
+```json
+{
+  "citizenUserId": "usr_volunteer_001",
+  "name": "Ama Volunteer",
+  "phone": "+233200000111",
+  "region": "Greater Accra",
+  "district": "Accra Metropolitan",
+  "community": "Jamestown",
+  "skills": ["first aid", "community alerts"],
+  "languages": ["en", "tw"],
+  "availabilityStatus": "available"
+}
+```
+
+`GET /api/v1/volunteers?status=verified&district=Accra%20Metropolitan`
+
+Authority-only volunteer list. Calls use the same authority headers as incident command endpoints. Supported filters are `status` and `district`.
+
+`POST /api/v1/volunteers/{id}/verify`
+
+```json
+{
+  "decision": "verify",
+  "note": "District officer checked ID and community lead reference."
+}
+```
+
+Allowed decisions are `verify`, `reject`, and `suspend`. Verification writes `volunteer.verified`, `volunteer.rejected`, or `volunteer.suspended` audit events against `targetType: volunteer_profile`.
+
+`POST /api/v1/incidents/{id}/volunteer-tasks`
+
+Assigns a verified, available volunteer to an incident-linked support task.
+
+```json
+{
+  "volunteerId": "vol_000001",
+  "type": "welfare_check",
+  "priority": "high",
+  "instructions": "Check whether households near the shelter approach need water or transport. Stay on public roads.",
+  "locationLabel": "Jamestown shelter approach"
+}
+```
+
+Allowed task types are `welfare_check`, `shelter_support`, `supply_distribution`, `damage_observation`, `route_observation`, and `community_alerting`. Incidents must be at least `verified`; closed and false-report incidents reject volunteer tasks. The API rejects instructions that tell civilians to enter floodwater, fight fires, conduct rescues, enter collapsed structures, approach armed/violent scenes, or direct highway traffic. Accepted assignments append `incident.volunteer_assigned` to the incident timeline and write both incident and volunteer-task audit events.
+
+`GET /api/v1/volunteers/{id}/tasks`
+
+Returns assigned volunteer tasks for the mobile/PWA task view.
+
+`PATCH /api/v1/volunteer-tasks/{id}/status`
+
+```json
+{
+  "volunteerId": "vol_000001",
+  "status": "accepted",
+  "note": "I can check from the public road.",
+  "safetyStatus": "safe",
+  "location": { "lat": 5.56, "lng": -0.2 }
+}
+```
+
+Allowed statuses are `accepted`, `en_route`, `on_scene`, `completed`, `cancelled`, and `needs_escalation`. `needs_escalation`, `unsafe`, or `needs_authority` updates append escalation timeline events.
+
+`POST /api/v1/volunteer-tasks/{id}/observations`
+
+```json
+{
+  "volunteerId": "vol_000001",
+  "observation": "Water is rising near the footbridge and families are waiting for authority transport.",
+  "safetyStatus": "needs_authority",
+  "location": { "lat": 5.562, "lng": -0.202 },
+  "escalationRequested": true,
+  "media": ["media_volunteer_photo_001"]
+}
+```
+
+Volunteer observations append `incident.volunteer_observation` to the incident timeline. Escalated observations also append `incident.volunteer_escalation` so dispatchers and agency users can see field risk without switching tools.
+
 `GET /api/v1/incidents/{id}/duplicates`
 
 Returns the selected incident plus full incident records for open duplicate candidates. Allowed reader roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`, `responder`, and `agency_viewer`; MFA is required.
@@ -620,6 +704,66 @@ Returns the selected incident plus full incident records for open duplicate cand
 ```
 
 Allowed merge roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. Each duplicate id must already be a duplicate candidate for the primary incident. The primary incident remains the operational record; merged duplicate records are closed with `mergedIntoId`, `mergedBy`, `mergedAt`, and `mergeReason` trace fields. Accepted merges append `incident.merged` and `incident.merged_into` timeline events and create audit events for the primary and duplicate records.
+
+### Road Closures
+
+`GET /api/v1/road-closures?status=active&lat=5.570&lng=-0.200&radius=30000&bbox=-0.30,5.50,-0.15,5.60&limit=50`
+
+Public read endpoint returning active road closures by default. Filters include `status` (`active`, `scheduled`, `lifted`, `cancelled`), point/radius search, bounding box (`minLng,minLat,maxLng,maxLat`), `limit`, and `includeExpired`.
+
+`POST /api/v1/road-closures`
+
+Requires authority headers:
+
+- `X-NADAA-Actor-ID`
+- `X-NADAA-Actor-Role`
+- `X-NADAA-Agency-ID`
+- `X-NADAA-MFA-Completed: true`
+- `X-NADAA-Request-ID`
+
+```json
+{
+  "roadName": "Accra New Town Road",
+  "reason": "Flooding",
+  "status": "active",
+  "severity": "high",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-0.205, 5.57],
+      [-0.19, 5.58]
+    ]
+  },
+  "validTo": "2026-07-07T18:00:00Z",
+  "detourNote": "Use Kanda Highway"
+}
+```
+
+Allowed create/update roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. Status values are `active`, `scheduled`, `lifted`, and `cancelled`. Severity values are `low`, `moderate`, `high`, `severe`, and `emergency`.
+
+`PATCH /api/v1/road-closures/{id}`
+
+Accepts the same fields as create; all are optional. Status changes are source-attributed and reviewable.
+
+`POST /api/v1/road-closures/imports/adapter`
+
+Accepts an adapter payload (for example from `police-road-closure-feed`) with a WKT `LINESTRING` geometry:
+
+```json
+{
+  "source": "ghana-police",
+  "sourceRef": "police-feed-001",
+  "roadName": "Sample Market Road",
+  "status": "active",
+  "reason": "Flooding",
+  "geometry": "LINESTRING(-0.20 5.56, -0.19 5.57)",
+  "validFrom": "2026-07-07T12:00:00Z",
+  "validTo": "2026-07-08T12:00:00Z",
+  "detour": "Use Independence Avenue"
+}
+```
+
+The integration-service also exposes `POST /api/v1/integrations/road-closures/imports` to receive adapter records from partner feeds. It validates the payload, forwards it to the `road-closure-service` adapter endpoint using `NADAA_ROAD_CLOSURE_SERVICE_URL` (default `http://localhost:8095`), and records the import locally for observability.
 
 ### Alerts
 
@@ -822,7 +966,243 @@ Response:
 
 `GET /api/v1/notifications/delivery-logs?alertId=alert_feed_current_flood&channel=sms`
 
-Returns logged delivery attempts. `NADAA_SMS_ENABLED=false` keeps SMS disabled in development and logs attempts as `skipped`; mock providers are used by default when push/SMS are enabled.
+Returns logged delivery attempts. Supported filters include `channel=push|sms|voice`. `NADAA_SMS_ENABLED=false` keeps SMS disabled in development and logs attempts as `skipped`; mock providers are used by default when push/SMS are enabled.
+
+`POST /api/v1/notifications/voice-alerts`
+
+Generates multilingual voice alert assets from a current or upcoming citizen alert feed item. Voice is deliberately excluded from the generic alert delivery endpoint; callers must generate and approve a voice asset before delivery.
+
+```json
+{
+  "alertId": "alert_feed_current_flood",
+  "languages": ["en", "tw", "ga", "ee", "dag", "ha"],
+  "workflowRequestedBy": "dispatcher_001",
+  "source": "tts_sandbox"
+}
+```
+
+Response:
+
+```json
+{
+  "asset": {
+    "id": "voice_alert_000001",
+    "alertId": "alert_feed_current_flood",
+    "alertTitle": "Severe flood warning",
+    "hazardType": "flood",
+    "severity": "severe_warning",
+    "targetLabel": "Accra Metro and Tema",
+    "status": "generated",
+    "reviewStatus": "pending_review",
+    "source": "tts_sandbox",
+    "workflowRequestedBy": "dispatcher_001",
+    "variants": [
+      {
+        "id": "voice_variant_000001",
+        "language": "en",
+        "locale": "en-GH",
+        "voiceName": "nadaa-english-sandbox",
+        "messageText": "NADAA alert. Severe flood warning. Area: Accra Metro and Tema. Move away from drains, avoid flooded roads, and prepare to go to a shelter if directed. Call 112 if life is in danger.",
+        "audioUrl": "voice://tts_sandbox/alert_feed_current_flood/en.mp3",
+        "durationSeconds": 16,
+        "status": "generated",
+        "reviewStatus": "pending_review",
+        "accessibilityChecks": [
+          "plain_language",
+          "action_oriented",
+          "target_area_included",
+          "includes_112_guidance",
+          "low_literacy_length"
+        ]
+      }
+    ]
+  }
+}
+```
+
+Supported languages are `en`, `tw`, `ga`, `ee`, `dag`, and `ha`. `source` may be `tts_sandbox` or `recorded_audio`.
+
+`GET /api/v1/notifications/voice-alerts`
+
+Lists generated voice alert assets, latest first.
+
+`POST /api/v1/notifications/voice-alerts/{id}/review`
+
+Approves or rejects all variants by default, or only the listed `languages`.
+
+```json
+{
+  "action": "approve",
+  "reviewer": "nadmo_voice_reviewer",
+  "note": "Checked language, 112 guidance, and low-literacy script.",
+  "languages": ["en", "tw"]
+}
+```
+
+`POST /api/v1/notifications/voice-alerts/{id}/deliver`
+
+Delivers an approved voice alert asset and writes normal notification delivery logs with `channel=voice`, `voiceAssetId`, `language`, and `audioUrl`.
+
+```json
+{
+  "recipients": [
+    {
+      "phone": "+233200000000",
+      "language": "en"
+    },
+    {
+      "recipientId": "usr_voice_002",
+      "phone": "+233200000001",
+      "language": "tw"
+    }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "attempts": [
+    {
+      "id": "delivery_000001",
+      "alertId": "alert_feed_current_flood",
+      "alertTitle": "Severe flood warning",
+      "channel": "voice",
+      "provider": "mock_voice",
+      "recipientRef": "phone:...0000",
+      "status": "delivered",
+      "voiceAssetId": "voice_alert_000001",
+      "language": "en",
+      "audioUrl": "voice://tts_sandbox/alert_feed_current_flood/en.mp3",
+      "attemptedAt": "2026-07-06T12:00:00Z"
+    }
+  ]
+}
+```
+
+`POST /api/v1/notifications/ussd`
+
+Accepts a sandbox/provider USSD session webhook. The MVP-compatible JSON contract keeps provider adapters isolated while still modelling the menu tree required for Phase 2 inclusive access.
+
+```json
+{
+  "sessionId": "ussd_001",
+  "phone": "+233200000000",
+  "serviceCode": "*920#",
+  "text": "1*2*1*3",
+  "language": "en",
+  "profileId": "usr_...",
+  "linkProfile": true,
+  "location": {
+    "lat": 5.579,
+    "lng": -0.212
+  }
+}
+```
+
+USSD menu path:
+
+- Empty `text`: language menu.
+- `1`: English main menu.
+- `1*1`: current alerts.
+- `1*2`: report emergency hazard menu.
+- `1*2*1`: flood report urgency menu.
+- `1*2*1*3`: submit high-urgency flood report.
+- `1*3`: shelter lookup summary.
+- `1*4`: 112 guidance.
+
+Response:
+
+```json
+{
+  "sessionId": "ussd_001",
+  "action": "end",
+  "message": "NADAA report received: access_report_000001. Call 112 if life is in immediate danger.",
+  "language": "en",
+  "log": {
+    "id": "access_000001",
+    "channel": "ussd",
+    "provider": "ussd_sandbox",
+    "phoneRef": "phone:...0000",
+    "profileId": "usr_...",
+    "linkedProfile": true,
+    "language": "en",
+    "intent": "report_emergency",
+    "status": "queued",
+    "createdAt": "2026-07-07T12:00:00Z"
+  },
+  "report": {
+    "id": "access_report_000001",
+    "channel": "ussd",
+    "type": "flood",
+    "urgency": "high",
+    "description": "USSD emergency report: flood with high urgency.",
+    "phoneRef": "phone:...0000",
+    "linkedProfile": true,
+    "status": "queued"
+  }
+}
+```
+
+`POST /api/v1/notifications/sms/inbound`
+
+Accepts inbound SMS commands from a sandbox/provider adapter.
+
+Supported commands:
+
+- `ALERTS`: current alert summary.
+- `SHELTER`: nearby shelter guidance.
+- `HELP` or `112`: emergency-call guidance.
+- `REPORT FLOOD HIGH <location/details>`: basic incident report.
+
+Reports are mapped into incident-service when `NADAA_INCIDENT_SERVICE_URL` is configured. Otherwise the notification service stores a queued inclusive-access report for manual/provider handoff. Raw phone numbers are not stored in access logs; logs retain masked `phoneRef`. `profileId` is retained only when `linkProfile` is true.
+
+Provider adapters can send `providerError` to record failed inbound delivery or signature checks without creating a report.
+
+Runtime visibility: notification-service emits structured `INFO`, `WARN`, and `ERROR` logs for SMS/USSD/WhatsApp request receipt, voice asset generation/review/delivery, validation failures, menu transitions, provider errors, report creation, incident-service handoff, queue fallback, and inclusive access log/report persistence. Logs use masked `phoneRef`, command names, path depth, counts, statuses, and IDs; raw phone numbers, full message bodies, and full report descriptions should not be logged.
+
+`POST /api/v1/notifications/whatsapp/webhook`
+
+Accepts WhatsApp Business API or sandbox adapter messages. `/api/v1/notifications/whatsapp/inbound` is also supported for adapters that use an inbound naming convention.
+
+```json
+{
+  "from": "+233200000000",
+  "body": "REPORT FLOOD HIGH water entering homes near Odaw",
+  "language": "en",
+  "provider": "whatsapp_sandbox",
+  "providerMessageId": "wamid.demo",
+  "profileId": "usr_...",
+  "linkProfile": true,
+  "location": {
+    "lat": 5.579,
+    "lng": -0.212
+  },
+  "media": [
+    {
+      "id": "wa_media_001",
+      "contentType": "image/jpeg"
+    }
+  ]
+}
+```
+
+Supported commands:
+
+- `ALERTS`: authority-approved current alert summary from notification-service alert feed.
+- `RISK`: location-aware risk guidance using the current alert signal until a dedicated risk-service chat adapter is added.
+- `REPORT`: starts a multi-message incident report flow.
+- `REPORT FLOOD HIGH <location/details>`: submits a direct incident report.
+- `SHELTER`: nearby shelter guidance.
+- `GUIDE FLOOD`: emergency guide snippet.
+- `HELP` or `112`: emergency-call guidance.
+
+Conversation state supports incomplete reports across messages: `awaiting_report_hazard`, `awaiting_report_urgency`, and `awaiting_report_location`. Location pins and media IDs are accepted during the final report step and included in the optional incident-service handoff. WhatsApp transcripts are stored as privacy-safe summaries with command/length, direction, intent, state, masked `phoneRef`, media count, and a 90-day retention timestamp; raw message text, raw phone numbers, and captions should not be logged.
+
+`GET /api/v1/notifications/access-logs?channel=sms&intent=report_emergency`
+
+Returns inclusive access logs for SMS, USSD, and WhatsApp sessions. Supported filters are `channel=sms|ussd|whatsapp`, `intent=language_menu|main_menu|current_alerts|report_emergency|risk_check|emergency_guides|shelter_lookup|guidance_112|provider_error|invalid_selection`, and `status=handled|failed|queued|submitted`.
 
 ### Guidance And Shelters
 
@@ -933,6 +1313,205 @@ Authority only. Requires authority actor, role, agency, MFA-completed, and reque
 ```
 
 Allowed update roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. `currentOccupancy` cannot exceed `capacity`. `status` must be `open`, `full`, `closed`, or `unknown`.
+
+`GET /api/v1/relief-points?status=open&type=food&lat=5.5600&lng=-0.2000&radius=10000&limit=12`
+
+Returns relief distribution points for citizen and authority views. Results can be filtered by status, relief type, nearby radius, bounding box, and limit. When coordinates are supplied, responses include `distanceMeters` and are sorted by operational status, distance, and name.
+
+```json
+{
+  "reliefPoints": [
+    {
+      "id": "relief_ama_food_001",
+      "name": "AMA Central Food Distribution",
+      "type": "food",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "address": "Independence Avenue recovery desk",
+      "location": { "lat": 5.558, "lng": -0.197 },
+      "contact": "112",
+      "operatingHours": "08:00-20:00",
+      "eligibility": "Households affected by verified flooding.",
+      "schedule": "Daily while stocks last",
+      "stockCategories": [
+        {
+          "category": "rice_kg",
+          "quantity": 420,
+          "unit": "kg",
+          "lastUpdated": "2026-07-07T10:10:00Z"
+        }
+      ],
+      "status": "open",
+      "source": "manual",
+      "sourceRef": "district-relief-desk",
+      "updatedBy": "district_officer_ama",
+      "updatedAt": "2026-07-07T10:10:00Z"
+    }
+  ],
+  "generatedAt": "2026-07-07T10:17:00Z"
+}
+```
+
+`GET /api/v1/relief-points/nearby?lat=5.5600&lng=-0.2000`
+
+Returns nearby open or limited relief points sorted by distance. Citizen web uses this endpoint to show food, water, medical, hygiene, blanket, cash, and mixed relief points with stock, hours, schedule, contact, and eligibility notes.
+
+`POST /api/v1/relief-points`
+
+Authority only. Requires authority actor, role, agency, MFA-completed, and request-id headers.
+
+```json
+{
+  "name": "Smoke Relief Distribution Point",
+  "type": "mixed",
+  "region": "Greater Accra",
+  "district": "Accra Metropolitan",
+  "address": "Smoke Test Relief Desk",
+  "location": { "lat": 5.552, "lng": -0.203 },
+  "contact": "112",
+  "operatingHours": "08:00-17:00",
+  "eligibility": "Affected households.",
+  "schedule": "Daily",
+  "stockCategories": [
+    { "category": "rice_kg", "quantity": 90, "unit": "kg" },
+    { "category": "water_bottles", "quantity": 240, "unit": "bottles" }
+  ],
+  "status": "open",
+  "sourceRef": "district-relief-desk"
+}
+```
+
+`source` is set to `manual` by the service for authority-created points.
+
+`PATCH /api/v1/relief-points/{id}`
+
+Authority only. Updates name, type, location, contact, operating hours, eligibility, schedule, status, source reference, and stock categories. Stock changes write a stock-history entry with `changedBy`, `changedAt`, and the full stock snapshot.
+
+`GET /api/v1/relief-points/{id}/stock-history`
+
+Returns the latest stock snapshots for an authority relief point detail panel.
+
+```json
+{
+  "reliefPointId": "relief_ama_food_001",
+  "history": [
+    {
+      "changedBy": "district_officer_ama",
+      "changedAt": "2026-07-07T10:10:00Z",
+      "stockCategories": [
+        {
+          "category": "rice_kg",
+          "quantity": 420,
+          "unit": "kg",
+          "lastUpdated": "2026-07-07T10:10:00Z"
+        }
+      ]
+    }
+  ]
+}
+```
+
+The shelter service emits `INFO` logs for relief point list, nearby, create, update, and stock-history reads; `WARN` logs for invalid JSON, unauthorized authority context, failed validation, and missing records; and `ERROR` logs for response encoding failures.
+
+`GET /api/v1/hospitals/capacity?lat=5.5600&lng=-0.2000&service=emergency&emergencyCapacity=available&minAvailableBeds=10&includeStale=false`
+
+Returns nearby hospital and emergency facility capacity sorted by freshness, distance, capacity status, and available beds. Dispatchers can omit coordinates for a national list or filter by service, capacity status, minimum available beds, stale-data visibility, and `limit`.
+
+```json
+{
+  "facilities": [
+    {
+      "id": "hospital_001",
+      "name": "Korle Bu Teaching Hospital",
+      "type": "teaching_hospital",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "address": "Korle Bu emergency entrance",
+      "location": { "lat": 5.536, "lng": -0.227 },
+      "contact": "0302665401",
+      "services": [
+        "emergency",
+        "trauma",
+        "icu",
+        "maternity",
+        "pediatric",
+        "oxygen"
+      ],
+      "totalBeds": 820,
+      "availableBeds": 46,
+      "icuBedsAvailable": 4,
+      "maternityBedsAvailable": 9,
+      "pediatricBedsAvailable": 5,
+      "isolationBedsAvailable": 3,
+      "emergencyCapacity": "available",
+      "emergencyUnitStatus": "open",
+      "ambulancesAvailable": 3,
+      "oxygenAvailable": true,
+      "source": "manual",
+      "sourceRef": "hospital-capacity-feed",
+      "updatedBy": "hospital_korle_bu_desk",
+      "updatedAt": "2026-07-07T10:15:00Z",
+      "distanceMeters": 4200,
+      "stale": false
+    }
+  ],
+  "generatedAt": "2026-07-07T10:17:00Z",
+  "staleThresholdMinutes": 30
+}
+```
+
+Rules:
+
+- `service` matches normalized facility service tags such as `emergency`, `trauma`, `icu`, `maternity`, `pediatric`, `ambulance`, and `oxygen`.
+- `emergencyCapacity` must be `available`, `limited`, `full`, `offline`, or `unknown`.
+- `includeStale=false` hides facilities whose `updatedAt` is older than the stale threshold.
+- Stale records remain visible by default with `stale=true` and `staleReason` so dispatchers know when to call and confirm.
+- `lat` and `lng` must be provided together and must be valid coordinates.
+
+`PATCH /api/v1/hospitals/{id}/capacity`
+
+Authority only. Requires authority actor, role, agency, MFA-completed, and request-id headers. Allowed update roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`.
+
+```json
+{
+  "availableBeds": 37,
+  "icuBedsAvailable": 3,
+  "emergencyCapacity": "available",
+  "emergencyUnitStatus": "open",
+  "ambulancesAvailable": 2,
+  "oxygenAvailable": true,
+  "notes": "Manual confirmation from hospital desk.",
+  "source": "manual",
+  "sourceRef": "dispatcher-call-20260707"
+}
+```
+
+Accepted updates stamp `updatedAt`, `updatedBy`, `source`, and `sourceRef`. Bed and ambulance counts must be zero or greater, and `availableBeds` cannot exceed `totalBeds`.
+
+`POST /api/v1/hospitals/capacity/imports/fixture`
+
+Authority only. Runs the local fixture adapter for integration development. If `records` is omitted, the service imports the built-in fixture feed.
+
+```json
+{
+  "source": "fixture_adapter",
+  "sourceRef": "hospital-capacity-feed",
+  "records": [
+    {
+      "facilityId": "hospital_001",
+      "availableBeds": 38,
+      "icuBedsAvailable": 3,
+      "emergencyCapacity": "available",
+      "emergencyUnitStatus": "open",
+      "ambulancesAvailable": 2,
+      "oxygenAvailable": true,
+      "notes": "Fixture adapter update from hospital-capacity-feed."
+    }
+  ]
+}
+```
+
+The shelter service emits `INFO` logs for shelter, recovery support, relief point, and hospital capacity list/update/import success; `WARN` logs for invalid input, missing records, stale filters, or unauthorized workflow failures; and `ERROR` logs for response encoding failures.
 
 ### Integrations
 
@@ -1175,9 +1754,9 @@ NADAA-073 uses the standard alert creation endpoint for reviewed ML predictions.
 
 ## Phase 2 API Areas
 
-- SMS/USSD inbound webhook.
-- WhatsApp inbound webhook.
-- Voice alert asset review.
+- SMS/USSD inbound webhook implemented in notification-service.
+- WhatsApp inbound webhook implemented in notification-service.
+- Voice alert asset generation, review, and approved delivery implemented in notification-service.
 - Volunteer registration and assignment.
 - Hospital capacity updates.
 - Relief distribution point management.

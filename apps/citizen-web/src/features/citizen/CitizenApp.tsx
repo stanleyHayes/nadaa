@@ -39,6 +39,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Siren,
+  TriangleAlert,
   Waves,
   WifiOff,
 } from "lucide-react";
@@ -55,12 +56,16 @@ import type {
   IncidentMediaContentType,
   IncidentUrgency,
   NearbyShelterResponse,
+  ReliefPointNearbyResponse,
+  RoadClosureListResponse,
+  RoadClosureRecord,
 } from "@nadaa/shared-types";
 import {
   GUIDE_API_BASE,
   INCIDENT_API_BASE,
   NOTIFICATION_API_BASE,
   RISK_API_BASE,
+  ROAD_CLOSURE_API_BASE,
   SHELTER_API_BASE,
 } from "../../app/config";
 import { citizenTheme } from "../../app/theme";
@@ -75,6 +80,7 @@ import {
   initialReportForm,
   mediaSizeLimits,
   riskTone,
+  sampleReliefPointResponse,
   sampleRisk,
   sampleShelterResponse,
   supportedMediaTypes,
@@ -104,6 +110,7 @@ import {
   formatFileSize,
   formatListLabel,
   formatOccupancy,
+  formatReliefStock,
   formatSupportType,
   guideLanguageLabel,
   guideStageLabel,
@@ -126,6 +133,10 @@ function CitizenApp() {
   const [shelterSupport, setShelterSupport] = useState<NearbyShelterResponse>(
     sampleShelterResponse,
   );
+  const [reliefPoints, setReliefPoints] = useState<ReliefPointNearbyResponse>(
+    sampleReliefPointResponse,
+  );
+  const [roadClosures, setRoadClosures] = useState<RoadClosureRecord[]>([]);
   const [shelterState, setShelterState] = useState<ShelterState>({
     status: "idle",
     message: "Shelter and recovery support fixtures are ready.",
@@ -248,12 +259,55 @@ function CitizenApp() {
         message: `Updated for ${payload.location}`,
       });
       void fetchShelters(lat, lng, payload);
+      void fetchReliefPoints(lat, lng);
+      void fetchRoadClosures(lat, lng);
     } catch (error) {
       setRiskState({
         status: "error",
         message:
           error instanceof Error ? error.message : "Could not load area risk.",
       });
+    }
+  }
+
+  async function fetchRoadClosures(lat: number, lng: number) {
+    if (!navigator.onLine) {
+      setRoadClosures([]);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${ROAD_CLOSURE_API_BASE}/road-closures?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&limit=6`,
+      );
+      if (!response.ok) {
+        throw new Error(await extractAPIError(response));
+      }
+      const payload = (await response.json()) as RoadClosureListResponse;
+      setRoadClosures(payload.closures);
+    } catch {
+      setRoadClosures([]);
+    }
+  }
+
+  async function fetchReliefPoints(lat: number, lng: number) {
+    if (!navigator.onLine) {
+      setReliefPoints(sampleReliefPointResponse);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/relief-points/nearby?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
+      );
+      if (!response.ok) {
+        throw new Error(await extractAPIError(response));
+      }
+      const payload = (await response.json()) as ReliefPointNearbyResponse;
+      setReliefPoints(
+        payload.reliefPoints.length ? payload : sampleReliefPointResponse,
+      );
+    } catch {
+      setReliefPoints(sampleReliefPointResponse);
     }
   }
 
@@ -484,6 +538,7 @@ function CitizenApp() {
     }
 
     void fetchShelters(lat, lng, risk);
+    void fetchReliefPoints(lat, lng);
   };
 
   const useCurrentLocation = () => {
@@ -1446,6 +1501,140 @@ function CitizenApp() {
                   ) : (
                     <Alert severity="info" className="warning-alert">
                       No nearby shelters were returned for this area.
+                    </Alert>
+                  )}
+                </Stack>
+              </Paper>
+
+              {roadClosures.length > 0 && (
+                <Paper className="surface">
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    className="section-heading"
+                  >
+                    <TriangleAlert size={21} color={nadaaBrand.colors.gold} />
+                    <Box>
+                      <Typography variant="h6">Road closures</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Active closures near this area
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Stack spacing={1.25}>
+                    {roadClosures.map((closure) => (
+                      <Paper
+                        variant="outlined"
+                        className="shelter-row"
+                        key={closure.id}
+                      >
+                        <Stack
+                          direction="row"
+                          justifyContent="space-between"
+                          spacing={1}
+                        >
+                          <Box>
+                            <Typography variant="subtitle2">
+                              {closure.roadName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {closure.reason ?? "Road closure"} ·{" "}
+                              {closure.severity}
+                            </Typography>
+                            {closure.detourNote ? (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                Detour: {closure.detourNote}
+                              </Typography>
+                            ) : null}
+                          </Box>
+                          <Chip
+                            size="small"
+                            label={closure.status}
+                            color="warning"
+                          />
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Paper>
+              )}
+
+              <Paper className="surface">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  className="section-heading"
+                >
+                  <LifeBuoy size={21} color={nadaaBrand.colors.gold} />
+                  <Box>
+                    <Typography variant="h6">Relief distribution</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Food, water, medical and supply points
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Stack spacing={1.25}>
+                  {reliefPoints.reliefPoints.length > 0 ? (
+                    reliefPoints.reliefPoints.map((point) => (
+                      <Paper
+                        variant="outlined"
+                        className="shelter-row"
+                        key={point.id}
+                      >
+                        <Stack spacing={1}>
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            spacing={1}
+                          >
+                            <Box>
+                              <Typography variant="subtitle2">
+                                {point.name}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                {formatSupportType(point.type)}
+                                {point.distanceMeters
+                                  ? ` · ${formatDistance(point.distanceMeters)}`
+                                  : ""}
+                              </Typography>
+                            </Box>
+                            <Chip
+                              size="small"
+                              label={point.status}
+                              color={
+                                point.status === "open"
+                                  ? "success"
+                                  : point.status === "limited"
+                                    ? "warning"
+                                    : "default"
+                              }
+                            />
+                          </Stack>
+                          <Typography variant="body2">
+                            {formatReliefStock(point.stockCategories)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {point.operatingHours} · {point.schedule}
+                          </Typography>
+                          {point.eligibility ? (
+                            <Alert severity="info" className="warning-alert">
+                              {point.eligibility}
+                            </Alert>
+                          ) : null}
+                        </Stack>
+                      </Paper>
+                    ))
+                  ) : (
+                    <Alert severity="info" className="warning-alert">
+                      No relief distribution points were returned for this area.
                     </Alert>
                   )}
                 </Stack>

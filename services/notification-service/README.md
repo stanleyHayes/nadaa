@@ -1,6 +1,6 @@
 # Notification Service
 
-The notification service owns the citizen alert feed, push/SMS provider abstraction, and delivery attempt logs for NADAA-052.
+The notification service owns the citizen alert feed, push/SMS provider abstraction, reviewed voice alert assets, inclusive access webhooks, and delivery attempt logs.
 
 ## Endpoints
 
@@ -8,6 +8,10 @@ The notification service owns the citizen alert feed, push/SMS provider abstract
 - `GET /api/v1/notifications/alerts`
 - `POST /api/v1/notifications/alerts/{id}/deliver`
 - `GET /api/v1/notifications/delivery-logs`
+- `POST /api/v1/notifications/voice-alerts`
+- `GET /api/v1/notifications/voice-alerts`
+- `POST /api/v1/notifications/voice-alerts/{id}/review`
+- `POST /api/v1/notifications/voice-alerts/{id}/deliver`
 
 `GET /api/v1/notifications/alerts?includeExpired=true` returns current and expired citizen alert feed items. The service attempts to read approved/published alerts from `NADAA_ALERT_SERVICE_URL` and keeps fixture fallback alerts available for local development.
 
@@ -32,6 +36,14 @@ Development providers are mock providers by default:
 
 Delivery attempts are stored in the in-memory log for the MVP service and represented in the core database schema by `notification_delivery_logs`.
 
+Voice delivery uses a separate approval gate:
+
+1. Generate variants with `POST /api/v1/notifications/voice-alerts`.
+2. Review them with `POST /api/v1/notifications/voice-alerts/{id}/review`.
+3. Deliver only approved assets with `POST /api/v1/notifications/voice-alerts/{id}/deliver`.
+
+The sandbox voice provider writes `mock_voice` delivery logs. Set `NADAA_VOICE_ENABLED=false` to log voice attempts as `skipped`.
+
 ## Local Development
 
 ```bash
@@ -51,6 +63,7 @@ Run smoke checks with the service on port `8090`:
 
 ```bash
 pnpm smoke:notification
+pnpm smoke:voice-alerts
 ```
 
 ## Story Coverage

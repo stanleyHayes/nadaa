@@ -320,9 +320,27 @@ export interface CitizenAlertFeedResponse {
   source: "alert-service" | "fixture" | "alert-service+fixture";
 }
 
-export type NotificationChannel = "push" | "sms";
+export type NotificationChannel = "push" | "sms" | "voice";
 export type NotificationDeliveryStatus =
   "queued" | "delivered" | "failed" | "skipped";
+export type VoiceLanguage = "en" | "tw" | "ga" | "ee" | "dag" | "ha";
+export type VoiceAlertStatus = "generated" | "approved" | "rejected";
+export type VoiceReviewStatus =
+  "pending_review" | "partial_review" | "approved" | "rejected";
+export type InclusiveAccessChannel = "sms" | "ussd" | "whatsapp";
+export type InclusiveAccessStatus =
+  "handled" | "failed" | "queued" | "submitted";
+export type InclusiveAccessIntent =
+  | "language_menu"
+  | "main_menu"
+  | "current_alerts"
+  | "report_emergency"
+  | "risk_check"
+  | "emergency_guides"
+  | "shelter_lookup"
+  | "guidance_112"
+  | "provider_error"
+  | "invalid_selection";
 
 export interface NotificationDeliveryRequest {
   recipientId?: string;
@@ -343,6 +361,9 @@ export interface NotificationDeliveryAttempt {
   status: NotificationDeliveryStatus;
   reason?: string;
   messageId?: string;
+  voiceAssetId?: string;
+  language?: string;
+  audioUrl?: string;
   attemptedAt: string;
 }
 
@@ -352,6 +373,230 @@ export interface NotificationDeliveryResponse {
 
 export interface NotificationDeliveryLogListResponse {
   logs: NotificationDeliveryAttempt[];
+}
+
+export interface VoiceAlertRequest {
+  alertId: string;
+  languages?: VoiceLanguage[];
+  workflowRequestedBy?: string;
+  source?: "tts_sandbox" | "recorded_audio";
+}
+
+export interface VoiceVariant {
+  id: string;
+  language: VoiceLanguage;
+  locale: string;
+  voiceName: string;
+  messageText: string;
+  audioUrl: string;
+  durationSeconds: number;
+  status: VoiceAlertStatus;
+  reviewStatus: VoiceReviewStatus;
+  accessibilityChecks: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VoiceAlertAsset {
+  id: string;
+  alertId: string;
+  alertTitle: string;
+  hazardType: HazardType;
+  severity: AlertSeverity;
+  targetLabel: string;
+  status: VoiceAlertStatus;
+  reviewStatus: VoiceReviewStatus;
+  source: "tts_sandbox" | "recorded_audio";
+  workflowRequestedBy?: string;
+  reviewer?: string;
+  reviewNote?: string;
+  variants: VoiceVariant[];
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt?: string;
+}
+
+export interface VoiceAlertResponse {
+  asset: VoiceAlertAsset;
+}
+
+export interface VoiceAlertListResponse {
+  assets: VoiceAlertAsset[];
+}
+
+export interface VoiceReviewRequest {
+  action: "approve" | "reject";
+  reviewer: string;
+  note?: string;
+  languages?: VoiceLanguage[];
+}
+
+export interface VoiceRecipient {
+  recipientId?: string;
+  phone?: string;
+  language: VoiceLanguage;
+}
+
+export interface VoiceDeliveryRequest {
+  recipients: VoiceRecipient[];
+  dryRun?: boolean;
+}
+
+export interface VoiceDeliveryResponse {
+  attempts: NotificationDeliveryAttempt[];
+}
+
+export interface InclusiveAccessLog {
+  id: string;
+  channel: InclusiveAccessChannel;
+  provider: string;
+  providerMessageId?: string;
+  sessionId?: string;
+  phoneRef: string;
+  profileId?: string;
+  linkedProfile: boolean;
+  language: string;
+  intent: InclusiveAccessIntent;
+  status: InclusiveAccessStatus;
+  providerError?: string;
+  incidentId?: string;
+  incidentReference?: string;
+  createdAt: string;
+}
+
+export interface InclusiveAccessReport {
+  id: string;
+  channel: InclusiveAccessChannel;
+  type: HazardType;
+  urgency: IncidentUrgency;
+  description: string;
+  location: Coordinates;
+  locationLabel: string;
+  phoneRef: string;
+  profileId?: string;
+  linkedProfile: boolean;
+  status: "queued" | "submitted";
+  media?: string[];
+  incidentId?: string;
+  incidentReference?: string;
+  failureReason?: string;
+  createdAt: string;
+}
+
+export interface USSDWebhookRequest {
+  sessionId: string;
+  phone: string;
+  serviceCode?: string;
+  text: string;
+  language?: string;
+  network?: string;
+  provider?: string;
+  providerMessageId?: string;
+  providerError?: string;
+  profileId?: string;
+  linkProfile?: boolean;
+  location?: Coordinates;
+}
+
+export interface USSDWebhookResponse {
+  sessionId: string;
+  action: "continue" | "end";
+  message: string;
+  language: string;
+  log: InclusiveAccessLog;
+  report?: InclusiveAccessReport;
+}
+
+export interface SMSInboundRequest {
+  from: string;
+  body: string;
+  language?: string;
+  provider?: string;
+  providerMessageId?: string;
+  providerError?: string;
+  profileId?: string;
+  linkProfile?: boolean;
+  location?: Coordinates;
+}
+
+export interface SMSInboundResponse {
+  message: string;
+  log: InclusiveAccessLog;
+  report?: InclusiveAccessReport;
+}
+
+export interface WhatsAppMedia {
+  id?: string;
+  url?: string;
+  contentType?: string;
+  caption?: string;
+}
+
+export interface WhatsAppInboundRequest {
+  from: string;
+  body: string;
+  language?: string;
+  provider?: string;
+  providerMessageId?: string;
+  providerError?: string;
+  profileId?: string;
+  linkProfile?: boolean;
+  location?: Coordinates;
+  media?: WhatsAppMedia[];
+}
+
+export type WhatsAppConversationState =
+  | "idle"
+  | "awaiting_report_hazard"
+  | "awaiting_report_urgency"
+  | "awaiting_report_location";
+
+export interface WhatsAppConversation {
+  id: string;
+  channel: "whatsapp";
+  phoneRef: string;
+  profileId?: string;
+  linkedProfile: boolean;
+  language: string;
+  intent: InclusiveAccessIntent;
+  state: WhatsAppConversationState;
+  hazard?: HazardType;
+  urgency?: IncidentUrgency;
+  lastMessageSummary?: string;
+  lastMediaSummary?: string;
+  startedAt: string;
+  updatedAt: string;
+  expiresAt: string;
+  retentionUntil: string;
+}
+
+export interface WhatsAppTranscript {
+  id: string;
+  conversationId: string;
+  provider: string;
+  providerMessageId?: string;
+  phoneRef: string;
+  profileId?: string;
+  linkedProfile: boolean;
+  direction: "inbound" | "outbound";
+  intent: InclusiveAccessIntent | "incoming";
+  state: WhatsAppConversationState;
+  messageSummary?: string;
+  mediaSummary?: string;
+  createdAt: string;
+  retentionUntil: string;
+}
+
+export interface WhatsAppInboundResponse {
+  message: string;
+  conversation: WhatsAppConversation;
+  log: InclusiveAccessLog;
+  report?: InclusiveAccessReport;
+  transcriptIds?: string[];
+}
+
+export interface InclusiveAccessLogListResponse {
+  logs: InclusiveAccessLog[];
 }
 
 export interface EmergencyGuideRecord {
@@ -708,13 +953,144 @@ export interface AssignIncidentRequest {
   responderLead?: string;
 }
 
+export type VolunteerAvailabilityStatus = "available" | "busy" | "off_duty";
+export type VolunteerVerificationStatus =
+  "pending" | "verified" | "rejected" | "suspended";
+export type VolunteerVerificationDecision = "verify" | "reject" | "suspend";
+export type VolunteerTaskType =
+  | "welfare_check"
+  | "shelter_support"
+  | "supply_distribution"
+  | "damage_observation"
+  | "route_observation"
+  | "community_alerting";
+export type VolunteerTaskStatus =
+  | "assigned"
+  | "accepted"
+  | "en_route"
+  | "on_scene"
+  | "completed"
+  | "cancelled"
+  | "needs_escalation";
+export type VolunteerSafetyStatus =
+  "safe" | "caution" | "unsafe" | "needs_authority";
+
+export interface VolunteerProfile {
+  id: string;
+  citizenUserId: string;
+  name: string;
+  phone?: string;
+  region: string;
+  district: string;
+  community: string;
+  groupId: string;
+  skills: string[];
+  languages: string[];
+  availabilityStatus: VolunteerAvailabilityStatus;
+  verificationStatus: VolunteerVerificationStatus;
+  safetyNotes: string[];
+  verifiedBy?: string;
+  verifiedAt?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RegisterVolunteerRequest {
+  citizenUserId: string;
+  name: string;
+  phone: string;
+  region: string;
+  district: string;
+  community: string;
+  skills: string[];
+  languages: string[];
+  availabilityStatus?: VolunteerAvailabilityStatus;
+}
+
+export interface VolunteerProfileResponse {
+  volunteer: VolunteerProfile;
+}
+
+export interface VolunteerListResponse {
+  volunteers: VolunteerProfile[];
+}
+
+export interface VerifyVolunteerRequest {
+  decision: VolunteerVerificationDecision;
+  note: string;
+}
+
+export interface AssignVolunteerTaskRequest {
+  volunteerId: string;
+  type: VolunteerTaskType;
+  priority?: IncidentAssignmentPriority;
+  instructions: string;
+  locationLabel: string;
+}
+
+export interface VolunteerTaskUpdate {
+  id: string;
+  type: "status" | "observation";
+  status?: VolunteerTaskStatus;
+  note: string;
+  safetyStatus: VolunteerSafetyStatus;
+  location?: Coordinates;
+  escalationRequested: boolean;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface VolunteerTaskRecord {
+  id: string;
+  incidentId: string;
+  incidentReference: string;
+  volunteerId: string;
+  volunteerName: string;
+  groupId: string;
+  type: VolunteerTaskType;
+  priority: IncidentAssignmentPriority;
+  instructions: string;
+  locationLabel: string;
+  status: VolunteerTaskStatus;
+  safetyRules: string[];
+  escalationRequired: boolean;
+  assignedBy: string;
+  assignedAt: string;
+  updatedAt: string;
+  acceptedAt?: string;
+  completedAt?: string;
+  updates: VolunteerTaskUpdate[];
+}
+
+export interface VolunteerTaskListResponse {
+  tasks: VolunteerTaskRecord[];
+}
+
+export interface VolunteerTaskStatusRequest {
+  volunteerId: string;
+  status: Exclude<VolunteerTaskStatus, "assigned">;
+  note?: string;
+  safetyStatus?: VolunteerSafetyStatus;
+  location?: Coordinates;
+}
+
+export interface VolunteerObservationRequest {
+  volunteerId: string;
+  observation: string;
+  safetyStatus?: VolunteerSafetyStatus;
+  location?: Coordinates;
+  escalationRequested?: boolean;
+  media?: string[];
+}
+
 export interface IncidentAuditEvent {
   id: string;
   actorUserId: string;
-  actorAgencyId: string;
-  actorRole: AgencyUserRole;
+  actorAgencyId?: string;
+  actorRole: UserRole | "volunteer";
   action: string;
-  targetType: "incident";
+  targetType: "incident" | "volunteer_profile" | "volunteer_task";
   targetId: string;
   requestId?: string;
   before?: Record<string, unknown>;
@@ -922,6 +1298,98 @@ export interface RecoverySupportResponse {
   generatedAt: string;
 }
 
+export type ReliefPointStatus = "open" | "limited" | "closed" | "paused";
+
+export type ReliefPointType =
+  "food" | "water" | "medical" | "hygiene" | "blankets" | "cash" | "mixed";
+
+export interface ReliefStockCategory {
+  category: string;
+  quantity: number;
+  unit: string;
+  lastUpdated: string;
+}
+
+export interface ReliefPointRecord {
+  id: string;
+  name: string;
+  type: ReliefPointType;
+  region: string;
+  district: string;
+  address: string;
+  location: Coordinates;
+  contact: string;
+  operatingHours: string;
+  eligibility: string;
+  schedule: string;
+  stockCategories: ReliefStockCategory[];
+  status: ReliefPointStatus;
+  source: string;
+  sourceRef?: string;
+  distanceMeters?: number;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReliefPointListResponse {
+  reliefPoints: ReliefPointRecord[];
+  generatedAt: string;
+}
+
+export interface ReliefPointNearbyResponse {
+  reliefPoints: ReliefPointRecord[];
+  generatedAt: string;
+}
+
+export interface ReliefPointStockHistoryResponse {
+  reliefPointId: string;
+  history: ReliefStockHistoryEntry[];
+  generatedAt: string;
+}
+
+export interface ReliefStockHistoryEntry {
+  id: string;
+  changedBy: string;
+  changedAt: string;
+  note?: string;
+  stockCategories: ReliefStockCategory[];
+}
+
+export interface CreateReliefPointRequest {
+  name: string;
+  type: ReliefPointType;
+  region?: string;
+  district?: string;
+  address?: string;
+  location: Coordinates;
+  contact?: string;
+  operatingHours?: string;
+  eligibility?: string;
+  schedule?: string;
+  stockCategories?: ReliefStockCategory[];
+  status?: ReliefPointStatus;
+  source?: string;
+  sourceRef?: string;
+}
+
+export interface UpdateReliefPointRequest {
+  name?: string;
+  type?: ReliefPointType;
+  region?: string;
+  district?: string;
+  address?: string;
+  location?: Coordinates;
+  contact?: string;
+  operatingHours?: string;
+  eligibility?: string;
+  schedule?: string;
+  stockCategories?: ReliefStockCategory[];
+  status?: ReliefPointStatus;
+  sourceRef?: string;
+}
+
 export interface ShelterOccupancyUpdateRequest {
   capacity?: number;
   currentOccupancy?: number;
@@ -931,6 +1399,178 @@ export interface ShelterOccupancyUpdateRequest {
 
 export interface ShelterUpdateResponse {
   shelter: ShelterRecord;
+}
+
+export type HospitalCapacityStatus =
+  "available" | "limited" | "full" | "offline" | "unknown";
+
+export type HospitalEmergencyUnitStatus =
+  "open" | "busy" | "divert" | "closed" | "unknown";
+
+export interface HospitalCapacityRecord {
+  id: string;
+  name: string;
+  type: string;
+  region: string;
+  district: string;
+  address: string;
+  location: Coordinates;
+  contact: string;
+  services: string[];
+  totalBeds: number;
+  availableBeds: number;
+  icuBedsAvailable: number;
+  maternityBedsAvailable: number;
+  pediatricBedsAvailable: number;
+  isolationBedsAvailable: number;
+  emergencyCapacity: HospitalCapacityStatus;
+  emergencyUnitStatus: HospitalEmergencyUnitStatus;
+  ambulancesAvailable: number;
+  oxygenAvailable: boolean;
+  notes?: string;
+  source: "manual" | "fixture" | "fixture_adapter" | string;
+  sourceRef?: string;
+  updatedBy?: string;
+  updatedAt: string;
+  distanceMeters?: number;
+  stale: boolean;
+  staleReason?: string;
+}
+
+export interface HospitalCapacityResponse {
+  facilities: HospitalCapacityRecord[];
+  generatedAt: string;
+  staleThresholdMinutes: number;
+}
+
+export interface HospitalCapacityUpdateRequest {
+  totalBeds?: number;
+  availableBeds?: number;
+  icuBedsAvailable?: number;
+  maternityBedsAvailable?: number;
+  pediatricBedsAvailable?: number;
+  isolationBedsAvailable?: number;
+  emergencyCapacity?: HospitalCapacityStatus;
+  emergencyUnitStatus?: HospitalEmergencyUnitStatus;
+  ambulancesAvailable?: number;
+  oxygenAvailable?: boolean;
+  notes?: string;
+  source?: "manual" | "fixture_adapter" | string;
+  sourceRef?: string;
+}
+
+export interface HospitalCapacityUpdateResponse {
+  facility: HospitalCapacityRecord;
+}
+
+export interface HospitalCapacityFixtureRecord {
+  facilityId: string;
+  availableBeds: number;
+  icuBedsAvailable?: number;
+  maternityBedsAvailable?: number;
+  pediatricBedsAvailable?: number;
+  isolationBedsAvailable?: number;
+  emergencyCapacity: HospitalCapacityStatus;
+  emergencyUnitStatus?: HospitalEmergencyUnitStatus;
+  ambulancesAvailable?: number;
+  oxygenAvailable?: boolean;
+  notes?: string;
+}
+
+export interface HospitalCapacityImportRequest {
+  source?: "fixture_adapter" | string;
+  sourceRef?: string;
+  records?: HospitalCapacityFixtureRecord[];
+}
+
+export interface HospitalCapacityImportResponse {
+  imported: number;
+  facilities: HospitalCapacityRecord[];
+  generatedAt: string;
+  source: string;
+}
+
+export type RoadClosureStatus = "active" | "scheduled" | "lifted" | "cancelled";
+
+export type RoadClosureSeverity =
+  "low" | "moderate" | "high" | "severe" | "emergency";
+
+export interface RoadClosureLineStringGeometry {
+  type: "LineString";
+  coordinates: number[][];
+}
+
+export interface RoadClosureRecord {
+  id: string;
+  roadName: string;
+  reason?: string;
+  status: RoadClosureStatus;
+  severity: RoadClosureSeverity;
+  source: string;
+  sourceRef?: string;
+  geometry: RoadClosureLineStringGeometry;
+  validFrom: string;
+  validTo?: string;
+  detourNote?: string;
+  distanceMeters?: number;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoadClosureListResponse {
+  closures: RoadClosureRecord[];
+  generatedAt: string;
+}
+
+export interface RoadClosureResponse {
+  closure: RoadClosureRecord;
+}
+
+export interface CreateRoadClosureRequest {
+  roadName: string;
+  reason?: string;
+  status?: RoadClosureStatus;
+  severity?: RoadClosureSeverity;
+  source?: string;
+  sourceRef?: string;
+  geometry: RoadClosureLineStringGeometry;
+  validFrom?: string;
+  validTo?: string;
+  detourNote?: string;
+}
+
+export interface UpdateRoadClosureRequest {
+  roadName?: string;
+  reason?: string;
+  status?: RoadClosureStatus;
+  severity?: RoadClosureSeverity;
+  source?: string;
+  sourceRef?: string;
+  geometry?: RoadClosureLineStringGeometry;
+  validFrom?: string;
+  validTo?: string;
+  detourNote?: string;
+}
+
+export interface RoadClosureAdapterImportRequest {
+  source: string;
+  sourceRef?: string;
+  roadName: string;
+  status: RoadClosureStatus;
+  reason?: string;
+  geometry: string;
+  validFrom: string;
+  validTo?: string;
+  detour?: string;
+}
+
+export interface RoadClosureAdapterImportResponse {
+  imported: number;
+  closures: RoadClosureRecord[];
+  generatedAt: string;
+  source: string;
 }
 
 export interface EmergencyFacilitySummary {

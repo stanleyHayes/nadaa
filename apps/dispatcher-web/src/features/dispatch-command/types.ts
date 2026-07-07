@@ -4,6 +4,7 @@ import type {
   AlertTargetType,
   Coordinates,
   HazardType,
+  HospitalCapacityStatus,
   IncidentAbuseReviewDecision,
   IncidentAssignmentPriority,
   IncidentRecord,
@@ -34,6 +35,22 @@ export type IncidentLoadState =
   "loading" | "ready" | "fallback" | "empty" | "error";
 export type AlertLoadState = "loading" | "ready" | "fallback" | "error";
 export type MLReviewLoadState = "loading" | "ready" | "fallback" | "error";
+export type CapacityLoadState = "loading" | "ready" | "fallback" | "empty";
+
+export type HospitalCapacityFilterState = {
+  emergencyCapacity: "all" | HospitalCapacityStatus;
+  includeStale: boolean;
+  minAvailableBeds: string;
+  service:
+    | "all"
+    | "emergency"
+    | "trauma"
+    | "icu"
+    | "maternity"
+    | "pediatric"
+    | "ambulance"
+    | "oxygen";
+};
 
 export type MLPredictionReviewPoint = {
   id: string;

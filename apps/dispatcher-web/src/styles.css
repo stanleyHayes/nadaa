@@ -201,6 +201,42 @@ body {
   margin-bottom: 14px;
 }
 
+.capacity-panel {
+  margin-top: 20px;
+  border-top: 6px solid #118d4e;
+}
+
+.capacity-filters {
+  margin-top: 16px;
+  margin-bottom: 6px;
+}
+
+.capacity-list {
+  margin-top: 4px;
+}
+
+.hospital-card {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.hospital-card .MuiLinearProgress-root {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(13, 27, 61, 0.08);
+}
+
+.hospital-card .MuiAlert-root {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
 .prediction-review-map {
   height: 336px;
   overflow: hidden;

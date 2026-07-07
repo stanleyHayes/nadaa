@@ -4,15 +4,19 @@ NADAA is the Ghana National Disaster Alert and Response Platform.
 
 Slogan: **Be Aware. Be Prepared. Be Safe.**
 
-The platform helps citizens, NADMO, district assemblies, dispatchers, and response agencies prepare for, report, monitor, respond to, and recover from disasters. The first implementation phase focuses on flood risk, citizen reporting, authority incident command, approved alerts, emergency guidance, and shelter visibility.
+The platform helps citizens, NADMO, district assemblies, dispatchers, and response agencies prepare for, report, monitor, respond to, and recover from disasters. The implementation covers flood risk, citizen reporting, authority incident command, approved alerts, emergency guidance, shelter visibility, hospital capacity, relief distribution points, and recovery logistics.
 
 ## Repository Layout
 
 ```text
 apps/
+  marketing-web/          Public website for platform overview, services, platform lanes, benefits, and contact
   citizen-web/            Citizen PWA for alerts, risk checks, reports, guides, and shelters
   dispatcher-web/         Dispatcher command console for incident triage, workflow, assignments, alerts, and maps
+  agency-web/             Agency operations portal for assigned incidents, capacity context, and relief logistics
   admin-web/              Governance console for agencies, users, roles, MFA, audit, data sources, and alert rules
+  citizen-mobile/         Expo citizen mobile foundation for alerts, reports, guides, shelters, and community tasks
+  dispatcher-mobile/      Expo dispatcher mobile triage foundation for shift-friendly incident actions
   authority-dashboard/    Compatibility shell for the original authority dashboard while role-specific apps are split out
 services/
   auth-service/
@@ -43,6 +47,14 @@ Install dependencies:
 pnpm install
 ```
 
+Run the public marketing website:
+
+```bash
+pnpm dev:marketing
+```
+
+The marketing site runs on port `5172` and summarizes NADAA's about story, features, platform lanes, services, benefits, research context, and contact paths. It uses the real NADAA logo, brand sheet, and Outfit typography.
+
 Run the citizen web app:
 
 ```bash
@@ -68,6 +80,7 @@ pnpm dev:dispatcher
 ```
 
 The dispatcher web app uses `VITE_INCIDENT_API_URL` and `VITE_ALERT_API_URL`, defaulting to local incident and alert service URLs. It runs on port `5175` and is the target app for dispatcher incident command workflows.
+It also uses `VITE_ML_API_URL` for reviewed flood predictions and `VITE_SHELTER_API_URL` for hospital capacity filters, defaulting to the local ML and shelter service URLs.
 Copy `apps/dispatcher-web/.env.example` if you need different service URLs.
 
 Run the admin governance console:
@@ -117,7 +130,9 @@ cd services/incident-service
 go run .
 ```
 
-With the incident service running on `:8084`, verify the status workflow with `pnpm smoke:incident-workflow`, abuse/false-report review with `pnpm smoke:incident-abuse`, agency assignment with `pnpm smoke:incident-assignment`, and duplicate merge review with `pnpm smoke:incident-merge`.
+With the incident service running on `:8084`, verify the status workflow with `pnpm smoke:incident-workflow`, abuse/false-report review with `pnpm smoke:incident-abuse`, agency assignment with `pnpm smoke:incident-assignment`, duplicate merge review with `pnpm smoke:incident-merge`, and community volunteer coordination with `pnpm smoke:community-volunteers`.
+
+Set `NADAA_ALLOWED_ORIGINS` to a comma-separated list of approved browser origins when testing APIs outside local fixture development. Run `pnpm security:scan` before UAT or after changes to API CORS/header handling, Dockerfiles, env templates, or security docs.
 
 Run the Go alert service:
 
@@ -136,6 +151,9 @@ go run .
 ```
 
 The citizen app uses `VITE_NOTIFICATION_API_URL`, defaulting to `http://localhost:8090/api/v1`, for current/expired alert feed data. The notification service uses alert-service when available and fixture fallback in development. With notification-service running on `:8090`, verify feed delivery logs with `pnpm smoke:notification`.
+The notification service also exposes Phase 2 SMS/USSD and WhatsApp sandbox webhooks for inclusive access plus reviewed multilingual voice-alert delivery. Set `NADAA_INCIDENT_SERVICE_URL=http://127.0.0.1:8084/api/v1` when inbound SMS/USSD/WhatsApp reports should be submitted to incident-service; otherwise they remain queued in notification-service. Verify the SMS/USSD flow with `pnpm smoke:sms-ussd`, the WhatsApp chatbot with `pnpm smoke:whatsapp`, and voice assets/delivery logs with `pnpm smoke:voice-alerts`.
+
+The Phase 2 citizen mobile foundation lives in `apps/citizen-mobile`. It is an Expo/React Native app shell with NADAA brand assets, current alerts, risk lookup, incident report drafts, community volunteer assignments, offline guides, shelter/recovery support, session handling, permission copy, and push registration scaffolding. Run `pnpm --filter @nadaa/citizen-mobile typecheck` and `pnpm smoke:citizen-mobile`; use `pnpm dev:citizen-mobile` when running the Expo toolchain locally.
 
 Run the Go guide service:
 
@@ -145,6 +163,15 @@ go run .
 ```
 
 The guide service listens on `:8086` by default and exposes `GET /api/v1/guides` for emergency preparedness and response content. With the citizen app on `:5173` and guide-service on `:8086`, verify offline-first guide integration with `pnpm smoke:citizen-guides`.
+
+Run the Go shelter service:
+
+```bash
+cd services/shelter-service
+go run .
+```
+
+The shelter service listens on `:8093` by default and exposes shelter/recovery lookup, relief point management, stock history, and hospital capacity endpoints. With shelter-service running on `:8093`, verify nearby shelters, protected occupancy updates, relief point list/nearby/create/update/stock-history behavior, hospital capacity filters, manual capacity updates, and fixture imports with `pnpm smoke:shelter`.
 
 Run the Go integration service:
 
@@ -169,6 +196,11 @@ Use `agent_plan.md` as the living project board. Before starting work, agents sh
 - [Integrations](docs/integrations.md)
 - [Deployment](docs/deployment.md)
 - [QA Strategy](docs/qa.md)
+- [UAT Plan](docs/uat.md)
+- [Release Readiness](docs/release-readiness.md)
+- [User Guide And Training](docs/user-guide.md)
+- [Beta Monitoring](docs/beta-monitoring.md)
+- [Hypercare](docs/hypercare.md)
 - [Database](database/README.md)
 - [Project Dashboard Contract](docs/project-dashboard/README.md)
 

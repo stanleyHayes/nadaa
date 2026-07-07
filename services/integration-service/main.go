@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -13,7 +16,9 @@ import (
 )
 
 type server struct {
-	store *memoryStore
+	store             *memoryStore
+	httpClient        *http.Client
+	roadClosureAPIURL string
 }
 
 type memoryStore struct {
@@ -23,6 +28,7 @@ type memoryStore struct {
 	importedObservations []importedWeatherHydrologyObservation
 	importJobs           []observationImportJob
 	syncEvents           []syncEvent
+	roadClosureImports   []roadClosureImportRecord
 }
 
 type integrationContract struct {
@@ -168,6 +174,38 @@ type syncEvent struct {
 	Retryable       bool      `json:"retryable"`
 }
 
+type roadClosureImportRecord struct {
+	ID        string     `json:"id"`
+	Source    string     `json:"source"`
+	SourceRef string     `json:"sourceRef,omitempty"`
+	RoadName  string     `json:"roadName"`
+	Status    string     `json:"status"`
+	Reason    string     `json:"reason,omitempty"`
+	Geometry  string     `json:"geometry"`
+	ValidFrom time.Time  `json:"validFrom"`
+	ValidTo   *time.Time `json:"validTo,omitempty"`
+	Detour    string     `json:"detour,omitempty"`
+	ImportedAt time.Time `json:"importedAt"`
+}
+
+type roadClosureImportRequest struct {
+	Source    string     `json:"source"`
+	SourceRef string     `json:"sourceRef,omitempty"`
+	RoadName  string     `json:"roadName"`
+	Status    string     `json:"status"`
+	Reason    string     `json:"reason,omitempty"`
+	Geometry  string     `json:"geometry"`
+	ValidFrom time.Time  `json:"validFrom"`
+	ValidTo   *time.Time `json:"validTo,omitempty"`
+	Detour    string     `json:"detour,omitempty"`
+}
+
+type roadClosureImportResponse struct {
+	Imported   int                     `json:"imported"`
+	Record     roadClosureImportRecord `json:"record"`
+	AcceptedAt time.Time               `json:"acceptedAt"`
+}
+
 type contractListResponse struct {
 	Contracts []integrationContract `json:"contracts"`
 }
@@ -221,7 +259,12 @@ var allowedImportStatuses = map[string]bool{
 }
 
 func main() {
-	srv := &server{store: newMemoryStore()}
+	roadClosureURL := envOrDefault("NADAA_ROAD_CLOSURE_SERVICE_URL", "http://localhost:8095")
+	srv := &server{
+		store:             newMemoryStore(),
+		httpClient:        &http.Client{Timeout: 15 * time.Second},
+		roadClosureAPIURL: strings.TrimRight(roadClosureURL, "/"),
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", srv.healthHandler)
@@ -233,6 +276,8 @@ func main() {
 	mux.HandleFunc("POST /api/v1/integrations/weather-hydrology/import-jobs/{id}/retry", srv.retryObservationImportJobHandler)
 	mux.HandleFunc("POST /api/v1/integrations/mock/sync-events", srv.createSyncEventHandler)
 	mux.HandleFunc("GET /api/v1/integrations/mock/sync-events", srv.listSyncEventsHandler)
+	mux.HandleFunc("POST /api/v1/integrations/road-closures/imports", srv.importRoadClosureHandler)
+	mux.HandleFunc("GET /api/v1/integrations/road-closures/imports", srv.listRoadClosureImportsHandler)
 
 	if observationImportSchedulerEnabled() {
 		go srv.startObservationImportScheduler(observationImportSchedulerInterval())
@@ -308,6 +353,107 @@ func (s *server) createObservationImportJobHandler(w http.ResponseWriter, r *htt
 
 	job := s.store.createObservationImportJob(request, "manual", time.Now().UTC(), 1)
 	writeJSON(w, http.StatusAccepted, job)
+}
+
+func (s *server) importRoadClosureHandler(w http.ResponseWriter, r *http.Request) {
+	var request roadClosureImportRequest
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+
+	request.Source = strings.TrimSpace(strings.ToLower(request.Source))
+	request.SourceRef = strings.TrimSpace(request.SourceRef)
+	request.RoadName = strings.TrimSpace(request.RoadName)
+	request.Status = strings.TrimSpace(strings.ToLower(request.Status))
+	request.Reason = strings.TrimSpace(request.Reason)
+	request.Geometry = strings.TrimSpace(request.Geometry)
+	request.Detour = strings.TrimSpace(request.Detour)
+
+	if request.Source == "" {
+		writeError(w, http.StatusBadRequest, "missing_source", "source is required")
+		return
+	}
+	if request.RoadName == "" {
+		writeError(w, http.StatusBadRequest, "missing_road_name", "roadName is required")
+		return
+	}
+	if request.Status == "" {
+		writeError(w, http.StatusBadRequest, "missing_status", "status is required")
+		return
+	}
+	if request.Status != "active" && request.Status != "scheduled" && request.Status != "lifted" && request.Status != "cancelled" {
+		writeError(w, http.StatusBadRequest, "invalid_status", "status must be active, scheduled, lifted, or cancelled")
+		return
+	}
+	if request.Geometry == "" {
+		writeError(w, http.StatusBadRequest, "missing_geometry", "geometry is required")
+		return
+	}
+	if request.ValidFrom.IsZero() {
+		writeError(w, http.StatusBadRequest, "missing_valid_from", "validFrom is required")
+		return
+	}
+	if request.ValidTo != nil && request.ValidTo.Before(request.ValidFrom) {
+		writeError(w, http.StatusBadRequest, "invalid_valid_to", "validTo must be after validFrom")
+		return
+	}
+
+	if err := s.forwardRoadClosureToService(r, request); err != nil {
+		log.Printf("WARN integration-service road_closure_import forward_failed error=%v", err)
+		writeError(w, http.StatusBadGateway, "road_closure_service_unavailable", "road closure service could not accept the import")
+		return
+	}
+
+	record := s.store.importRoadClosure(request)
+	log.Printf("INFO integration-service road_closure_import accepted id=%s source=%s roadName=%s", record.ID, record.Source, record.RoadName)
+	writeJSON(w, http.StatusAccepted, roadClosureImportResponse{Imported: 1, Record: record, AcceptedAt: record.ImportedAt})
+}
+
+func (s *server) forwardRoadClosureToService(r *http.Request, request roadClosureImportRequest) error {
+	payload, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("marshal road closure request: %w", err)
+	}
+
+	target, err := url.JoinPath(s.roadClosureAPIURL, "/api/v1/road-closures/imports/adapter")
+	if err != nil {
+		return fmt.Errorf("build road closure service URL: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("create road closure service request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, header := range []string{
+		"X-NADAA-Actor-ID",
+		"X-NADAA-Actor-Role",
+		"X-NADAA-Agency-ID",
+		"X-NADAA-MFA-Completed",
+		"X-NADAA-Request-ID",
+	} {
+		if value := r.Header.Get(header); value != "" {
+			req.Header.Set(header, value)
+		}
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("road closure service request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("road closure service returned %d: %s", resp.StatusCode, string(body))
+	}
+	io.Copy(io.Discard, resp.Body)
+	return nil
+}
+
+func (s *server) listRoadClosureImportsHandler(w http.ResponseWriter, r *http.Request) {
+	source := normalizeQueryValue(r.URL.Query().Get("source"))
+	writeJSON(w, http.StatusOK, map[string]any{"imports": s.store.listRoadClosureImports(source), "generatedAt": time.Now().UTC()})
 }
 
 func (s *server) listObservationImportJobsHandler(w http.ResponseWriter, r *http.Request) {
@@ -595,6 +741,45 @@ func (m *memoryStore) listSyncEvents(eventType string) []syncEvent {
 		return events[i].QueuedAt.After(events[j].QueuedAt)
 	})
 	return events
+}
+
+func (m *memoryStore) importRoadClosure(request roadClosureImportRequest) roadClosureImportRecord {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	record := roadClosureImportRecord{
+		ID:         fmt.Sprintf("rci_%03d", len(m.roadClosureImports)+1),
+		Source:     request.Source,
+		SourceRef:  request.SourceRef,
+		RoadName:   request.RoadName,
+		Status:     request.Status,
+		Reason:     request.Reason,
+		Geometry:   request.Geometry,
+		ValidFrom:  request.ValidFrom,
+		ValidTo:    request.ValidTo,
+		Detour:     request.Detour,
+		ImportedAt: time.Now().UTC(),
+	}
+	m.roadClosureImports = append(m.roadClosureImports, record)
+	return record
+}
+
+func (m *memoryStore) listRoadClosureImports(source string) []roadClosureImportRecord {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	imports := make([]roadClosureImportRecord, 0, len(m.roadClosureImports))
+	for _, record := range m.roadClosureImports {
+		if source != "" && record.Source != source {
+			continue
+		}
+		imports = append(imports, record)
+	}
+
+	sort.Slice(imports, func(i, j int) bool {
+		return imports[i].ImportedAt.After(imports[j].ImportedAt)
+	})
+	return imports
 }
 
 func validateSyncRequest(request syncRequest) (string, string) {
@@ -935,10 +1120,10 @@ func writeError(w http.ResponseWriter, status int, code string, message string) 
 }
 
 func withCORS(next http.Handler) http.Handler {
+	allowedOrigins := allowedOriginsFromEnv()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		applySecurityHeaders(w)
+		applyCORSHeaders(w, r, allowedOrigins)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -946,6 +1131,45 @@ func withCORS(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func applySecurityHeaders(w http.ResponseWriter) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	w.Header().Set("Cache-Control", "no-store")
+}
+
+func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool) {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if len(allowedOrigins) == 0 {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	} else {
+		w.Header().Add("Vary", "Origin")
+		if allowedOrigins[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+}
+
+func allowedOriginsFromEnv() map[string]bool {
+	raw := strings.TrimSpace(os.Getenv("NADAA_ALLOWED_ORIGINS"))
+	if raw == "" || raw == "*" {
+		return nil
+	}
+
+	allowed := map[string]bool{}
+	for _, origin := range strings.Split(raw, ",") {
+		origin = strings.TrimSpace(origin)
+		if origin != "" {
+			allowed[origin] = true
+		}
+	}
+	return allowed
 }
 
 func normalizeQueryValue(value string) string {

@@ -25,11 +25,15 @@ type server struct {
 }
 
 type memoryStore struct {
-	mu        sync.RWMutex
-	sequence  int
-	incidents map[string]incidentRecord
-	media     map[string]mediaRecord
-	audit     []auditEvent
+	mu                    sync.RWMutex
+	sequence              int
+	volunteerSequence     int
+	volunteerTaskSequence int
+	incidents             map[string]incidentRecord
+	media                 map[string]mediaRecord
+	volunteers            map[string]volunteerProfile
+	volunteerTasks        map[string]volunteerTaskRecord
+	audit                 []auditEvent
 }
 
 type rateLimiter struct {
@@ -188,6 +192,115 @@ type incidentAssignment struct {
 	Status        string    `json:"status"`
 	AssignedBy    string    `json:"assignedBy"`
 	AssignedAt    time.Time `json:"assignedAt"`
+}
+
+type volunteerProfile struct {
+	ID                 string     `json:"id"`
+	CitizenUserID      string     `json:"citizenUserId"`
+	Name               string     `json:"name"`
+	Phone              string     `json:"phone,omitempty"`
+	Region             string     `json:"region"`
+	District           string     `json:"district"`
+	Community          string     `json:"community"`
+	GroupID            string     `json:"groupId"`
+	Skills             []string   `json:"skills"`
+	Languages          []string   `json:"languages"`
+	AvailabilityStatus string     `json:"availabilityStatus"`
+	VerificationStatus string     `json:"verificationStatus"`
+	SafetyNotes        []string   `json:"safetyNotes"`
+	VerifiedBy         string     `json:"verifiedBy,omitempty"`
+	VerifiedAt         *time.Time `json:"verifiedAt,omitempty"`
+	RejectionReason    string     `json:"rejectionReason,omitempty"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	UpdatedAt          time.Time  `json:"updatedAt"`
+}
+
+type registerVolunteerRequest struct {
+	CitizenUserID      string   `json:"citizenUserId"`
+	Name               string   `json:"name"`
+	Phone              string   `json:"phone"`
+	Region             string   `json:"region"`
+	District           string   `json:"district"`
+	Community          string   `json:"community"`
+	Skills             []string `json:"skills"`
+	Languages          []string `json:"languages"`
+	AvailabilityStatus string   `json:"availabilityStatus"`
+}
+
+type volunteerProfileResponse struct {
+	Volunteer volunteerProfile `json:"volunteer"`
+}
+
+type volunteerListResponse struct {
+	Volunteers []volunteerProfile `json:"volunteers"`
+}
+
+type verifyVolunteerRequest struct {
+	Decision string `json:"decision"`
+	Note     string `json:"note"`
+}
+
+type volunteerTaskRequest struct {
+	VolunteerID   string `json:"volunteerId"`
+	Type          string `json:"type"`
+	Priority      string `json:"priority"`
+	Instructions  string `json:"instructions"`
+	LocationLabel string `json:"locationLabel"`
+}
+
+type volunteerTaskRecord struct {
+	ID                 string                `json:"id"`
+	IncidentID         string                `json:"incidentId"`
+	IncidentReference  string                `json:"incidentReference"`
+	VolunteerID        string                `json:"volunteerId"`
+	VolunteerName      string                `json:"volunteerName"`
+	GroupID            string                `json:"groupId"`
+	Type               string                `json:"type"`
+	Priority           string                `json:"priority"`
+	Instructions       string                `json:"instructions"`
+	LocationLabel      string                `json:"locationLabel"`
+	Status             string                `json:"status"`
+	SafetyRules        []string              `json:"safetyRules"`
+	EscalationRequired bool                  `json:"escalationRequired"`
+	AssignedBy         string                `json:"assignedBy"`
+	AssignedAt         time.Time             `json:"assignedAt"`
+	UpdatedAt          time.Time             `json:"updatedAt"`
+	AcceptedAt         *time.Time            `json:"acceptedAt,omitempty"`
+	CompletedAt        *time.Time            `json:"completedAt,omitempty"`
+	Updates            []volunteerTaskUpdate `json:"updates"`
+}
+
+type volunteerTaskUpdate struct {
+	ID                  string       `json:"id"`
+	Type                string       `json:"type"`
+	Status              string       `json:"status,omitempty"`
+	Note                string       `json:"note"`
+	SafetyStatus        string       `json:"safetyStatus"`
+	Location            *coordinates `json:"location,omitempty"`
+	EscalationRequested bool         `json:"escalationRequested"`
+	CreatedBy           string       `json:"createdBy"`
+	CreatedAt           time.Time    `json:"createdAt"`
+}
+
+type volunteerTaskListResponse struct {
+	Tasks []volunteerTaskRecord `json:"tasks"`
+}
+
+type volunteerTaskStatusRequest struct {
+	VolunteerID  string       `json:"volunteerId"`
+	Status       string       `json:"status"`
+	Note         string       `json:"note"`
+	SafetyStatus string       `json:"safetyStatus"`
+	Location     *coordinates `json:"location,omitempty"`
+}
+
+type volunteerObservationRequest struct {
+	VolunteerID         string       `json:"volunteerId"`
+	Observation         string       `json:"observation"`
+	SafetyStatus        string       `json:"safetyStatus"`
+	Location            *coordinates `json:"location,omitempty"`
+	EscalationRequested bool         `json:"escalationRequested"`
+	Media               []string     `json:"media"`
 }
 
 type timelineEvent struct {
@@ -448,6 +561,38 @@ var (
 		"high":   true,
 		"urgent": true,
 	}
+	allowedVolunteerAvailability = map[string]bool{
+		"available": true,
+		"busy":      true,
+		"off_duty":  true,
+	}
+	allowedVolunteerVerificationDecisions = map[string]bool{
+		"verify":  true,
+		"reject":  true,
+		"suspend": true,
+	}
+	allowedVolunteerTaskTypes = map[string]bool{
+		"welfare_check":       true,
+		"shelter_support":     true,
+		"supply_distribution": true,
+		"damage_observation":  true,
+		"route_observation":   true,
+		"community_alerting":  true,
+	}
+	allowedVolunteerTaskStatuses = map[string]bool{
+		"accepted":         true,
+		"en_route":         true,
+		"on_scene":         true,
+		"completed":        true,
+		"cancelled":        true,
+		"needs_escalation": true,
+	}
+	allowedVolunteerSafetyStatuses = map[string]bool{
+		"safe":            true,
+		"caution":         true,
+		"unsafe":          true,
+		"needs_authority": true,
+	}
 	allowedAbuseReviewDecisions = map[string]bool{
 		"clear":        true,
 		"monitor":      true,
@@ -493,8 +638,15 @@ func main() {
 	mux.HandleFunc("PATCH /api/v1/incidents/{id}/status", srv.updateIncidentStatusHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/verify", srv.verifyIncidentHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/assignments", srv.assignIncidentHandler)
+	mux.HandleFunc("POST /api/v1/incidents/{id}/volunteer-tasks", srv.assignVolunteerTaskHandler)
 	mux.HandleFunc("POST /api/v1/media/uploads", srv.initiateMediaUploadHandler)
 	mux.HandleFunc("GET /api/v1/media", srv.listMediaHandler)
+	mux.HandleFunc("POST /api/v1/volunteers", srv.registerVolunteerHandler)
+	mux.HandleFunc("GET /api/v1/volunteers", srv.listVolunteersHandler)
+	mux.HandleFunc("POST /api/v1/volunteers/{id}/verify", srv.verifyVolunteerHandler)
+	mux.HandleFunc("GET /api/v1/volunteers/{id}/tasks", srv.listVolunteerTasksHandler)
+	mux.HandleFunc("PATCH /api/v1/volunteer-tasks/{id}/status", srv.updateVolunteerTaskStatusHandler)
+	mux.HandleFunc("POST /api/v1/volunteer-tasks/{id}/observations", srv.submitVolunteerObservationHandler)
 
 	addr := envOrDefault("NADAA_INCIDENT_ADDR", ":8084")
 	log.Printf("incident-service listening on %s", addr)
@@ -516,9 +668,11 @@ func newServerFromEnv() *server {
 
 func newMemoryStore() *memoryStore {
 	return &memoryStore{
-		incidents: map[string]incidentRecord{},
-		media:     map[string]mediaRecord{},
-		audit:     []auditEvent{},
+		incidents:      map[string]incidentRecord{},
+		media:          map[string]mediaRecord{},
+		volunteers:     map[string]volunteerProfile{},
+		volunteerTasks: map[string]volunteerTaskRecord{},
+		audit:          []auditEvent{},
 	}
 }
 
@@ -771,6 +925,168 @@ func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, sanitizeIncidentForAuthority(incident, ctx))
+}
+
+func (s *server) registerVolunteerHandler(w http.ResponseWriter, r *http.Request) {
+	var request registerVolunteerRequest
+	if err := decodeJSON(r, &request); err != nil {
+		log.Printf("WARN incident-service volunteer_register invalid_json remote=%s error=%v", clientIdentifier(r), err)
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+	log.Printf("INFO incident-service volunteer_register received citizenUserId=%s district=%s community=%s", request.CitizenUserID, request.District, request.Community)
+
+	normalized, code, message := normalizeVolunteerRegistrationRequest(request)
+	if code != "" {
+		log.Printf("WARN incident-service volunteer_register validation_failed citizenUserId=%s code=%s", request.CitizenUserID, code)
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	volunteer := s.store.registerVolunteer(normalized, s.now())
+	log.Printf("INFO incident-service volunteer_register created volunteerId=%s groupId=%s verificationStatus=%s", volunteer.ID, volunteer.GroupID, volunteer.VerificationStatus)
+	writeJSON(w, http.StatusCreated, volunteerProfileResponse{Volunteer: volunteer})
+}
+
+func (s *server) listVolunteersHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, assignmentRoles)
+	if !ok {
+		return
+	}
+	status := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("status")))
+	district := strings.TrimSpace(r.URL.Query().Get("district"))
+	volunteers := s.store.listVolunteers(status, district)
+	log.Printf("INFO incident-service volunteer_list actor=%s role=%s status=%s district=%s count=%d", ctx.ActorUserID, ctx.ActorRole, status, district, len(volunteers))
+	writeJSON(w, http.StatusOK, volunteerListResponse{Volunteers: volunteers})
+}
+
+func (s *server) verifyVolunteerHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, assignmentRoles)
+	if !ok {
+		return
+	}
+
+	var request verifyVolunteerRequest
+	if err := decodeJSON(r, &request); err != nil {
+		log.Printf("WARN incident-service volunteer_verify invalid_json volunteerId=%s actor=%s error=%v", r.PathValue("id"), ctx.ActorUserID, err)
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+
+	normalized, code, message := normalizeVolunteerVerifyRequest(request)
+	if code != "" {
+		log.Printf("WARN incident-service volunteer_verify validation_failed volunteerId=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	volunteer, code, message := s.store.verifyVolunteer(r.PathValue("id"), normalized, ctx, s.now())
+	if code != "" {
+		log.Printf("WARN incident-service volunteer_verify failed volunteerId=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	log.Printf("INFO incident-service volunteer_verify completed volunteerId=%s decision=%s actor=%s", volunteer.ID, normalized.Decision, ctx.ActorUserID)
+	writeJSON(w, http.StatusOK, volunteerProfileResponse{Volunteer: volunteer})
+}
+
+func (s *server) listVolunteerTasksHandler(w http.ResponseWriter, r *http.Request) {
+	volunteerID := strings.TrimSpace(r.PathValue("id"))
+	tasks, code, message := s.store.listVolunteerTasks(volunteerID)
+	if code != "" {
+		log.Printf("WARN incident-service volunteer_tasks failed volunteerId=%s code=%s", volunteerID, code)
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	log.Printf("INFO incident-service volunteer_tasks listed volunteerId=%s count=%d", volunteerID, len(tasks))
+	writeJSON(w, http.StatusOK, volunteerTaskListResponse{Tasks: tasks})
+}
+
+func (s *server) assignVolunteerTaskHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, assignmentRoles)
+	if !ok {
+		return
+	}
+
+	var request volunteerTaskRequest
+	if err := decodeJSON(r, &request); err != nil {
+		log.Printf("WARN incident-service volunteer_task_assign invalid_json incidentId=%s actor=%s error=%v", r.PathValue("id"), ctx.ActorUserID, err)
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+	log.Printf("INFO incident-service volunteer_task_assign received incidentId=%s volunteerId=%s type=%s actor=%s", r.PathValue("id"), request.VolunteerID, request.Type, ctx.ActorUserID)
+
+	normalized, code, message := normalizeVolunteerTaskRequest(request)
+	if code != "" {
+		log.Printf("WARN incident-service volunteer_task_assign validation_failed incidentId=%s volunteerId=%s code=%s", r.PathValue("id"), request.VolunteerID, code)
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	task, code, message := s.store.assignVolunteerTask(r.PathValue("id"), normalized, ctx, s.now())
+	if code != "" {
+		level := "WARN"
+		if code == "store_error" {
+			level = "ERROR"
+		}
+		log.Printf("%s incident-service volunteer_task_assign failed incidentId=%s volunteerId=%s code=%s", level, r.PathValue("id"), normalized.VolunteerID, code)
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	log.Printf("INFO incident-service volunteer_task_assign completed incidentId=%s taskId=%s volunteerId=%s status=%s", task.IncidentID, task.ID, task.VolunteerID, task.Status)
+	writeJSON(w, http.StatusCreated, task)
+}
+
+func (s *server) updateVolunteerTaskStatusHandler(w http.ResponseWriter, r *http.Request) {
+	var request volunteerTaskStatusRequest
+	if err := decodeJSON(r, &request); err != nil {
+		log.Printf("WARN incident-service volunteer_task_status invalid_json taskId=%s error=%v", r.PathValue("id"), err)
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+	log.Printf("INFO incident-service volunteer_task_status received taskId=%s volunteerId=%s status=%s", r.PathValue("id"), request.VolunteerID, request.Status)
+
+	normalized, code, message := normalizeVolunteerTaskStatusRequest(request)
+	if code != "" {
+		log.Printf("WARN incident-service volunteer_task_status validation_failed taskId=%s volunteerId=%s code=%s", r.PathValue("id"), request.VolunteerID, code)
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	task, code, message := s.store.updateVolunteerTaskStatus(r.PathValue("id"), normalized, s.now())
+	if code != "" {
+		log.Printf("WARN incident-service volunteer_task_status failed taskId=%s volunteerId=%s code=%s", r.PathValue("id"), normalized.VolunteerID, code)
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	log.Printf("INFO incident-service volunteer_task_status completed taskId=%s volunteerId=%s status=%s escalation=%t", task.ID, task.VolunteerID, task.Status, task.EscalationRequired)
+	writeJSON(w, http.StatusOK, task)
+}
+
+func (s *server) submitVolunteerObservationHandler(w http.ResponseWriter, r *http.Request) {
+	var request volunteerObservationRequest
+	if err := decodeJSON(r, &request); err != nil {
+		log.Printf("WARN incident-service volunteer_observation invalid_json taskId=%s error=%v", r.PathValue("id"), err)
+		writeError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+	log.Printf("INFO incident-service volunteer_observation received taskId=%s volunteerId=%s safetyStatus=%s escalationRequested=%t", r.PathValue("id"), request.VolunteerID, request.SafetyStatus, request.EscalationRequested)
+
+	normalized, code, message := normalizeVolunteerObservationRequest(request)
+	if code != "" {
+		log.Printf("WARN incident-service volunteer_observation validation_failed taskId=%s volunteerId=%s code=%s", r.PathValue("id"), request.VolunteerID, code)
+		writeError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	task, code, message := s.store.addVolunteerObservation(r.PathValue("id"), normalized, s.now())
+	if code != "" {
+		log.Printf("WARN incident-service volunteer_observation failed taskId=%s volunteerId=%s code=%s", r.PathValue("id"), normalized.VolunteerID, code)
+		writeError(w, statusForCode(code), code, message)
+		return
+	}
+	log.Printf("INFO incident-service volunteer_observation completed taskId=%s volunteerId=%s escalation=%t updateCount=%d", task.ID, task.VolunteerID, task.EscalationRequired, len(task.Updates))
+	writeJSON(w, http.StatusOK, task)
 }
 
 func (s *server) initiateMediaUploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -1158,6 +1474,288 @@ func (m *memoryStore) assignIncident(id string, request assignmentRequest, ctx a
 	return incident, "", ""
 }
 
+func (m *memoryStore) registerVolunteer(request registerVolunteerRequest, now time.Time) volunteerProfile {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.volunteerSequence++
+	timestamp := now.UTC()
+	volunteer := volunteerProfile{
+		ID:                 fmt.Sprintf("vol_%06d", m.volunteerSequence),
+		CitizenUserID:      request.CitizenUserID,
+		Name:               request.Name,
+		Phone:              request.Phone,
+		Region:             request.Region,
+		District:           request.District,
+		Community:          request.Community,
+		GroupID:            volunteerGroupID(request.Region, request.District, request.Community),
+		Skills:             append([]string{}, request.Skills...),
+		Languages:          append([]string{}, request.Languages...),
+		AvailabilityStatus: request.AvailabilityStatus,
+		VerificationStatus: "pending",
+		SafetyNotes:        volunteerSafetyRules(),
+		CreatedAt:          timestamp,
+		UpdatedAt:          timestamp,
+	}
+	m.volunteers[volunteer.ID] = volunteer
+	m.appendAuditForTargetLocked("volunteer.registered", volunteerActorContext(volunteer), "volunteer_profile", volunteer.ID, nil, snapshotVolunteer(volunteer), timestamp)
+	return volunteer
+}
+
+func (m *memoryStore) listVolunteers(status string, district string) []volunteerProfile {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	volunteers := make([]volunteerProfile, 0, len(m.volunteers))
+	for _, volunteer := range m.volunteers {
+		if status != "" && volunteer.VerificationStatus != status {
+			continue
+		}
+		if district != "" && !strings.EqualFold(volunteer.District, district) {
+			continue
+		}
+		volunteers = append(volunteers, volunteer)
+	}
+	sort.Slice(volunteers, func(i, j int) bool {
+		if volunteers[i].UpdatedAt.Equal(volunteers[j].UpdatedAt) {
+			return volunteers[i].ID < volunteers[j].ID
+		}
+		return volunteers[i].UpdatedAt.After(volunteers[j].UpdatedAt)
+	})
+	return volunteers
+}
+
+func (m *memoryStore) verifyVolunteer(id string, request verifyVolunteerRequest, ctx authorityContext, now time.Time) (volunteerProfile, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	volunteer, ok := m.volunteers[id]
+	if !ok {
+		return volunteerProfile{}, "not_found", "volunteer profile was not found"
+	}
+
+	before := snapshotVolunteer(volunteer)
+	timestamp := now.UTC()
+	volunteer.VerifiedBy = ctx.ActorUserID
+	volunteer.VerifiedAt = &timestamp
+	volunteer.UpdatedAt = timestamp
+	volunteer.RejectionReason = ""
+	switch request.Decision {
+	case "verify":
+		volunteer.VerificationStatus = "verified"
+	case "reject":
+		volunteer.VerificationStatus = "rejected"
+		volunteer.RejectionReason = request.Note
+	case "suspend":
+		volunteer.VerificationStatus = "suspended"
+		volunteer.RejectionReason = request.Note
+	}
+	m.volunteers[volunteer.ID] = volunteer
+	m.appendAuditForTargetLocked("volunteer."+volunteer.VerificationStatus, ctx, "volunteer_profile", volunteer.ID, before, snapshotVolunteer(volunteer), timestamp)
+	return volunteer, "", ""
+}
+
+func (m *memoryStore) listVolunteerTasks(volunteerID string) ([]volunteerTaskRecord, string, string) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if _, ok := m.volunteers[volunteerID]; !ok {
+		return nil, "not_found", "volunteer profile was not found"
+	}
+
+	tasks := make([]volunteerTaskRecord, 0, len(m.volunteerTasks))
+	for _, task := range m.volunteerTasks {
+		if task.VolunteerID == volunteerID {
+			tasks = append(tasks, task)
+		}
+	}
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].UpdatedAt.After(tasks[j].UpdatedAt)
+	})
+	return tasks, "", ""
+}
+
+func (m *memoryStore) assignVolunteerTask(incidentID string, request volunteerTaskRequest, ctx authorityContext, now time.Time) (volunteerTaskRecord, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	incident, ok := m.incidents[incidentID]
+	if !ok {
+		return volunteerTaskRecord{}, "not_found", "incident was not found"
+	}
+	if incident.Status == "reported" || incident.Status == "under_review" {
+		return volunteerTaskRecord{}, "invalid_transition", "incident must be verified before volunteer tasks can be assigned"
+	}
+	if incident.Status == "closed" || incident.Status == "false_report" {
+		return volunteerTaskRecord{}, "invalid_transition", "closed and false-report incidents cannot receive volunteer tasks"
+	}
+	volunteer, ok := m.volunteers[request.VolunteerID]
+	if !ok {
+		return volunteerTaskRecord{}, "not_found", "volunteer profile was not found"
+	}
+	if volunteer.VerificationStatus != "verified" {
+		return volunteerTaskRecord{}, "volunteer_not_verified", "volunteer must be verified before task assignment"
+	}
+	if volunteer.AvailabilityStatus != "available" {
+		return volunteerTaskRecord{}, "volunteer_unavailable", "volunteer must be available before task assignment"
+	}
+
+	before := snapshotIncident(incident)
+	timestamp := now.UTC()
+	m.volunteerTaskSequence++
+	task := volunteerTaskRecord{
+		ID:                 fmt.Sprintf("vtask_%06d", m.volunteerTaskSequence),
+		IncidentID:         incident.ID,
+		IncidentReference:  incident.Reference,
+		VolunteerID:        volunteer.ID,
+		VolunteerName:      volunteer.Name,
+		GroupID:            volunteer.GroupID,
+		Type:               request.Type,
+		Priority:           request.Priority,
+		Instructions:       request.Instructions,
+		LocationLabel:      request.LocationLabel,
+		Status:             "assigned",
+		SafetyRules:        volunteerSafetyRules(),
+		EscalationRequired: false,
+		AssignedBy:         ctx.ActorUserID,
+		AssignedAt:         timestamp,
+		UpdatedAt:          timestamp,
+		Updates:            []volunteerTaskUpdate{},
+	}
+	m.volunteerTasks[task.ID] = task
+
+	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_assigned", fmt.Sprintf("Volunteer task assigned to %s", volunteer.Name), ctx, map[string]string{
+		"taskId":      task.ID,
+		"volunteerId": volunteer.ID,
+		"groupId":     volunteer.GroupID,
+		"taskType":    task.Type,
+		"priority":    task.Priority,
+	}, timestamp))
+	incident.UpdatedAt = timestamp
+	m.incidents[incident.ID] = incident
+	m.appendAuditLocked("incident.volunteer_assigned", ctx, incident.ID, before, snapshotIncident(incident), timestamp)
+	m.appendAuditForTargetLocked("volunteer_task.assigned", ctx, "volunteer_task", task.ID, nil, snapshotVolunteerTask(task), timestamp)
+	return task, "", ""
+}
+
+func (m *memoryStore) updateVolunteerTaskStatus(taskID string, request volunteerTaskStatusRequest, now time.Time) (volunteerTaskRecord, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	task, ok := m.volunteerTasks[taskID]
+	if !ok {
+		return volunteerTaskRecord{}, "not_found", "volunteer task was not found"
+	}
+	if task.VolunteerID != request.VolunteerID {
+		return volunteerTaskRecord{}, "forbidden", "volunteer can update only their own tasks"
+	}
+	incident, ok := m.incidents[task.IncidentID]
+	if !ok {
+		return volunteerTaskRecord{}, "not_found", "linked incident was not found"
+	}
+
+	before := snapshotIncident(incident)
+	timestamp := now.UTC()
+	task.Status = request.Status
+	task.UpdatedAt = timestamp
+	if request.Status == "accepted" && task.AcceptedAt == nil {
+		task.AcceptedAt = &timestamp
+	}
+	if request.Status == "completed" {
+		task.CompletedAt = &timestamp
+	}
+	if request.Status == "needs_escalation" || request.SafetyStatus == "unsafe" || request.SafetyStatus == "needs_authority" {
+		task.EscalationRequired = true
+	}
+	update := volunteerTaskUpdate{
+		ID:                  fmt.Sprintf("vtup_%06d", len(task.Updates)+1),
+		Type:                "status",
+		Status:              request.Status,
+		Note:                request.Note,
+		SafetyStatus:        request.SafetyStatus,
+		Location:            request.Location,
+		EscalationRequested: task.EscalationRequired,
+		CreatedBy:           request.VolunteerID,
+		CreatedAt:           timestamp,
+	}
+	task.Updates = append(task.Updates, update)
+	m.volunteerTasks[task.ID] = task
+
+	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_status_updated", fmt.Sprintf("Volunteer task %s", request.Status), volunteerActorContextByID(request.VolunteerID), map[string]string{
+		"taskId":       task.ID,
+		"volunteerId":  request.VolunteerID,
+		"status":       request.Status,
+		"safetyStatus": request.SafetyStatus,
+	}, timestamp))
+	if task.EscalationRequired {
+		incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_escalation", "Volunteer requested authority escalation", volunteerActorContextByID(request.VolunteerID), map[string]string{
+			"taskId":       task.ID,
+			"volunteerId":  request.VolunteerID,
+			"safetyStatus": request.SafetyStatus,
+		}, timestamp))
+	}
+	incident.UpdatedAt = timestamp
+	m.incidents[incident.ID] = incident
+	m.appendAuditLocked("incident.volunteer_status_updated", volunteerActorContextByID(request.VolunteerID), incident.ID, before, snapshotIncident(incident), timestamp)
+	return task, "", ""
+}
+
+func (m *memoryStore) addVolunteerObservation(taskID string, request volunteerObservationRequest, now time.Time) (volunteerTaskRecord, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	task, ok := m.volunteerTasks[taskID]
+	if !ok {
+		return volunteerTaskRecord{}, "not_found", "volunteer task was not found"
+	}
+	if task.VolunteerID != request.VolunteerID {
+		return volunteerTaskRecord{}, "forbidden", "volunteer can add observations only to their own tasks"
+	}
+	incident, ok := m.incidents[task.IncidentID]
+	if !ok {
+		return volunteerTaskRecord{}, "not_found", "linked incident was not found"
+	}
+
+	before := snapshotIncident(incident)
+	timestamp := now.UTC()
+	if request.EscalationRequested || request.SafetyStatus == "unsafe" || request.SafetyStatus == "needs_authority" {
+		task.EscalationRequired = true
+		task.Status = "needs_escalation"
+	}
+	update := volunteerTaskUpdate{
+		ID:                  fmt.Sprintf("vtup_%06d", len(task.Updates)+1),
+		Type:                "observation",
+		Status:              task.Status,
+		Note:                request.Observation,
+		SafetyStatus:        request.SafetyStatus,
+		Location:            request.Location,
+		EscalationRequested: request.EscalationRequested,
+		CreatedBy:           request.VolunteerID,
+		CreatedAt:           timestamp,
+	}
+	task.Updates = append(task.Updates, update)
+	task.UpdatedAt = timestamp
+	m.volunteerTasks[task.ID] = task
+
+	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_observation", "Volunteer field observation received", volunteerActorContextByID(request.VolunteerID), map[string]string{
+		"taskId":       task.ID,
+		"volunteerId":  request.VolunteerID,
+		"safetyStatus": request.SafetyStatus,
+		"mediaCount":   fmt.Sprintf("%d", len(request.Media)),
+	}, timestamp))
+	if task.EscalationRequired {
+		incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_escalation", "Volunteer observation requires authority review", volunteerActorContextByID(request.VolunteerID), map[string]string{
+			"taskId":       task.ID,
+			"volunteerId":  request.VolunteerID,
+			"safetyStatus": request.SafetyStatus,
+		}, timestamp))
+	}
+	incident.UpdatedAt = timestamp
+	m.incidents[incident.ID] = incident
+	m.appendAuditLocked("incident.volunteer_observation", volunteerActorContextByID(request.VolunteerID), incident.ID, before, snapshotIncident(incident), timestamp)
+	return task, "", ""
+}
+
 func (m *memoryStore) listAudit(limit int) []auditEvent {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1176,13 +1774,17 @@ func (m *memoryStore) listAudit(limit int) []auditEvent {
 }
 
 func (m *memoryStore) appendAuditLocked(action string, ctx authorityContext, targetID string, before map[string]any, after map[string]any, now time.Time) {
+	m.appendAuditForTargetLocked(action, ctx, "incident", targetID, before, after, now)
+}
+
+func (m *memoryStore) appendAuditForTargetLocked(action string, ctx authorityContext, targetType string, targetID string, before map[string]any, after map[string]any, now time.Time) {
 	m.audit = append(m.audit, auditEvent{
 		ID:            fmt.Sprintf("aud_%06d", len(m.audit)+1),
 		ActorUserID:   ctx.ActorUserID,
 		ActorAgencyID: ctx.ActorAgencyID,
 		ActorRole:     ctx.ActorRole,
 		Action:        action,
-		TargetType:    "incident",
+		TargetType:    targetType,
 		TargetID:      targetID,
 		RequestID:     ctx.RequestID,
 		Before:        before,
@@ -1829,6 +2431,141 @@ func normalizeAssignmentRequest(request assignmentRequest) (assignmentRequest, s
 	return request, "", ""
 }
 
+func normalizeVolunteerRegistrationRequest(request registerVolunteerRequest) (registerVolunteerRequest, string, string) {
+	request.CitizenUserID = strings.TrimSpace(request.CitizenUserID)
+	request.Name = strings.TrimSpace(request.Name)
+	request.Phone = strings.TrimSpace(request.Phone)
+	request.Region = strings.TrimSpace(request.Region)
+	request.District = strings.TrimSpace(request.District)
+	request.Community = strings.TrimSpace(request.Community)
+	request.AvailabilityStatus = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(request.AvailabilityStatus)), "-", "_"), " ", "_")
+	request.Skills = normalizeSafeList(request.Skills, 8, 64)
+	request.Languages = normalizeSafeList(request.Languages, 6, 32)
+
+	if request.CitizenUserID == "" || !mediaRefPattern.MatchString(request.CitizenUserID) {
+		return request, "invalid_citizen_user_id", "citizenUserId is required and must be a safe user reference"
+	}
+	if len(request.Name) < 2 || len(request.Name) > 120 || unsafeText(request.Name) {
+		return request, "invalid_volunteer_name", "name must be 2 to 120 safe characters"
+	}
+	if request.Phone == "" || len(request.Phone) > 32 || unsafeText(request.Phone) {
+		return request, "invalid_volunteer_phone", "phone is required and must be 32 safe characters or fewer"
+	}
+	if len(request.Region) < 2 || len(request.Region) > 80 || unsafeText(request.Region) {
+		return request, "invalid_region", "region must be 2 to 80 safe characters"
+	}
+	if len(request.District) < 2 || len(request.District) > 100 || unsafeText(request.District) {
+		return request, "invalid_district", "district must be 2 to 100 safe characters"
+	}
+	if len(request.Community) < 2 || len(request.Community) > 100 || unsafeText(request.Community) {
+		return request, "invalid_community", "community must be 2 to 100 safe characters"
+	}
+	if request.AvailabilityStatus == "" {
+		request.AvailabilityStatus = "available"
+	}
+	if !allowedVolunteerAvailability[request.AvailabilityStatus] {
+		return request, "invalid_availability", "availabilityStatus must be available, busy, or off_duty"
+	}
+	if len(request.Skills) == 0 {
+		return request, "missing_skills", "at least one volunteer skill is required"
+	}
+	if len(request.Languages) == 0 {
+		request.Languages = []string{"en"}
+	}
+	return request, "", ""
+}
+
+func normalizeVolunteerVerifyRequest(request verifyVolunteerRequest) (verifyVolunteerRequest, string, string) {
+	request.Decision = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(request.Decision)), "-", "_"), " ", "_")
+	request.Note = strings.TrimSpace(request.Note)
+	if !allowedVolunteerVerificationDecisions[request.Decision] {
+		return request, "invalid_decision", "decision must be verify, reject, or suspend"
+	}
+	if len(request.Note) < 5 || len(request.Note) > 1000 || unsafeText(request.Note) {
+		return request, "invalid_note", "note must be 5 to 1000 safe characters"
+	}
+	return request, "", ""
+}
+
+func normalizeVolunteerTaskRequest(request volunteerTaskRequest) (volunteerTaskRequest, string, string) {
+	request.VolunteerID = strings.TrimSpace(request.VolunteerID)
+	request.Type = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(request.Type)), "-", "_"), " ", "_")
+	request.Priority = strings.TrimSpace(strings.ToLower(request.Priority))
+	request.Instructions = strings.TrimSpace(request.Instructions)
+	request.LocationLabel = strings.TrimSpace(request.LocationLabel)
+	if request.VolunteerID == "" || !mediaRefPattern.MatchString(request.VolunteerID) {
+		return request, "invalid_volunteer_id", "volunteerId is required and must be a safe volunteer reference"
+	}
+	if !allowedVolunteerTaskTypes[request.Type] {
+		return request, "invalid_task_type", "type must be welfare_check, shelter_support, supply_distribution, damage_observation, route_observation, or community_alerting"
+	}
+	if request.Priority == "" {
+		request.Priority = "normal"
+	}
+	if !allowedAssignmentPriorities[request.Priority] {
+		return request, "invalid_priority", "priority must be low, normal, high, or urgent"
+	}
+	if len(request.Instructions) < 10 || len(request.Instructions) > 1200 || unsafeText(request.Instructions) {
+		return request, "invalid_instructions", "instructions must be 10 to 1200 safe characters"
+	}
+	if unsafeVolunteerInstructions(request.Instructions) {
+		return request, "unsafe_volunteer_instructions", "volunteer tasks must not instruct civilians to enter floodwater, fight fires, conduct rescues, or approach violent/structural hazards"
+	}
+	if len(request.LocationLabel) < 2 || len(request.LocationLabel) > 180 || unsafeText(request.LocationLabel) {
+		return request, "invalid_location_label", "locationLabel must be 2 to 180 safe characters"
+	}
+	return request, "", ""
+}
+
+func normalizeVolunteerTaskStatusRequest(request volunteerTaskStatusRequest) (volunteerTaskStatusRequest, string, string) {
+	request.VolunteerID = strings.TrimSpace(request.VolunteerID)
+	request.Status = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(request.Status)), "-", "_"), " ", "_")
+	request.Note = strings.TrimSpace(request.Note)
+	request.SafetyStatus = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(request.SafetyStatus)), "-", "_"), " ", "_")
+	if request.VolunteerID == "" || !mediaRefPattern.MatchString(request.VolunteerID) {
+		return request, "invalid_volunteer_id", "volunteerId is required and must be a safe volunteer reference"
+	}
+	if !allowedVolunteerTaskStatuses[request.Status] {
+		return request, "invalid_task_status", "status must be accepted, en_route, on_scene, completed, cancelled, or needs_escalation"
+	}
+	if len(request.Note) > 1000 || unsafeText(request.Note) {
+		return request, "invalid_note", "note must be 1000 safe characters or fewer"
+	}
+	if request.SafetyStatus == "" {
+		request.SafetyStatus = "safe"
+	}
+	if !allowedVolunteerSafetyStatuses[request.SafetyStatus] {
+		return request, "invalid_safety_status", "safetyStatus must be safe, caution, unsafe, or needs_authority"
+	}
+	if request.Location != nil && !validCoordinates(*request.Location) {
+		return request, "invalid_location", "location must contain valid lat and lng values"
+	}
+	return request, "", ""
+}
+
+func normalizeVolunteerObservationRequest(request volunteerObservationRequest) (volunteerObservationRequest, string, string) {
+	request.VolunteerID = strings.TrimSpace(request.VolunteerID)
+	request.Observation = strings.TrimSpace(request.Observation)
+	request.SafetyStatus = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(request.SafetyStatus)), "-", "_"), " ", "_")
+	request.Media = normalizeSafeList(request.Media, 8, 128)
+	if request.VolunteerID == "" || !mediaRefPattern.MatchString(request.VolunteerID) {
+		return request, "invalid_volunteer_id", "volunteerId is required and must be a safe volunteer reference"
+	}
+	if len(request.Observation) < 5 || len(request.Observation) > 1500 || unsafeText(request.Observation) {
+		return request, "invalid_observation", "observation must be 5 to 1500 safe characters"
+	}
+	if request.SafetyStatus == "" {
+		request.SafetyStatus = "safe"
+	}
+	if !allowedVolunteerSafetyStatuses[request.SafetyStatus] {
+		return request, "invalid_safety_status", "safetyStatus must be safe, caution, unsafe, or needs_authority"
+	}
+	if request.Location != nil && !validCoordinates(*request.Location) {
+		return request, "invalid_location", "location must contain valid lat and lng values"
+	}
+	return request, "", ""
+}
+
 func incidentStatusSlug(status string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(status)), "-", "_"), " ", "_")
 }
@@ -1906,6 +2643,87 @@ func appendUniqueStrings(values []string, additions ...string) []string {
 		next = append(next, value)
 	}
 	return next
+}
+
+func normalizeSafeList(values []string, limit int, maxLen int) []string {
+	seen := map[string]bool{}
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || len(value) > maxLen || unsafeText(value) || seen[strings.ToLower(value)] {
+			continue
+		}
+		seen[strings.ToLower(value)] = true
+		normalized = append(normalized, value)
+		if len(normalized) >= limit {
+			break
+		}
+	}
+	return normalized
+}
+
+func unsafeVolunteerInstructions(value string) bool {
+	lower := strings.ToLower(value)
+	unsafePhrases := []string{
+		"enter floodwater",
+		"walk through flood",
+		"wade through",
+		"fight fire",
+		"put out fire",
+		"rescue trapped",
+		"enter collapsed",
+		"go inside collapsed",
+		"approach armed",
+		"handle violent",
+		"direct traffic on highway",
+	}
+	for _, phrase := range unsafePhrases {
+		if strings.Contains(lower, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
+func volunteerGroupID(region string, district string, community string) string {
+	return fmt.Sprintf("grp_%s_%s_%s", slugRef(region), slugRef(district), slugRef(community))
+}
+
+func slugRef(value string) string {
+	lower := strings.ToLower(strings.TrimSpace(value))
+	var builder strings.Builder
+	previousDash := false
+	for _, char := range lower {
+		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') {
+			builder.WriteRune(char)
+			previousDash = false
+			continue
+		}
+		if !previousDash && builder.Len() > 0 {
+			builder.WriteByte('-')
+			previousDash = true
+		}
+	}
+	return strings.Trim(builder.String(), "-")
+}
+
+func volunteerSafetyRules() []string {
+	return []string{
+		"Stay in public, safe areas and never enter floodwater, fire zones, collapsed structures, or violent scenes.",
+		"Call 112 and request authority escalation for injuries, trapped people, unsafe crowds, or blocked emergency access.",
+		"Share observations, photos, and status updates only when doing so does not delay evacuation or personal safety.",
+	}
+}
+
+func volunteerActorContext(volunteer volunteerProfile) authorityContext {
+	return volunteerActorContextByID(volunteer.ID)
+}
+
+func volunteerActorContextByID(volunteerID string) authorityContext {
+	return authorityContext{
+		ActorUserID: volunteerID,
+		ActorRole:   "citizen",
+	}
 }
 
 func newTimelineEvent(eventType string, message string, ctx authorityContext, metadata map[string]string, now time.Time) timelineEvent {
@@ -2111,6 +2929,36 @@ func snapshotIncident(incident incidentRecord) map[string]any {
 	}
 }
 
+func snapshotVolunteer(volunteer volunteerProfile) map[string]any {
+	return map[string]any{
+		"id":                 volunteer.ID,
+		"citizenUserId":      volunteer.CitizenUserID,
+		"groupId":            volunteer.GroupID,
+		"district":           volunteer.District,
+		"community":          volunteer.Community,
+		"skills":             append([]string{}, volunteer.Skills...),
+		"availabilityStatus": volunteer.AvailabilityStatus,
+		"verificationStatus": volunteer.VerificationStatus,
+		"verifiedBy":         volunteer.VerifiedBy,
+		"rejectionReason":    volunteer.RejectionReason,
+	}
+}
+
+func snapshotVolunteerTask(task volunteerTaskRecord) map[string]any {
+	return map[string]any{
+		"id":                 task.ID,
+		"incidentId":         task.IncidentID,
+		"incidentReference":  task.IncidentReference,
+		"volunteerId":        task.VolunteerID,
+		"groupId":            task.GroupID,
+		"type":               task.Type,
+		"priority":           task.Priority,
+		"status":             task.Status,
+		"escalationRequired": task.EscalationRequired,
+		"updateCount":        len(task.Updates),
+	}
+}
+
 func requireAuthority(w http.ResponseWriter, r *http.Request, allowedRoles map[string]bool) (authorityContext, bool) {
 	ctx := authorityContext{
 		ActorUserID:   strings.TrimSpace(r.Header.Get("X-NADAA-Actor-ID")),
@@ -2164,7 +3012,7 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Printf("write json response: %v", err)
+		log.Printf("ERROR incident-service write_json_response_failed error=%v", err)
 	}
 }
 
@@ -2173,10 +3021,10 @@ func writeError(w http.ResponseWriter, status int, code string, message string) 
 }
 
 func withCORS(next http.Handler) http.Handler {
+	allowedOrigins := allowedOriginsFromEnv()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-NADAA-Actor-ID, X-NADAA-Actor-Role, X-NADAA-Agency-ID, X-NADAA-MFA-Completed, X-NADAA-Request-ID")
+		applySecurityHeaders(w)
+		applyCORSHeaders(w, r, allowedOrigins)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -2184,6 +3032,45 @@ func withCORS(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func applySecurityHeaders(w http.ResponseWriter) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	w.Header().Set("Cache-Control", "no-store")
+}
+
+func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool) {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if len(allowedOrigins) == 0 {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	} else {
+		w.Header().Add("Vary", "Origin")
+		if allowedOrigins[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-NADAA-Actor-ID, X-NADAA-Actor-Role, X-NADAA-Agency-ID, X-NADAA-MFA-Completed, X-NADAA-Request-ID")
+}
+
+func allowedOriginsFromEnv() map[string]bool {
+	raw := strings.TrimSpace(os.Getenv("NADAA_ALLOWED_ORIGINS"))
+	if raw == "" || raw == "*" {
+		return nil
+	}
+
+	allowed := map[string]bool{}
+	for _, origin := range strings.Split(raw, ",") {
+		origin = strings.TrimSpace(origin)
+		if origin != "" {
+			allowed[origin] = true
+		}
+	}
+	return allowed
 }
 
 func validCoordinates(location coordinates) bool {

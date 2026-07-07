@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "NADAA Citizen",
+    "slug": "nadaa-citizen",
+    "scheme": "nadaa-citizen",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "bundleIdentifier": "com.nadaa.citizen",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "NADAA lets you attach incident photos when reporting emergencies.",
+        "NSLocationWhenInUseUsageDescription": "NADAA uses your location to check risk, find shelters, and send accurate emergency reports.",
+        "NSPhotoLibraryUsageDescription": "NADAA lets you attach existing photos or videos to incident reports."
+      }
+    },
+    "android": {
+      "package": "com.nadaa.citizen",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
+      ]
+    },
+    "extra": {
+      "incidentApiUrl": "http://localhost:8084/api/v1",
+      "riskApiUrl": "http://localhost:8081/api/v1",
+      "notificationApiUrl": "http://localhost:8090/api/v1",
+      "guideApiUrl": "http://localhost:8086/api/v1",
+      "shelterApiUrl": "http://localhost:8093/api/v1"
+    }
+  }
+}

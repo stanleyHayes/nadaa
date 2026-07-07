@@ -8,4 +8,3 @@ Initial priorities before this directory becomes active:
 - Environment variable contract.
 - Staging deployment shape.
 - Observability baseline.
-

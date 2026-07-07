@@ -55,6 +55,30 @@ func validAssignmentRequest() assignmentRequest {
 	}
 }
 
+func validVolunteerRegistrationRequest() registerVolunteerRequest {
+	return registerVolunteerRequest{
+		CitizenUserID:      "usr_volunteer_001",
+		Name:               "Ama Volunteer",
+		Phone:              "+233200000111",
+		Region:             "Greater Accra",
+		District:           "Accra Metropolitan",
+		Community:          "Jamestown",
+		Skills:             []string{"first aid", "community alerts"},
+		Languages:          []string{"en", "tw"},
+		AvailabilityStatus: "available",
+	}
+}
+
+func validVolunteerTaskRequest(volunteerID string) volunteerTaskRequest {
+	return volunteerTaskRequest{
+		VolunteerID:   volunteerID,
+		Type:          "welfare_check",
+		Priority:      "high",
+		Instructions:  "Check whether households near the shelter need water or accessible transport. Stay outside unsafe areas.",
+		LocationLabel: "Jamestown shelter approach",
+	}
+}
+
 func TestCreateIncident(t *testing.T) {
 	srv := newTestServer()
 	mediaID := initiateMediaUpload(t, srv)
@@ -873,6 +897,120 @@ func TestListIncidentsAssignedToMe(t *testing.T) {
 	}
 }
 
+func TestVolunteerRegistrationVerificationTaskAndObservationTimeline(t *testing.T) {
+	srv := newTestServer()
+	volunteer := registerVolunteerForTest(t, srv, validVolunteerRegistrationRequest())
+	if volunteer.VerificationStatus != "pending" || volunteer.GroupID == "" || len(volunteer.SafetyNotes) == 0 {
+		t.Fatalf("expected pending volunteer with group and safety rules, got %#v", volunteer)
+	}
+
+	verified := verifyVolunteerForTest(t, srv, volunteer.ID, verifyVolunteerRequest{
+		Decision: "verify",
+		Note:     "District officer checked ID and community lead reference.",
+	})
+	if verified.VerificationStatus != "verified" || verified.VerifiedBy != "usr_dispatcher_001" || verified.VerifiedAt == nil {
+		t.Fatalf("expected verified volunteer metadata, got %#v", verified)
+	}
+
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+	verifyIncidentForTest(t, srv, incident.ID)
+	task := assignVolunteerTaskForTest(t, srv, incident.ID, validVolunteerTaskRequest(volunteer.ID))
+	if task.Status != "assigned" || task.IncidentReference != incident.Reference || task.VolunteerID != volunteer.ID {
+		t.Fatalf("expected assigned volunteer task, got %#v", task)
+	}
+	if len(task.SafetyRules) == 0 {
+		t.Fatalf("expected task safety rules, got %#v", task)
+	}
+
+	status := updateVolunteerTaskStatusForTest(t, srv, task.ID, volunteerTaskStatusRequest{
+		VolunteerID:  volunteer.ID,
+		Status:       "accepted",
+		Note:         "I can check the shelter approach from a safe public road.",
+		SafetyStatus: "safe",
+		Location:     &coordinates{Lat: 5.56, Lng: -0.2},
+	})
+	if status.Status != "accepted" || status.AcceptedAt == nil || len(status.Updates) != 1 {
+		t.Fatalf("expected accepted volunteer status update, got %#v", status)
+	}
+
+	observed := submitVolunteerObservationForTest(t, srv, task.ID, volunteerObservationRequest{
+		VolunteerID:         volunteer.ID,
+		Observation:         "Water is rising near the footbridge and families are waiting for transport.",
+		SafetyStatus:        "needs_authority",
+		Location:            &coordinates{Lat: 5.561, Lng: -0.201},
+		EscalationRequested: true,
+		Media:               []string{"media_volunteer_photo_001"},
+	})
+	if observed.Status != "needs_escalation" || !observed.EscalationRequired || len(observed.Updates) != 2 {
+		t.Fatalf("expected escalated volunteer observation, got %#v", observed)
+	}
+
+	incidents := srv.store.listIncidents("")
+	var updated incidentRecord
+	for _, item := range incidents {
+		if item.ID == incident.ID {
+			updated = item
+			break
+		}
+	}
+	for _, expected := range []string{"incident.volunteer_assigned", "incident.volunteer_status_updated", "incident.volunteer_observation", "incident.volunteer_escalation"} {
+		if !containsTimelineType(updated.Timeline, expected) {
+			t.Fatalf("expected volunteer timeline event %s, got %#v", expected, updated.Timeline)
+		}
+	}
+
+	logs := srv.store.listAudit(10)
+	if !containsAuditAction(logs, "incident.volunteer_assigned") || !containsAuditAction(logs, "volunteer_task.assigned") {
+		t.Fatalf("expected volunteer assignment audit events, got %#v", logs)
+	}
+}
+
+func TestVolunteerTaskRequiresVerifiedVolunteer(t *testing.T) {
+	srv := newTestServer()
+	volunteer := registerVolunteerForTest(t, srv, validVolunteerRegistrationRequest())
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+	verifyIncidentForTest(t, srv, incident.ID)
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/volunteer-tasks",
+		jsonBody(validVolunteerTaskRequest(volunteer.ID)),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.assignVolunteerTaskHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected unverified volunteer status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+}
+
+func TestVolunteerTaskRejectsUnsafeInstructions(t *testing.T) {
+	srv := newTestServer()
+	volunteer := registerVolunteerForTest(t, srv, validVolunteerRegistrationRequest())
+	verifyVolunteerForTest(t, srv, volunteer.ID, verifyVolunteerRequest{
+		Decision: "verify",
+		Note:     "District officer checked ID and community lead reference.",
+	})
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+	verifyIncidentForTest(t, srv, incident.ID)
+
+	body := validVolunteerTaskRequest(volunteer.ID)
+	body.Instructions = "Enter floodwater and rescue trapped residents before responders arrive."
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/volunteer-tasks",
+		jsonBody(body),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.assignVolunteerTaskHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected unsafe instruction status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+}
+
 func TestStatusWorkflowAllowsValidOperationalTransitions(t *testing.T) {
 	srv := newTestServer()
 	incident := createIncidentForTest(t, srv, validIncidentRequest())
@@ -1169,9 +1307,104 @@ func reviewAbuseForTest(t *testing.T, srv *server, incidentID string, body abuse
 	return payload
 }
 
+func registerVolunteerForTest(t *testing.T, srv *server, body registerVolunteerRequest) volunteerProfile {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	srv.registerVolunteerHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(body)))
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected volunteer registration status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+
+	var payload volunteerProfileResponse
+	decodeResponse(t, response, &payload)
+	return payload.Volunteer
+}
+
+func verifyVolunteerForTest(t *testing.T, srv *server, volunteerID string, body verifyVolunteerRequest) volunteerProfile {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/volunteers/"+volunteerID+"/verify",
+		jsonBody(body),
+	)
+	request.SetPathValue("id", volunteerID)
+	srv.verifyVolunteerHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected volunteer verify status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload volunteerProfileResponse
+	decodeResponse(t, response, &payload)
+	return payload.Volunteer
+}
+
+func assignVolunteerTaskForTest(t *testing.T, srv *server, incidentID string, body volunteerTaskRequest) volunteerTaskRecord {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incidentID+"/volunteer-tasks",
+		jsonBody(body),
+	)
+	request.SetPathValue("id", incidentID)
+	srv.assignVolunteerTaskHandler(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected volunteer task status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+
+	var payload volunteerTaskRecord
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
+func updateVolunteerTaskStatusForTest(t *testing.T, srv *server, taskID string, body volunteerTaskStatusRequest) volunteerTaskRecord {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/volunteer-tasks/"+taskID+"/status", jsonBody(body))
+	request.SetPathValue("id", taskID)
+	srv.updateVolunteerTaskStatusHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected volunteer status update status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload volunteerTaskRecord
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
+func submitVolunteerObservationForTest(t *testing.T, srv *server, taskID string, body volunteerObservationRequest) volunteerTaskRecord {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/volunteer-tasks/"+taskID+"/observations", jsonBody(body))
+	request.SetPathValue("id", taskID)
+	srv.submitVolunteerObservationHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected volunteer observation status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload volunteerTaskRecord
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
 func containsString(values []string, needle string) bool {
 	for _, value := range values {
 		if value == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func containsAuditAction(values []auditEvent, needle string) bool {
+	for _, value := range values {
+		if value.Action == needle {
 			return true
 		}
 	}

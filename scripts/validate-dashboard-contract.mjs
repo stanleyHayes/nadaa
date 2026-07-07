@@ -3,10 +3,16 @@ import { join } from "node:path";
 
 const root = process.cwd();
 const schema = JSON.parse(
-  readFileSync(join(root, "docs/project-dashboard/contract.schema.json"), "utf8")
+  readFileSync(
+    join(root, "docs/project-dashboard/contract.schema.json"),
+    "utf8",
+  ),
 );
 const records = JSON.parse(
-  readFileSync(join(root, "docs/project-dashboard/sample-records.json"), "utf8")
+  readFileSync(
+    join(root, "docs/project-dashboard/sample-records.json"),
+    "utf8",
+  ),
 );
 
 const required = schema.required;
@@ -41,7 +47,9 @@ for (const [index, record] of records.entries()) {
   }
 
   if (record.progressPercentage < 0 || record.progressPercentage > 100) {
-    throw new Error(`Record ${index} progressPercentage must be between 0 and 100`);
+    throw new Error(
+      `Record ${index} progressPercentage must be between 0 and 100`,
+    );
   }
 
   for (const listField of ["dependencies", "blockers", "verification"]) {
@@ -52,4 +60,3 @@ for (const [index, record] of records.entries()) {
 }
 
 console.log(`Validated ${records.length} dashboard records.`);
-

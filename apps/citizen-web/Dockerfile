@@ -10,9 +10,10 @@ COPY apps/citizen-web ./apps/citizen-web
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @nadaa/citizen-web build
 
-FROM nginx:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 
 COPY infra/docker/nginx-spa.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/citizen-web/dist /usr/share/nginx/html
 
+USER 101
 EXPOSE 8080

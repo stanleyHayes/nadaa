@@ -61,6 +61,40 @@ func TestCreateSubmitAndApproveAlert(t *testing.T) {
 	}
 }
 
+func TestHTTPMiddlewareAppliesSecurityHeadersAndCORSAllowlist(t *testing.T) {
+	t.Setenv("NADAA_ALLOWED_ORIGINS", "https://dispatcher.staging.nadaa.example, https://admin.staging.nadaa.example")
+	handler := withCORS(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}))
+
+	allowedRequest := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	allowedRequest.Header.Set("Origin", "https://dispatcher.staging.nadaa.example")
+	allowedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(allowedResponse, allowedRequest)
+
+	if allowedResponse.Header().Get("Access-Control-Allow-Origin") != "https://dispatcher.staging.nadaa.example" {
+		t.Fatalf("expected allowed origin, got %q", allowedResponse.Header().Get("Access-Control-Allow-Origin"))
+	}
+	if allowedResponse.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("expected security headers, got %#v", allowedResponse.Header())
+	}
+	if allowedResponse.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("expected no-store cache control, got %#v", allowedResponse.Header())
+	}
+
+	blockedRequest := httptest.NewRequest(http.MethodOptions, "/healthz", nil)
+	blockedRequest.Header.Set("Origin", "https://unexpected.example")
+	blockedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(blockedResponse, blockedRequest)
+
+	if blockedResponse.Code != http.StatusNoContent {
+		t.Fatalf("expected preflight status %d, got %d", http.StatusNoContent, blockedResponse.Code)
+	}
+	if blockedResponse.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Fatalf("did not expect CORS allow header for blocked origin, got %#v", blockedResponse.Header())
+	}
+}
+
 func TestCreateAlertStoresSourcePredictionInAudit(t *testing.T) {
 	srv := &server{store: newMemoryStore()}
 	draft := createAlertWithBody(t, srv, alertBodyWithSourcePrediction())

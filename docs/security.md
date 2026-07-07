@@ -57,6 +57,20 @@ Sensitive actions require authority authentication, RBAC, MFA where applicable, 
 - Private media storage with controlled access.
 - Approval workflow for mass alerts.
 - Emergency override restricted to authorized roles and fully audited.
+- Runtime API CORS must use `NADAA_ALLOWED_ORIGINS` in staging, beta, and production.
+- Runtime API responses should include defensive security headers and no-store cache headers.
+
+## Runtime HTTP Hardening
+
+All Go APIs use a shared local pattern for CORS and defensive response headers:
+
+- `NADAA_ALLOWED_ORIGINS` accepts a comma-separated list of approved browser origins.
+- Empty `NADAA_ALLOWED_ORIGINS` or `*` keeps wildcard CORS only for local development and fixture smoke testing.
+- Staging, beta, and production must set explicit citizen, dispatcher, agency/admin, and authority origins.
+- CORS responses vary by `Origin` when an allowlist is active.
+- API responses include `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Content-Security-Policy`, `Strict-Transport-Security`, and `Cache-Control: no-store`.
+
+Security review notes and residual risks are tracked in [Security Review](security-review.md).
 
 ## Audit Log Minimum Fields
 

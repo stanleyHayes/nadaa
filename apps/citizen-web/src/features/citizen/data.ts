@@ -6,6 +6,7 @@ import type {
   IncidentMediaContentType,
   IncidentUrgency,
   NearbyShelterResponse,
+  ReliefPointNearbyResponse,
   RiskLevel,
 } from "@nadaa/shared-types";
 import type { GuideHazardFilter, GuideStageFilter, ReportForm } from "./types";
@@ -143,6 +144,70 @@ export const sampleShelterResponse: NearbyShelterResponse = {
       hours: "08:00-18:00",
       status: "open",
       distanceMeters: 2300,
+      updatedAt: sampleGeneratedAt,
+    },
+  ],
+};
+
+export const sampleReliefPointResponse: ReliefPointNearbyResponse = {
+  generatedAt: sampleGeneratedAt,
+  reliefPoints: [
+    {
+      id: "relief_ama_food_001",
+      name: "AMA Food Relief Point",
+      type: "food",
+      region: "Greater Accra",
+      district: "Accra Metropolitan",
+      address: "Independence Avenue relief desk",
+      location: { lat: 5.558, lng: -0.197 },
+      contact: "112",
+      operatingHours: "08:00-20:00",
+      eligibility: "Flood-affected households with district registration.",
+      schedule: "Daily distribution until flood response stands down.",
+      stockCategories: [
+        {
+          category: "rice_kg",
+          quantity: 420,
+          unit: "kg",
+          lastUpdated: sampleGeneratedAt,
+        },
+        {
+          category: "water_sachets",
+          quantity: 1800,
+          unit: "sachets",
+          lastUpdated: sampleGeneratedAt,
+        },
+      ],
+      status: "open",
+      source: "fixture",
+      distanceMeters: 420,
+      createdAt: sampleGeneratedAt,
+      updatedAt: sampleGeneratedAt,
+    },
+    {
+      id: "relief_kaneshie_water_001",
+      name: "Kaneshie Water Relief Point",
+      type: "water",
+      region: "Greater Accra",
+      district: "Okaikwei South",
+      address: "Kaneshie Market lorry park",
+      location: { lat: 5.566, lng: -0.242 },
+      contact: "112",
+      operatingHours: "09:00-18:00",
+      eligibility: "Open to residents near affected market roads.",
+      schedule: "Morning and afternoon water distribution.",
+      stockCategories: [
+        {
+          category: "water_sachets",
+          quantity: 950,
+          unit: "sachets",
+          lastUpdated: sampleGeneratedAt,
+        },
+      ],
+      status: "limited",
+      source: "fixture",
+      distanceMeters: 4720,
+      createdAt: sampleGeneratedAt,
       updatedAt: sampleGeneratedAt,
     },
   ],

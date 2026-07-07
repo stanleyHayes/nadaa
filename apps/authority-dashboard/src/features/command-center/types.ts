@@ -7,6 +7,8 @@ import type {
   IncidentAssignmentPriority,
   IncidentRecord,
   IncidentStatus,
+  ReliefPointStatus,
+  ReliefPointType,
   RiskLevel,
   ShelterStatus,
 } from "@nadaa/shared-types";
@@ -78,6 +80,24 @@ export type ShelterFormState = {
   currentOccupancy: string;
   status: ShelterStatus;
   notes: string;
+};
+
+export type ReliefPointFormState = {
+  reliefPointId: string;
+  name: string;
+  type: ReliefPointType;
+  status: ReliefPointStatus;
+  region: string;
+  district: string;
+  address: string;
+  latitude: string;
+  longitude: string;
+  contact: string;
+  operatingHours: string;
+  eligibility: string;
+  schedule: string;
+  stockCategories: string;
+  sourceRef: string;
 };
 
 export type AssignmentAgencyOption = {

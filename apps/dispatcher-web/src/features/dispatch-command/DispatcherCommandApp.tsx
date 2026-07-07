@@ -40,6 +40,8 @@ import type {
   CreateAlertRequest,
   DuplicateReviewCandidate,
   DuplicateReviewResponse,
+  HospitalCapacityRecord,
+  HospitalCapacityResponse,
   IncidentAbuseReviewRequest,
   IncidentListResponse,
   IncidentRecord,
@@ -47,11 +49,17 @@ import type {
   MergeIncidentsRequest,
   MergeIncidentsResponse,
   MLPredictionResponse,
+  ReliefPointListResponse,
+  ReliefPointRecord,
+  RoadClosureListResponse,
+  RoadClosureRecord,
 } from "@nadaa/shared-types";
 import {
   ALERT_API_BASE,
   INCIDENT_API_BASE,
   ML_API_BASE,
+  ROAD_CLOSURE_API_BASE,
+  SHELTER_API_BASE,
 } from "../../app/config";
 import {
   dispatcherHeaders,
@@ -63,15 +71,19 @@ import {
   AlertWorkflowPanel,
   CommandSelect,
   EmptyState,
+  HospitalCapacityPanel,
   IncidentDetailPanel,
   IncidentMap,
   MLPredictionReviewPanel,
   PrivacyChip,
+  ReliefPointPanel,
   StatusLine,
 } from "./components";
 import {
   defaultFilters,
+  defaultHospitalCapacityFilters,
   fallbackAlerts,
+  fallbackHospitalFacilities,
   fallbackIncidents,
   fallbackMLPredictions,
   predictionReviewPoints,
@@ -83,8 +95,10 @@ import type {
   AlertFormState,
   AlertLoadState,
   AssignmentFormState,
+  CapacityLoadState,
   CommandIncident,
   FilterState,
+  HospitalCapacityFilterState,
   IncidentLoadState,
   IncidentStatusFormState,
   MLPredictionReview,
@@ -174,6 +188,28 @@ function DispatcherCommandApp() {
   const [predictionReviewNotes, setPredictionReviewNotes] = useState<
     Record<string, string>
   >({});
+  const [hospitalFacilities, setHospitalFacilities] = useState<
+    HospitalCapacityRecord[]
+  >(fallbackHospitalFacilities);
+  const [hospitalLoadState, setHospitalLoadState] =
+    useState<CapacityLoadState>("loading");
+  const [hospitalMessage, setHospitalMessage] = useState(
+    "Loading hospital capacity",
+  );
+  const [hospitalFilters, setHospitalFilters] =
+    useState<HospitalCapacityFilterState>(defaultHospitalCapacityFilters);
+  const [roadClosures, setRoadClosures] = useState<RoadClosureRecord[]>([]);
+  const [roadClosureLoadState, setRoadClosureLoadState] =
+    useState<CapacityLoadState>("loading");
+  const [roadClosureMessage, setRoadClosureMessage] = useState(
+    "Loading road closures",
+  );
+  const [reliefPoints, setReliefPoints] = useState<ReliefPointRecord[]>([]);
+  const [reliefPointLoadState, setReliefPointLoadState] =
+    useState<CapacityLoadState>("loading");
+  const [reliefPointMessage, setReliefPointMessage] = useState(
+    "Loading relief distribution points",
+  );
 
   const refreshIncidents = async (signal?: AbortSignal) => {
     setLoadState("loading");
@@ -330,6 +366,76 @@ function DispatcherCommandApp() {
     );
   }, [mlPredictions, selectedPredictionId]);
 
+  const filteredFallbackHospitalFacilities = useMemo(
+    () =>
+      fallbackHospitalFacilities.filter((facility) =>
+        matchesHospitalCapacityFilters(facility, hospitalFilters),
+      ),
+    [hospitalFilters],
+  );
+
+  const refreshHospitalCapacity = async (signal?: AbortSignal) => {
+    const anchor = selectedIncident?.location ??
+      fallbackIncidents[0]?.location ?? { lat: 5.56, lng: -0.2 };
+    const params = new URLSearchParams({
+      includeStale: String(hospitalFilters.includeStale),
+      lat: String(anchor.lat),
+      limit: "6",
+      lng: String(anchor.lng),
+    });
+    const minAvailableBeds = Number.parseInt(
+      hospitalFilters.minAvailableBeds,
+      10,
+    );
+    if (
+      Number.isFinite(minAvailableBeds) &&
+      !Number.isNaN(minAvailableBeds) &&
+      minAvailableBeds > 0
+    ) {
+      params.set("minAvailableBeds", String(minAvailableBeds));
+    }
+    if (hospitalFilters.service !== "all") {
+      params.set("service", hospitalFilters.service);
+    }
+    if (hospitalFilters.emergencyCapacity !== "all") {
+      params.set("emergencyCapacity", hospitalFilters.emergencyCapacity);
+    }
+
+    setHospitalLoadState("loading");
+    setHospitalMessage("Loading hospital capacity");
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/hospitals/capacity?${params.toString()}`,
+        {
+          headers: dispatcherHeaders(),
+          signal,
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`hospital capacity API returned ${response.status}`);
+      }
+
+      const payload = (await response.json()) as HospitalCapacityResponse;
+      setHospitalFacilities(payload.facilities);
+      setHospitalLoadState(payload.facilities.length ? "ready" : "empty");
+      setHospitalMessage(
+        payload.facilities.length
+          ? `Live hospital capacity connected. Stale threshold ${payload.staleThresholdMinutes} minutes.`
+          : "No hospitals match the current capacity filters.",
+      );
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setHospitalFacilities(filteredFallbackHospitalFacilities);
+      setHospitalLoadState("fallback");
+      setHospitalMessage(
+        "Hospital capacity API unavailable. Showing facility capacity fixtures.",
+      );
+    }
+  };
+
   useEffect(() => {
     if (!filteredIncidents.length) {
       setSelectedIncidentId("");
@@ -357,6 +463,96 @@ function DispatcherCommandApp() {
       setSelectedPredictionId(mlPredictions[0].id);
     }
   }, [mlPredictions, selectedPredictionId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshHospitalCapacity(controller.signal);
+    return () => controller.abort();
+  }, [
+    filteredFallbackHospitalFacilities,
+    hospitalFilters.emergencyCapacity,
+    hospitalFilters.includeStale,
+    hospitalFilters.minAvailableBeds,
+    hospitalFilters.service,
+    selectedIncident?.id,
+  ]);
+
+  const refreshRoadClosures = async (signal?: AbortSignal) => {
+    setRoadClosureLoadState("loading");
+    setRoadClosureMessage("Loading road closures");
+    try {
+      const response = await fetch(`${ROAD_CLOSURE_API_BASE}/road-closures`, {
+        headers: dispatcherHeaders(),
+        signal,
+      });
+      if (!response.ok) {
+        throw new Error(`road closure API returned ${response.status}`);
+      }
+      const payload = (await response.json()) as RoadClosureListResponse;
+      setRoadClosures(payload.closures);
+      setRoadClosureLoadState(payload.closures.length ? "ready" : "empty");
+      setRoadClosureMessage(
+        payload.closures.length
+          ? "Live road closures connected."
+          : "No active road closures reported.",
+      );
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+      setRoadClosures([]);
+      setRoadClosureLoadState("fallback");
+      setRoadClosureMessage(
+        "Road closure API unavailable. Map layer disabled.",
+      );
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshRoadClosures(controller.signal);
+    return () => controller.abort();
+  }, []);
+
+  const refreshReliefPoints = async (signal?: AbortSignal) => {
+    setReliefPointLoadState("loading");
+    setReliefPointMessage("Loading relief distribution points");
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/relief-points?limit=50`,
+        {
+          headers: dispatcherHeaders(),
+          signal,
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`relief point API returned ${response.status}`);
+      }
+      const payload = (await response.json()) as ReliefPointListResponse;
+      setReliefPoints(payload.reliefPoints);
+      setReliefPointLoadState(payload.reliefPoints.length ? "ready" : "empty");
+      setReliefPointMessage(
+        payload.reliefPoints.length
+          ? "Live relief points connected."
+          : "No relief distribution points reported.",
+      );
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+      setReliefPoints([]);
+      setReliefPointLoadState("fallback");
+      setReliefPointMessage(
+        "Relief point API unavailable. Map layer disabled.",
+      );
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshReliefPoints(controller.signal);
+    return () => controller.abort();
+  }, []);
 
   const metrics = useMemo(() => buildQueueMetrics(incidents), [incidents]);
   const filterOptions = useMemo(
@@ -398,6 +594,34 @@ function DispatcherCommandApp() {
     (key: keyof FilterState) => (event: SelectChangeEvent) => {
       setFilters((current) => ({ ...current, [key]: event.target.value }));
     };
+
+  const updateHospitalCapacityFilter = (event: SelectChangeEvent) => {
+    setHospitalFilters((current) => ({
+      ...current,
+      emergencyCapacity: event.target
+        .value as HospitalCapacityFilterState["emergencyCapacity"],
+    }));
+  };
+
+  const updateHospitalIncludeStale = (checked: boolean) => {
+    setHospitalFilters((current) => ({ ...current, includeStale: checked }));
+  };
+
+  const updateHospitalMinBeds = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    setHospitalFilters((current) => ({
+      ...current,
+      minAvailableBeds: event.target.value,
+    }));
+  };
+
+  const updateHospitalServiceFilter = (event: SelectChangeEvent) => {
+    setHospitalFilters((current) => ({
+      ...current,
+      service: event.target.value as HospitalCapacityFilterState["service"],
+    }));
+  };
 
   const updateAlertForm =
     (key: keyof AlertFormState) =>
@@ -1030,6 +1254,25 @@ function DispatcherCommandApp() {
           selectedPredictionId={selectedPredictionId}
         />
 
+        <HospitalCapacityPanel
+          facilities={hospitalFacilities}
+          filters={hospitalFilters}
+          loadMessage={hospitalMessage}
+          loadState={hospitalLoadState}
+          onRefresh={() => void refreshHospitalCapacity()}
+          onUpdateCapacity={updateHospitalCapacityFilter}
+          onUpdateIncludeStale={updateHospitalIncludeStale}
+          onUpdateMinBeds={updateHospitalMinBeds}
+          onUpdateService={updateHospitalServiceFilter}
+        />
+
+        <ReliefPointPanel
+          loadMessage={reliefPointMessage}
+          loadState={reliefPointLoadState}
+          onRefresh={() => void refreshReliefPoints()}
+          reliefPoints={reliefPoints}
+        />
+
         <Paper className="surface filter-surface">
           <Stack
             direction="row"
@@ -1145,6 +1388,8 @@ function DispatcherCommandApp() {
                 incidents={filteredIncidents}
                 selectedIncidentId={selectedIncident?.id}
                 onSelect={setSelectedIncidentId}
+                closures={roadClosures}
+                reliefPoints={reliefPoints}
               />
             </Paper>
 
@@ -1285,6 +1530,25 @@ function DispatcherCommandApp() {
                     color="warning"
                   />
                   <StatusLine
+                    label="Hospital capacity"
+                    value={
+                      hospitalLoadState === "ready"
+                        ? "Live"
+                        : hospitalLoadState === "empty"
+                          ? "No match"
+                          : hospitalLoadState === "loading"
+                            ? "Loading"
+                            : "Fixture"
+                    }
+                    color={
+                      hospitalLoadState === "ready"
+                        ? "success"
+                        : hospitalLoadState === "empty"
+                          ? "default"
+                          : "warning"
+                    }
+                  />
+                  <StatusLine
                     label="Audit trail"
                     value="Required"
                     color="success"
@@ -1297,6 +1561,37 @@ function DispatcherCommandApp() {
       </Container>
     </ThemeProvider>
   );
+}
+
+function matchesHospitalCapacityFilters(
+  facility: HospitalCapacityRecord,
+  filters: HospitalCapacityFilterState,
+) {
+  if (!filters.includeStale && facility.stale) {
+    return false;
+  }
+  if (
+    filters.emergencyCapacity !== "all" &&
+    facility.emergencyCapacity !== filters.emergencyCapacity
+  ) {
+    return false;
+  }
+  if (
+    filters.service !== "all" &&
+    !facility.services.some((service) => service === filters.service)
+  ) {
+    return false;
+  }
+  const minAvailableBeds = Number.parseInt(filters.minAvailableBeds, 10);
+  if (
+    Number.isFinite(minAvailableBeds) &&
+    !Number.isNaN(minAvailableBeds) &&
+    minAvailableBeds > 0 &&
+    facility.availableBeds < minAvailableBeds
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export default DispatcherCommandApp;

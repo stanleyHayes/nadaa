@@ -25,4 +25,3 @@ Build NADAA as a public-safety platform for Ghana. Keep implementation aligned w
 - Authority users require role-based access and MFA.
 - Anonymous citizen reports must preserve privacy unless policy and authorization permit disclosure.
 - Life-threatening reports must never be hidden solely by an automated spam or suspicion score.
-

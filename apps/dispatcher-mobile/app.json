@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "NADAA Dispatcher",
+    "slug": "nadaa-dispatcher",
+    "scheme": "nadaa-dispatcher",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "bundleIdentifier": "com.nadaa.dispatcher",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "NADAA Dispatcher uses your location to show nearby incidents and hospital capacity.",
+        "NSCameraUsageDescription": "NADAA Dispatcher lets you attach scene photos to incident updates.",
+        "NSPhotoLibraryUsageDescription": "NADAA Dispatcher lets you attach existing photos to incident updates."
+      }
+    },
+    "android": {
+      "package": "com.nadaa.dispatcher",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
+      ]
+    },
+    "extra": {
+      "authApiUrl": "http://localhost:8080/api/v1",
+      "incidentApiUrl": "http://localhost:8084/api/v1",
+      "shelterApiUrl": "http://localhost:8093/api/v1"
+    }
+  }
+}

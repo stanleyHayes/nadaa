@@ -8,6 +8,7 @@ import type {
   IncidentMediaContentType,
   InitiateMediaUploadRequest,
   MediaUploadResponse,
+  ReliefStockCategory,
   ShelterStatus,
 } from "@nadaa/shared-types";
 import { GUIDE_CACHE_KEY, INCIDENT_API_BASE } from "../../app/config";
@@ -237,6 +238,20 @@ export function formatSupportType(value: string): string {
 
 export function formatListLabel(values: string[]): string {
   return values.map(formatSupportType).join(" · ");
+}
+
+export function formatReliefStock(values: ReliefStockCategory[]): string {
+  if (!values.length) {
+    return "Stock details pending";
+  }
+
+  return values
+    .slice(0, 3)
+    .map(
+      (item) =>
+        `${formatSupportType(item.category)}: ${item.quantity.toLocaleString("en-GH")} ${item.unit}`,
+    )
+    .join(" · ");
 }
 
 export function formatDistance(meters: number): string {

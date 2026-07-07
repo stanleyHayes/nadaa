@@ -51,6 +51,7 @@ Run:
 pnpm validate:dashboard
 pnpm validate:features
 pnpm validate:ml
+pnpm validate:release
 ```
 
-This validates that the sample records contain the required Sprint 0 fields and status values, that the flood-risk feature artifacts match their schema and manifest, and that the baseline model artifacts match the expected prediction/evaluation contract.
+This validates that the sample records contain the required Sprint 0 fields and status values, that the flood-risk feature artifacts match their schema and manifest, that the baseline model artifacts match the expected prediction/evaluation contract, and that the release-readiness documents required by NADAA-102 are present.

@@ -13,6 +13,12 @@ Current endpoints:
 - `GET /api/v1/integrations/weather-hydrology/observations`
 - `POST /api/v1/integrations/mock/sync-events`
 - `GET /api/v1/integrations/mock/sync-events`
+- `POST /api/v1/integrations/road-closures/imports`
+- `GET /api/v1/integrations/road-closures/imports`
+
+## Road Closure Imports
+
+`POST /api/v1/integrations/road-closures/imports` validates an inbound road closure record and forwards it to the `road-closure-service` adapter endpoint. The import is also recorded locally for observability. Forwarding uses `NADAA_ROAD_CLOSURE_SERVICE_URL` (default `http://localhost:8095`) and passes through `X-NADAA-*` authority headers.
 
 ## Contracts
 

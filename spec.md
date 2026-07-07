@@ -1,9 +1,12 @@
 Below is a build-ready Markdown technical document you can copy into README.md, SPEC.md, or give to an AI coding agent.
 
 # Ghana Emergency Preparedness, Warning & Disaster Response Platform
+
 ## 1. Product Vision
+
 Build a national emergency preparedness and disaster intelligence platform for Ghana that helps citizens, emergency agencies, local assemblies, and response teams prepare for, report, monitor, respond to, and recover from disasters.
 The system must support:
+
 - Early warning alerts
 - Area-based risk checking
 - Citizen disaster reporting
@@ -12,40 +15,58 @@ The system must support:
 - ML-powered risk prediction
 - Targeted alerts by location, hazard type, and population group
 - Integration with NADMO, Ghana Police, Ghana National Fire Service, Ghana Ambulance Service, GMet, Ghana Hydrological Authority, district assemblies, and other emergency actors
+
 ## 2. Ghana Disaster Context
-Ghana’s major recurring hazards include floods, windstorms, rainstorms, drought, tidal waves, fires, lightning, disease outbreaks, pest infestations, earthquakes, landslides, building collapse, road accidents, aviation accidents, marine accidents, and social conflicts. NADMO lists these under hydro-meteorological, pest/insect, geological, fire/lightning, epidemic, and man-made disasters.  [oai_citation:0‡NADMO](https://nadmo.gov.gh/index.php/31-drr-cca-platforms)
-Flooding should be treated as the first priority hazard. Ghana experiences floods especially during the rainy season, commonly April to October, with coastal and low-lying areas, Greater Accra, Northern Region, and Upper East Region among affected zones.  [oai_citation:1‡GWPO-GWP](https://gwpo-gwp.org/assets/legacy/globalassets/global/gwp-waf_files/vfdm_mai_2023/ghana_processus_sap_inondations.pdf)
-Recent floods in June 2026 killed at least 12 people in Ghana, including Accra and Tema, showing the urgent need for warning, rescue, reporting, and recovery systems.  [oai_citation:2‡Reuters](https://www.reuters.com/business/environment/heavy-rains-hit-ghana-killing-least-12-floods-2026-06-30/?utm_source=chatgpt.com)
-Ghana already has emergency response institutions and the toll-free national emergency number 112, which connects citizens to police, fire, ambulance, NADMO, and relief agencies.  [oai_citation:3‡ITU](https://www.itu.int/net4/wsis/archive/stocktaking/Project/Details?projectId=1487771718&utm_source=chatgpt.com)
+
+Ghana’s major recurring hazards include floods, windstorms, rainstorms, drought, tidal waves, fires, lightning, disease outbreaks, pest infestations, earthquakes, landslides, building collapse, road accidents, aviation accidents, marine accidents, and social conflicts. NADMO lists these under hydro-meteorological, pest/insect, geological, fire/lightning, epidemic, and man-made disasters. [oai_citation:0‡NADMO](https://nadmo.gov.gh/index.php/31-drr-cca-platforms)
+Flooding should be treated as the first priority hazard. Ghana experiences floods especially during the rainy season, commonly April to October, with coastal and low-lying areas, Greater Accra, Northern Region, and Upper East Region among affected zones. [oai_citation:1‡GWPO-GWP](https://gwpo-gwp.org/assets/legacy/globalassets/global/gwp-waf_files/vfdm_mai_2023/ghana_processus_sap_inondations.pdf)
+Recent floods in June 2026 killed at least 12 people in Ghana, including Accra and Tema, showing the urgent need for warning, rescue, reporting, and recovery systems. [oai_citation:2‡Reuters](https://www.reuters.com/business/environment/heavy-rains-hit-ghana-killing-least-12-floods-2026-06-30/?utm_source=chatgpt.com)
+Ghana already has emergency response institutions and the toll-free national emergency number 112, which connects citizens to police, fire, ambulance, NADMO, and relief agencies. [oai_citation:3‡ITU](https://www.itu.int/net4/wsis/archive/stocktaking/Project/Details?projectId=1487771718&utm_source=chatgpt.com)
+
 ## 3. Core Users
+
 ### Citizen
+
 - Checks risk in an area
 - Receives warnings
 - Reports disasters or accidents
 - Requests help
 - Learns emergency preparedness
 - Receives recovery guidance after an event
+
 ### Emergency Dispatcher
+
 - Receives reports
 - Verifies incidents
 - Assigns response teams
 - Tracks incident status
+
 ### NADMO / District Assembly Officer
+
 - Issues warnings
 - Views risk maps
 - Coordinates response and relief
 - Manages shelters and recovery
+
 ### Police / Fire / Ambulance / Rescue Team
+
 - Receives assigned incidents
 - Navigates to incident location
 - Updates response status
 - Communicates with dispatch
+
 ### System Admin
+
 - Manages agencies, roles, users, alert rules, audit logs, and data sources
+
 ## 4. Major Features
+
 ## 4.1 Citizen Mobile App
+
 ### Risk Checker
+
 Users can search or select an area and see:
+
 - Flood risk
 - Fire risk
 - Road accident risk
@@ -56,20 +77,23 @@ Users can search or select an area and see:
 - Nearby hospitals
 - Nearby police/fire/ambulance stations
 - Safety recommendations
-Risk should be shown as:
+  Risk should be shown as:
 - Low
 - Moderate
 - High
 - Severe
 - Emergency
+
 ### Live Warnings
+
 Users receive alerts through:
+
 - Push notifications
 - SMS fallback
 - WhatsApp/USSD fallback if integrated
 - In-app alert feed
 - Voice alert for low-literacy users
-Alert types:
+  Alert types:
 - Flood warning
 - Heavy rainfall warning
 - Fire warning
@@ -81,8 +105,11 @@ Alert types:
 - Missing persons
 - Evacuation notice
 - Shelter notice
+
 ### Disaster Reporting
+
 Users can report:
+
 - Flood
 - Fire
 - Road crash
@@ -95,7 +122,7 @@ Users can report:
 - Landslide
 - Boat/lake accident
 - Other emergency
-Report fields:
+  Report fields:
 - Hazard type
 - GPS location
 - Description
@@ -106,8 +133,11 @@ Report fields:
 - Anonymous option
 - Contact permission
 - Accessibility needs
+
 ### Emergency Guidance
+
 Offline-first guidance for:
+
 - What to do before, during, and after floods
 - Fire safety
 - Road crash response
@@ -118,8 +148,11 @@ Offline-first guidance for:
 - Family emergency planning
 - Emergency bag checklist
 - How to contact 112
+
 ### Recovery Guidance
+
 After an event, users get:
+
 - Shelter locations
 - Relief distribution points
 - Medical support locations
@@ -128,9 +161,13 @@ After an event, users get:
 - Insurance/document replacement guidance
 - How to report property damage
 - How to request support from NADMO or district assemblies
+
 ## 4.2 Authority Dashboard
+
 ### Incident Command Dashboard
+
 Authorities can:
+
 - View live incident map
 - Filter by hazard, region, district, severity, time
 - Verify citizen reports
@@ -140,7 +177,7 @@ Authorities can:
 - Add internal notes
 - Escalate incidents
 - Close incidents with resolution notes
-Incident statuses:
+  Incident statuses:
 - Reported
 - Under Review
 - Verified
@@ -151,8 +188,11 @@ Incident statuses:
 - Recovery Ongoing
 - Closed
 - False Report
+
 ### Alert Management
+
 Authorities can issue:
+
 - National alerts
 - Regional alerts
 - District alerts
@@ -160,7 +200,7 @@ Authorities can issue:
 - Community-specific alerts
 - Hazard-specific alerts
 - Targeted alerts for schools, hospitals, markets, transport hubs, and flood-prone zones
-Alert fields:
+  Alert fields:
 - Title
 - Hazard type
 - Severity
@@ -173,8 +213,11 @@ Alert fields:
 - Shelter links
 - Agency issuing alert
 - Approval workflow
+
 ### Agency Collaboration
+
 The system should support:
+
 - NADMO
 - Ghana Police Service
 - Ghana National Fire Service
@@ -186,10 +229,14 @@ The system should support:
 - Ghana Red Cross
 - Hospitals
 - ECG/utility companies
-Flood warning workflows should align with Ghana’s existing setup where GMet and Hydro collect weather/hydrological data, Hydro handles flood modeling, and warnings involve GMet, Hydro, NADMO, district assemblies, fire, police, ambulance, armed forces, NGOs, and other actors.  [oai_citation:4‡GWPO-GWP](https://gwpo-gwp.org/assets/legacy/globalassets/global/gwp-waf_files/vfdm_mai_2023/ghana_processus_sap_inondations.pdf)
+  Flood warning workflows should align with Ghana’s existing setup where GMet and Hydro collect weather/hydrological data, Hydro handles flood modeling, and warnings involve GMet, Hydro, NADMO, district assemblies, fire, police, ambulance, armed forces, NGOs, and other actors. [oai_citation:4‡GWPO-GWP](https://gwpo-gwp.org/assets/legacy/globalassets/global/gwp-waf_files/vfdm_mai_2023/ghana_processus_sap_inondations.pdf)
+
 ## 4.3 ML Prediction System
+
 ### First ML Priority: Flood Risk Prediction
+
 Inputs:
+
 - Rainfall forecast
 - Historical rainfall
 - Drainage density
@@ -206,25 +253,30 @@ Inputs:
 - Satellite rainfall data
 - GMet alerts
 - Hydro water-level data
-Outputs:
+  Outputs:
 - Flood probability by grid cell
 - Expected severity
 - Expected onset time
 - Affected communities
 - Recommended alert level
-Model types:
+  Model types:
 - Baseline: Logistic Regression / Random Forest / XGBoost
 - Spatial model: Gradient boosting with geospatial features
 - Time-series model: LSTM/Temporal Fusion Transformer
 - Advanced later: Graph Neural Network for drainage/road networks
+
 ### Other Prediction Models
+
 - Road accident hotspot prediction
 - Fire outbreak risk prediction
 - Disease outbreak anomaly detection
 - Blocked drain/flood-prone report clustering
 - Emergency resource demand forecasting
+
 ## 5. Data Sources
+
 ### Internal Data
+
 - Citizen reports
 - Agency incident reports
 - Historical disaster records
@@ -233,7 +285,9 @@ Model types:
 - Shelter records
 - Hospital/emergency facility records
 - Road closure records
+
 ### External Data
+
 - GMet rainfall/weather data
 - Ghana Hydrological Authority water-level data
 - NADMO disaster data
@@ -245,92 +299,116 @@ Model types:
 - Elevation datasets
 - District boundary shapefiles
 - Population density datasets
-FEWS Accra already uses rainfall nowcasting, hydrological/hydraulic flood forecasts, risk communication, and stakeholder engagement; this platform should build around a similar multi-agency warning chain.  [oai_citation:5‡NOAA Weather Program Office](https://wpo.noaa.gov/limiting-the-impact-of-urban-flash-flooding-in-a-subtropical-climate/)
+  FEWS Accra already uses rainfall nowcasting, hydrological/hydraulic flood forecasts, risk communication, and stakeholder engagement; this platform should build around a similar multi-agency warning chain. [oai_citation:5‡NOAA Weather Program Office](https://wpo.noaa.gov/limiting-the-impact-of-urban-flash-flooding-in-a-subtropical-climate/)
+
 ## 6. System Architecture
+
 ## Recommended Stack
+
 Frontend:
+
 - React
 - TypeScript
 - MUI
 - Mapbox GL or Leaflet
 - PWA support
-Mobile:
+  Mobile:
 - React Native
 - Offline-first local storage
 - Push notifications
-Backend:
+  Backend:
 - Golang
 - Hexagonal architecture
 - REST + WebSocket
 - gRPC for internal agency services if needed
-Databases:
+  Databases:
 - PostgreSQL + PostGIS for geospatial data
 - MongoDB for flexible reports/media metadata
 - Redis for caching, queues, rate limits
 - Object Cloudinary for media uploads
-ML:
+  ML:
 - Python
 - FastAPI model serving
 - MLflow for experiment tracking
 - Airflow/Prefect for pipelines
 - Feature store later
-Messaging:
+  Messaging:
 - Kafka, RabbitMQ, or NATS
 - SMS provider
 - Push notification provider
 - Email via Resend
 - Optional WhatsApp Business API
-Infrastructure:
+  Infrastructure:
 - Docker
 - Kubernetes or Docker Swarm
 - CI/CD via GitHub Actions
 - Cloud provider with Ghana/Africa latency consideration
 - Observability with Prometheus, Grafana, Loki, OpenTelemetry
+
 ## 7. Services
+
 ### Auth Service
+
 - Citizens
 - Agency users
 - Admins
 - Role-based access control
 - MFA for authority users
+
 ### Location Risk Service
+
 - Receives coordinates or area name
 - Returns hazard risk score
 - Returns nearby facilities
 - Returns safety advice
+
 ### Incident Service
+
 - Handles citizen reports
 - Validates media/location
 - Deduplicates similar reports
 - Assigns severity
 - Sends to dispatch
+
 ### Alert Service
+
 - Authority alert creation
 - Approval workflow
 - Geofenced alert delivery
 - Push/SMS/email delivery
 - Alert audit trail
+
 ### Dispatch Service
+
 - Assigns incidents to agencies
 - Tracks responder status
 - Maintains incident timeline
+
 ### ML Risk Service
+
 - Predicts hazard probability
 - Generates risk tiles
 - Updates risk maps
 - Provides explainability
+
 ### Knowledge Base Service
+
 - Emergency guides
 - Preparedness content
 - Recovery content
 - Multilingual support
+
 ### Integration Service
+
 - Connects to agency APIs
 - Imports weather/hydrology data
 - Sends emergency notifications
 - Syncs reports with official systems
+
 ## 8. Core Database Tables
+
 ### users
+
 - id
 - name
 - phone
@@ -340,7 +418,9 @@ Infrastructure:
 - preferred_language
 - home_location
 - created_at
+
 ### agencies
+
 - id
 - name
 - type
@@ -348,7 +428,9 @@ Infrastructure:
 - district
 - contact_number
 - service_area_geometry
+
 ### incidents
+
 - id
 - type
 - severity
@@ -362,14 +444,18 @@ Infrastructure:
 - injuries_reported
 - created_at
 - updated_at
+
 ### incident_media
+
 - id
 - incident_id
 - media_url
 - media_type
 - uploaded_by
 - created_at
+
 ### alerts
+
 - id
 - title
 - message
@@ -382,7 +468,9 @@ Infrastructure:
 - expires_at
 - status
 - created_at
+
 ### risk_zones
+
 - id
 - hazard_type
 - risk_level
@@ -390,7 +478,9 @@ Infrastructure:
 - source
 - valid_from
 - valid_to
+
 ### shelters
+
 - id
 - name
 - location_geometry
@@ -398,7 +488,9 @@ Infrastructure:
 - current_occupancy
 - contact
 - facilities
+
 ### emergency_guides
+
 - id
 - hazard_type
 - stage
@@ -406,7 +498,9 @@ Infrastructure:
 - body
 - language
 - offline_available
+
 ### ml_predictions
+
 - id
 - hazard_type
 - model_version
@@ -416,10 +510,14 @@ Infrastructure:
 - probability
 - severity
 - explanation
+
 ## 9. API Examples
+
 ### Check Area Risk
+
 `GET /api/v1/risk?lat=5.6037&lng=-0.1870`
 Response:
+
 ```json
 {
   "location": "Accra Central",
@@ -623,3 +721,4 @@ ghana-emergency-platform/
 * User trust and feedback score
 
 This is a strong national-scale idea. The best MVP is: **Flood risk checker + citizen reporting + authority alert dashboard + emergency guidance**.
+```

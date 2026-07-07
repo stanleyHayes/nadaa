@@ -1,5 +1,10 @@
 const targets = [
   [
+    "marketing-web",
+    localURL("LOCAL_MARKETING_URL", "http://127.0.0.1:5172/"),
+    "NADAA Marketing",
+  ],
+  [
     "citizen-web",
     localURL("LOCAL_CITIZEN_URL", "http://127.0.0.1:5173/"),
     "NADAA Citizen",
@@ -18,6 +23,11 @@ const targets = [
     "admin-web",
     localURL("LOCAL_ADMIN_URL", "http://127.0.0.1:5176/"),
     "NADAA Admin Console",
+  ],
+  [
+    "agency-web",
+    localURL("LOCAL_AGENCY_URL", "http://127.0.0.1:5177/"),
+    "NADAA Agency Operations",
   ],
 ];
 

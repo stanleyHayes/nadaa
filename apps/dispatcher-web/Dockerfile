@@ -10,9 +10,10 @@ COPY apps/dispatcher-web ./apps/dispatcher-web
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @nadaa/dispatcher-web build
 
-FROM nginx:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 
 COPY infra/docker/nginx-spa.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/dispatcher-web/dist /usr/share/nginx/html
 
+USER 101
 EXPOSE 8080

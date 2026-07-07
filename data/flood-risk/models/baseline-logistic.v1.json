@@ -9,14 +9,8 @@
   "trainingSourceUpdatedAt": "2026-07-06T09:00:00Z",
   "target": {
     "name": "high_or_severe_flood_risk",
-    "positiveLabels": [
-      "high",
-      "severe"
-    ],
-    "negativeLabels": [
-      "low",
-      "moderate"
-    ]
+    "positiveLabels": ["high", "severe"],
+    "negativeLabels": ["low", "moderate"]
   },
   "featureColumns": [
     "rainfall_intensity_score",

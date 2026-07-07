@@ -41,6 +41,7 @@ import type {
   AlertListResponse,
   AuthorityAlertRecord,
   CreateAlertRequest,
+  CreateReliefPointRequest,
   DuplicateReviewCandidate,
   DuplicateReviewResponse,
   IncidentAbuseReviewRequest,
@@ -49,10 +50,16 @@ import type {
   IncidentStatusUpdateRequest,
   MergeIncidentsRequest,
   MergeIncidentsResponse,
+  ReliefPointListResponse,
+  ReliefPointRecord,
+  ReliefPointStockHistoryResponse,
+  ReliefStockCategory,
+  ReliefStockHistoryEntry,
   ShelterListResponse,
   ShelterOccupancyUpdateRequest,
   ShelterRecord,
   ShelterUpdateResponse,
+  UpdateReliefPointRequest,
 } from "@nadaa/shared-types";
 import {
   ALERT_API_BASE,
@@ -78,6 +85,7 @@ import {
   defaultFilters,
   fallbackAlerts,
   fallbackIncidents,
+  fallbackReliefPoints,
   fallbackShelters,
   assignmentAgencyOptions,
   severityColors,
@@ -91,6 +99,7 @@ import type {
   FilterState,
   IncidentLoadState,
   IncidentStatusFormState,
+  ReliefPointFormState,
   ShelterFormState,
 } from "./types";
 import {
@@ -167,6 +176,18 @@ function CommandCenterApp() {
   const [shelterBusy, setShelterBusy] = useState(false);
   const [shelterForm, setShelterForm] = useState<ShelterFormState>(
     buildDefaultShelterForm(fallbackShelters[0]),
+  );
+  const [reliefPoints, setReliefPoints] =
+    useState<ReliefPointRecord[]>(fallbackReliefPoints);
+  const [reliefLoadState, setReliefLoadState] =
+    useState<IncidentLoadState>("loading");
+  const [reliefFeedback, setReliefFeedback] = useState("Loading relief points");
+  const [reliefBusy, setReliefBusy] = useState(false);
+  const [reliefForm, setReliefForm] = useState<ReliefPointFormState>(
+    buildDefaultReliefPointForm(fallbackReliefPoints[0]),
+  );
+  const [reliefHistory, setReliefHistory] = useState<ReliefStockHistoryEntry[]>(
+    [],
   );
 
   const refreshIncidents = async (signal?: AbortSignal) => {
@@ -291,6 +312,55 @@ function CommandCenterApp() {
     return () => controller.abort();
   }, []);
 
+  const refreshReliefPoints = async (signal?: AbortSignal) => {
+    setReliefLoadState("loading");
+    setReliefFeedback("Loading relief distribution points");
+
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/relief-points?limit=12`,
+        {
+          signal,
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`relief point API returned ${response.status}`);
+      }
+
+      const payload = (await response.json()) as ReliefPointListResponse;
+      const nextReliefPoints = payload.reliefPoints.length
+        ? payload.reliefPoints
+        : fallbackReliefPoints;
+      setReliefPoints(nextReliefPoints);
+      setReliefForm((current) => {
+        const selected =
+          nextReliefPoints.find(
+            (point) => point.id === current.reliefPointId,
+          ) ?? nextReliefPoints[0];
+        return buildDefaultReliefPointForm(selected);
+      });
+      setReliefLoadState("ready");
+      setReliefFeedback("Relief point API connected.");
+      void refreshReliefHistory(nextReliefPoints[0]?.id, signal);
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setReliefPoints(fallbackReliefPoints);
+      setReliefForm(buildDefaultReliefPointForm(fallbackReliefPoints[0]));
+      setReliefHistory([]);
+      setReliefLoadState("fallback");
+      setReliefFeedback("Relief point API unavailable. Showing fixtures.");
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshReliefPoints(controller.signal);
+    return () => controller.abort();
+  }, []);
+
   const filteredIncidents = useMemo(
     () => incidents.filter((incident) => matchesFilters(incident, filters)),
     [filters, incidents],
@@ -312,6 +382,13 @@ function CommandCenterApp() {
       shelters.find((shelter) => shelter.id === shelterForm.shelterId) ??
       shelters[0],
     [shelterForm.shelterId, shelters],
+  );
+
+  const selectedReliefPoint = useMemo(
+    () =>
+      reliefPoints.find((point) => point.id === reliefForm.reliefPointId) ??
+      reliefPoints[0],
+    [reliefForm.reliefPointId, reliefPoints],
   );
 
   useEffect(() => {
@@ -441,6 +518,57 @@ function CommandCenterApp() {
         return { ...current, [key]: value };
       });
     };
+
+  const updateReliefForm =
+    (key: keyof ReliefPointFormState) =>
+    (
+      event:
+        ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+    ) => {
+      const value = event.target.value;
+      setReliefForm((current) => {
+        if (key === "reliefPointId") {
+          if (value === "__new__") {
+            setReliefHistory([]);
+            return buildDefaultReliefPointForm();
+          }
+          const reliefPoint = reliefPoints.find((item) => item.id === value);
+          if (reliefPoint) {
+            void refreshReliefHistory(reliefPoint.id);
+            return buildDefaultReliefPointForm(reliefPoint);
+          }
+          return current;
+        }
+        return { ...current, [key]: value };
+      });
+    };
+
+  const refreshReliefHistory = async (
+    reliefPointId?: string,
+    signal?: AbortSignal,
+  ) => {
+    if (!reliefPointId || reliefPointId === "__new__") {
+      setReliefHistory([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/relief-points/${reliefPointId}/stock-history`,
+        { signal },
+      );
+      if (!response.ok) {
+        throw new Error(`relief history API returned ${response.status}`);
+      }
+      const payload =
+        (await response.json()) as ReliefPointStockHistoryResponse;
+      setReliefHistory(payload.history);
+    } catch (error) {
+      if (!signal?.aborted) {
+        setReliefHistory([]);
+      }
+    }
+  };
 
   const refreshDuplicateReview = async (
     incidentId: string,
@@ -762,6 +890,101 @@ function CommandCenterApp() {
       );
     } finally {
       setShelterBusy(false);
+    }
+  };
+
+  const saveReliefPoint = async () => {
+    const latitude = Number(reliefForm.latitude);
+    const longitude = Number(reliefForm.longitude);
+    if (
+      !reliefForm.name.trim() ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      setReliefFeedback(
+        "Relief point name and valid latitude/longitude are required.",
+      );
+      return;
+    }
+
+    let stockCategories: ReliefStockCategory[];
+    try {
+      stockCategories = parseReliefStockCategories(reliefForm.stockCategories);
+    } catch (error) {
+      setReliefFeedback(
+        error instanceof Error
+          ? error.message
+          : "Stock categories must be valid.",
+      );
+      return;
+    }
+
+    const payload = {
+      address: reliefForm.address.trim(),
+      contact: reliefForm.contact.trim(),
+      district: reliefForm.district.trim(),
+      eligibility: reliefForm.eligibility.trim(),
+      location: { lat: latitude, lng: longitude },
+      name: reliefForm.name.trim(),
+      operatingHours: reliefForm.operatingHours.trim(),
+      region: reliefForm.region.trim(),
+      schedule: reliefForm.schedule.trim(),
+      sourceRef: reliefForm.sourceRef.trim() || "authority-dashboard",
+      status: reliefForm.status,
+      stockCategories,
+      type: reliefForm.type,
+    };
+    const creating = reliefForm.reliefPointId === "__new__";
+
+    setReliefBusy(true);
+    setReliefFeedback("");
+    try {
+      const response = await fetch(
+        creating
+          ? `${SHELTER_API_BASE}/relief-points`
+          : `${SHELTER_API_BASE}/relief-points/${reliefForm.reliefPointId}`,
+        {
+          method: creating ? "POST" : "PATCH",
+          headers: authorityHeaders(),
+          body: JSON.stringify(
+            creating
+              ? ({
+                  ...payload,
+                  source: "manual",
+                } satisfies CreateReliefPointRequest)
+              : (payload satisfies UpdateReliefPointRequest),
+          ),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`relief point API returned ${response.status}`);
+      }
+
+      const reliefPoint = (await response.json()) as ReliefPointRecord;
+      setReliefPoints((current) => {
+        const exists = current.some((item) => item.id === reliefPoint.id);
+        return exists
+          ? current.map((item) =>
+              item.id === reliefPoint.id ? reliefPoint : item,
+            )
+          : [reliefPoint, ...current];
+      });
+      setReliefForm(buildDefaultReliefPointForm(reliefPoint));
+      setReliefLoadState("ready");
+      setReliefFeedback(
+        `${reliefPoint.name} ${creating ? "published" : "updated"}.`,
+      );
+      void refreshReliefHistory(reliefPoint.id);
+    } catch (error) {
+      setReliefFeedback(
+        "Relief point save needs a live shelter-service API and authority session.",
+      );
+    } finally {
+      setReliefBusy(false);
     }
   };
 
@@ -1369,6 +1592,253 @@ function CommandCenterApp() {
                 </Stack>
               </Paper>
 
+              <Paper className="surface relief-panel">
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "stretch", sm: "center" }}
+                  className="section-heading"
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <LifeBuoy size={21} color={nadaaBrand.colors.gold} />
+                    <Box>
+                      <Typography variant="h6">Relief distribution</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Publish points, stock and eligibility
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    size="small"
+                    startIcon={
+                      reliefLoadState === "loading" ? (
+                        <Loader2 size={16} className="spin-icon" />
+                      ) : (
+                        <RefreshCw size={16} />
+                      )
+                    }
+                    onClick={() => void refreshReliefPoints()}
+                    disabled={reliefLoadState === "loading"}
+                  >
+                    Refresh
+                  </Button>
+                </Stack>
+
+                {reliefFeedback ? (
+                  <Alert
+                    severity={
+                      reliefLoadState === "ready" ? "success" : "warning"
+                    }
+                    className="feed-alert"
+                  >
+                    {reliefFeedback}
+                  </Alert>
+                ) : null}
+
+                <Stack spacing={1.5}>
+                  <CommandSelect
+                    label="Relief point"
+                    value={reliefForm.reliefPointId}
+                    onChange={updateReliefForm("reliefPointId")}
+                  >
+                    <MenuItem value="__new__">New relief point</MenuItem>
+                    {reliefPoints.map((point) => (
+                      <MenuItem value={point.id} key={point.id}>
+                        {point.name}
+                      </MenuItem>
+                    ))}
+                  </CommandSelect>
+
+                  {selectedReliefPoint &&
+                  reliefForm.reliefPointId !== "__new__" ? (
+                    <Box className="shelter-capacity-summary">
+                      <Stack direction="row" spacing={1} flexWrap="wrap">
+                        <Chip
+                          size="small"
+                          label={selectedReliefPoint.status}
+                          color={
+                            selectedReliefPoint.status === "open"
+                              ? "success"
+                              : "warning"
+                          }
+                        />
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`${selectedReliefPoint.stockCategories.length} stock lines`}
+                        />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        {selectedReliefPoint.district} ·{" "}
+                        {selectedReliefPoint.address}
+                      </Typography>
+                    </Box>
+                  ) : null}
+
+                  <Grid container spacing={1}>
+                    <Grid size={{ xs: 12, sm: 7 }}>
+                      <TextField
+                        label="Name"
+                        size="small"
+                        fullWidth
+                        value={reliefForm.name}
+                        onChange={updateReliefForm("name")}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 5 }}>
+                      <CommandSelect
+                        label="Type"
+                        value={reliefForm.type}
+                        onChange={updateReliefForm("type")}
+                      >
+                        <MenuItem value="food">Food</MenuItem>
+                        <MenuItem value="water">Water</MenuItem>
+                        <MenuItem value="medical">Medical</MenuItem>
+                        <MenuItem value="hygiene">Hygiene</MenuItem>
+                        <MenuItem value="blankets">Blankets</MenuItem>
+                        <MenuItem value="cash">Cash</MenuItem>
+                        <MenuItem value="mixed">Mixed</MenuItem>
+                      </CommandSelect>
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <CommandSelect
+                        label="Status"
+                        value={reliefForm.status}
+                        onChange={updateReliefForm("status")}
+                      >
+                        <MenuItem value="open">Open</MenuItem>
+                        <MenuItem value="limited">Limited</MenuItem>
+                        <MenuItem value="paused">Paused</MenuItem>
+                        <MenuItem value="closed">Closed</MenuItem>
+                      </CommandSelect>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 8 }}>
+                      <TextField
+                        label="Address"
+                        size="small"
+                        fullWidth
+                        value={reliefForm.address}
+                        onChange={updateReliefForm("address")}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        label="Latitude"
+                        size="small"
+                        fullWidth
+                        value={reliefForm.latitude}
+                        onChange={updateReliefForm("latitude")}
+                        inputProps={{ inputMode: "decimal" }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        label="Longitude"
+                        size="small"
+                        fullWidth
+                        value={reliefForm.longitude}
+                        onChange={updateReliefForm("longitude")}
+                        inputProps={{ inputMode: "decimal" }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        label="District"
+                        size="small"
+                        fullWidth
+                        value={reliefForm.district}
+                        onChange={updateReliefForm("district")}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        label="Contact"
+                        size="small"
+                        fullWidth
+                        value={reliefForm.contact}
+                        onChange={updateReliefForm("contact")}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        label="Hours"
+                        size="small"
+                        fullWidth
+                        value={reliefForm.operatingHours}
+                        onChange={updateReliefForm("operatingHours")}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        label="Schedule"
+                        size="small"
+                        fullWidth
+                        value={reliefForm.schedule}
+                        onChange={updateReliefForm("schedule")}
+                      />
+                    </Grid>
+                    <Grid size={12}>
+                      <TextField
+                        label="Eligibility"
+                        size="small"
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        value={reliefForm.eligibility}
+                        onChange={updateReliefForm("eligibility")}
+                      />
+                    </Grid>
+                    <Grid size={12}>
+                      <TextField
+                        label="Stock lines"
+                        size="small"
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        value={reliefForm.stockCategories}
+                        onChange={updateReliefForm("stockCategories")}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  {reliefHistory.length ? (
+                    <Box className="relief-history">
+                      <Typography variant="caption" color="text.secondary">
+                        Recent stock history
+                      </Typography>
+                      {reliefHistory.slice(0, 2).map((entry) => (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          key={entry.id}
+                        >
+                          {formatShortDate(entry.changedAt)} ·{" "}
+                          {entry.stockCategories.length} stock lines ·{" "}
+                          {entry.changedBy}
+                        </Typography>
+                      ))}
+                    </Box>
+                  ) : null}
+
+                  <Button
+                    type="button"
+                    variant="contained"
+                    startIcon={<LifeBuoy size={17} />}
+                    onClick={() => void saveReliefPoint()}
+                    disabled={reliefBusy}
+                  >
+                    {reliefBusy
+                      ? "Saving"
+                      : reliefForm.reliefPointId === "__new__"
+                        ? "Publish relief point"
+                        : "Update relief point"}
+                  </Button>
+                </Stack>
+              </Paper>
+
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">
                   Operating posture
@@ -1412,6 +1882,79 @@ function buildDefaultShelterForm(shelter: ShelterRecord): ShelterFormState {
     status: shelter.status,
     notes: shelter.notes ?? "",
   };
+}
+
+function buildDefaultReliefPointForm(
+  point?: ReliefPointRecord,
+): ReliefPointFormState {
+  return {
+    reliefPointId: point?.id ?? "__new__",
+    name: point?.name ?? "",
+    type: point?.type ?? "food",
+    status: point?.status ?? "open",
+    region: point?.region ?? "Greater Accra",
+    district: point?.district ?? "",
+    address: point?.address ?? "",
+    latitude: point ? `${point.location.lat}` : "5.5600",
+    longitude: point ? `${point.location.lng}` : "-0.2000",
+    contact: point?.contact ?? "112",
+    operatingHours: point?.operatingHours ?? "08:00-18:00",
+    eligibility: point?.eligibility ?? "",
+    schedule: point?.schedule ?? "Daily",
+    stockCategories: formatReliefStockLines(point?.stockCategories ?? []),
+    sourceRef: point?.sourceRef ?? "authority-dashboard",
+  };
+}
+
+function formatReliefStockLines(categories: ReliefStockCategory[]) {
+  return categories
+    .map((category) =>
+      [category.category, category.quantity, category.unit].join(", "),
+    )
+    .join("\n");
+}
+
+function parseReliefStockCategories(value: string): ReliefStockCategory[] {
+  const now = new Date().toISOString();
+  const categories = value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [category, quantityText, unit = "units"] = line
+        .split(",")
+        .map((part) => part.trim());
+      const quantity = Number(quantityText);
+      if (!category || !Number.isFinite(quantity) || quantity < 0) {
+        throw new Error(
+          "Stock lines must use category, quantity, unit per line.",
+        );
+      }
+      return {
+        category,
+        quantity,
+        unit: unit || "units",
+        lastUpdated: now,
+      };
+    });
+
+  if (!categories.length) {
+    throw new Error("At least one stock line is required.");
+  }
+  return categories;
+}
+
+function formatShortDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("en-GH", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 export default CommandCenterApp;

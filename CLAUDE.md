@@ -16,4 +16,3 @@ This repository follows the NADAA delivery plan in `agent_plan.md`.
 - Keep brand constants in `packages/brand`.
 - Keep public-safety decisions human-approved.
 - Update docs when API, deployment, security, ML, or workflow behavior changes.
-

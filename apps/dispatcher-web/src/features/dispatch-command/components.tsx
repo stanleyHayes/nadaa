@@ -27,9 +27,11 @@ import {
   BrainCircuit,
   CheckCheck,
   Crosshair,
+  Hospital,
   FileText,
   GitMerge,
   ListChecks,
+  RefreshCw,
   ShieldAlert,
   Truck,
 } from "lucide-react";
@@ -38,6 +40,9 @@ import type {
   AlertTarget,
   AuthorityAlertRecord,
   DuplicateReviewCandidate,
+  HospitalCapacityRecord,
+  ReliefPointRecord,
+  RoadClosureRecord,
 } from "@nadaa/shared-types";
 import {
   alertSeverityOptions,
@@ -51,7 +56,9 @@ import type {
   AlertFormState,
   AlertLoadState,
   AssignmentFormState,
+  CapacityLoadState,
   CommandIncident,
+  HospitalCapacityFilterState,
   IncidentStatusFormState,
   MLPredictionReview,
   MLReviewLoadState,
@@ -73,6 +80,12 @@ import {
   expectedOnsetLabel,
   formatShortTime,
   hazardLabel,
+  hospitalBedPercent,
+  hospitalCapacityColor,
+  hospitalCapacityLabel,
+  hospitalUnitStatusLabel,
+  hospitalUpdatedLabel,
+  metersLabel,
   probabilityLabel,
   requiresIncidentResolution,
   severityLabel,
@@ -100,14 +113,26 @@ export function CommandSelect({
   );
 }
 
+const closureSeverityColors: Record<string, string> = {
+  emergency: "#7f1d1d",
+  severe: "#dc2626",
+  high: "#f97316",
+  moderate: "#eab308",
+  low: "#64748b",
+};
+
 export function IncidentMap({
   incidents,
   onSelect,
   selectedIncidentId,
+  closures,
+  reliefPoints,
 }: {
   incidents: CommandIncident[];
   onSelect: (incidentId: string) => void;
   selectedIncidentId?: string;
+  closures?: RoadClosureRecord[];
+  reliefPoints?: ReliefPointRecord[];
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -149,9 +174,6 @@ export function IncidentMap({
     }
 
     layer.clearLayers();
-    if (!incidents.length) {
-      return;
-    }
 
     const bounds = L.latLngBounds([]);
     incidents.forEach((incident) => {
@@ -174,10 +196,49 @@ export function IncidentMap({
       bounds.extend([incident.location.lat, incident.location.lng]);
     });
 
+    (closures ?? []).forEach((closure) => {
+      if (closure.status === "lifted" || closure.status === "cancelled") {
+        return;
+      }
+      const latlngs = closure.geometry.coordinates.map((point) => [
+        point[1],
+        point[0],
+      ]) as L.LatLngExpression[];
+      const polyline = L.polyline(latlngs, {
+        color: closureSeverityColors[closure.severity] ?? "#64748b",
+        weight: 5,
+        opacity: 0.85,
+        dashArray: closure.status === "scheduled" ? "8,8" : undefined,
+      });
+      polyline.bindPopup(
+        `<strong>${closure.roadName}</strong><br>${closure.reason ?? "Road closure"} · ${closure.severity}<br>${closure.detourNote ?? "No detour noted"}`,
+      );
+      polyline.addTo(layer);
+      latlngs.forEach((latlng) => bounds.extend(latlng));
+    });
+
+    (reliefPoints ?? []).forEach((point) => {
+      const marker = L.circleMarker([point.location.lat, point.location.lng], {
+        radius: 8,
+        color: "#FFFFFF",
+        weight: 2,
+        fillColor: "#0B6FB8",
+        fillOpacity: 0.85,
+      });
+      const stock = point.stockCategories
+        .map((item) => `${item.category}: ${item.quantity} ${item.unit}`)
+        .join("<br>");
+      marker.bindPopup(
+        `<strong>${point.name}</strong><br>${point.type} · ${point.status}<br>${point.address}<br>${stock || "No stock recorded"}`,
+      );
+      marker.addTo(layer);
+      bounds.extend([point.location.lat, point.location.lng]);
+    });
+
     if (bounds.isValid()) {
       map.fitBounds(bounds.pad(0.18), { animate: true, maxZoom: 13 });
     }
-  }, [incidents, onSelect, selectedIncidentId]);
+  }, [incidents, onSelect, selectedIncidentId, closures, reliefPoints]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -622,6 +683,366 @@ export function MLPredictionReviewPanel({
           )}
         </Grid>
       </Grid>
+    </Paper>
+  );
+}
+
+export function HospitalCapacityPanel({
+  facilities,
+  filters,
+  loadMessage,
+  loadState,
+  onRefresh,
+  onUpdateCapacity,
+  onUpdateIncludeStale,
+  onUpdateMinBeds,
+  onUpdateService,
+}: {
+  facilities: HospitalCapacityRecord[];
+  filters: HospitalCapacityFilterState;
+  loadMessage: string;
+  loadState: CapacityLoadState;
+  onRefresh: () => void;
+  onUpdateCapacity: (event: SelectChangeEvent) => void;
+  onUpdateIncludeStale: (checked: boolean) => void;
+  onUpdateMinBeds: (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  onUpdateService: (event: SelectChangeEvent) => void;
+}) {
+  const staleCount = facilities.filter((facility) => facility.stale).length;
+
+  return (
+    <Paper className="surface capacity-panel">
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        gap={1.5}
+        className="section-heading"
+      >
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Hospital size={22} color={nadaaBrand.colors.navy} />
+          <Box>
+            <Typography variant="h5">Hospital capacity</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Beds, emergency unit status, ambulances, oxygen, and stale update
+              warnings for dispatcher routing.
+            </Typography>
+          </Box>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Chip
+            size="small"
+            label={
+              loadState === "ready"
+                ? "Live capacity"
+                : loadState === "loading"
+                  ? "Loading"
+                  : loadState === "empty"
+                    ? "No matches"
+                    : "Fixture capacity"
+            }
+            color={
+              loadState === "ready"
+                ? "success"
+                : loadState === "empty"
+                  ? "default"
+                  : "warning"
+            }
+          />
+          {staleCount ? (
+            <Chip size="small" color="warning" label={`${staleCount} stale`} />
+          ) : null}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Hospital size={16} />}
+            disabled={loadState === "loading"}
+            onClick={onRefresh}
+          >
+            Refresh capacity
+          </Button>
+        </Stack>
+      </Stack>
+
+      {loadState === "fallback" ? (
+        <Alert severity="warning" className="feed-alert">
+          {loadMessage}
+        </Alert>
+      ) : null}
+      {loadState === "loading" ? (
+        <LinearProgress className="feed-progress" />
+      ) : null}
+
+      <Grid container spacing={1.5} className="capacity-filters">
+        <Grid size={{ xs: 12, md: 3 }}>
+          <CommandSelect
+            label="Service"
+            value={filters.service}
+            onChange={onUpdateService}
+          >
+            <MenuItem value="all">All services</MenuItem>
+            <MenuItem value="emergency">Emergency</MenuItem>
+            <MenuItem value="trauma">Trauma</MenuItem>
+            <MenuItem value="icu">ICU</MenuItem>
+            <MenuItem value="maternity">Maternity</MenuItem>
+            <MenuItem value="pediatric">Pediatric</MenuItem>
+            <MenuItem value="ambulance">Ambulance</MenuItem>
+            <MenuItem value="oxygen">Oxygen</MenuItem>
+          </CommandSelect>
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <CommandSelect
+            label="Capacity"
+            value={filters.emergencyCapacity}
+            onChange={onUpdateCapacity}
+          >
+            <MenuItem value="all">All capacity</MenuItem>
+            <MenuItem value="available">Available</MenuItem>
+            <MenuItem value="limited">Limited</MenuItem>
+            <MenuItem value="full">Full</MenuItem>
+            <MenuItem value="offline">Offline</MenuItem>
+            <MenuItem value="unknown">Unknown</MenuItem>
+          </CommandSelect>
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <TextField
+            fullWidth
+            label="Min beds"
+            size="small"
+            type="number"
+            value={filters.minAvailableBeds}
+            onChange={onUpdateMinBeds}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={filters.includeStale}
+                onChange={(event) => onUpdateIncludeStale(event.target.checked)}
+              />
+            }
+            label="Show stale"
+          />
+        </Grid>
+      </Grid>
+
+      {facilities.length ? (
+        <Grid container spacing={1.5} className="capacity-list">
+          {facilities.map((facility) => (
+            <Grid size={{ xs: 12, md: 4 }} key={facility.id}>
+              <Box className="hospital-card">
+                <Stack direction="row" justifyContent="space-between" gap={1}>
+                  <Box>
+                    <Typography variant="subtitle2">{facility.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {facility.district}
+                      {facility.distanceMeters
+                        ? ` · ${metersLabel(facility.distanceMeters)}`
+                        : ""}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    color={hospitalCapacityColor(facility.emergencyCapacity)}
+                    label={hospitalCapacityLabel(facility.emergencyCapacity)}
+                  />
+                </Stack>
+
+                <Stack spacing={0.75}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Typography variant="body2">Available beds</Typography>
+                    <Typography variant="subtitle2">
+                      {facility.availableBeds}/{facility.totalBeds}
+                    </Typography>
+                  </Stack>
+                  <LinearProgress
+                    variant="determinate"
+                    value={hospitalBedPercent(facility)}
+                    color={
+                      facility.emergencyCapacity === "available"
+                        ? "success"
+                        : facility.emergencyCapacity === "limited"
+                          ? "warning"
+                          : "error"
+                    }
+                  />
+                </Stack>
+
+                <Grid container spacing={1}>
+                  <Grid size={6}>
+                    <Fact
+                      label="Emergency"
+                      value={hospitalUnitStatusLabel(
+                        facility.emergencyUnitStatus,
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={6}>
+                    <Fact
+                      label="Ambulances"
+                      value={`${facility.ambulancesAvailable}`}
+                    />
+                  </Grid>
+                  <Grid size={6}>
+                    <Fact label="ICU" value={`${facility.icuBedsAvailable}`} />
+                  </Grid>
+                  <Grid size={6}>
+                    <Fact
+                      label="Oxygen"
+                      value={facility.oxygenAvailable ? "Available" : "No"}
+                    />
+                  </Grid>
+                </Grid>
+
+                {facility.stale ? (
+                  <Alert severity="warning">
+                    {facility.staleReason ?? "Capacity update is stale."}
+                  </Alert>
+                ) : null}
+
+                <Typography variant="caption" color="text.secondary">
+                  Updated {hospitalUpdatedLabel(facility.updatedAt)} via{" "}
+                  {facility.source}
+                </Typography>
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <EmptyState
+          title="No hospital capacity matches"
+          detail="Adjust service, bed, capacity, or stale-data filters."
+        />
+      )}
+    </Paper>
+  );
+}
+
+export function ReliefPointPanel({
+  loadMessage,
+  loadState,
+  onRefresh,
+  reliefPoints,
+}: {
+  loadMessage: string;
+  loadState: CapacityLoadState;
+  onRefresh: () => void;
+  reliefPoints: ReliefPointRecord[];
+}) {
+  return (
+    <Paper className="surface capacity-panel">
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        gap={1.5}
+        className="section-heading"
+      >
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Truck size={22} color={nadaaBrand.colors.navy} />
+          <Box>
+            <Typography variant="h5">Relief distribution points</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Food, water, medical, hygiene, and blanket distribution locations
+              for affected communities.
+            </Typography>
+          </Box>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Chip
+            size="small"
+            label={
+              loadState === "ready"
+                ? "Live relief points"
+                : loadState === "loading"
+                  ? "Loading"
+                  : loadState === "empty"
+                    ? "No matches"
+                    : "Fixture relief points"
+            }
+            color={
+              loadState === "ready"
+                ? "success"
+                : loadState === "empty"
+                  ? "default"
+                  : "warning"
+            }
+          />
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RefreshCw size={16} />}
+            onClick={onRefresh}
+          >
+            Refresh
+          </Button>
+        </Stack>
+      </Stack>
+
+      {loadState === "loading" ? (
+        <LinearProgress />
+      ) : loadState === "fallback" || loadState === "empty" ? (
+        <Alert severity={loadState === "empty" ? "info" : "warning"}>
+          {loadMessage}
+        </Alert>
+      ) : null}
+
+      {reliefPoints.length > 0 ? (
+        <Grid container spacing={2}>
+          {reliefPoints.map((point) => (
+            <Grid size={{ xs: 12, md: 6, lg: 4 }} key={point.id}>
+              <Box className="capacity-card">
+                <Stack spacing={1}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      {point.name}
+                    </Typography>
+                    <Chip label={point.status} size="small" />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    {point.type} · {point.district}
+                  </Typography>
+                  <Typography variant="body2">{point.address}</Typography>
+                  <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                    {point.stockCategories.map((stock) => (
+                      <Chip
+                        key={stock.category}
+                        label={`${stock.category}: ${stock.quantity} ${stock.unit}`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    ))}
+                  </Stack>
+                  {point.operatingHours ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Hours: {point.operatingHours}
+                    </Typography>
+                  ) : null}
+                  {point.eligibility ? (
+                    <Alert severity="info" sx={{ py: 0.5 }}>
+                      {point.eligibility}
+                    </Alert>
+                  ) : null}
+                </Stack>
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <EmptyState
+          title="No relief points"
+          detail="No relief distribution points are currently available."
+        />
+      )}
     </Paper>
   );
 }

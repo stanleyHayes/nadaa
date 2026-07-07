@@ -10,4 +10,3 @@ Expected resources:
 - Container runtime.
 - DNS and TLS.
 - Observability stack.
-
