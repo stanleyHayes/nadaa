@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"log"
 	"sync"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/stanleyHayes/nadaa/services/auth-service/internal/utils"
 )
 
+// Sentinel errors returned by the auth store.
 var (
 	ErrDuplicatePhone     = errors.New("duplicate phone")
 	ErrDuplicateEmail     = errors.New("duplicate email")
@@ -74,7 +76,9 @@ func NewMemoryStore(now time.Time, cfg *config.Config) Store {
 		UpdatedAt:     now,
 	}
 
-	seedBootstrapAgencyAdmin(m, cfg, now)
+	if err := seedBootstrapAgencyAdmin(m, cfg, now); err != nil {
+		log.Printf("warning: failed to seed bootstrap agency admin: %v", err)
+	}
 	return m
 }
 

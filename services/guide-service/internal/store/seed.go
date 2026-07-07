@@ -6,6 +6,7 @@ import (
 	"github.com/stanleyHayes/nadaa/services/guide-service/internal/models"
 )
 
+// seedGuides returns the fixture guide catalog for the given timestamp.
 func seedGuides(now time.Time) []models.EmergencyGuide {
 	return []models.EmergencyGuide{
 		newGuide("guide_flood_before_en", "flood", "before", "Prepare before flooding", "Know your nearest shelter, keep documents dry, clear drains safely, prepare drinking water, and agree on a family meeting point.", "en", true, 10, now),
@@ -23,6 +24,7 @@ func seedGuides(now time.Time) []models.EmergencyGuide {
 	}
 }
 
+// newGuide creates an EmergencyGuide fixture with the provided fields.
 func newGuide(id, hazard, stage, title, body, language string, offline bool, sortOrder int, now time.Time) models.EmergencyGuide {
 	return models.EmergencyGuide{
 		ID:               id,

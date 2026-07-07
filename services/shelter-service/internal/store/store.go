@@ -260,6 +260,7 @@ func (m *MemoryStore) CreateReliefPoint(request models.CreateReliefPointRequest,
 }
 
 // UpdateReliefPoint updates an existing relief point.
+//nolint:gocognit // legacy complex function; refactor into validation/execution helpers in a future pass.
 func (m *MemoryStore) UpdateReliefPoint(id string, request models.UpdateReliefPointRequest, ctx models.AuthorityContext, now time.Time) (models.ReliefPoint, string, string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -357,6 +358,7 @@ func (m *MemoryStore) ListReliefPointStockHistory(reliefPointID string) []models
 }
 
 // ListAidRequests returns aid requests matching the filter.
+//nolint:gocognit // legacy complex function; refactor into smaller helpers in a future pass.
 func (m *MemoryStore) ListAidRequests(filter models.AidRequestFilter) []models.AidRequest {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -756,12 +758,6 @@ func (m *MemoryStore) ImportHospitalCapacityFixture(request models.HospitalCapac
 		imported++
 	}
 	return facilities, imported
-}
-
-func normalizeOccupancy(request models.OccupancyUpdateRequest) models.OccupancyUpdateRequest {
-	request.Status = utils.NormalizeToken(request.Status)
-	request.Notes = strings.TrimSpace(request.Notes)
-	return request
 }
 
 func copyShelters(source []models.Shelter) []models.Shelter {

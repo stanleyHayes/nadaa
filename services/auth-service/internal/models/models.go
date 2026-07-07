@@ -6,14 +6,22 @@ const (
 	// DefaultAgencyID is the fixed ID of the bootstrap NADMO agency fixture.
 	DefaultAgencyID = "00000000-0000-0000-0000-000000000101"
 
-	RoleCitizen         = "citizen"
-	RoleAgencyViewer    = "agency_viewer"
-	RoleDispatcher      = "dispatcher"
-	RoleResponder       = "responder"
-	RoleNADMOOfficer    = "nadmo_officer"
+	// RoleCitizen is the default role for public citizen accounts.
+	RoleCitizen = "citizen"
+	// RoleAgencyViewer is a read-only authority role.
+	RoleAgencyViewer = "agency_viewer"
+	// RoleDispatcher can triage, verify, and assign incidents.
+	RoleDispatcher = "dispatcher"
+	// RoleResponder can update assigned incident status.
+	RoleResponder = "responder"
+	// RoleNADMOOfficer can manage alerts and incidents across agencies.
+	RoleNADMOOfficer = "nadmo_officer"
+	// RoleDistrictOfficer can coordinate response within a district.
 	RoleDistrictOfficer = "district_officer"
-	RoleAgencyAdmin     = "agency_admin"
-	RoleSystemAdmin     = "system_admin"
+	// RoleAgencyAdmin can manage users within their agency.
+	RoleAgencyAdmin = "agency_admin"
+	// RoleSystemAdmin has full platform governance access.
+	RoleSystemAdmin = "system_admin"
 )
 
 // AgencyRoles is the set of authority roles that may be assigned to agency users.

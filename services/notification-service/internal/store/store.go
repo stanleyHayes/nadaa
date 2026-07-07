@@ -238,13 +238,10 @@ func (m *MemoryStore) ReviewVoiceAlertAsset(id string, action string, reviewer s
 			selectedLanguages[language] = true
 		}
 		reviewAll := len(selectedLanguages) == 0
-		reviewStatus := "approved"
+		var reviewStatus string
 		var reviewedCount int
 		for variantIndex, variant := range asset.Variants {
 			if !reviewAll && !selectedLanguages[variant.Language] {
-				if variant.ReviewStatus != "approved" {
-					reviewStatus = "partial_review"
-				}
 				continue
 			}
 			asset.Variants[variantIndex].Status = voiceReviewStatus(action)

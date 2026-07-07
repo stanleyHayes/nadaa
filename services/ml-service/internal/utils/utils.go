@@ -122,11 +122,12 @@ func SanitizeID(value string) string {
 
 // ReadJSONFile reads and decodes a JSON file into target.
 func ReadJSONFile(path string, target any) error {
+	//nolint:gosec // path is resolved from trusted model directory configuration.
 	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	return json.NewDecoder(file).Decode(target)
 }
 

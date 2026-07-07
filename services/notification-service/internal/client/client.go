@@ -47,7 +47,7 @@ func (c *AlertServiceClient) ListAlerts(ctx context.Context, now time.Time) ([]m
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return nil, fmt.Errorf("alert-service returned %d", response.StatusCode)
@@ -164,7 +164,7 @@ func (c *IncidentServiceClient) CreateIncident(ctx context.Context, report model
 		utils.LogWarn("incident-service handoff request failed", "reportId", report.ID, "endpoint", parsed.String(), "error", err)
 		return models.IncidentIntakeResponse{}, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		utils.LogWarn("incident-service handoff returned non-success", "reportId", report.ID, "endpoint", parsed.String(), "statusCode", response.StatusCode)

@@ -102,12 +102,12 @@ func (s *server) forwardRoadClosureToService(r *http.Request, request models.Roa
 	if err != nil {
 		return fmt.Errorf("road closure service request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		return fmt.Errorf("road closure service returned %d: %s", resp.StatusCode, string(body))
 	}
-	io.Copy(io.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 	return nil
 }
 

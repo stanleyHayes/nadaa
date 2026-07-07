@@ -56,7 +56,7 @@ func (c *mlClient) predict(ctx context.Context, location models.Coordinates) (mo
 	if err != nil {
 		return models.MLPrediction{}, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return models.MLPrediction{}, fmt.Errorf("ml service returned %d", response.StatusCode)

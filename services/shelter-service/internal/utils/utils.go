@@ -15,9 +15,13 @@ import (
 )
 
 const (
-	EarthRadiusMeters          = 6371000.0
-	NearbySearchMeters         = 30000.0
-	DefaultNearbyLimit         = 6
+	// EarthRadiusMeters is the approximate radius of the Earth in meters.
+	EarthRadiusMeters = 6371000.0
+	// NearbySearchMeters is the default radius for nearby shelter searches.
+	NearbySearchMeters = 30000.0
+	// DefaultNearbyLimit is the default number of nearby results returned.
+	DefaultNearbyLimit = 6
+	// HospitalCapacityStaleAfter is the duration after which hospital capacity is considered stale.
 	HospitalCapacityStaleAfter = 30 * time.Minute
 )
 

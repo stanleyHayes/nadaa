@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/stanleyHayes/nadaa/services/integration-service/internal/config"
@@ -10,6 +15,8 @@ import (
 	"github.com/stanleyHayes/nadaa/services/integration-service/internal/models"
 	"github.com/stanleyHayes/nadaa/services/integration-service/internal/store"
 )
+
+const serviceName = "integration-service"
 
 func main() {
 	cfg := config.Load()
@@ -20,10 +27,29 @@ func main() {
 		go startObservationImportScheduler(s, cfg.SchedulerInterval)
 	}
 
-	addr := cfg.Addr
-	log.Printf("integration-service listening on %s", addr)
-	if err := http.ListenAndServe(addr, srv.Routes(cfg.AllowedOrigins)); err != nil {
-		log.Fatal(err)
+	httpServer := &http.Server{
+		Addr:         cfg.Addr,
+		Handler:      srv.Routes(cfg.AllowedOrigins),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	go func() {
+		log.Printf("%s listening on %s", serviceName, cfg.Addr)
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	<-sig
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Printf("shutdown error: %v", err)
 	}
 }
 

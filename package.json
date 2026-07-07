@@ -54,6 +54,8 @@
     "smoke:integration": "node scripts/smoke-integration.mjs",
     "smoke:staging": "node scripts/smoke-staging.mjs",
     "go:test": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && go test ./...); done",
+    "go:lint": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && golangci-lint run ./...); done",
+    "go:vet": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && go vet ./...); done",
     "format": "prettier --write \"**/*.{md,json,ts,tsx,css,yml,yaml}\""
   },
   "devDependencies": {

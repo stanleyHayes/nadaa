@@ -344,7 +344,7 @@ func NormalizeTarget(target models.AlertTarget) models.AlertTarget {
 			normalized.Label = "Radius target"
 		}
 		if normalized.RadiusMeters > 0 {
-			normalized.AreaSqKm = RoundArea(math.Pi * math.Pow(normalized.RadiusMeters/1000, 2))
+			normalized.AreaSqKm = RoundArea(math.Pi * (normalized.RadiusMeters / 1000) * (normalized.RadiusMeters / 1000))
 		}
 		if normalized.AreaSqKm > 0 && normalized.EstimatedPopulation == 0 {
 			normalized.EstimatedPopulation = int(math.Round(normalized.AreaSqKm * 4500))
