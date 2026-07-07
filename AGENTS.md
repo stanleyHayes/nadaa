@@ -18,6 +18,29 @@ Build NADAA as a public-safety platform for Ghana. Keep implementation aligned w
 - Commit: `NADAA-123 implement short name`
 - PR: `NADAA-123 Short Name`
 
+## Go Service Structure
+
+Each Go service under `services/` is organized as a multi-package Go module:
+
+```
+services/<service>/
+├── cmd/server/main.go       # dependency wiring and ListenAndServe
+└── internal/
+    ├── config/              # env-based configuration
+    ├── models/              # exported request/response/record structs
+    ├── store/               # Store interface + in-memory implementation + seed data
+    ├── utils/               # JSON, CORS, security headers, validation, env helpers
+    └── handlers/            # HTTP server, routes, middleware, resource handlers, tests
+```
+
+- Keep `cmd/server/main.go` small: only load config, create the store, build the handler server, and start the HTTP listener.
+- Put domain types in `internal/models` and export them.
+- Define a `Store` interface in `internal/store` so handlers stay decoupled from storage details.
+- Keep shared helpers (JSON encoding, CORS, env parsing, validation, coordinates) in `internal/utils`.
+- Place handlers, middleware, and route registration in `internal/handlers`; split files by domain resource.
+- Move service tests into `internal/handlers/*_test.go` under `package handlers` so they can call unexported server methods.
+- Preserve env vars, defaults, routes, CORS behavior, security headers, and observable behavior when refactoring.
+
 ## Safety Rules
 
 - ML predictions must not automatically send public alerts.

@@ -17,12 +17,17 @@ import {
   Activity,
   Building2,
   ClipboardList,
+  Download,
+  HandHeart,
   LayoutDashboard,
   PackageCheck,
   Phone,
 } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
+  AidRequestListResponse,
+  AidRequestRecord,
+  CreateAidRequestRequest,
   CreateReliefPointRequest,
   HospitalCapacityRecord,
   HospitalCapacityResponse,
@@ -38,6 +43,7 @@ import type {
   RoadClosureListResponse,
   RoadClosureRecord,
   ShelterRecord,
+  ReviewAidRequestRequest,
   UpdateReliefPointRequest,
 } from "@nadaa/shared-types";
 import { agencyHeaders, agencyRoles, agencySession } from "../../app/session";
@@ -49,6 +55,9 @@ import {
 import {
   EmptyState,
   ErrorState,
+  AidPledgeList,
+  AidRequestCard,
+  AidRequestForm,
   HospitalCapacityCard,
   HospitalCapacityUpdateForm,
   IncidentDetail,
@@ -65,16 +74,19 @@ import {
 } from "./components";
 import {
   fallbackHospitals,
+  fallbackAidRequests,
   fallbackIncidents,
   fallbackReliefPoints,
   fallbackShelters,
   initialHospitalCapacityForm,
+  initialAidRequestForm,
   initialReliefPointForm,
   initialShelterOccupancyForm,
   initialStatusForm,
 } from "./data";
 import type {
   AgencyTab,
+  AidRequestFormState,
   HospitalCapacityFormState,
   IncidentFilterState,
   ReliefPointFormState,
@@ -84,6 +96,7 @@ import type {
 } from "./types";
 import {
   matchesFilters,
+  aidRequestToForm,
   parseStockCategories,
   reliefPointToForm,
 } from "./utils";
@@ -279,6 +292,50 @@ async function updateReliefPoint(
   return (await response.json()) as ReliefPointRecord;
 }
 
+async function fetchAidRequests(): Promise<AidRequestRecord[]> {
+  const response = await fetch(
+    `${SHELTER_API_BASE}/aid-requests?includePrivate=true&limit=30`,
+    { headers: agencyHeaders() },
+  );
+  if (!response.ok) {
+    throw new Error(await extractError(response));
+  }
+  const payload = (await response.json()) as AidRequestListResponse;
+  return payload.aidRequests;
+}
+
+async function createAidRequest(
+  request: CreateAidRequestRequest,
+): Promise<AidRequestRecord> {
+  const response = await fetch(`${SHELTER_API_BASE}/aid-requests`, {
+    body: JSON.stringify(request),
+    headers: agencyHeaders(),
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(await extractError(response));
+  }
+  return (await response.json()) as AidRequestRecord;
+}
+
+async function reviewAidRequest(
+  aidRequestId: string,
+  request: ReviewAidRequestRequest,
+): Promise<AidRequestRecord> {
+  const response = await fetch(
+    `${SHELTER_API_BASE}/aid-requests/${encodeURIComponent(aidRequestId)}/review`,
+    {
+      body: JSON.stringify(request),
+      headers: agencyHeaders(),
+      method: "PATCH",
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await extractError(response));
+  }
+  return (await response.json()) as AidRequestRecord;
+}
+
 export function AgencyApp() {
   const [activeTab, setActiveTab] = useState<AgencyTab>("dashboard");
   const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
@@ -332,6 +389,18 @@ export function AgencyApp() {
   const [reliefUpdateState, setReliefUpdateState] =
     useState<UpdateLoadState>("idle");
   const [reliefError, setReliefError] = useState<string | null>(null);
+  const [aidRequests, setAidRequests] = useState<AidRequestRecord[]>([]);
+  const [selectedAidRequestId, setSelectedAidRequestId] = useState<
+    string | null
+  >(null);
+  const [aidForm, setAidForm] = useState<AidRequestFormState>(
+    initialAidRequestForm,
+  );
+  const [aidLoadState, setAidLoadState] = useState<
+    "loading" | "ready" | "fallback" | "empty" | "error"
+  >("loading");
+  const [aidUpdateState, setAidUpdateState] = useState<UpdateLoadState>("idle");
+  const [aidError, setAidError] = useState<string | null>(null);
 
   const hasAccess =
     agencySession.mfaEnabled && agencyRoles.includes(agencySession.role);
@@ -340,6 +409,7 @@ export function AgencyApp() {
     if (!hasAccess) return;
     void loadIncidents();
     void loadReliefPoints();
+    void loadAidRequests();
   }, [hasAccess]);
 
   async function loadIncidents() {
@@ -399,6 +469,29 @@ export function AgencyApp() {
     }
   }
 
+  async function loadAidRequests() {
+    setAidLoadState("loading");
+    setAidError(null);
+    try {
+      const data = await fetchAidRequests();
+      const nextRequests = data.length > 0 ? data : fallbackAidRequests;
+      setAidRequests(nextRequests);
+      setAidLoadState(data.length > 0 ? "ready" : "fallback");
+      setSelectedAidRequestId(
+        (current) => current ?? nextRequests[0]?.id ?? null,
+      );
+    } catch (error) {
+      setAidRequests(fallbackAidRequests);
+      setSelectedAidRequestId(
+        (current) => current ?? fallbackAidRequests[0]?.id ?? null,
+      );
+      setAidError(
+        error instanceof Error ? error.message : "Could not load aid requests.",
+      );
+      setAidLoadState("fallback");
+    }
+  }
+
   const filteredIncidents = useMemo(() => {
     return incidents.filter((incident) => matchesFilters(incident, filters));
   }, [incidents, filters]);
@@ -413,6 +506,13 @@ export function AgencyApp() {
     () =>
       reliefPoints.find((point) => point.id === selectedReliefPointId) ?? null,
     [reliefPoints, selectedReliefPointId],
+  );
+
+  const selectedAidRequest = useMemo(
+    () =>
+      aidRequests.find((request) => request.id === selectedAidRequestId) ??
+      null,
+    [aidRequests, selectedAidRequestId],
   );
 
   useEffect(() => {
@@ -433,6 +533,13 @@ export function AgencyApp() {
     setReliefForm(reliefPointToForm(selectedReliefPoint));
     void loadReliefHistory(selectedReliefPoint.id);
   }, [selectedReliefPoint]);
+
+  useEffect(() => {
+    if (!selectedAidRequest) {
+      return;
+    }
+    setAidForm(aidRequestToForm(selectedAidRequest));
+  }, [selectedAidRequest]);
 
   async function loadCapacity(lat: number, lng: number) {
     const [nearbyShelters, nearbyHospitals, nearbyClosures, nearbyRelief] =
@@ -514,6 +621,108 @@ export function AgencyApp() {
     setReliefError(null);
   }
 
+  async function handleCreateAidRequest() {
+    setAidUpdateState("loading");
+    setAidError(null);
+    try {
+      const quantityNeeded = Number.parseInt(aidForm.quantityNeeded, 10);
+      const neededBy = new Date(aidForm.neededBy).toISOString();
+      const request = {
+        category: aidForm.category,
+        contact: aidForm.contact.trim(),
+        description: aidForm.description.trim(),
+        district: aidForm.district.trim(),
+        location: {
+          lat: Number.parseFloat(aidForm.lat),
+          lng: Number.parseFloat(aidForm.lng),
+        },
+        neededBy,
+        priority: aidForm.priority,
+        quantityNeeded,
+        quantityUnit: aidForm.quantityUnit.trim(),
+        receivingOrganization: aidForm.receivingOrganization.trim(),
+        region: aidForm.region.trim(),
+        sourceReliefPointId: aidForm.sourceReliefPointId.trim() || undefined,
+        title: aidForm.title.trim(),
+        visibility: aidForm.visibility,
+      } satisfies CreateAidRequestRequest;
+      const created = await createAidRequest(request);
+      setAidRequests((current) => [created, ...current]);
+      setSelectedAidRequestId(created.id);
+      setAidForm(aidRequestToForm(created));
+      setAidUpdateState("success");
+    } catch (error) {
+      setAidError(
+        error instanceof Error ? error.message : "Aid request create failed.",
+      );
+      setAidUpdateState("error");
+    }
+  }
+
+  async function handleReviewAidRequest(
+    status: ReviewAidRequestRequest["status"],
+  ) {
+    if (!selectedAidRequest) return;
+    setAidUpdateState("loading");
+    setAidError(null);
+    try {
+      const reviewed = await reviewAidRequest(selectedAidRequest.id, {
+        antiFraudNotes:
+          status === "approved" || status === "open"
+            ? "Receiving organization, contact, and category checked by agency operator."
+            : "Reviewed by agency operator.",
+        approvalNotes:
+          status === "approved" || status === "open"
+            ? "Approved for partner/public aid listing."
+            : "Status updated by agency operator.",
+        status,
+      });
+      setAidRequests((current) =>
+        current.map((request) =>
+          request.id === reviewed.id ? reviewed : request,
+        ),
+      );
+      setAidForm(aidRequestToForm(reviewed));
+      setAidUpdateState("success");
+    } catch (error) {
+      setAidError(
+        error instanceof Error ? error.message : "Aid request review failed.",
+      );
+      setAidUpdateState("error");
+    }
+  }
+
+  function handleNewAidRequest() {
+    setSelectedAidRequestId(null);
+    setAidForm(initialAidRequestForm);
+    setAidUpdateState("idle");
+    setAidError(null);
+  }
+
+  async function handleAidExport() {
+    setAidError(null);
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/aid-requests/report.csv`,
+        { headers: agencyHeaders() },
+      );
+      if (!response.ok) {
+        throw new Error(await extractError(response));
+      }
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = "nadaa-aid-requests.csv";
+      link.click();
+      URL.revokeObjectURL(href);
+    } catch (error) {
+      setAidError(
+        error instanceof Error ? error.message : "Aid request export failed.",
+      );
+    }
+  }
+
   async function handleStatusUpdate() {
     if (!selectedIncident) return;
     setStatusUpdateState("loading");
@@ -562,8 +771,11 @@ export function AgencyApp() {
       reliefPoints: reliefPoints.filter((point) =>
         ["open", "limited"].includes(point.status),
       ).length,
+      aidOpen: aidRequests.filter((request) =>
+        ["approved", "open", "partially_matched"].includes(request.status),
+      ).length,
     };
-  }, [incidents, reliefPoints]);
+  }, [aidRequests, incidents, reliefPoints]);
 
   if (!hasAccess) {
     return (
@@ -653,6 +865,12 @@ export function AgencyApp() {
             label="Relief"
             value="relief"
           />
+          <Tab
+            icon={<HandHeart size={18} />}
+            iconPosition="start"
+            label="Aid"
+            value="aid"
+          />
         </Tabs>
       </Box>
 
@@ -697,6 +915,13 @@ export function AgencyApp() {
                   icon={PackageCheck}
                   label="Relief points"
                   value={metrics.reliefPoints}
+                />
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <MetricCard
+                  icon={HandHeart}
+                  label="Open aid needs"
+                  value={metrics.aidOpen}
                 />
               </Grid>
             </Grid>
@@ -1012,6 +1237,154 @@ export function AgencyApp() {
                         Stock history
                       </Typography>
                       <ReliefStockHistoryList history={reliefHistory} />
+                    </Paper>
+                  </Stack>
+                </Grid>
+              </Grid>
+            )}
+          </Stack>
+        ) : null}
+
+        {activeTab === "aid" ? (
+          <Stack spacing={3}>
+            <Stack
+              alignItems={{ xs: "flex-start", sm: "center" }}
+              direction={{ xs: "column", sm: "row" }}
+              justifyContent="space-between"
+              spacing={2}
+            >
+              <Box>
+                <Typography fontWeight={800} variant="h4">
+                  Donation and aid coordination
+                </Typography>
+                <Typography color="text.secondary" variant="body2">
+                  Create verified aid needs, review partner pledges, and export
+                  coordination reports without changing incident status.
+                </Typography>
+              </Box>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Button
+                  onClick={handleAidExport}
+                  startIcon={<Download size={18} />}
+                  variant="outlined"
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  onClick={handleNewAidRequest}
+                  startIcon={<HandHeart size={18} />}
+                  variant="contained"
+                >
+                  New aid need
+                </Button>
+              </Stack>
+            </Stack>
+
+            {aidError && aidLoadState === "fallback" ? (
+              <Alert severity="warning">
+                {aidError} Showing fixture aid requests.
+              </Alert>
+            ) : null}
+
+            {aidLoadState === "loading" ? (
+              <LoadingState message="Loading donation and aid requests" />
+            ) : aidLoadState === "error" && !aidRequests.length ? (
+              <ErrorState
+                message={aidError ?? "Could not load aid requests"}
+                onRetry={loadAidRequests}
+              />
+            ) : (
+              <Grid container spacing={3}>
+                <Grid size={{ xs: 12, lg: 5 }}>
+                  <Stack spacing={2}>
+                    {aidRequests.length === 0 ? (
+                      <EmptyState message="No donation or aid needs have been created yet." />
+                    ) : (
+                      aidRequests.map((request) => (
+                        <AidRequestCard
+                          key={request.id}
+                          onSelect={() => {
+                            setSelectedAidRequestId(request.id);
+                            setAidUpdateState("idle");
+                            setAidError(null);
+                          }}
+                          request={request}
+                          selected={selectedAidRequestId === request.id}
+                        />
+                      ))
+                    )}
+                  </Stack>
+                </Grid>
+                <Grid size={{ xs: 12, lg: 7 }}>
+                  <Stack spacing={3}>
+                    <Paper sx={{ p: 3 }}>
+                      <Typography fontWeight={700} gutterBottom variant="h6">
+                        {selectedAidRequest
+                          ? "Review aid need"
+                          : "Create aid need"}
+                      </Typography>
+                      <AidRequestForm
+                        form={aidForm}
+                        onChange={setAidForm}
+                        onSubmit={handleCreateAidRequest}
+                        submitLabel={
+                          aidUpdateState === "loading"
+                            ? "Saving..."
+                            : "Create for review"
+                        }
+                      />
+                      {selectedAidRequest ? (
+                        <Stack direction="row" flexWrap="wrap" gap={1} mt={2}>
+                          <Button
+                            disabled={aidUpdateState === "loading"}
+                            onClick={() =>
+                              void handleReviewAidRequest("approved")
+                            }
+                            size="small"
+                            variant="contained"
+                          >
+                            Approve listing
+                          </Button>
+                          <Button
+                            disabled={aidUpdateState === "loading"}
+                            onClick={() =>
+                              void handleReviewAidRequest("paused")
+                            }
+                            size="small"
+                            variant="outlined"
+                          >
+                            Pause
+                          </Button>
+                          <Button
+                            disabled={aidUpdateState === "loading"}
+                            onClick={() =>
+                              void handleReviewAidRequest("closed")
+                            }
+                            size="small"
+                            variant="outlined"
+                          >
+                            Close
+                          </Button>
+                        </Stack>
+                      ) : null}
+                      {aidUpdateState === "success" ? (
+                        <Alert severity="success" sx={{ mt: 2 }}>
+                          Aid coordination record saved.
+                        </Alert>
+                      ) : null}
+                      {aidUpdateState === "error" && aidError ? (
+                        <Alert severity="error" sx={{ mt: 2 }}>
+                          {aidError}
+                        </Alert>
+                      ) : null}
+                    </Paper>
+                    <Paper sx={{ p: 3 }}>
+                      <Typography fontWeight={700} gutterBottom variant="h6">
+                        Partner pledges
+                      </Typography>
+                      <AidPledgeList
+                        pledges={selectedAidRequest?.pledges ?? []}
+                      />
                     </Paper>
                   </Stack>
                 </Grid>

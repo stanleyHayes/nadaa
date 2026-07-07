@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/alert-service/go.mod ./
 RUN go mod download
 COPY services/alert-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/alert-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/alert-service ./cmd/server
 
 FROM alpine:3.22
 

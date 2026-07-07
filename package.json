@@ -29,6 +29,7 @@
     "security:scan": "node scripts/security-scan.mjs",
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:marketing": "node scripts/smoke-marketing.mjs",
+    "smoke:aid": "node scripts/smoke-aid.mjs",
     "smoke:road-closure": "node scripts/smoke-road-closure.mjs",
     "smoke:relief": "node scripts/smoke-relief.mjs",
     "smoke:citizen-mobile": "node scripts/smoke-citizen-mobile.mjs",

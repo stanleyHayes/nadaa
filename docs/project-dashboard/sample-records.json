@@ -1584,5 +1584,47 @@
       "git diff --check"
     ],
     "notes": "Relief Distribution Tracking completed with shelter-service relief point list/nearby/create/update/stock-history APIs, shared TypeScript contracts, agency web relief management tab with create/update form and stock history, citizen web nearby relief display, dispatcher-web map markers and relief panel, smoke/docs/dashboard updates, structured INFO/WARN/ERROR logging, and verification."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "Phase 2",
+    "sprint": "Sprint 11",
+    "epic": "EPIC 10: Recovery And Logistics",
+    "story": "Donation And Aid Coordination",
+    "jiraKey": "NADAA-123",
+    "branchName": "main",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 3.5,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-07",
+    "dependencies": ["NADAA-122", "NADAA-012"],
+    "blockers": [],
+    "verification": [
+      "services/shelter-service go test ./...",
+      "pnpm --filter @nadaa/shared-types typecheck",
+      "pnpm --filter @nadaa/agency-web typecheck",
+      "pnpm --filter @nadaa/agency-web build",
+      "pnpm smoke:aid",
+      "pnpm smoke:shelter",
+      "pnpm smoke:relief",
+      "pnpm validate:dashboard",
+      "pnpm validate:database",
+      "pnpm validate:docs",
+      "pnpm security:scan",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "docker build -f services/shelter-service/Dockerfile -t nadaa/shelter-service:local .",
+      "pnpm audit --audit-level high",
+      "pnpm exec prettier --check",
+      "git diff --check"
+    ],
+    "notes": "Donation And Aid Coordination completed with shelter-service aid request/pledge APIs, PostGIS migration, public approved-needs listing, authority create/review gates, donor pledge intake/review, active pledge summaries, CSV export, anti-fraud notes, shared TypeScript contracts, agency web Aid tab, smoke/docs/dashboard updates, structured INFO/WARN/ERROR logging, Docker build, live smoke coverage, and verification."
   }
 ]

@@ -1,1 +1,1 @@
-export { default } from "./features/admin-console/AdminConsoleApp";
+export { default } from "./pages/AdminConsolePage";

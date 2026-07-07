@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/notification-service/go.mod ./
 RUN go mod download
 COPY services/notification-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/notification-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/notification-service ./cmd/server
 
 FROM alpine:3.22
 

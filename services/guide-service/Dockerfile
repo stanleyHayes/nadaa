@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/guide-service/go.mod ./
 RUN go mod download
 COPY services/guide-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/guide-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/guide-service ./cmd/server
 
 FROM alpine:3.22
 

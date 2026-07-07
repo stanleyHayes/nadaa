@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/incident-service/go.mod ./
 RUN go mod download
 COPY services/incident-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/incident-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/incident-service ./cmd/server
 
 FROM alpine:3.22
 

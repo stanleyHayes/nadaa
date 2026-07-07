@@ -1413,6 +1413,60 @@ Returns the latest stock snapshots for an authority relief point detail panel.
 
 The shelter service emits `INFO` logs for relief point list, nearby, create, update, and stock-history reads; `WARN` logs for invalid JSON, unauthorized authority context, failed validation, and missing records; and `ERROR` logs for response encoding failures.
 
+`GET /api/v1/aid-requests?category=hygiene&priority=high&limit=20`
+
+Returns public/partner donation and aid needs that have been approved for donor visibility. Authority users can add `includePrivate=true` with the standard authority headers to see pending, paused, rejected, closed, and partner-only needs.
+
+```json
+{
+  "aidRequests": [
+    {
+      "id": "aid_ama_hygiene_001",
+      "title": "Hygiene kits for displaced households",
+      "category": "hygiene",
+      "priority": "high",
+      "status": "open",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "location": { "lat": 5.56, "lng": -0.2 },
+      "receivingOrganization": "AMA Central Food Distribution",
+      "quantityNeeded": 300,
+      "quantityUnit": "kits",
+      "quantityPledged": 80,
+      "visibility": "public",
+      "pledges": []
+    }
+  ],
+  "generatedAt": "2026-07-07T13:00:00Z"
+}
+```
+
+`POST /api/v1/aid-requests`
+
+Authority only. Creates an aid need in `pending_review` so agencies can verify the receiving organization, category, contact, quantity, and location before public listing.
+
+`PATCH /api/v1/aid-requests/{id}/review`
+
+Authority only. Approves, opens, pauses, closes, or rejects an aid need. `approvalNotes` are required when approving. `antiFraudNotes` capture verification context without changing incident state.
+
+`POST /api/v1/aid-requests/{id}/pledges`
+
+Public/partner endpoint. Donors can pledge support only against approved/open aid needs. The pledge starts as `pledged` with `reviewStatus=pending_review` so agencies can verify the donor before counting it as cleared.
+
+`GET /api/v1/aid-requests/{id}/pledges`
+
+Authority only. Returns pledges for agency review.
+
+`PATCH /api/v1/aid-requests/{id}/pledges/{pledgeId}/review`
+
+Authority only. Updates pledge `status`, `reviewStatus`, and `fraudReviewNotes`.
+
+`GET /api/v1/aid-requests/report.csv`
+
+Authority only. Exports aid needs, pledge totals, pledge counts, priorities, districts, and needed-by dates for donor coordination reports.
+
+The shelter service emits `INFO` logs for aid request list/create/review/export and pledge create/list/review success; `WARN` logs for invalid JSON, unsupported filters, unauthorized authority context, validation failures, pending request pledge attempts, and missing records; and `ERROR` logs for response encoding or CSV write failures. Logs must not include raw donor phone numbers, private donor notes, or sensitive beneficiary details.
+
 `GET /api/v1/hospitals/capacity?lat=5.5600&lng=-0.2000&service=emergency&emergencyCapacity=available&minAvailableBeds=10&includeStale=false`
 
 Returns nearby hospital and emergency facility capacity sorted by freshness, distance, capacity status, and available beds. Dispatchers can omit coordinates for a national list or filter by service, capacity status, minimum available beds, stale-data visibility, and `limit`.

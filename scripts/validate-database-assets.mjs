@@ -1,11 +1,13 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.cwd();
-const migration = readFileSync(
-  join(root, "database/migrations/001_core_geospatial_schema.sql"),
-  "utf8",
-);
+const migrationDir = join(root, "database/migrations");
+const migration = readdirSync(migrationDir)
+  .filter((file) => file.endsWith(".sql"))
+  .sort()
+  .map((file) => readFileSync(join(migrationDir, file), "utf8"))
+  .join("\n");
 const seed = readFileSync(
   join(root, "database/seeds/001_ghana_mvp_seed.sql"),
   "utf8",
@@ -26,6 +28,11 @@ const requiredTables = [
   "weather_import_jobs",
   "audit_logs",
   "notification_delivery_logs",
+  "road_closures",
+  "relief_points",
+  "relief_point_stock_history",
+  "aid_requests",
+  "aid_pledges",
 ];
 
 const requiredGeometryIndexes = [
@@ -37,6 +44,9 @@ const requiredGeometryIndexes = [
   "idx_shelters_location_geometry",
   "idx_ml_predictions_geometry",
   "idx_weather_observations_location",
+  "idx_road_closures_geometry",
+  "idx_relief_points_geometry",
+  "idx_aid_requests_geometry",
 ];
 
 const requiredEnums = [

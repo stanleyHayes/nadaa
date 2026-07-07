@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/auth-service/go.mod ./
 RUN go mod download
 COPY services/auth-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/auth-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/auth-service ./cmd/server
 
 FROM alpine:3.22
 

@@ -1,0 +1,67 @@
+package handlers
+
+import (
+	"sync"
+	"time"
+
+	"github.com/stanleyHayes/nadaa/services/incident-service/internal/config"
+	"github.com/stanleyHayes/nadaa/services/incident-service/internal/store"
+)
+
+// server holds the HTTP handler dependencies.
+type server struct {
+	store       store.Store
+	rateLimiter *rateLimiter
+	now         func() time.Time
+}
+
+// NewServer creates a new server with the given dependencies.
+func NewServer(s store.Store, now func() time.Time, cfg *config.Config) *server {
+	return &server{
+		store:       s,
+		rateLimiter: newRateLimiter(cfg.RateLimit, time.Duration(cfg.RateWindowSecs)*time.Second, now),
+		now:         now,
+	}
+}
+
+type rateLimiter struct {
+	mu       sync.Mutex
+	limit    int
+	window   time.Duration
+	requests map[string][]time.Time
+	now      func() time.Time
+}
+
+func newRateLimiter(limit int, window time.Duration, now func() time.Time) *rateLimiter {
+	if limit <= 0 {
+		limit = 60
+	}
+	if window <= 0 {
+		window = time.Minute
+	}
+	return &rateLimiter{limit: limit, window: window, requests: map[string][]time.Time{}, now: now}
+}
+
+func (r *rateLimiter) Allow(key string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := r.now()
+	cutoff := now.Add(-r.window)
+	events := r.requests[key]
+	kept := events[:0]
+	for _, event := range events {
+		if event.After(cutoff) {
+			kept = append(kept, event)
+		}
+	}
+
+	if len(kept) >= r.limit {
+		r.requests[key] = kept
+		return false
+	}
+
+	kept = append(kept, now)
+	r.requests[key] = kept
+	return true
+}
