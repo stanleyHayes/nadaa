@@ -99,6 +99,8 @@ go run .
 
 Set `NADAA_ML_MODEL_DIR` only when the baseline model artifacts are outside the default repository paths. Set `NADAA_ML_API_URL=http://127.0.0.1:8094/api/v1` on risk-service when risk responses should include ML decision support.
 
+Set `VITE_ML_API_URL=http://127.0.0.1:8094/api/v1` for dispatcher-web when the ML review panel should use the live ML service instead of fixture predictions.
+
 Set `NADAA_IMPORT_SCHEDULER_ENABLED=true` only when the weather/hydrology fixture importer should run on a timer. Override the default interval with `NADAA_IMPORT_SCHEDULER_INTERVAL`, for example `15m`.
 
 Run checks:
@@ -122,6 +124,7 @@ pnpm smoke:incident-assignment
 pnpm smoke:incident-merge
 pnpm smoke:incident-workflow
 pnpm smoke:ml
+pnpm smoke:ml-review
 pnpm smoke:risk
 pnpm smoke:guide
 pnpm smoke:shelter

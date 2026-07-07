@@ -9,6 +9,7 @@ import type {
   AlertTargetGeometry,
   AlertTargetType,
   Coordinates,
+  CreateAlertRequest,
   DuplicateReviewCandidate,
   HazardType,
   IncidentAbuseReviewDecision,
@@ -16,6 +17,7 @@ import type {
   IncidentRecord,
   IncidentStatus,
   IncidentTimelineEvent,
+  MLPredictionResponse,
   RiskLevel,
 } from "@nadaa/shared-types";
 import {
@@ -32,6 +34,8 @@ import type {
   CommandIncident,
   FilterState,
   IncidentStatusFormState,
+  MLPredictionReview,
+  MLPredictionReviewPoint,
 } from "./types";
 
 export function buildQueueMetrics(incidents: CommandIncident[]) {
@@ -717,6 +721,114 @@ export function buildDefaultAlertForm(
     evacuationRequired: incident?.severity === "emergency",
     shelterIds: "00000000-0000-0000-0000-000000000301",
   };
+}
+
+export function predictionResponseToReview(
+  payload: MLPredictionResponse,
+  point: MLPredictionReviewPoint,
+): MLPredictionReview {
+  return {
+    ...payload.prediction,
+    location: payload.prediction.location ?? point.location,
+    predictionLogId: payload.log.id,
+    reviewStatus: "needs_review",
+  };
+}
+
+export function buildAlertRequestFromPrediction(
+  prediction: MLPredictionReview,
+  reviewNote: string,
+): CreateAlertRequest {
+  const targetTime = new Date(prediction.targetTime);
+  const startsAt = Number.isNaN(targetTime.getTime())
+    ? new Date(Date.now() + 15 * 60 * 1000)
+    : targetTime;
+  const expiresAt = new Date(startsAt.getTime() + 12 * 60 * 60 * 1000);
+
+  return {
+    title: `${alertSeverityLabel(riskToAlertSeverity(prediction.severity))} flood alert for ${prediction.community}`,
+    hazardType: prediction.hazardType,
+    severity: riskToAlertSeverity(prediction.severity),
+    message: `Reviewed model prediction estimates ${probabilityLabel(
+      prediction.probability,
+    )} flood probability for ${prediction.community}. Model output is decision support and requires authority approval before public release.`,
+    target: alertTargetFromPrediction(prediction),
+    startsAt: startsAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    recommendedAction:
+      prediction.severity === "severe" || prediction.severity === "emergency"
+        ? "Prepare to evacuate if instructed by authorities and avoid low-lying roads."
+        : "Avoid low-lying roads, monitor official updates, and move valuables above floor level.",
+    evacuationRequired:
+      prediction.severity === "severe" || prediction.severity === "emergency",
+    shelterIds: ["00000000-0000-0000-0000-000000000301"],
+    sourcePrediction: {
+      predictionId: prediction.id,
+      predictionLogId: prediction.predictionLogId,
+      modelVersion: prediction.modelVersion,
+      inputFeatureSetVersion: prediction.inputFeatureSetVersion,
+      probability: prediction.probability,
+      severity: prediction.severity,
+      confidence: prediction.confidence,
+      humanReviewRequired: prediction.humanReviewRequired,
+      autoPublishAllowed: prediction.autoPublishAllowed,
+      reviewNote: reviewNote.trim() || undefined,
+    },
+  };
+}
+
+export function alertTargetFromPrediction(
+  prediction: MLPredictionReview,
+): AlertTarget {
+  if (prediction.geometry) {
+    return {
+      type: "custom",
+      ids: [prediction.cellId],
+      label: `${prediction.community} prediction cell`,
+      geometry: prediction.geometry,
+    };
+  }
+
+  return {
+    type: "radius",
+    ids: [prediction.cellId],
+    label: `${prediction.community} prediction radius`,
+    center: prediction.location,
+    radiusMeters: 3000,
+  };
+}
+
+export function probabilityLabel(value: number) {
+  return `${Math.round(value * 1000) / 10}%`;
+}
+
+export function contributionLabel(value: number) {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${Math.round(value * 1000) / 10}%`;
+}
+
+export function contributionProgress(value: number) {
+  return Math.min(100, Math.round(Math.abs(value) * 100));
+}
+
+export function expectedOnsetLabel(value: string) {
+  if (value === "within_24h") {
+    return "Within 24h";
+  }
+  if (value === "24_to_48h") {
+    return "24 to 48h";
+  }
+  if (value === "not_expected_in_72h") {
+    return "Not expected in 72h";
+  }
+  return value
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+export function confidenceLabel(value: MLPredictionReview["confidence"]) {
+  return value[0].toUpperCase() + value.slice(1);
 }
 
 export function riskToAlertSeverity(severity: RiskLevel): AlertSeverity {

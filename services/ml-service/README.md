@@ -45,6 +45,8 @@ pnpm smoke:ml
 
 Risk-service can attach ML decision support when `NADAA_ML_API_URL` points to the ML API base URL, for example `http://127.0.0.1:8094/api/v1`.
 
+Dispatcher-web can load the review panel from this service when `VITE_ML_API_URL` points to the same ML API base URL. The reviewed alert-draft smoke path is `pnpm smoke:ml-review` after starting both ML service and alert-service.
+
 The service loads `baseline-logistic.v1.json`, accepts a location, returns the sample-prediction shape, records an in-memory prediction log aligned to the future `ml_predictions` table, and keeps prediction output human-reviewed. Public alerts must never be auto-published from model output.
 
 Related stories:

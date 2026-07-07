@@ -192,6 +192,58 @@ body {
   border-top: 6px solid #e53935;
 }
 
+.ml-review-panel {
+  margin-top: 20px;
+  border-top: 6px solid #0b6fb8;
+}
+
+.ml-review-alert {
+  margin-bottom: 14px;
+}
+
+.prediction-review-map {
+  height: 336px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(13, 27, 61, 0.12);
+  background: #dfeaf2;
+}
+
+.prediction-list {
+  max-height: 316px;
+  margin-top: 12px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.prediction-row {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  cursor: pointer;
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.prediction-row.selected {
+  border-color: rgba(17, 141, 78, 0.46);
+  background: rgba(17, 141, 78, 0.08);
+}
+
+.prediction-detail {
+  min-height: 100%;
+}
+
+.factor-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(13, 27, 61, 0.08);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
 .alert-queue-row {
   display: grid;
   gap: 10px;

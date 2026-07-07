@@ -15,6 +15,8 @@ Current NADAA-050/NADAA-051 endpoints:
 - `POST /api/v1/alerts/{id}/emergency-override`
 - `GET /api/v1/alerts/audit`
 
+NADAA-073 ML-reviewed drafts use `POST /api/v1/alerts` with optional `sourcePrediction` metadata. The alert is still created as `draft`, and the `alert.created` audit snapshot stores the prediction id, prediction log id, model version, feature set version, probability, severity, confidence, human-review flag, no-auto-publish flag, and review note.
+
 ## Authority Headers
 
 Write and audit endpoints require authority context headers:
@@ -60,6 +62,7 @@ Run live smoke checks after starting the service on `:8089`:
 ```bash
 pnpm smoke:alert
 pnpm smoke:alert-geofence
+pnpm smoke:ml-review
 ```
 
 ## Notes
@@ -71,3 +74,4 @@ Related stories:
 - NADAA-050
 - NADAA-051
 - NADAA-052
+- NADAA-073

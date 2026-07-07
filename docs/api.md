@@ -133,6 +133,7 @@ Rules:
 - Flood scoring is rule-based: inside the flood zone returns `severe`, near both the flood zone and recent report returns `high`, near only a recent report returns `moderate`, and locations outside fixture coverage return `low`.
 - Nearby shelters and facilities are returned within 30 km and sorted by distance.
 - When `NADAA_ML_API_URL` is configured, risk-service attaches `mlPrediction` from the ML service as decision support. The response keeps `humanReviewRequired=true` and `autoPublishAllowed=false`; no public alert can be published from model output without the alert approval workflow.
+- Dispatcher web can create an alert draft from a reviewed prediction by sending the normal `POST /api/v1/alerts` request with `sourcePrediction` metadata. The draft remains in the standard approval workflow and is audited as `alert.created`.
 
 ## MVP API Contracts
 
@@ -695,7 +696,7 @@ Response:
 }
 ```
 
-Targets support `national`, `region`, `district`, `radius`, `community`, and `custom`. `region`, `district`, and `community` targets currently resolve against the starter catalog. `radius` targets require `center` and `radiusMeters`. `custom` targets require a closed GeoJSON-style polygon geometry.
+Targets support `national`, `region`, `district`, `radius`, `community`, and `custom`. `region`, `district`, and `community` targets currently resolve against the starter catalog. `radius` targets require `center` and `radiusMeters`. `custom` targets require a closed GeoJSON-style polygon geometry. Reviewed ML drafts may include optional `sourcePrediction` metadata; this does not change the draft status or approval workflow.
 
 `POST /api/v1/alerts/targets/preview`
 
@@ -1121,9 +1122,56 @@ Response:
 
 Returns in-memory MVP prediction log records. Each record is aligned to the `ml_predictions` storage target and includes model version and input feature set version.
 
-`POST /api/v1/alerts/from-prediction/{predictionId}`
+### ML-Reviewed Alert Drafts
 
-Creates an alert draft only. It must still pass approval. This endpoint remains planned for NADAA-073 and later; NADAA-072 does not auto-create or auto-publish alerts.
+`POST /api/v1/alerts`
+
+NADAA-073 uses the standard alert creation endpoint for reviewed ML predictions. Include `sourcePrediction` to preserve the prediction, model, feature set, probability, severity, confidence, and review note in the draft and `alert.created` audit snapshot.
+
+```json
+{
+  "title": "ML reviewed Accra Central flood alert",
+  "hazardType": "flood",
+  "severity": "severe_warning",
+  "message": "Reviewed ML prediction estimates 99.9% flood probability for Accra Central.",
+  "target": {
+    "type": "custom",
+    "ids": ["grid-accra-central-001"],
+    "label": "Accra Central prediction cell",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [-0.21, 5.55],
+          [-0.19, 5.55],
+          [-0.19, 5.57],
+          [-0.21, 5.57],
+          [-0.21, 5.55]
+        ]
+      ]
+    }
+  },
+  "startsAt": "2026-07-06T12:00:00Z",
+  "expiresAt": "2026-07-07T00:00:00Z",
+  "recommendedAction": "Prepare to evacuate if instructed by authorities and avoid low-lying roads.",
+  "evacuationRequired": true,
+  "shelterIds": ["00000000-0000-0000-0000-000000000301"],
+  "sourcePrediction": {
+    "predictionId": "pred_grid-accra-central-001",
+    "predictionLogId": "ml_log_20260706100000_grid_accra_central_001",
+    "modelVersion": "flood-logistic-baseline-0.1.0",
+    "inputFeatureSetVersion": "flood-risk-features.v1",
+    "probability": 0.9993,
+    "severity": "severe",
+    "confidence": "medium",
+    "humanReviewRequired": true,
+    "autoPublishAllowed": false,
+    "reviewNote": "Dispatcher reviewed explanation factors."
+  }
+}
+```
+
+`sourcePrediction.humanReviewRequired` must be `true`, and `sourcePrediction.autoPublishAllowed` must be `false`. The created alert has `status: "draft"` and must still be submitted and approved before any public release. Public alert list responses omit `sourcePrediction`; authority reads and audit logs retain it for traceability.
 
 ## Phase 2 API Areas
 

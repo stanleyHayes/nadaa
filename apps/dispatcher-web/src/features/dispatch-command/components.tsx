@@ -10,6 +10,7 @@ import {
   FormControlLabel,
   Grid,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -23,9 +24,12 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   BellRing,
+  BrainCircuit,
   CheckCheck,
   Crosshair,
+  FileText,
   GitMerge,
+  ListChecks,
   ShieldAlert,
   Truck,
 } from "lucide-react";
@@ -49,6 +53,8 @@ import type {
   AssignmentFormState,
   CommandIncident,
   IncidentStatusFormState,
+  MLPredictionReview,
+  MLReviewLoadState,
 } from "./types";
 import {
   abuseDecisionLabel,
@@ -61,8 +67,13 @@ import {
   alertTargetWarnings,
   buildAlertTarget,
   canAssignIncident,
+  confidenceLabel,
+  contributionLabel,
+  contributionProgress,
+  expectedOnsetLabel,
   formatShortTime,
   hazardLabel,
+  probabilityLabel,
   requiresIncidentResolution,
   severityLabel,
   statusLabel,
@@ -330,6 +341,395 @@ export function TargetPreviewMap({ target }: { target: AlertTarget }) {
   }, [target]);
 
   return <Box ref={containerRef} className="target-preview-map" />;
+}
+
+export function MLPredictionReviewPanel({
+  busy,
+  feedback,
+  loadMessage,
+  loadState,
+  onCreateDraft,
+  onRefresh,
+  onSelectPrediction,
+  onUpdateReviewNote,
+  predictions,
+  reviewNote,
+  selectedPrediction,
+  selectedPredictionId,
+}: {
+  busy: boolean;
+  feedback: string;
+  loadMessage: string;
+  loadState: MLReviewLoadState;
+  onCreateDraft: () => void;
+  onRefresh: () => void;
+  onSelectPrediction: (predictionId: string) => void;
+  onUpdateReviewNote: (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  predictions: MLPredictionReview[];
+  reviewNote: string;
+  selectedPrediction?: MLPredictionReview;
+  selectedPredictionId: string;
+}) {
+  const live = loadState === "ready";
+
+  return (
+    <Paper className="surface ml-review-panel">
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        gap={1.5}
+        className="section-heading"
+      >
+        <Stack direction="row" spacing={1} alignItems="center">
+          <BrainCircuit size={22} color={nadaaBrand.colors.navy} />
+          <Box>
+            <Typography variant="h5">ML flood review</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Review probability, severity, confidence, and explanation before
+              drafting an alert.
+            </Typography>
+          </Box>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Chip
+            size="small"
+            label={
+              live ? "Live ML" : loadState === "loading" ? "Loading" : "Fixture"
+            }
+            color={live ? "success" : "warning"}
+          />
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<BrainCircuit size={16} />}
+            disabled={loadState === "loading"}
+            onClick={onRefresh}
+          >
+            Refresh ML
+          </Button>
+        </Stack>
+      </Stack>
+
+      {loadState === "fallback" || loadState === "error" ? (
+        <Alert severity="warning" className="ml-review-alert">
+          {loadMessage}
+        </Alert>
+      ) : null}
+      {loadState === "loading" ? (
+        <LinearProgress className="feed-progress" />
+      ) : null}
+
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 7 }}>
+          <PredictionReviewMap
+            predictions={predictions}
+            selectedPredictionId={selectedPredictionId}
+            onSelect={onSelectPrediction}
+          />
+
+          <Stack className="prediction-list" spacing={1}>
+            {predictions.map((prediction) => (
+              <Box
+                key={prediction.id}
+                className={`prediction-row${
+                  prediction.id === selectedPredictionId ? " selected" : ""
+                }`}
+                onClick={() => onSelectPrediction(prediction.id)}
+              >
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  gap={1}
+                  alignItems="flex-start"
+                >
+                  <Box>
+                    <Typography variant="subtitle2">
+                      {prediction.community}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {prediction.district} · {prediction.cellId}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={severityLabel(prediction.severity)}
+                    className="severity-chip"
+                    style={{
+                      backgroundColor: severityColors[prediction.severity],
+                      color: "#FFFFFF",
+                    }}
+                  />
+                </Stack>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Chip
+                    size="small"
+                    label={probabilityLabel(prediction.probability)}
+                  />
+                  <Chip
+                    size="small"
+                    label={confidenceLabel(prediction.confidence)}
+                  />
+                  <Chip
+                    size="small"
+                    label={expectedOnsetLabel(prediction.expectedOnset)}
+                  />
+                  {prediction.reviewStatus === "draft_created" ? (
+                    <Chip size="small" color="success" label="Draft created" />
+                  ) : null}
+                </Stack>
+              </Box>
+            ))}
+          </Stack>
+        </Grid>
+
+        <Grid size={{ xs: 12, lg: 5 }}>
+          {selectedPrediction ? (
+            <Stack spacing={1.25} className="prediction-detail">
+              <Stack direction="row" justifyContent="space-between" gap={1}>
+                <Box>
+                  <Typography variant="overline" color="secondary">
+                    Selected prediction
+                  </Typography>
+                  <Typography variant="h6">
+                    {selectedPrediction.community}
+                  </Typography>
+                </Box>
+                <Chip
+                  size="small"
+                  label={probabilityLabel(selectedPrediction.probability)}
+                  color={
+                    selectedPrediction.severity === "severe" ||
+                    selectedPrediction.severity === "emergency"
+                      ? "error"
+                      : selectedPrediction.severity === "low"
+                        ? "success"
+                        : "warning"
+                  }
+                />
+              </Stack>
+
+              <Grid container spacing={1}>
+                <Grid size={6}>
+                  <Fact
+                    label="Severity"
+                    value={severityLabel(selectedPrediction.severity)}
+                  />
+                </Grid>
+                <Grid size={6}>
+                  <Fact
+                    label="Confidence"
+                    value={confidenceLabel(selectedPrediction.confidence)}
+                  />
+                </Grid>
+                <Grid size={6}>
+                  <Fact
+                    label="Expected onset"
+                    value={expectedOnsetLabel(selectedPrediction.expectedOnset)}
+                  />
+                </Grid>
+                <Grid size={6}>
+                  <Fact label="Model" value={selectedPrediction.modelVersion} />
+                </Grid>
+              </Grid>
+
+              <Alert severity="info" icon={<ShieldAlert size={18} />}>
+                Human review is required and this prediction cannot auto-publish
+                a public alert.
+              </Alert>
+
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <ListChecks size={18} color={nadaaBrand.colors.green} />
+                  <Typography variant="subtitle2">
+                    Explanation factors
+                  </Typography>
+                </Stack>
+                {selectedPrediction.explanationFactors.map((factor) => (
+                  <Box className="factor-row" key={factor.feature}>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      gap={1}
+                    >
+                      <Box>
+                        <Typography variant="body2">{factor.label}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {String(factor.value)} ·{" "}
+                          {factor.direction === "increases_risk"
+                            ? "Increases risk"
+                            : "Reduces risk"}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        size="small"
+                        color={
+                          factor.direction === "increases_risk"
+                            ? "warning"
+                            : "success"
+                        }
+                        label={contributionLabel(factor.contribution)}
+                      />
+                    </Stack>
+                    <LinearProgress
+                      variant="determinate"
+                      value={contributionProgress(factor.contribution)}
+                      color={
+                        factor.direction === "increases_risk"
+                          ? "warning"
+                          : "success"
+                      }
+                    />
+                  </Box>
+                ))}
+              </Stack>
+
+              <TextField
+                size="small"
+                label="Review note"
+                value={reviewNote}
+                onChange={onUpdateReviewNote}
+                multiline
+                minRows={2}
+              />
+
+              {feedback ? (
+                <Alert
+                  severity={
+                    feedback.includes("unavailable") ? "warning" : "success"
+                  }
+                >
+                  {feedback}
+                </Alert>
+              ) : null}
+
+              <Button
+                variant="contained"
+                color="error"
+                startIcon={<FileText size={17} />}
+                disabled={busy}
+                onClick={onCreateDraft}
+              >
+                Create reviewed draft
+              </Button>
+            </Stack>
+          ) : (
+            <EmptyState
+              title="No prediction selected"
+              detail="Choose a prediction cell from the map or list."
+            />
+          )}
+        </Grid>
+      </Grid>
+    </Paper>
+  );
+}
+
+export function PredictionReviewMap({
+  onSelect,
+  predictions,
+  selectedPredictionId,
+}: {
+  onSelect: (predictionId: string) => void;
+  predictions: MLPredictionReview[];
+  selectedPredictionId: string;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const layerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) {
+      return;
+    }
+
+    const map = L.map(containerRef.current, {
+      center: [5.586, -0.18],
+      zoom: 8,
+      zoomControl: true,
+      scrollWheelZoom: false,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    mapRef.current = map;
+    layerRef.current = L.layerGroup().addTo(map);
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      layerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const layer = layerRef.current;
+    const map = mapRef.current;
+    if (!layer || !map) {
+      return;
+    }
+
+    layer.clearLayers();
+    if (!predictions.length) {
+      return;
+    }
+
+    const bounds = L.latLngBounds([]);
+    predictions.forEach((prediction) => {
+      const color = severityColors[prediction.severity];
+      const selected = prediction.id === selectedPredictionId;
+      if (prediction.geometry?.coordinates?.[0]?.length) {
+        const polygonPoints = prediction.geometry.coordinates[0].map(
+          ([lng, lat]) => [lat, lng] as [number, number],
+        );
+        const polygon = L.polygon(polygonPoints, {
+          color: selected ? "#0D1B3D" : color,
+          fillColor: color,
+          fillOpacity: selected ? 0.28 : 0.18,
+          weight: selected ? 4 : 2,
+        });
+        polygon.bindPopup(
+          `<strong>${prediction.community}</strong><br>${probabilityLabel(
+            prediction.probability,
+          )} · ${severityLabel(prediction.severity)}`,
+        );
+        polygon.on("click", () => onSelect(prediction.id));
+        polygon.addTo(layer);
+        polygonPoints.forEach((point) => bounds.extend(point));
+        return;
+      }
+
+      const marker = L.circleMarker(
+        [prediction.location.lat, prediction.location.lng],
+        {
+          radius: selected ? 12 : 8,
+          color: "#FFFFFF",
+          fillColor: color,
+          fillOpacity: selected ? 0.95 : 0.75,
+          weight: selected ? 4 : 2,
+        },
+      );
+      marker.bindPopup(
+        `<strong>${prediction.community}</strong><br>${probabilityLabel(
+          prediction.probability,
+        )} · ${severityLabel(prediction.severity)}`,
+      );
+      marker.on("click", () => onSelect(prediction.id));
+      marker.addTo(layer);
+      bounds.extend([prediction.location.lat, prediction.location.lng]);
+    });
+
+    if (bounds.isValid()) {
+      map.fitBounds(bounds.pad(0.18), { animate: true, maxZoom: 12 });
+    }
+  }, [onSelect, predictions, selectedPredictionId]);
+
+  return <Box ref={containerRef} className="prediction-review-map" />;
 }
 
 export function AlertWorkflowPanel({

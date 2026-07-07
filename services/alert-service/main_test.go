@@ -61,6 +61,42 @@ func TestCreateSubmitAndApproveAlert(t *testing.T) {
 	}
 }
 
+func TestCreateAlertStoresSourcePredictionInAudit(t *testing.T) {
+	srv := &server{store: newMemoryStore()}
+	draft := createAlertWithBody(t, srv, alertBodyWithSourcePrediction())
+
+	if draft.SourcePrediction == nil {
+		t.Fatalf("expected source prediction on draft alert: %#v", draft)
+	}
+	if draft.SourcePrediction.PredictionID != "pred_grid-accra-central-001" {
+		t.Fatalf("unexpected source prediction: %#v", draft.SourcePrediction)
+	}
+	if draft.SourcePrediction.AutoPublishAllowed {
+		t.Fatalf("source prediction must not allow auto-publish: %#v", draft.SourcePrediction)
+	}
+
+	logs := srv.store.listAudit(10)
+	if len(logs) != 1 || logs[0].Action != "alert.created" {
+		t.Fatalf("expected alert.created audit log, got %#v", logs)
+	}
+	afterPrediction, ok := logs[0].After["sourcePrediction"].(*alertSourcePrediction)
+	if !ok || afterPrediction.PredictionID != draft.SourcePrediction.PredictionID {
+		t.Fatalf("expected source prediction in audit snapshot, got %#v", logs[0].After)
+	}
+}
+
+func TestCreateAlertRejectsUnsafeSourcePrediction(t *testing.T) {
+	srv := &server{store: newMemoryStore()}
+
+	response := httptest.NewRecorder()
+	request := authorizedRequest(http.MethodPost, "/api/v1/alerts", strings.Replace(alertBodyWithSourcePrediction(), `"autoPublishAllowed": false`, `"autoPublishAllowed": true`, 1))
+	srv.createAlertHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected unsafe source prediction status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
+
 func TestRejectRequiresReasonAndAudits(t *testing.T) {
 	srv := &server{store: newMemoryStore()}
 
@@ -179,6 +215,32 @@ func TestPublicListOnlyReturnsApprovedCurrentAlerts(t *testing.T) {
 	decodeResponse(t, response, &payload)
 	if len(payload.Alerts) != 1 || payload.Alerts[0].Status != "approved" {
 		t.Fatalf("expected one current approved alert, got %#v", payload.Alerts)
+	}
+}
+
+func TestPublicListHidesSourcePredictionMetadata(t *testing.T) {
+	srv := &server{store: newMemoryStore()}
+	draft := createAlertWithBody(t, srv, alertBodyWithSourcePrediction())
+
+	overrideResponse := httptest.NewRecorder()
+	overrideRequest := approverRequest(http.MethodPost, "/api/v1/alerts/"+draft.ID+"/emergency-override", `{"reason":"Immediate life-safety warning"}`)
+	srv.emergencyOverrideHandler(overrideResponse, overrideRequest)
+	if overrideResponse.Code != http.StatusOK {
+		t.Fatalf("override failed: %s", overrideResponse.Body.String())
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/alerts?current=true", nil)
+	srv.listAlertsHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
+	}
+
+	var payload alertListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Alerts) != 1 || payload.Alerts[0].SourcePrediction != nil {
+		t.Fatalf("expected public alert without source prediction metadata, got %#v", payload.Alerts)
 	}
 }
 
@@ -353,6 +415,39 @@ func validAlertBody() string {
 		"recommendedAction": "Prepare to evacuate if instructed by NADMO.",
 		"evacuationRequired": false,
 		"shelterIds": ["00000000-0000-0000-0000-000000000301"]
+	}`
+}
+
+func alertBodyWithSourcePrediction() string {
+	startsAt := time.Now().UTC().Add(-5 * time.Minute).Format(time.RFC3339)
+	expiresAt := time.Now().UTC().Add(8 * time.Hour).Format(time.RFC3339)
+	return `{
+		"title": "ML reviewed flood warning",
+		"hazardType": "flood",
+		"severity": "severe_warning",
+		"message": "Reviewed ML flood prediction indicates severe flood risk near Accra Central.",
+		"target": {
+			"type": "district",
+			"ids": ["accra-metropolitan"],
+			"label": "Accra Metropolitan"
+		},
+		"startsAt": "` + startsAt + `",
+		"expiresAt": "` + expiresAt + `",
+		"recommendedAction": "Prepare to evacuate if instructed by NADMO.",
+		"evacuationRequired": false,
+		"shelterIds": ["00000000-0000-0000-0000-000000000301"],
+		"sourcePrediction": {
+			"predictionId": "pred_grid-accra-central-001",
+			"predictionLogId": "ml_log_fixture",
+			"modelVersion": "flood-logistic-baseline-0.1.0",
+			"inputFeatureSetVersion": "flood-risk-features.v1",
+			"probability": 0.9993,
+			"severity": "severe",
+			"confidence": "medium",
+			"humanReviewRequired": true,
+			"autoPublishAllowed": false,
+			"reviewNote": "Dispatcher reviewed explanation factors."
+		}
 	}`
 }
 

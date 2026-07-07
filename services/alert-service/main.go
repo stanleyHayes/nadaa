@@ -26,29 +26,30 @@ type memoryStore struct {
 }
 
 type authorityAlert struct {
-	ID                 string      `json:"id"`
-	Title              string      `json:"title"`
-	HazardType         string      `json:"hazardType"`
-	Severity           string      `json:"severity"`
-	Message            string      `json:"message"`
-	Target             alertTarget `json:"target"`
-	StartsAt           time.Time   `json:"startsAt"`
-	ExpiresAt          time.Time   `json:"expiresAt"`
-	RecommendedAction  string      `json:"recommendedAction"`
-	EvacuationRequired bool        `json:"evacuationRequired"`
-	ShelterIDs         []string    `json:"shelterIds"`
-	IssuingAgencyID    string      `json:"issuingAgencyId"`
-	IssuedBy           string      `json:"issuedBy"`
-	ApprovedBy         string      `json:"approvedBy,omitempty"`
-	RejectedBy         string      `json:"rejectedBy,omitempty"`
-	Status             string      `json:"status"`
-	EmergencyOverride  bool        `json:"emergencyOverride"`
-	StatusReason       string      `json:"statusReason,omitempty"`
-	CreatedAt          time.Time   `json:"createdAt"`
-	UpdatedAt          time.Time   `json:"updatedAt"`
-	SubmittedAt        *time.Time  `json:"submittedAt,omitempty"`
-	ApprovedAt         *time.Time  `json:"approvedAt,omitempty"`
-	RejectedAt         *time.Time  `json:"rejectedAt,omitempty"`
+	ID                 string                 `json:"id"`
+	Title              string                 `json:"title"`
+	HazardType         string                 `json:"hazardType"`
+	Severity           string                 `json:"severity"`
+	Message            string                 `json:"message"`
+	Target             alertTarget            `json:"target"`
+	StartsAt           time.Time              `json:"startsAt"`
+	ExpiresAt          time.Time              `json:"expiresAt"`
+	RecommendedAction  string                 `json:"recommendedAction"`
+	EvacuationRequired bool                   `json:"evacuationRequired"`
+	ShelterIDs         []string               `json:"shelterIds"`
+	IssuingAgencyID    string                 `json:"issuingAgencyId"`
+	IssuedBy           string                 `json:"issuedBy"`
+	ApprovedBy         string                 `json:"approvedBy,omitempty"`
+	RejectedBy         string                 `json:"rejectedBy,omitempty"`
+	Status             string                 `json:"status"`
+	EmergencyOverride  bool                   `json:"emergencyOverride"`
+	StatusReason       string                 `json:"statusReason,omitempty"`
+	CreatedAt          time.Time              `json:"createdAt"`
+	UpdatedAt          time.Time              `json:"updatedAt"`
+	SubmittedAt        *time.Time             `json:"submittedAt,omitempty"`
+	ApprovedAt         *time.Time             `json:"approvedAt,omitempty"`
+	RejectedAt         *time.Time             `json:"rejectedAt,omitempty"`
+	SourcePrediction   *alertSourcePrediction `json:"sourcePrediction,omitempty"`
 }
 
 type alertTarget struct {
@@ -73,16 +74,30 @@ type targetGeometry struct {
 }
 
 type createAlertRequest struct {
-	Title              string      `json:"title"`
-	HazardType         string      `json:"hazardType"`
-	Severity           string      `json:"severity"`
-	Message            string      `json:"message"`
-	Target             alertTarget `json:"target"`
-	StartsAt           time.Time   `json:"startsAt"`
-	ExpiresAt          time.Time   `json:"expiresAt"`
-	RecommendedAction  string      `json:"recommendedAction"`
-	EvacuationRequired bool        `json:"evacuationRequired"`
-	ShelterIDs         []string    `json:"shelterIds"`
+	Title              string                 `json:"title"`
+	HazardType         string                 `json:"hazardType"`
+	Severity           string                 `json:"severity"`
+	Message            string                 `json:"message"`
+	Target             alertTarget            `json:"target"`
+	StartsAt           time.Time              `json:"startsAt"`
+	ExpiresAt          time.Time              `json:"expiresAt"`
+	RecommendedAction  string                 `json:"recommendedAction"`
+	EvacuationRequired bool                   `json:"evacuationRequired"`
+	ShelterIDs         []string               `json:"shelterIds"`
+	SourcePrediction   *alertSourcePrediction `json:"sourcePrediction,omitempty"`
+}
+
+type alertSourcePrediction struct {
+	PredictionID           string  `json:"predictionId"`
+	PredictionLogID        string  `json:"predictionLogId,omitempty"`
+	ModelVersion           string  `json:"modelVersion"`
+	InputFeatureSetVersion string  `json:"inputFeatureSetVersion"`
+	Probability            float64 `json:"probability"`
+	Severity               string  `json:"severity"`
+	Confidence             string  `json:"confidence"`
+	HumanReviewRequired    bool    `json:"humanReviewRequired"`
+	AutoPublishAllowed     bool    `json:"autoPublishAllowed"`
+	ReviewNote             string  `json:"reviewNote,omitempty"`
 }
 
 type workflowRequest struct {
@@ -168,6 +183,14 @@ var allowedSeverities = map[string]bool{
 	"warning":        true,
 	"severe_warning": true,
 	"emergency":      true,
+}
+
+var allowedRiskLevels = map[string]bool{
+	"low":       true,
+	"moderate":  true,
+	"high":      true,
+	"severe":    true,
+	"emergency": true,
 }
 
 var allowedTargetTypes = map[string]bool{
@@ -513,6 +536,7 @@ func (m *memoryStore) createAlert(request createAlertRequest, ctx authorityConte
 		Status:             "draft",
 		CreatedAt:          now,
 		UpdatedAt:          now,
+		SourcePrediction:   normalizeSourcePrediction(request.SourcePrediction),
 	}
 	m.nextID++
 	m.alerts = append(m.alerts, alert)
@@ -547,6 +571,7 @@ func (m *memoryStore) updateAlert(id string, request createAlertRequest, ctx aut
 	alert.RecommendedAction = strings.TrimSpace(request.RecommendedAction)
 	alert.EvacuationRequired = request.EvacuationRequired
 	alert.ShelterIDs = compactStrings(request.ShelterIDs)
+	alert.SourcePrediction = normalizeSourcePrediction(request.SourcePrediction)
 	alert.Status = "draft"
 	alert.RejectedBy = ""
 	alert.StatusReason = ""
@@ -642,7 +667,11 @@ func (m *memoryStore) listAlerts(status string, currentOnly bool, publicOnly boo
 		if targetID != "" && !containsString(alert.Target.IDs, targetID) {
 			continue
 		}
-		alerts = append(alerts, alert)
+		responseAlert := alert
+		if publicOnly {
+			responseAlert.SourcePrediction = nil
+		}
+		alerts = append(alerts, responseAlert)
 	}
 
 	sort.Slice(alerts, func(i, j int) bool {
@@ -729,6 +758,7 @@ func normalizeAlertRequest(request createAlertRequest) createAlertRequest {
 	request.Target = normalizeTarget(request.Target)
 	request.RecommendedAction = strings.TrimSpace(request.RecommendedAction)
 	request.ShelterIDs = compactStrings(request.ShelterIDs)
+	request.SourcePrediction = normalizeSourcePrediction(request.SourcePrediction)
 	return request
 }
 
@@ -763,7 +793,56 @@ func validateAlertRequest(request createAlertRequest) (string, string) {
 	if action == "" {
 		return "missing_recommended_action", "recommendedAction is required"
 	}
+	if code, message := validateSourcePrediction(request.SourcePrediction); code != "" {
+		return code, message
+	}
 
+	return "", ""
+}
+
+func normalizeSourcePrediction(source *alertSourcePrediction) *alertSourcePrediction {
+	if source == nil {
+		return nil
+	}
+	return &alertSourcePrediction{
+		PredictionID:           strings.TrimSpace(source.PredictionID),
+		PredictionLogID:        strings.TrimSpace(source.PredictionLogID),
+		ModelVersion:           strings.TrimSpace(source.ModelVersion),
+		InputFeatureSetVersion: strings.TrimSpace(source.InputFeatureSetVersion),
+		Probability:            roundProbability(source.Probability),
+		Severity:               normalizeQueryValue(source.Severity),
+		Confidence:             normalizeQueryValue(source.Confidence),
+		HumanReviewRequired:    source.HumanReviewRequired,
+		AutoPublishAllowed:     source.AutoPublishAllowed,
+		ReviewNote:             strings.TrimSpace(source.ReviewNote),
+	}
+}
+
+func validateSourcePrediction(source *alertSourcePrediction) (string, string) {
+	if source == nil {
+		return "", ""
+	}
+	if source.PredictionID == "" {
+		return "missing_prediction_id", "sourcePrediction.predictionId is required"
+	}
+	if source.ModelVersion == "" || source.InputFeatureSetVersion == "" {
+		return "missing_prediction_model", "sourcePrediction model and feature set versions are required"
+	}
+	if source.Probability < 0 || source.Probability > 1 {
+		return "invalid_prediction_probability", "sourcePrediction.probability must be between 0 and 1"
+	}
+	if !source.HumanReviewRequired || source.AutoPublishAllowed {
+		return "invalid_prediction_safety", "sourcePrediction must require human review and disallow auto-publish"
+	}
+	if !allowedRiskLevels[source.Severity] {
+		return "invalid_prediction_severity", "sourcePrediction.severity must be a supported risk level"
+	}
+	if source.Confidence != "low" && source.Confidence != "medium" && source.Confidence != "high" {
+		return "invalid_prediction_confidence", "sourcePrediction.confidence must be low, medium, or high"
+	}
+	if len(source.ReviewNote) > 400 {
+		return "invalid_prediction_review_note", "sourcePrediction.reviewNote must be 400 characters or fewer"
+	}
 	return "", ""
 }
 
@@ -1107,6 +1186,10 @@ func roundArea(value float64) float64 {
 	return math.Round(value*10) / 10
 }
 
+func roundProbability(value float64) float64 {
+	return math.Round(value*10000) / 10000
+}
+
 func containsString(values []string, needle string) bool {
 	for _, value := range values {
 		if value == needle {
@@ -1141,6 +1224,7 @@ func snapshotAlert(alert authorityAlert) map[string]any {
 		"status":            alert.Status,
 		"emergencyOverride": alert.EmergencyOverride,
 		"statusReason":      alert.StatusReason,
+		"sourcePrediction":  alert.SourcePrediction,
 	}
 }
 

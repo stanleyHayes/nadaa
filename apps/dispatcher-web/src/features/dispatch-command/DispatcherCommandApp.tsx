@@ -46,8 +46,13 @@ import type {
   IncidentStatusUpdateRequest,
   MergeIncidentsRequest,
   MergeIncidentsResponse,
+  MLPredictionResponse,
 } from "@nadaa/shared-types";
-import { ALERT_API_BASE, INCIDENT_API_BASE } from "../../app/config";
+import {
+  ALERT_API_BASE,
+  INCIDENT_API_BASE,
+  ML_API_BASE,
+} from "../../app/config";
 import {
   dispatcherHeaders,
   dispatcherSession,
@@ -60,6 +65,7 @@ import {
   EmptyState,
   IncidentDetailPanel,
   IncidentMap,
+  MLPredictionReviewPanel,
   PrivacyChip,
   StatusLine,
 } from "./components";
@@ -67,6 +73,8 @@ import {
   defaultFilters,
   fallbackAlerts,
   fallbackIncidents,
+  fallbackMLPredictions,
+  predictionReviewPoints,
   assignmentAgencyOptions,
   severityColors,
 } from "./data";
@@ -79,6 +87,8 @@ import type {
   FilterState,
   IncidentLoadState,
   IncidentStatusFormState,
+  MLPredictionReview,
+  MLReviewLoadState,
 } from "./types";
 import {
   alertStatusLabel,
@@ -89,6 +99,7 @@ import {
   buildDefaultAlertForm,
   buildDefaultAssignmentForm,
   buildDefaultStatusForm,
+  buildAlertRequestFromPrediction,
   buildFilterOptions,
   buildQueueMetrics,
   duplicateReviewCandidatesFor,
@@ -96,6 +107,7 @@ import {
   formatIncidentAge,
   hazardLabel,
   matchesFilters,
+  predictionResponseToReview,
   severityLabel,
   statusLabel,
 } from "./utils";
@@ -146,6 +158,22 @@ function DispatcherCommandApp() {
   const [alertForm, setAlertForm] = useState<AlertFormState>(
     buildDefaultAlertForm(fallbackIncidents[0]),
   );
+  const [mlPredictions, setMlPredictions] = useState<MLPredictionReview[]>(
+    fallbackMLPredictions,
+  );
+  const [mlReviewLoadState, setMlReviewLoadState] =
+    useState<MLReviewLoadState>("loading");
+  const [mlReviewMessage, setMlReviewMessage] = useState(
+    "Loading ML flood predictions",
+  );
+  const [selectedPredictionId, setSelectedPredictionId] = useState(
+    fallbackMLPredictions[0]?.id ?? "",
+  );
+  const [mlDraftBusy, setMlDraftBusy] = useState(false);
+  const [mlDraftFeedback, setMlDraftFeedback] = useState("");
+  const [predictionReviewNotes, setPredictionReviewNotes] = useState<
+    Record<string, string>
+  >({});
 
   const refreshIncidents = async (signal?: AbortSignal) => {
     setLoadState("loading");
@@ -226,6 +254,55 @@ function DispatcherCommandApp() {
     return () => controller.abort();
   }, []);
 
+  const refreshMLPredictions = async (signal?: AbortSignal) => {
+    setMlReviewLoadState("loading");
+    setMlReviewMessage("Loading ML flood predictions");
+
+    try {
+      const predictions = await Promise.all(
+        predictionReviewPoints.map(async (point) => {
+          const response = await fetch(`${ML_API_BASE}/ml/flood/predictions`, {
+            method: "POST",
+            headers: dispatcherHeaders(),
+            signal,
+            body: JSON.stringify({
+              location: point.location,
+              requestedBy: "dispatcher-web",
+              correlationId: `ml-review-${point.id}`,
+            }),
+          });
+          if (!response.ok) {
+            throw new Error(`ML API returned ${response.status}`);
+          }
+          const payload = (await response.json()) as MLPredictionResponse;
+          return predictionResponseToReview(payload, point);
+        }),
+      );
+
+      setMlPredictions(predictions);
+      setSelectedPredictionId(predictions[0]?.id ?? "");
+      setMlReviewLoadState("ready");
+      setMlReviewMessage("Live ML predictions connected.");
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setMlPredictions(fallbackMLPredictions);
+      setSelectedPredictionId(fallbackMLPredictions[0]?.id ?? "");
+      setMlReviewLoadState("fallback");
+      setMlReviewMessage(
+        "ML service unavailable. Showing baseline prediction fixture data.",
+      );
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshMLPredictions(controller.signal);
+    return () => controller.abort();
+  }, []);
+
   const filteredIncidents = useMemo(
     () => incidents.filter((incident) => matchesFilters(incident, filters)),
     [filters, incidents],
@@ -242,6 +319,17 @@ function DispatcherCommandApp() {
     );
   }, [filteredIncidents, selectedIncidentId]);
 
+  const selectedPrediction = useMemo(() => {
+    if (!mlPredictions.length) {
+      return undefined;
+    }
+    return (
+      mlPredictions.find(
+        (prediction) => prediction.id === selectedPredictionId,
+      ) ?? mlPredictions[0]
+    );
+  }, [mlPredictions, selectedPredictionId]);
+
   useEffect(() => {
     if (!filteredIncidents.length) {
       setSelectedIncidentId("");
@@ -254,6 +342,21 @@ function DispatcherCommandApp() {
       setSelectedIncidentId(filteredIncidents[0].id);
     }
   }, [filteredIncidents, selectedIncidentId]);
+
+  useEffect(() => {
+    if (!mlPredictions.length) {
+      setSelectedPredictionId("");
+      return;
+    }
+
+    if (
+      !mlPredictions.some(
+        (prediction) => prediction.id === selectedPredictionId,
+      )
+    ) {
+      setSelectedPredictionId(mlPredictions[0].id);
+    }
+  }, [mlPredictions, selectedPredictionId]);
 
   const metrics = useMemo(() => buildQueueMetrics(incidents), [incidents]);
   const filterOptions = useMemo(
@@ -308,6 +411,18 @@ function DispatcherCommandApp() {
           : event.target.value;
       setAlertForm((current) => ({ ...current, [key]: value }));
     };
+
+  const updatePredictionReviewNote = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    if (!selectedPrediction) {
+      return;
+    }
+    setPredictionReviewNotes((current) => ({
+      ...current,
+      [selectedPrediction.id]: event.target.value,
+    }));
+  };
 
   const updateStatusForm =
     (key: keyof IncidentStatusFormState) =>
@@ -645,6 +760,55 @@ function DispatcherCommandApp() {
     }
   };
 
+  const createAlertDraftFromPrediction = async () => {
+    if (!selectedPrediction) {
+      return;
+    }
+
+    const reviewNote =
+      predictionReviewNotes[selectedPrediction.id] ??
+      `Reviewed ${selectedPrediction.modelVersion} prediction for ${selectedPrediction.community}.`;
+
+    setMlDraftBusy(true);
+    setMlDraftFeedback("");
+    try {
+      const response = await fetch(`${ALERT_API_BASE}/alerts`, {
+        method: "POST",
+        headers: dispatcherHeaders(),
+        body: JSON.stringify(
+          buildAlertRequestFromPrediction(selectedPrediction, reviewNote),
+        ),
+      });
+      if (!response.ok) {
+        throw new Error(`alert API returned ${response.status}`);
+      }
+
+      const alert = (await response.json()) as AuthorityAlertRecord;
+      setAlerts((current) => [
+        alert,
+        ...current.filter((item) => item.id !== alert.id),
+      ]);
+      setMlPredictions((current) =>
+        current.map((prediction) =>
+          prediction.id === selectedPrediction.id
+            ? { ...prediction, reviewStatus: "draft_created" }
+            : prediction,
+        ),
+      );
+      setAlertLoadState("ready");
+      setMlDraftFeedback(
+        `Draft ${alert.id} created from ${selectedPrediction.community} prediction.`,
+      );
+      setAlertFeedback("ML-reviewed draft created. Submit it for approval.");
+    } catch (error) {
+      setMlDraftFeedback(
+        "Alert API unavailable. Start alert-service to create an ML-reviewed draft.",
+      );
+    } finally {
+      setMlDraftBusy(false);
+    }
+  };
+
   const runAlertAction = async (
     alert: AuthorityAlertRecord,
     action: "submit" | "approve" | "reject" | "emergency-override",
@@ -845,6 +1009,26 @@ function DispatcherCommandApp() {
             );
           })}
         </Grid>
+
+        <MLPredictionReviewPanel
+          busy={mlDraftBusy}
+          feedback={mlDraftFeedback}
+          loadMessage={mlReviewMessage}
+          loadState={mlReviewLoadState}
+          onCreateDraft={() => void createAlertDraftFromPrediction()}
+          onRefresh={() => void refreshMLPredictions()}
+          onSelectPrediction={setSelectedPredictionId}
+          onUpdateReviewNote={updatePredictionReviewNote}
+          predictions={mlPredictions}
+          reviewNote={
+            selectedPrediction
+              ? (predictionReviewNotes[selectedPrediction.id] ??
+                `Reviewed ${selectedPrediction.modelVersion} prediction for ${selectedPrediction.community}.`)
+              : ""
+          }
+          selectedPrediction={selectedPrediction}
+          selectedPredictionId={selectedPredictionId}
+        />
 
         <Paper className="surface filter-surface">
           <Stack

@@ -231,6 +231,19 @@ export interface AlertTargetPreviewResponse {
   warnings: string[];
 }
 
+export interface AlertSourcePrediction {
+  predictionId: string;
+  predictionLogId?: string;
+  modelVersion: string;
+  inputFeatureSetVersion: string;
+  probability: number;
+  severity: RiskLevel;
+  confidence: "low" | "medium" | "high";
+  humanReviewRequired: boolean;
+  autoPublishAllowed: false;
+  reviewNote?: string;
+}
+
 export interface CreateAlertRequest {
   title: string;
   hazardType: HazardType;
@@ -242,6 +255,7 @@ export interface CreateAlertRequest {
   recommendedAction: string;
   evacuationRequired: boolean;
   shelterIds: string[];
+  sourcePrediction?: AlertSourcePrediction;
 }
 
 export interface AlertWorkflowRequest {
@@ -268,6 +282,7 @@ export interface AuthorityAlertRecord {
   status: AlertStatus;
   emergencyOverride: boolean;
   statusReason?: string;
+  sourcePrediction?: AlertSourcePrediction;
   createdAt: string;
   updatedAt: string;
   submittedAt?: string;
@@ -786,6 +801,9 @@ export interface MLPredictionSummary {
   region: string;
   district: string;
   community: string;
+  location?: Coordinates;
+  geometry?: AlertTargetGeometry;
+  distanceMeters?: number;
   probability: number;
   severity: RiskLevel;
   expectedOnset: string;

@@ -99,7 +99,7 @@ cd services/ml-service
 go run .
 ```
 
-Set `NADAA_ML_API_URL=http://127.0.0.1:8094/api/v1` on risk-service to include baseline flood predictions in area risk responses. With ML service running on `:8094`, verify model serving with `pnpm smoke:ml`.
+Set `NADAA_ML_API_URL=http://127.0.0.1:8094/api/v1` on risk-service to include baseline flood predictions in area risk responses. Set `VITE_ML_API_URL=http://127.0.0.1:8094/api/v1` for dispatcher-web to use live predictions in the ML review panel. With ML service running on `:8094`, verify model serving with `pnpm smoke:ml`; with alert-service also running on `:8089`, verify reviewed draft traceability with `pnpm smoke:ml-review`.
 
 Run the Go auth service:
 

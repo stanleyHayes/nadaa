@@ -2,11 +2,13 @@ import type {
   AgencyType,
   AlertSeverity,
   AlertTargetType,
+  Coordinates,
   HazardType,
   IncidentAbuseReviewDecision,
   IncidentAssignmentPriority,
   IncidentRecord,
   IncidentStatus,
+  MLPredictionSummary,
   RiskLevel,
 } from "@nadaa/shared-types";
 
@@ -31,6 +33,18 @@ export type FilterState = {
 export type IncidentLoadState =
   "loading" | "ready" | "fallback" | "empty" | "error";
 export type AlertLoadState = "loading" | "ready" | "fallback" | "error";
+export type MLReviewLoadState = "loading" | "ready" | "fallback" | "error";
+
+export type MLPredictionReviewPoint = {
+  id: string;
+  label: string;
+  location: Coordinates;
+};
+
+export type MLPredictionReview = MLPredictionSummary & {
+  location: Coordinates;
+  reviewStatus: "needs_review" | "draft_created";
+};
 
 export type AlertFormState = {
   title: string;
