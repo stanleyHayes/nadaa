@@ -84,6 +84,7 @@ import {
   SeverityChip,
   StatusLine,
 } from "./components";
+import { RoutePlannerPanel } from "./RoutePlannerPanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -1896,6 +1897,18 @@ function CommandCenterApp() {
                   </Button>
                 </Stack>
               </Paper>
+
+              <RoutePlannerPanel
+                selectedIncident={
+                  selectedIncident
+                    ? {
+                        id: selectedIncident.id,
+                        reference: selectedIncident.reference,
+                        location: selectedIncident.location,
+                      }
+                    : undefined
+                }
+              />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">

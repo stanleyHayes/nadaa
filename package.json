@@ -31,6 +31,7 @@
     "smoke:marketing": "node scripts/smoke-marketing.mjs",
     "smoke:aid": "node scripts/smoke-aid.mjs",
     "smoke:road-closure": "node scripts/smoke-road-closure.mjs",
+    "smoke:route": "node scripts/smoke-route.mjs",
     "smoke:relief": "node scripts/smoke-relief.mjs",
     "smoke:citizen-mobile": "node scripts/smoke-citizen-mobile.mjs",
     "smoke:dispatcher-mobile": "node scripts/smoke-dispatcher-mobile.mjs",

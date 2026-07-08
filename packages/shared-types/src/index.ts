@@ -1724,3 +1724,50 @@ export interface AreaRiskResponse {
   nearbyFacilities: EmergencyFacilitySummary[];
   recommendedActions: string[];
 }
+
+export type RouteWaypointType = "shelter" | "higher_ground" | "manual";
+
+export interface RouteCoordinates {
+  lat: number;
+  lng: number;
+}
+
+export interface RouteSegment {
+  start: RouteCoordinates;
+  end: RouteCoordinates;
+  distanceMeters: number;
+  mode: string;
+}
+
+export interface RouteTargetShelter {
+  id: string;
+  name: string;
+  location: RouteCoordinates;
+  status: string;
+}
+
+export interface RoutePlanRequest {
+  origin: RouteCoordinates;
+  destination?: RouteCoordinates;
+  waypointType: RouteWaypointType;
+  avoidRiskLevels?: string[];
+  closureBufferMeters?: number;
+}
+
+export interface RoutePlanResponse {
+  route: RouteCoordinates[];
+  segments: RouteSegment[];
+  distanceMeters: number;
+  estimatedDurationMinutes: number;
+  targetShelter?: RouteTargetShelter;
+  avoidedClosures: string[];
+  avoidedRiskZones: string[];
+  disclaimer: string;
+  decisionSupport: boolean;
+  generatedAt: string;
+}
+
+export interface RouteOptionsResponse {
+  waypointTypes: string[];
+  generatedAt: string;
+}

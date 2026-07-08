@@ -106,3 +106,5 @@ export type AssignmentAgencyOption = {
   type: AgencyType;
   responderLead: string;
 };
+
+export type RoutePlanFormWaypointType = "shelter" | "higher_ground" | "manual";
