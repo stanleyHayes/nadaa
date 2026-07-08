@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./theme": "./src/theme.ts",
+    "./native": "./src/native.ts",
     "./brand.css": "./src/brand.css"
   },
   "scripts": {

@@ -1,4 +1,5 @@
 import { Text, View } from "react-native";
+import { mobileTheme } from "../../../app/theme";
 import { Card, ScreenHeading, StatusPill } from "../../../ui/components";
 import type { CitizenScreenProps } from "./types";
 
@@ -36,8 +37,8 @@ export function GuidesScreen({ state }: CitizenScreenProps) {
 }
 
 const stylesBody = {
-  color: "#101828",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 14,
   lineHeight: 21,
 };
@@ -47,23 +48,23 @@ const stylesGrow = {
 };
 
 const stylesMuted = {
-  color: "#555B66",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.muted,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 13,
 };
 
 const stylesRow = {
   alignItems: "flex-start",
   flexDirection: "row",
-  gap: 12,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesStack = {
-  gap: 14,
+  gap: mobileTheme.spacing.md + 2,
 };
 
 const stylesTitle = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };

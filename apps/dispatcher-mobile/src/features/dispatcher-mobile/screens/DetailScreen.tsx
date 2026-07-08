@@ -2,12 +2,16 @@ import { Text, View } from "react-native";
 import {
   ActionButton,
   Card,
+  HazardBadge,
   ListItem,
   ScreenHeading,
+  SeverityBadge,
   StatusPill,
+  UrgencyBadge,
   uiStyles,
 } from "../../../ui/components";
-import { formatDateTime, severityTone, statusLabel } from "../data";
+import { mobileTheme } from "../../../app/theme";
+import { formatDateTime, statusLabel } from "../data";
 import type { DispatcherScreenProps } from "./types";
 
 export function DetailScreen({ actions, state }: DispatcherScreenProps) {
@@ -46,10 +50,7 @@ export function DetailScreen({ actions, state }: DispatcherScreenProps) {
               {incident.location.lng.toFixed(4)}
             </Text>
           </View>
-          <StatusPill
-            label={incident.severity}
-            tone={severityTone(incident.severity)}
-          />
+          <SeverityBadge severity={incident.severity} />
         </View>
         <Text style={stylesBody}>{incident.description}</Text>
         <View style={stylesRow}>
@@ -66,13 +67,20 @@ export function DetailScreen({ actions, state }: DispatcherScreenProps) {
       <Card>
         <Text style={stylesSectionTitle}>Facts</Text>
         <View style={stylesFactGrid}>
+          <View style={stylesFactRow}>
+            <Text style={stylesBody}>Hazard</Text>
+            <HazardBadge hazard={incident.type} />
+          </View>
+          <View style={stylesFactRow}>
+            <Text style={stylesBody}>Urgency</Text>
+            <UrgencyBadge urgency={incident.urgency} />
+          </View>
           <Text style={stylesBody}>
             People affected: {incident.peopleAffected}
           </Text>
           <Text style={stylesBody}>
             Injuries: {incident.injuriesReported ? "Yes" : "No"}
           </Text>
-          <Text style={stylesBody}>Urgency: {incident.urgency}</Text>
           <Text style={stylesBody}>
             Contact permission: {incident.contactPermission ? "Yes" : "No"}
           </Text>
@@ -133,14 +141,21 @@ export function DetailScreen({ actions, state }: DispatcherScreenProps) {
 }
 
 const stylesBody = {
-  color: "#101828",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 15,
   lineHeight: 22,
 };
 
 const stylesFactGrid = {
-  gap: 6,
+  gap: mobileTheme.spacing.md,
+};
+
+const stylesFactRow = {
+  alignItems: "center",
+  flexDirection: "row",
+  gap: mobileTheme.spacing.md,
+  justifyContent: "space-between",
 };
 
 const stylesGrow = {
@@ -148,25 +163,25 @@ const stylesGrow = {
 };
 
 const stylesIncidentReference = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };
 
 const stylesMuted = {
-  color: "#555B66",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.muted,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 13,
 };
 
 const stylesRow = {
   alignItems: "center",
   flexDirection: "row",
-  gap: 12,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesSectionTitle = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };

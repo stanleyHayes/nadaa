@@ -1,8 +1,11 @@
 import { Text, View } from "react-native";
+import { mobileTheme } from "../../../app/theme";
 import {
   Card,
+  HazardBadge,
   ScreenHeading,
   SegmentedControl,
+  SeverityBadge,
   StatusPill,
 } from "../../../ui/components";
 import type { AlertView } from "../types";
@@ -36,6 +39,10 @@ export function AlertsScreen({ actions, state }: CitizenScreenProps) {
               tone={alert.status === "current" ? "danger" : "navy"}
             />
           </View>
+          <View style={stylesBadgeRow}>
+            <HazardBadge hazard={alert.hazardType} />
+            <SeverityBadge severity={alert.severity} />
+          </View>
           <Text style={stylesBody}>{alert.message}</Text>
           <Text style={stylesAction}>{alert.recommendedAction}</Text>
         </Card>
@@ -45,15 +52,21 @@ export function AlertsScreen({ actions, state }: CitizenScreenProps) {
 }
 
 const stylesAction = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_600SemiBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.semibold,
   fontSize: 14,
   lineHeight: 20,
 };
 
+const stylesBadgeRow = {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: mobileTheme.spacing.sm,
+};
+
 const stylesBody = {
-  color: "#101828",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 14,
   lineHeight: 21,
 };
@@ -63,23 +76,23 @@ const stylesGrow = {
 };
 
 const stylesMuted = {
-  color: "#555B66",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.muted,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 13,
 };
 
 const stylesRow = {
   alignItems: "flex-start",
   flexDirection: "row",
-  gap: 12,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesStack = {
-  gap: 14,
+  gap: mobileTheme.spacing.md + 2,
 };
 
 const stylesTitle = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };

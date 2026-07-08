@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { nadaaBrand } from "@nadaa/brand";
 import { citizenTabs, type CitizenTab } from "./navigation";
-import { mobileTheme } from "./theme";
+import { hexToRgba, mobileTheme } from "./theme";
 import { useCitizenMobileState } from "../features/citizen-mobile/useCitizenMobileState";
 import { AlertsScreen } from "../features/citizen-mobile/screens/AlertsScreen";
 import { CommunityScreen } from "../features/citizen-mobile/screens/CommunityScreen";
@@ -61,7 +61,11 @@ export default function CitizenMobileApp() {
             <Text style={styles.slogan}>{nadaaBrand.slogan}</Text>
           </View>
         </View>
-        <Pressable accessibilityLabel="Call 112" style={styles.callButton}>
+        <Pressable
+          accessibilityLabel="Call 112"
+          accessibilityRole="button"
+          style={styles.callButton}
+        >
           <Feather
             color={mobileTheme.colors.white}
             name="phone-call"
@@ -84,6 +88,7 @@ export default function CitizenMobileApp() {
           return (
             <Pressable
               accessibilityLabel={tab.label}
+              accessibilityRole="button"
               key={tab.id}
               onPress={() => setActiveTab(tab.id)}
               style={[styles.tab, isActive ? styles.tabActive : null]}
@@ -121,7 +126,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     flexDirection: "row",
-    gap: 12,
+    gap: mobileTheme.spacing.md,
   },
   brandText: {
     flex: 1,
@@ -129,13 +134,14 @@ const styles = StyleSheet.create({
   },
   callButton: {
     alignItems: "center",
-    borderColor: "rgba(255, 255, 255, 0.36)",
+    borderColor: hexToRgba(mobileTheme.colors.white, 0.36),
     borderRadius: mobileTheme.radius.md,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 8,
-    minHeight: 42,
-    paddingHorizontal: 12,
+    gap: mobileTheme.spacing.sm,
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: mobileTheme.spacing.md,
   },
   callText: {
     color: mobileTheme.colors.white,
@@ -153,7 +159,7 @@ const styles = StyleSheet.create({
     borderBottomColor: mobileTheme.colors.gold,
     borderBottomWidth: 4,
     flexDirection: "row",
-    gap: 12,
+    gap: mobileTheme.spacing.md,
     minHeight: 82,
     paddingHorizontal: mobileTheme.spacing.lg,
     paddingVertical: mobileTheme.spacing.md,
@@ -173,7 +179,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   slogan: {
-    color: "rgba(255, 255, 255, 0.74)",
+    color: hexToRgba(mobileTheme.colors.white, 0.74),
     fontFamily: mobileTheme.font.regular,
     fontSize: 12,
   },
@@ -184,6 +190,7 @@ const styles = StyleSheet.create({
     gap: 4,
     justifyContent: "center",
     minHeight: 58,
+    minWidth: 44,
   },
   tabActive: {
     backgroundColor: mobileTheme.colors.navy,

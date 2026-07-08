@@ -6,15 +6,12 @@ import {
   ListItem,
   Metric,
   ScreenHeading,
+  SeverityBadge,
   StatusPill,
   uiStyles,
 } from "../../../ui/components";
-import {
-  formatRelativeTime,
-  hazardOptions,
-  severityTone,
-  statusLabel,
-} from "../data";
+import { mobileTheme } from "../../../app/theme";
+import { formatRelativeTime, hazardOptions, statusLabel } from "../data";
 import type { DispatcherScreenProps } from "./types";
 
 export function QueueScreen({ actions, state }: DispatcherScreenProps) {
@@ -115,10 +112,7 @@ export function QueueScreen({ actions, state }: DispatcherScreenProps) {
                   </Text>
                   <Text style={stylesBody}>{incident.description}</Text>
                 </View>
-                <StatusPill
-                  label={incident.severity}
-                  tone={severityTone(incident.severity)}
-                />
+                <SeverityBadge severity={incident.severity} />
               </View>
               <View style={stylesRow}>
                 <StatusPill label={statusLabel(incident.status)} tone="navy" />
@@ -147,20 +141,20 @@ export function QueueScreen({ actions, state }: DispatcherScreenProps) {
 }
 
 const stylesBody = {
-  color: "#101828",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 15,
   lineHeight: 22,
 };
 
 const stylesCallRow = {
-  paddingBottom: 80,
+  paddingBottom: mobileTheme.spacing["3xl"],
 };
 
 const stylesChipRow = {
   flexDirection: "row",
   flexWrap: "wrap",
-  gap: 8,
+  gap: mobileTheme.spacing.sm,
 };
 
 const stylesGrow = {
@@ -168,43 +162,44 @@ const stylesGrow = {
 };
 
 const stylesHeroText = {
-  color: "rgba(255, 255, 255, 0.78)",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.textInverse,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 15,
   lineHeight: 22,
+  opacity: 0.78,
 };
 
 const stylesHeroTitle = {
-  color: "#FFFFFF",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.textInverse,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 23,
 };
 
 const stylesIncidentReference = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 16,
 };
 
 const stylesMetricRow = {
   flexDirection: "row",
-  gap: 10,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesMuted = {
-  color: "#555B66",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.muted,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 13,
 };
 
 const stylesRow = {
   alignItems: "center",
   flexDirection: "row",
-  gap: 12,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesSectionTitle = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };

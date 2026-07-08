@@ -1,39 +1,40 @@
-import { nadaaBrand } from "@nadaa/brand";
+import { nativeTheme } from "@nadaa/brand/native";
 
+/**
+ * Dispatcher mobile theme.
+ *
+ * Re-exports the canonical React Native theme from `@nadaa/brand/native` and
+ * layers a small set of app-specific aliases so existing imports continue to
+ * work. Prefer the `nativeTheme` tokens for new code.
+ */
 export const mobileTheme = {
+  ...nativeTheme,
   colors: {
-    background: "#F4F7FB",
-    border: "rgba(13, 27, 61, 0.12)",
-    card: nadaaBrand.colors.white,
-    danger: nadaaBrand.colors.red,
-    gold: nadaaBrand.colors.gold,
-    green: nadaaBrand.colors.green,
-    ink: nadaaBrand.colors.ink,
-    muted: nadaaBrand.colors.slate,
-    navy: nadaaBrand.colors.navy,
-    softBlue: "#EEF5FF",
-    softGreen: "#F0FAF4",
-    softRed: "#FEF0EF",
-    white: nadaaBrand.colors.white,
-  },
-  font: {
-    family: "Outfit",
-    regular: "Outfit_400Regular",
-    medium: "Outfit_500Medium",
-    semibold: "Outfit_600SemiBold",
-    bold: "Outfit_800ExtraBold",
-  },
-  radius: {
-    sm: 6,
-    md: 8,
-  },
-  spacing: {
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 24,
+    ...nativeTheme.colors,
+    // Backward-compatible aliases used across dispatcher-mobile screens/components.
+    background: nativeTheme.colors.background,
+    border: nativeTheme.colors.border,
+    card: nativeTheme.colors.surface,
+    danger: nativeTheme.colors.danger,
+    gold: nativeTheme.colors.warning,
+    green: nativeTheme.colors.success,
+    ink: nativeTheme.colors.textPrimary,
+    muted: nativeTheme.colors.textSecondary,
+    navy: nativeTheme.colors.primary,
+    softBlue: nativeTheme.colors.softBlue,
+    softGreen: nativeTheme.colors.softGreen,
+    softRed: nativeTheme.colors.softRed,
+    white: nativeTheme.colors.surface,
   },
 } as const;
 
 export type MobileTheme = typeof mobileTheme;
+
+/** Convert a 6-digit hex color from the theme to an RGBA string. */
+export function withAlpha(color: string, alpha: number): string {
+  const hex = color.replace("#", "");
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}

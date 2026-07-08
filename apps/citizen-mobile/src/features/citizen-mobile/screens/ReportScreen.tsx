@@ -1,5 +1,5 @@
 import { Switch, Text, View } from "react-native";
-import { mobileTheme } from "../../../app/theme";
+import { hexToRgba, mobileTheme } from "../../../app/theme";
 import {
   ActionButton,
   Card,
@@ -107,11 +107,12 @@ function ToggleRow({
     <View style={stylesToggleRow}>
       <Text style={stylesLabel}>{label}</Text>
       <Switch
+        accessibilityLabel={label}
         onValueChange={onChange}
-        thumbColor={value ? mobileTheme.colors.green : "#FFFFFF"}
+        thumbColor={value ? mobileTheme.colors.green : mobileTheme.colors.white}
         trackColor={{
-          false: "rgba(85, 91, 102, 0.24)",
-          true: "rgba(17, 141, 78, 0.28)",
+          false: hexToRgba(mobileTheme.colors.muted, 0.24),
+          true: hexToRgba(mobileTheme.colors.green, 0.28),
         }}
         value={value}
       />
@@ -125,28 +126,29 @@ const stylesActions = {
 };
 
 const stylesButtonGrid = {
-  gap: 8,
+  gap: mobileTheme.spacing.sm,
 };
 
 const stylesLabel = {
-  color: "#101828",
-  fontFamily: "Outfit_600SemiBold",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.semibold,
   fontSize: 14,
 };
 
 const stylesMuted = {
-  color: "#555B66",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.muted,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 14,
   lineHeight: 21,
 };
 
 const stylesStack = {
-  gap: 14,
+  gap: mobileTheme.spacing.md + 2,
 };
 
 const stylesToggleRow = {
   alignItems: "center",
   flexDirection: "row",
   justifyContent: "space-between",
+  minHeight: 44,
 };

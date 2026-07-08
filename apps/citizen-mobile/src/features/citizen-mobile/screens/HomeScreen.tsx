@@ -1,11 +1,12 @@
 import { Text, View } from "react-native";
+import { hexToRgba, mobileTheme } from "../../../app/theme";
 import { mobileAreaPresets } from "../data";
 import {
   ActionButton,
   Card,
   Metric,
   ScreenHeading,
-  StatusPill,
+  SeverityBadge,
   uiStyles,
 } from "../../../ui/components";
 import type { CitizenScreenProps } from "./types";
@@ -36,7 +37,7 @@ export function HomeScreen({ actions, state }: CitizenScreenProps) {
             <Text style={stylesSectionTitle}>Area risk</Text>
             <Text style={stylesMuted}>{state.risk.location}</Text>
           </View>
-          <StatusPill label={state.risk.overallRisk} tone="gold" />
+          <SeverityBadge severity={state.risk.overallRisk} />
         </View>
         {floodRisk ? (
           <Text style={stylesBody}>{floodRisk.reason}</Text>
@@ -68,14 +69,14 @@ export function HomeScreen({ actions, state }: CitizenScreenProps) {
 }
 
 const stylesBody = {
-  color: "#101828",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 15,
   lineHeight: 22,
 };
 
 const stylesButtonGrid = {
-  gap: 8,
+  gap: mobileTheme.spacing.sm,
 };
 
 const stylesGrow = {
@@ -83,15 +84,15 @@ const stylesGrow = {
 };
 
 const stylesHeroText = {
-  color: "rgba(255, 255, 255, 0.78)",
-  fontFamily: "Outfit_400Regular",
+  color: hexToRgba(mobileTheme.colors.white, 0.78),
+  fontFamily: mobileTheme.font.regular,
   fontSize: 15,
   lineHeight: 22,
 };
 
 const stylesHeroTitle = {
-  color: "#FFFFFF",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.white,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 23,
 };
 
@@ -101,19 +102,19 @@ const stylesMetricRow = {
 };
 
 const stylesMuted = {
-  color: "#555B66",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.muted,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 13,
 };
 
 const stylesRow = {
   alignItems: "center",
   flexDirection: "row",
-  gap: 12,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesSectionTitle = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };

@@ -7,6 +7,7 @@ import {
   SelectField,
   uiStyles,
 } from "../../../ui/components";
+import { mobileTheme } from "../../../app/theme";
 import {
   assignmentAgencyOptions,
   incidentTransitionOptions,
@@ -151,14 +152,14 @@ export function ActionScreen({ actions, state }: DispatcherScreenProps) {
 }
 
 const stylesBody = {
-  color: "#101828",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 15,
   lineHeight: 22,
 };
 
 const stylesSectionTitle = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };
