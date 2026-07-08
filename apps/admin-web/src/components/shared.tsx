@@ -9,6 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import { RefreshCw, ShieldCheck } from "lucide-react";
+import { nadaaBrand } from "@nadaa/brand";
 import type { AdminLoadState, AdminMetric } from "../data/types";
 import { toneColors } from "../lib/utils";
 
@@ -63,7 +64,7 @@ export function EmptyState({
   return (
     <Box className="empty-state">
       <Stack alignItems="center" spacing={1}>
-        <ShieldCheck size={30} color="#555B66" />
+        <ShieldCheck size={30} color={nadaaBrand.colors.slate} />
         <Typography variant="subtitle1" fontWeight={800}>
           {title}
         </Typography>

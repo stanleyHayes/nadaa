@@ -44,8 +44,11 @@ export default function MarketingApp() {
 
   return (
     <div className="site-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
       <header className="site-header">
-        <a className="brand-mark" href="#top" aria-label="NADAA home">
+        <a className="brand-mark" href="#main-content" aria-label="NADAA home">
           <img alt="" src="/brand/nadaa-logo.png" />
           <span>
             <strong>{nadaaBrand.name}</strong>
@@ -70,7 +73,7 @@ export default function MarketingApp() {
             className="link-button emergency"
             href={marketingLinks.emergencyPhone}
           >
-            <PhoneCall size={17} />
+            <PhoneCall aria-hidden="true" size={17} />
             112
           </a>
           <button
@@ -79,12 +82,16 @@ export default function MarketingApp() {
             onClick={() => setMenuOpen((current) => !current)}
             type="button"
           >
-            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+            {menuOpen ? (
+              <X aria-hidden="true" size={22} />
+            ) : (
+              <Menu aria-hidden="true" size={22} />
+            )}
           </button>
         </div>
       </header>
 
-      <main id="top">
+      <main id="main-content">
         <section className="hero-section" aria-labelledby="hero-title">
           <div className="hero-shade" />
           <div className="hero-content">
@@ -98,7 +105,7 @@ export default function MarketingApp() {
             <div className="hero-actions">
               <a className="primary-action" href={marketingLinks.citizenWeb}>
                 Open citizen app
-                <ChevronRight size={18} />
+                <ChevronRight aria-hidden="true" size={18} />
               </a>
               <a className="secondary-action" href="#platforms">
                 Explore platforms
@@ -266,11 +273,11 @@ export default function MarketingApp() {
             {contactCards.map((card) => (
               <a className="contact-card" href={card.href} key={card.title}>
                 {card.title === "Emergency help" ? (
-                  <PhoneCall size={24} />
+                  <PhoneCall aria-hidden="true" size={24} />
                 ) : card.title === "Partnerships and demos" ? (
-                  <Mail size={24} />
+                  <Mail aria-hidden="true" size={24} />
                 ) : (
-                  <MapPinned size={24} />
+                  <MapPinned aria-hidden="true" size={24} />
                 )}
                 <span>{card.title}</span>
                 <strong>{card.primary}</strong>
@@ -294,7 +301,7 @@ export default function MarketingApp() {
           Response Platform.
         </p>
         <a href={marketingLinks.partnerMail}>
-          <HeartHandshake size={18} />
+          <HeartHandshake aria-hidden="true" size={18} />
           Partnership briefing
         </a>
       </footer>

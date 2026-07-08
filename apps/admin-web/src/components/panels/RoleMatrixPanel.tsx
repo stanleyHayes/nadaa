@@ -11,6 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import { LockKeyhole } from "lucide-react";
+import { nadaaBrand } from "@nadaa/brand";
 import { roleLabel, roleOptions } from "../../lib/utils";
 import { SectionHeader } from "../shared";
 
@@ -27,9 +28,13 @@ export function RoleMatrixPanel() {
       <SectionHeader
         eyebrow="Role policy"
         title="Admin, alert, and operational permissions"
-        icon={<LockKeyhole size={22} color="#0D1B3D" />}
+        icon={<LockKeyhole size={22} color={nadaaBrand.colors.navy} />}
       />
-      <Box className="admin-table">
+      <Box
+        className="admin-table"
+        tabIndex={0}
+        aria-label="Role matrix table, scroll horizontally on small screens"
+      >
         <Table size="small">
           <TableHead>
             <TableRow>

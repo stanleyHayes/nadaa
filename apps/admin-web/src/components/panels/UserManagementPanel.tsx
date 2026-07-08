@@ -17,6 +17,7 @@ import {
   Typography,
 } from "@mui/material";
 import { KeyRound, UserPlus } from "lucide-react";
+import { nadaaBrand } from "@nadaa/brand";
 import type {
   AdminActionResult,
   AdminUserFormState,
@@ -49,6 +50,11 @@ export function UserManagementPanel({
   ) => void;
   onSubmit: () => void;
 }) {
+  const nameInvalid = !form.name.trim();
+  const emailInvalid = !form.email.includes("@");
+  const phoneInvalid = !form.phone.startsWith("+233") || form.phone.length < 8;
+  const agencyInvalid = !form.agencyId;
+
   return (
     <Grid container spacing={2}>
       <Grid size={{ xs: 12, lg: 8 }}>
@@ -56,9 +62,13 @@ export function UserManagementPanel({
           <SectionHeader
             eyebrow="Authority access"
             title="Users, roles, and MFA state"
-            icon={<KeyRound size={22} color="#0D1B3D" />}
+            icon={<KeyRound size={22} color={nadaaBrand.colors.navy} />}
           />
-          <Box className="admin-table">
+          <Box
+            className="admin-table"
+            tabIndex={0}
+            aria-label="User management table, scroll horizontally on small screens"
+          >
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -116,7 +126,7 @@ export function UserManagementPanel({
           <SectionHeader
             eyebrow="Create user"
             title="Provision authority access"
-            icon={<UserPlus size={22} color="#118D4E" />}
+            icon={<UserPlus size={22} color={nadaaBrand.colors.green} />}
           />
           <Stack spacing={1.5}>
             {actionResult ? (
@@ -125,33 +135,51 @@ export function UserManagementPanel({
               </Alert>
             ) : null}
             <TextField
+              id="user-name"
               name="name"
               label="Full name"
               size="small"
+              required
               value={form.name}
               onChange={onFormChange}
+              error={nameInvalid}
+              inputProps={{ "aria-invalid": nameInvalid }}
             />
             <TextField
+              id="user-email"
               name="email"
               label="Email"
+              type="email"
               size="small"
+              required
               value={form.email}
               onChange={onFormChange}
+              error={emailInvalid}
+              inputProps={{ "aria-invalid": emailInvalid }}
             />
             <TextField
+              id="user-phone"
               name="phone"
               label="Phone"
+              type="tel"
               size="small"
+              required
               value={form.phone}
               onChange={onFormChange}
+              error={phoneInvalid}
+              inputProps={{ "aria-invalid": phoneInvalid }}
             />
             <TextField
               select
+              id="user-agency"
               name="agencyId"
               label="Agency"
               size="small"
+              required
               value={form.agencyId}
               onChange={onSelectChange}
+              error={agencyInvalid}
+              inputProps={{ "aria-invalid": agencyInvalid }}
             >
               {agencies.map((agency) => (
                 <MenuItem key={agency.id} value={agency.id}>
@@ -161,9 +189,11 @@ export function UserManagementPanel({
             </TextField>
             <TextField
               select
+              id="user-role"
               name="role"
               label="Role"
               size="small"
+              required
               value={form.role}
               onChange={onSelectChange}
             >

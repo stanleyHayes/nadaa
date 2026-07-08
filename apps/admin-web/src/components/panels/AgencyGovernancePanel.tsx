@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { UsersRound } from "lucide-react";
+import { nadaaBrand } from "@nadaa/brand";
 import type { ManagedAgency } from "../../data/types";
 import {
   agencyTypeLabel,
@@ -41,9 +42,13 @@ export function AgencyGovernancePanel({
       <SectionHeader
         eyebrow="Agency governance"
         title="Registered agencies and operating scope"
-        icon={<UsersRound size={22} color="#0D1B3D" />}
+        icon={<UsersRound size={22} color={nadaaBrand.colors.navy} />}
       />
-      <Box className="admin-table">
+      <Box
+        className="admin-table"
+        tabIndex={0}
+        aria-label="Agency governance table, scroll horizontally on small screens"
+      >
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -88,6 +93,7 @@ export function AgencyGovernancePanel({
                       variant="determinate"
                       color={agency.mfaCoverage >= 90 ? "success" : "warning"}
                       value={agency.mfaCoverage}
+                      aria-label={`${agency.name} MFA coverage`}
                     />
                     <Typography variant="caption">
                       {formatPercent(agency.mfaCoverage)}

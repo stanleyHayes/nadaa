@@ -292,7 +292,10 @@ function AdminConsolePage() {
     return (
       <ThemeProvider theme={adminTheme}>
         <CssBaseline />
-        <Box className="access-shell">
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        <Box component="main" id="main-content" className="access-shell">
           <Paper className="access-panel">
             <ShieldAlert size={38} color={nadaaBrand.colors.red} />
             <Typography variant="h5">Admin access denied</Typography>
@@ -309,6 +312,9 @@ function AdminConsolePage() {
   return (
     <ThemeProvider theme={adminTheme}>
       <CssBaseline />
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <AppBar className="topbar" position="static" elevation={0}>
         <Container maxWidth="xl">
           <Toolbar className="toolbar" disableGutters>
@@ -339,78 +345,80 @@ function AdminConsolePage() {
         </Container>
       </AppBar>
 
-      <Container className="dashboard-shell" maxWidth="xl">
-        <Stack
-          className="page-heading"
-          direction={{ xs: "column", lg: "row" }}
-          justifyContent="space-between"
-          gap={2}
-        >
-          <Box>
-            <Typography variant="h4">Governance workspace</Typography>
-            <Typography color="text.secondary">
-              Agencies, authority users, MFA readiness, audit trace, integration
-              contracts, and alert-rule controls.
-            </Typography>
-          </Box>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshCw size={18} />}
-            onClick={() => void refreshAdminData()}
+      <Box component="main" id="main-content">
+        <Container className="dashboard-shell" maxWidth="xl">
+          <Stack
+            className="page-heading"
+            direction={{ xs: "column", lg: "row" }}
+            justifyContent="space-between"
+            gap={2}
           >
-            Refresh data
-          </Button>
-        </Stack>
+            <Box>
+              <Typography variant="h4">Governance workspace</Typography>
+              <Typography color="text.secondary">
+                Agencies, authority users, MFA readiness, audit trace,
+                integration contracts, and alert-rule controls.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshCw size={18} />}
+              onClick={() => void refreshAdminData()}
+            >
+              Refresh data
+            </Button>
+          </Stack>
 
-        <StatusLine
-          loadState={loadState}
-          message={loadMessage}
-          onRefresh={() => void refreshAdminData()}
-        />
+          <StatusLine
+            loadState={loadState}
+            message={loadMessage}
+            onRefresh={() => void refreshAdminData()}
+          />
 
-        <Grid container spacing={2}>
-          {metrics.map((metric, index) => (
-            <Grid key={metric.label} size={{ xs: 12, sm: 6, xl: 3 }}>
-              <MetricCard
-                metric={metric}
-                icon={
-                  index === 0 ? (
-                    <Building2 size={25} />
-                  ) : index === 1 ? (
-                    <UsersRound size={25} />
-                  ) : index === 2 ? (
-                    <ShieldCheck size={25} />
-                  ) : (
-                    <DatabaseZap size={25} />
-                  )
-                }
-              />
-            </Grid>
-          ))}
-        </Grid>
-
-        <Paper className="surface view-tabs">
-          <Tabs
-            value={view}
-            onChange={(_, nextView) => setView(nextView as AdminView)}
-            variant="scrollable"
-            scrollButtons="auto"
-            aria-label="Admin console views"
-          >
-            {viewTabs.map((tab) => (
-              <Tab
-                key={tab.id}
-                value={tab.id}
-                icon={tab.icon}
-                iconPosition="start"
-                label={tab.label}
-              />
+          <Grid container spacing={2}>
+            {metrics.map((metric, index) => (
+              <Grid key={metric.label} size={{ xs: 12, sm: 6, xl: 3 }}>
+                <MetricCard
+                  metric={metric}
+                  icon={
+                    index === 0 ? (
+                      <Building2 size={25} />
+                    ) : index === 1 ? (
+                      <UsersRound size={25} />
+                    ) : index === 2 ? (
+                      <ShieldCheck size={25} />
+                    ) : (
+                      <DatabaseZap size={25} />
+                    )
+                  }
+                />
+              </Grid>
             ))}
-          </Tabs>
-        </Paper>
+          </Grid>
 
-        {renderActiveView()}
-      </Container>
+          <Paper className="surface view-tabs">
+            <Tabs
+              value={view}
+              onChange={(_, nextView) => setView(nextView as AdminView)}
+              variant="scrollable"
+              scrollButtons="auto"
+              aria-label="Admin console views"
+            >
+              {viewTabs.map((tab) => (
+                <Tab
+                  key={tab.id}
+                  value={tab.id}
+                  icon={tab.icon}
+                  iconPosition="start"
+                  label={tab.label}
+                />
+              ))}
+            </Tabs>
+          </Paper>
+
+          {renderActiveView()}
+        </Container>
+      </Box>
     </ThemeProvider>
   );
 }

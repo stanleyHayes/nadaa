@@ -1,7 +1,8 @@
-import { nadaaBrand } from "@nadaa/brand";
+import { nadaaBrand, severityRoles, type Severity } from "@nadaa/brand";
 import type {
   AgencyType,
   AgencyUserRole,
+  AlertSeverity,
   AuditLogRecord,
   AuthorityAlertRecord,
   CreateAgencyUserResponse,
@@ -244,4 +245,16 @@ export function statusColor(status: string) {
     return "error";
   }
   return "default";
+}
+
+const alertSeverityRoleMap: Record<AlertSeverity, Severity> = {
+  advisory: "info",
+  watch: "low",
+  warning: "medium",
+  severe_warning: "high",
+  emergency: "severe",
+};
+
+export function alertSeverityRole(severity: AlertSeverity) {
+  return severityRoles[alertSeverityRoleMap[severity]];
 }

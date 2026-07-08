@@ -790,11 +790,10 @@ export function AgencyApp() {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
-      <AppBar
-        elevation={0}
-        position="static"
-        sx={{ borderBottom: 4, borderColor: "secondary.main" }}
-      >
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+      <AppBar className="topbar" elevation={0} position="static">
         <Toolbar>
           <Stack
             alignItems="center"
@@ -812,7 +811,13 @@ export function AgencyApp() {
               <Typography fontWeight={800} variant="h6">
                 NADAA Agency Operations
               </Typography>
-              <Typography color="rgba(255,255,255,0.74)" variant="caption">
+              <Typography
+                sx={{
+                  color:
+                    "color-mix(in srgb, var(--nadaa-text-inverse) 74%, transparent)",
+                }}
+                variant="caption"
+              >
                 {agencySession.agency}
               </Typography>
             </Box>
@@ -874,7 +879,13 @@ export function AgencyApp() {
         </Tabs>
       </Box>
 
-      <Container maxWidth="xl" sx={{ flex: 1, py: 3 }}>
+      <Container
+        component="main"
+        id="main-content"
+        maxWidth="xl"
+        sx={{ flex: 1, py: 3 }}
+        tabIndex={-1}
+      >
         {activeTab === "dashboard" ? (
           <Stack spacing={3}>
             <Typography fontWeight={800} variant="h4">

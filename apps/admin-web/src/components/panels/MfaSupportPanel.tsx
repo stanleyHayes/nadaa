@@ -1,5 +1,6 @@
 import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
 import { CheckCircle2 } from "lucide-react";
+import { nadaaBrand } from "@nadaa/brand";
 import type { ManagedAgencyUser } from "../../data/types";
 import { roleLabel } from "../../lib/utils";
 import { EmptyState, SectionHeader } from "../shared";
@@ -12,7 +13,7 @@ export function MfaSupportPanel({ users }: { users: ManagedAgencyUser[] }) {
       <SectionHeader
         eyebrow="MFA support"
         title="Authority users waiting on setup"
-        icon={<CheckCircle2 size={22} color="#118D4E" />}
+        icon={<CheckCircle2 size={22} color={nadaaBrand.colors.green} />}
       />
       {pendingUsers.length ? (
         <Stack spacing={1.5}>

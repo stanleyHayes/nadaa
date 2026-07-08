@@ -1,5 +1,6 @@
 import { Box, Chip, Grid, Paper, Stack, Typography } from "@mui/material";
 import { DatabaseZap } from "lucide-react";
+import { nadaaBrand } from "@nadaa/brand";
 import type { DataSourceSummary } from "../../data/types";
 import { statusColor } from "../../lib/utils";
 
@@ -24,7 +25,7 @@ export function DataSourcePanel({
           <Paper className="data-source-card">
             <Stack spacing={1.2}>
               <Stack direction="row" justifyContent="space-between" gap={1}>
-                <DatabaseZap size={24} color="#118D4E" />
+                <DatabaseZap size={24} color={nadaaBrand.colors.green} />
                 <Chip
                   size="small"
                   color={statusColor(source.status) as ChipColor}

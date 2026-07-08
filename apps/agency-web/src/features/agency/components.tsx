@@ -20,14 +20,19 @@ import {
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
+  AlertOctagon,
+  AlertTriangle,
   Ambulance,
   Bed,
   Building2,
+  CheckCircle2,
   ClipboardList,
   HandHeart,
+  Info,
   MapPin,
   Users,
 } from "lucide-react";
+import { hazardRoles, severityRoles } from "@nadaa/brand";
 import type {
   AidPledgeRecord,
   AidRequestRecord,
@@ -58,9 +63,10 @@ import {
   allowedTransitions,
   hospitalBedPercent,
   hospitalCapacityColor,
+  mapHazardRole,
+  mapSeverityRole,
   reliefLabel,
   reliefStatusColor,
-  severityColor,
   stockSummary,
 } from "./utils";
 import type {
@@ -239,6 +245,71 @@ export function IncidentFilters({
   );
 }
 
+const severityIcons = {
+  low: CheckCircle2,
+  medium: AlertTriangle,
+  high: AlertTriangle,
+  severe: AlertOctagon,
+  info: Info,
+} as const;
+
+export function SeverityChip({
+  severity,
+  size = "small",
+}: {
+  severity: IncidentRecord["severity"];
+  size?: "small" | "medium";
+}) {
+  const roleKey = mapSeverityRole(severity);
+  const role = severityRoles[roleKey];
+  const Icon = severityIcons[roleKey];
+  return (
+    <Chip
+      icon={<Icon size={size === "small" ? 14 : 16} />}
+      label={severityLabel(severity)}
+      size={size}
+      sx={{
+        backgroundColor: role.background,
+        border: `1px solid ${role.border}`,
+        color: role.foreground,
+        fontWeight: 700,
+        minWidth: 78,
+        ".MuiChip-icon": {
+          color: role.foreground,
+        },
+      }}
+    />
+  );
+}
+
+export function HazardChip({
+  hazard,
+  size = "small",
+}: {
+  hazard: IncidentRecord["type"];
+  size?: "small" | "medium";
+}) {
+  const roleKey = mapHazardRole(hazard);
+  const role = hazardRoles[roleKey];
+  return (
+    <Chip
+      icon={<MapPin size={size === "small" ? 14 : 16} />}
+      label={hazardLabel(hazard)}
+      size={size}
+      sx={{
+        backgroundColor: role.background,
+        border: `1px solid ${role.border}`,
+        color: role.foreground,
+        fontWeight: 600,
+        ".MuiChip-icon": {
+          color: role.foreground,
+        },
+      }}
+      variant="outlined"
+    />
+  );
+}
+
 export function IncidentListItem({
   incident,
   onClick,
@@ -256,7 +327,7 @@ export function IncidentListItem({
         border: (theme) =>
           selected
             ? `2px solid ${theme.palette.primary.main}`
-            : "1px solid #e5e7eb",
+            : "1px solid var(--nadaa-divider)",
         borderRadius: 2,
         cursor: "pointer",
         p: 2,
@@ -273,19 +344,10 @@ export function IncidentListItem({
             {incident.description}
           </Typography>
         </Box>
-        <Chip
-          color={severityColor(incident.severity)}
-          label={severityLabel(incident.severity)}
-          size="small"
-        />
+        <SeverityChip severity={incident.severity} />
       </Stack>
       <Stack direction="row" flexWrap="wrap" gap={1} mt={1}>
-        <Chip
-          icon={<MapPin size={14} />}
-          label={hazardLabel(incident.type)}
-          size="small"
-          variant="outlined"
-        />
+        <HazardChip hazard={incident.type} />
         <Chip
           label={statusLabel(incident.status)}
           size="small"
@@ -306,17 +368,14 @@ export function IncidentDetail({ incident }: { incident: IncidentRecord }) {
         <Typography fontWeight={800} variant="h5">
           {incident.reference}
         </Typography>
-        <Chip
-          color={severityColor(incident.severity)}
-          label={severityLabel(incident.severity)}
-        />
+        <SeverityChip severity={incident.severity} size="medium" />
       </Stack>
 
       <Typography variant="body1">{incident.description}</Typography>
 
       <Stack direction="row" flexWrap="wrap" gap={1}>
         <Chip label={statusLabel(incident.status)} />
-        <Chip icon={<MapPin size={14} />} label={hazardLabel(incident.type)} />
+        <HazardChip hazard={incident.type} size="medium" />
         {incident.priorityReview ? (
           <Chip color="error" label="Priority review" />
         ) : null}
@@ -459,12 +518,19 @@ export function StatusUpdateForm({
 
       {requiresNotes ? (
         <TextField
+          error={requiresNotes && !form.resolutionNotes.trim()}
+          helperText={
+            requiresNotes && !form.resolutionNotes.trim()
+              ? "Resolution notes are required to close or mark as false report"
+              : ""
+          }
           label="Resolution notes (required)"
           multiline
           onChange={(event) =>
             onChange({ ...form, resolutionNotes: event.target.value })
           }
           placeholder="Explain how the incident was resolved"
+          required
           rows={3}
           size="small"
           value={form.resolutionNotes}
@@ -754,8 +820,11 @@ export function ReliefPointForm({
   return (
     <Stack spacing={2}>
       <TextField
+        error={!form.name.trim()}
+        helperText={!form.name.trim() ? "Name is required" : ""}
         label="Name"
         onChange={(event) => onChange({ ...form, name: event.target.value })}
+        required
         size="small"
         value={form.name}
       />
@@ -827,17 +896,23 @@ export function ReliefPointForm({
       />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <TextField
+          error={!form.lat.trim()}
           fullWidth
+          helperText={!form.lat.trim() ? "Latitude is required" : ""}
           label="Latitude"
           onChange={(event) => onChange({ ...form, lat: event.target.value })}
+          required
           size="small"
           type="number"
           value={form.lat}
         />
         <TextField
+          error={!form.lng.trim()}
           fullWidth
+          helperText={!form.lng.trim() ? "Longitude is required" : ""}
           label="Longitude"
           onChange={(event) => onChange({ ...form, lng: event.target.value })}
+          required
           size="small"
           type="number"
           value={form.lng}
@@ -1012,8 +1087,11 @@ export function AidRequestForm({
   return (
     <Stack spacing={2}>
       <TextField
+        error={!form.title.trim()}
+        helperText={!form.title.trim() ? "Title is required" : ""}
         label="Title"
         onChange={(event) => onChange({ ...form, title: event.target.value })}
+        required
         size="small"
         value={form.title}
       />
@@ -1097,11 +1175,18 @@ export function AidRequestForm({
       </Stack>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <TextField
+          error={!form.receivingOrganization.trim()}
           fullWidth
+          helperText={
+            !form.receivingOrganization.trim()
+              ? "Receiving organization is required"
+              : ""
+          }
           label="Receiving organization"
           onChange={(event) =>
             onChange({ ...form, receivingOrganization: event.target.value })
           }
+          required
           size="small"
           value={form.receivingOrganization}
         />
@@ -1117,11 +1202,16 @@ export function AidRequestForm({
       </Stack>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <TextField
+          error={!form.quantityNeeded.trim()}
           fullWidth
+          helperText={
+            !form.quantityNeeded.trim() ? "Quantity needed is required" : ""
+          }
           label="Quantity needed"
           onChange={(event) =>
             onChange({ ...form, quantityNeeded: event.target.value })
           }
+          required
           size="small"
           type="number"
           value={form.quantityNeeded}
@@ -1174,11 +1264,14 @@ export function AidRequestForm({
         value={form.sourceReliefPointId}
       />
       <TextField
+        error={!form.description.trim()}
+        helperText={!form.description.trim() ? "Description is required" : ""}
         label="Description"
         multiline
         onChange={(event) =>
           onChange({ ...form, description: event.target.value })
         }
+        required
         rows={3}
         size="small"
         value={form.description}

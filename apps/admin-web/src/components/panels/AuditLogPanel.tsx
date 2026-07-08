@@ -10,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import { ShieldCheck } from "lucide-react";
+import { nadaaBrand } from "@nadaa/brand";
 import type { AuditLogRecord } from "@nadaa/shared-types";
 import {
   auditSnapshotSummary,
@@ -24,10 +25,14 @@ export function AuditLogPanel({ logs }: { logs: AuditLogRecord[] }) {
       <SectionHeader
         eyebrow="Audit trail"
         title="Sensitive action trace"
-        icon={<ShieldCheck size={22} color="#0D1B3D" />}
+        icon={<ShieldCheck size={22} color={nadaaBrand.colors.navy} />}
       />
       {logs.length ? (
-        <Box className="admin-table">
+        <Box
+          className="admin-table"
+          tabIndex={0}
+          aria-label="Audit log table, scroll horizontally on small screens"
+        >
           <Table size="small">
             <TableHead>
               <TableRow>

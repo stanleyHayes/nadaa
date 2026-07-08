@@ -1,7 +1,9 @@
+import { hazardRoles, severityRoles } from "@nadaa/brand";
 import type {
   AidRequestPriority,
   AidRequestRecord,
   AidRequestStatus,
+  HazardType,
   HospitalCapacityRecord,
   HospitalCapacityStatus,
   IncidentRecord,
@@ -50,6 +52,42 @@ export function severityColor(severity: RiskLevel) {
     case "low":
     default:
       return "success";
+  }
+}
+
+export function mapSeverityRole(
+  severity: RiskLevel,
+): keyof typeof severityRoles {
+  if (severity === "emergency") return "severe";
+  if (severity === "moderate") return "medium";
+  return severity as keyof typeof severityRoles;
+}
+
+export function mapHazardRole(hazard: HazardType): keyof typeof hazardRoles {
+  switch (hazard) {
+    case "flood":
+    case "blocked_drain":
+    case "tidal_wave":
+      return "flood";
+    case "fire":
+    case "electrical_hazard":
+      return "fire";
+    case "road_crash":
+    case "marine_accident":
+      return "road";
+    case "building_collapse":
+    case "landslide":
+      return "geological";
+    case "medical_emergency":
+      return "medical";
+    case "disease_outbreak":
+      return "disease";
+    case "storm":
+      return "storm";
+    case "security_incident":
+    case "other":
+    default:
+      return "default";
   }
 }
 
