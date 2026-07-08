@@ -76,11 +76,15 @@ import {
   AlertWorkflowPanel,
   CommandSelect,
   EmptyState,
+  HazardChip,
   IncidentDetailPanel,
   IncidentMap,
   PrivacyChip,
+  ScrollableTable,
+  SeverityChip,
   StatusLine,
 } from "./components";
+import { RoutePlannerPanel } from "./RoutePlannerPanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -1060,7 +1064,15 @@ function CommandCenterApp() {
     return (
       <ThemeProvider theme={authorityTheme}>
         <CssBaseline />
-        <Container maxWidth="sm" className="access-shell">
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        <Container
+          component="main"
+          id="main-content"
+          maxWidth="sm"
+          className="access-shell"
+        >
           <Paper className="surface access-panel">
             <ShieldAlert size={38} color={nadaaBrand.colors.red} />
             <Typography variant="h5">Authority access required</Typography>
@@ -1077,6 +1089,9 @@ function CommandCenterApp() {
   return (
     <ThemeProvider theme={authorityTheme}>
       <CssBaseline />
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <AppBar position="sticky" elevation={0} className="topbar">
         <Toolbar className="toolbar">
           <Stack
@@ -1123,7 +1138,12 @@ function CommandCenterApp() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" className="dashboard-shell">
+      <Container
+        component="main"
+        id="main-content"
+        maxWidth="xl"
+        className="dashboard-shell"
+      >
         <Stack
           direction={{ xs: "column", md: "row" }}
           justifyContent="space-between"
@@ -1319,11 +1339,7 @@ function CommandCenterApp() {
                 </Box>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   {filterOptions.hazards.slice(0, 4).map((hazard) => (
-                    <Chip
-                      key={hazard}
-                      label={hazardLabel(hazard)}
-                      size="small"
-                    />
+                    <HazardChip key={hazard} hazard={hazard} />
                   ))}
                 </Stack>
               </Stack>
@@ -1335,7 +1351,7 @@ function CommandCenterApp() {
               />
             </Paper>
 
-            <Paper className="surface incident-table">
+            <Paper className="surface">
               <Stack
                 direction="row"
                 spacing={1}
@@ -1346,62 +1362,60 @@ function CommandCenterApp() {
                 <Typography variant="h6">Incident queue</Typography>
               </Stack>
               {filteredIncidents.length ? (
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Reference</TableCell>
-                      <TableCell>Hazard</TableCell>
-                      <TableCell>District</TableCell>
-                      <TableCell>Severity</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Privacy</TableCell>
-                      <TableCell>Assigned</TableCell>
-                      <TableCell>Age</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredIncidents.map((incident) => (
-                      <TableRow
-                        key={incident.id}
-                        hover
-                        selected={incident.id === selectedIncident?.id}
-                        onClick={() => setSelectedIncidentId(incident.id)}
-                        className="incident-row"
-                      >
-                        <TableCell>
-                          <Typography variant="subtitle2">
-                            {incident.reference}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {incident.locality}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{hazardLabel(incident.type)}</TableCell>
-                        <TableCell>{incident.district}</TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={severityLabel(incident.severity)}
-                            className="severity-chip"
-                            style={{
-                              backgroundColor:
-                                severityColors[incident.severity],
-                              color: "#FFFFFF",
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>{statusLabel(incident.status)}</TableCell>
-                        <TableCell>
-                          <PrivacyChip incident={incident} />
-                        </TableCell>
-                        <TableCell>{incident.assignedAgency}</TableCell>
-                        <TableCell>
-                          {formatIncidentAge(incident.createdAt)}
-                        </TableCell>
+                <ScrollableTable label="Incident queue table">
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Reference</TableCell>
+                        <TableCell>Hazard</TableCell>
+                        <TableCell>District</TableCell>
+                        <TableCell>Severity</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Privacy</TableCell>
+                        <TableCell>Assigned</TableCell>
+                        <TableCell>Age</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHead>
+                    <TableBody>
+                      {filteredIncidents.map((incident) => (
+                        <TableRow
+                          key={incident.id}
+                          hover
+                          selected={incident.id === selectedIncident?.id}
+                          onClick={() => setSelectedIncidentId(incident.id)}
+                          className="incident-row"
+                        >
+                          <TableCell>
+                            <Typography variant="subtitle2">
+                              {incident.reference}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {incident.locality}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <HazardChip hazard={incident.type} />
+                          </TableCell>
+                          <TableCell>{incident.district}</TableCell>
+                          <TableCell>
+                            <SeverityChip severity={incident.severity} />
+                          </TableCell>
+                          <TableCell>{statusLabel(incident.status)}</TableCell>
+                          <TableCell>
+                            <PrivacyChip incident={incident} />
+                          </TableCell>
+                          <TableCell>{incident.assignedAgency}</TableCell>
+                          <TableCell>
+                            {formatIncidentAge(incident.createdAt)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollableTable>
               ) : (
                 <EmptyState
                   title="No incidents match these filters"
@@ -1540,9 +1554,20 @@ function CommandCenterApp() {
                         label="Capacity"
                         size="small"
                         fullWidth
+                        required
                         value={shelterForm.capacity}
                         onChange={updateShelterForm("capacity")}
                         inputProps={{ inputMode: "numeric" }}
+                        error={
+                          Boolean(shelterForm.capacity) &&
+                          !Number.isFinite(Number(shelterForm.capacity))
+                        }
+                        helperText={
+                          Boolean(shelterForm.capacity) &&
+                          !Number.isFinite(Number(shelterForm.capacity))
+                            ? "Capacity must be a number"
+                            : ""
+                        }
                       />
                     </Grid>
                     <Grid size={6}>
@@ -1550,9 +1575,20 @@ function CommandCenterApp() {
                         label="Occupancy"
                         size="small"
                         fullWidth
+                        required
                         value={shelterForm.currentOccupancy}
                         onChange={updateShelterForm("currentOccupancy")}
                         inputProps={{ inputMode: "numeric" }}
+                        error={
+                          Boolean(shelterForm.currentOccupancy) &&
+                          !Number.isFinite(Number(shelterForm.currentOccupancy))
+                        }
+                        helperText={
+                          Boolean(shelterForm.currentOccupancy) &&
+                          !Number.isFinite(Number(shelterForm.currentOccupancy))
+                            ? "Occupancy must be a number"
+                            : ""
+                        }
                       />
                     </Grid>
                     <Grid size={12}>
@@ -1684,6 +1720,7 @@ function CommandCenterApp() {
                         label="Name"
                         size="small"
                         fullWidth
+                        required
                         value={reliefForm.name}
                         onChange={updateReliefForm("name")}
                       />
@@ -1729,9 +1766,20 @@ function CommandCenterApp() {
                         label="Latitude"
                         size="small"
                         fullWidth
+                        required
                         value={reliefForm.latitude}
                         onChange={updateReliefForm("latitude")}
                         inputProps={{ inputMode: "decimal" }}
+                        error={
+                          Boolean(reliefForm.latitude) &&
+                          !Number.isFinite(Number(reliefForm.latitude))
+                        }
+                        helperText={
+                          Boolean(reliefForm.latitude) &&
+                          !Number.isFinite(Number(reliefForm.latitude))
+                            ? "Latitude must be a number"
+                            : ""
+                        }
                       />
                     </Grid>
                     <Grid size={{ xs: 6 }}>
@@ -1739,9 +1787,20 @@ function CommandCenterApp() {
                         label="Longitude"
                         size="small"
                         fullWidth
+                        required
                         value={reliefForm.longitude}
                         onChange={updateReliefForm("longitude")}
                         inputProps={{ inputMode: "decimal" }}
+                        error={
+                          Boolean(reliefForm.longitude) &&
+                          !Number.isFinite(Number(reliefForm.longitude))
+                        }
+                        helperText={
+                          Boolean(reliefForm.longitude) &&
+                          !Number.isFinite(Number(reliefForm.longitude))
+                            ? "Longitude must be a number"
+                            : ""
+                        }
                       />
                     </Grid>
                     <Grid size={{ xs: 6 }}>
@@ -1838,6 +1897,18 @@ function CommandCenterApp() {
                   </Button>
                 </Stack>
               </Paper>
+
+              <RoutePlannerPanel
+                selectedIncident={
+                  selectedIncident
+                    ? {
+                        id: selectedIncident.id,
+                        reference: selectedIncident.reference,
+                        location: selectedIncident.location,
+                      }
+                    : undefined
+                }
+              />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">

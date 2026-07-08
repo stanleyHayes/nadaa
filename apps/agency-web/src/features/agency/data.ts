@@ -1,6 +1,9 @@
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   AgencyType,
+  AidRequestCategory,
+  AidRequestPriority,
+  AidRequestRecord,
   HazardType,
   HospitalCapacityRecord,
   HospitalCapacityStatus,
@@ -14,6 +17,7 @@ import type {
 } from "@nadaa/shared-types";
 import type {
   HospitalCapacityFormState,
+  AidRequestFormState,
   IncidentFilterState,
   ReliefPointFormState,
   ShelterOccupancyFormState,
@@ -67,6 +71,26 @@ export const initialReliefPointForm: ReliefPointFormState = {
   schedule: "",
   status: "open",
   stockCategories: "rice_kg:100:kg, water_sachets:500:sachets",
+};
+
+export const initialAidRequestForm: AidRequestFormState = {
+  title: "",
+  category: "food",
+  priority: "high",
+  region: "Greater Accra",
+  district: "Accra Metropolitan",
+  lat: "5.5600",
+  lng: "-0.2000",
+  receivingOrganization: "NADMO Accra Metro",
+  contact: nadaaBrand.supportLine,
+  quantityNeeded: "100",
+  quantityUnit: "units",
+  description: "",
+  neededBy: new Date(Date.now() + 72 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 16),
+  visibility: "public",
+  sourceReliefPointId: "",
 };
 
 export const incidentTransitionOptions: Record<
@@ -156,6 +180,26 @@ export const reliefPointTypeOptions: ReliefPointType[] = [
   "blankets",
   "cash",
   "mixed",
+];
+
+export const aidRequestCategoryOptions: AidRequestCategory[] = [
+  "food",
+  "water",
+  "medical",
+  "hygiene",
+  "shelter",
+  "logistics",
+  "cash",
+  "equipment",
+  "volunteers",
+  "other",
+];
+
+export const aidRequestPriorityOptions: AidRequestPriority[] = [
+  "urgent",
+  "high",
+  "medium",
+  "low",
 ];
 
 export function statusLabel(status: IncidentStatus) {
@@ -397,6 +441,53 @@ export const fallbackReliefPoints: ReliefPointRecord[] = [
     sourceRef: "agency-fixture",
     createdBy: "usr_fixture",
     updatedBy: "usr_fixture",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+export const fallbackAidRequests: AidRequestRecord[] = [
+  {
+    id: "aid_ama_hygiene_001",
+    title: "Hygiene kits for displaced households",
+    category: "hygiene",
+    priority: "high",
+    status: "open",
+    region: "Greater Accra",
+    district: "Accra Metropolitan",
+    location: { lat: 5.56, lng: -0.2 },
+    receivingOrganization: "AMA Central Food Distribution",
+    contact: nadaaBrand.supportLine,
+    quantityNeeded: 300,
+    quantityUnit: "kits",
+    quantityPledged: 80,
+    description:
+      "Hygiene kits for families temporarily staying around the central distribution point.",
+    neededBy: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+    visibility: "public",
+    sourceReliefPointId: "relief_ama_food_001",
+    createdBy: "usr_fixture",
+    approvedBy: "usr_fixture",
+    approvalNotes: "Verified by district relief desk.",
+    antiFraudNotes: "Receiving organization and point contact confirmed.",
+    pledges: [
+      {
+        id: "pledge_hygiene_001",
+        aidRequestId: "aid_ama_hygiene_001",
+        donorName: "Accra Mutual Aid Network",
+        donorType: "ngo",
+        contact: "aiddesk@example.org",
+        quantity: 80,
+        unit: "kits",
+        note: "Delivery available within 24 hours after acceptance.",
+        status: "accepted",
+        reviewStatus: "cleared",
+        fraudReviewNotes: "Known partner; contact verified.",
+        reviewedBy: "usr_fixture",
+        pledgedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },

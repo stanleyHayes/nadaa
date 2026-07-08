@@ -1,0 +1,35 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - gocognit
+    - misspell
+    - gosec
+  settings:
+    gocognit:
+      min-complexity: 30
+    revive:
+      rules:
+        - name: package-comments
+          severity: warning
+        - name: exported
+          severity: warning
+        - name: blank-imports
+          severity: warning
+
+issues:
+  exclude-use-default: false
+  exclude:
+    # Ignore underscore return values for hash.Hash.Write which never fails.
+    - "Error return value of `\\(.*\\)\\.Write` is not checked"

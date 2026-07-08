@@ -102,7 +102,7 @@ cd services/road-closure-service
 go run .
 ```
 
-Shelter-service also owns the Phase 2 hospital capacity tracker and relief distribution endpoints. Runtime logs use `INFO` for shelter/recovery, relief point, and hospital capacity reads, creates, updates, stock-history reads, and fixture imports; `WARN` for invalid coordinates, failed validation, unauthorized authority context, missing records, and stale/fixture workflow problems; and `ERROR` for response encoding failures. Do not log private patient details, hospital staff personal data, or sensitive beneficiary details.
+Shelter-service also owns the Phase 2 hospital capacity tracker, relief distribution endpoints, and donation/aid coordination endpoints. Runtime logs use `INFO` for shelter/recovery, relief point, aid request, aid pledge, and hospital capacity reads, creates, reviews, updates, exports, stock-history reads, and fixture imports; `WARN` for invalid coordinates, failed validation, unauthorized authority context, missing records, stale/fixture workflow problems, and pledge attempts against unapproved aid requests; and `ERROR` for response encoding or CSV write failures. Do not log private patient details, hospital staff personal data, raw donor phone numbers, private donor notes, or sensitive beneficiary details.
 
 Run integration service:
 
@@ -161,6 +161,7 @@ pnpm smoke:risk
 pnpm smoke:guide
 pnpm smoke:shelter
 pnpm smoke:relief
+pnpm smoke:aid
 pnpm smoke:road-closure
 pnpm smoke:integration
 ```

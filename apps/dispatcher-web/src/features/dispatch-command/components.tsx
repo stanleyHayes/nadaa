@@ -23,25 +23,45 @@ import type { SelectChangeEvent } from "@mui/material/Select";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
+  AlertCircle,
+  AlertOctagon,
+  AlertTriangle,
   BellRing,
   BrainCircuit,
+  Bug,
+  Car,
   CheckCheck,
+  CheckCircle2,
+  CloudLightning,
   Crosshair,
-  Hospital,
   FileText,
+  Flame,
   GitMerge,
+  HeartPulse,
+  Hospital,
+  Info,
   ListChecks,
+  MapPin,
+  Mountain,
   RefreshCw,
   ShieldAlert,
   Truck,
 } from "lucide-react";
-import { nadaaBrand } from "@nadaa/brand";
+import {
+  nadaaBrand,
+  hazardRoles,
+  severityRoles,
+  type Hazard,
+  type Severity,
+} from "@nadaa/brand";
 import type {
   AlertTarget,
   AuthorityAlertRecord,
   DuplicateReviewCandidate,
+  HazardType,
   HospitalCapacityRecord,
   ReliefPointRecord,
+  RiskLevel,
   RoadClosureRecord,
 } from "@nadaa/shared-types";
 import {
@@ -49,7 +69,6 @@ import {
   alertTargetTypeOptions,
   assignmentAgencyOptions,
   incidentTransitionOptions,
-  severityColors,
 } from "./data";
 import type {
   AbuseReviewFormState,
@@ -86,6 +105,7 @@ import {
   hospitalUnitStatusLabel,
   hospitalUpdatedLabel,
   metersLabel,
+  parseTargetGeometry,
   probabilityLabel,
   requiresIncidentResolution,
   severityLabel,
@@ -110,6 +130,116 @@ export function CommandSelect({
         {children}
       </Select>
     </FormControl>
+  );
+}
+
+const severityIconMap = {
+  CheckCircle2,
+  AlertTriangle,
+  AlertOctagon,
+  Info,
+};
+
+const hazardIconMap: Record<Hazard, React.ComponentType<{ size?: number }>> = {
+  flood: MapPin,
+  fire: Flame,
+  medical: HeartPulse,
+  geological: Mountain,
+  road: Car,
+  storm: CloudLightning,
+  disease: Bug,
+  default: AlertCircle,
+};
+
+function severityRoleKey(severity: string): Severity {
+  if (severity === "emergency") return "severe";
+  if (severity === "moderate") return "medium";
+  if (severity in severityRoles) return severity as Severity;
+  return "info";
+}
+
+function hazardRoleKey(type: string): Hazard {
+  switch (type) {
+    case "flood":
+    case "flash_flood":
+      return "flood";
+    case "fire":
+    case "electrical_hazard":
+    case "chemical_hazard":
+      return "fire";
+    case "medical_emergency":
+      return "medical";
+    case "landslide":
+    case "earthquake":
+    case "sinkhole":
+      return "geological";
+    case "road_crash":
+    case "traffic_incident":
+      return "road";
+    case "storm":
+    case "wind_damage":
+    case "tornado":
+      return "storm";
+    case "disease_outbreak":
+      return "disease";
+    default:
+      return "default";
+  }
+}
+
+export function SeverityChip({
+  severity,
+  size = "small",
+}: {
+  severity: string;
+  size?: "small" | "medium";
+}) {
+  const role = severityRoles[severityRoleKey(severity)];
+  const Icon = severityIconMap[role.icon];
+  return (
+    <Chip
+      size={size}
+      icon={<Icon size={14} aria-hidden="true" />}
+      label={severityLabel(severity as RiskLevel)}
+      className="severity-chip"
+      sx={{
+        backgroundColor: role.background,
+        color: role.foreground,
+        border: `1px solid ${role.border}`,
+        fontWeight: 800,
+        "& .MuiChip-icon": {
+          color: "inherit",
+        },
+      }}
+    />
+  );
+}
+
+export function HazardChip({
+  hazard,
+  size = "small",
+}: {
+  hazard: string;
+  size?: "small" | "medium";
+}) {
+  const roleKey = hazardRoleKey(hazard);
+  const role = hazardRoles[roleKey];
+  const Icon = hazardIconMap[roleKey];
+  return (
+    <Chip
+      size={size}
+      icon={<Icon size={14} aria-hidden="true" />}
+      label={hazardLabel(hazard as HazardType)}
+      sx={{
+        backgroundColor: role.background,
+        color: role.foreground,
+        border: `1px solid ${role.border}`,
+        fontWeight: 600,
+        "& .MuiChip-icon": {
+          color: "inherit",
+        },
+      }}
+    />
   );
 }
 
@@ -184,7 +314,8 @@ export function IncidentMap({
           radius: isSelected ? 13 : 9,
           color: "#FFFFFF",
           weight: isSelected ? 4 : 2,
-          fillColor: severityColors[incident.severity],
+          fillColor:
+            severityRoles[severityRoleKey(incident.severity)].foreground,
           fillOpacity: isSelected ? 0.95 : 0.78,
         },
       );
@@ -513,15 +644,7 @@ export function MLPredictionReviewPanel({
                       {prediction.district} · {prediction.cellId}
                     </Typography>
                   </Box>
-                  <Chip
-                    size="small"
-                    label={severityLabel(prediction.severity)}
-                    className="severity-chip"
-                    style={{
-                      backgroundColor: severityColors[prediction.severity],
-                      color: "#FFFFFF",
-                    }}
-                  />
+                  <SeverityChip severity={prediction.severity} />
                 </Stack>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   <Chip
@@ -711,6 +834,10 @@ export function HospitalCapacityPanel({
   onUpdateService: (event: SelectChangeEvent) => void;
 }) {
   const staleCount = facilities.filter((facility) => facility.stale).length;
+  const minBedsInvalid =
+    filters.minAvailableBeds.trim() !== "" &&
+    (!Number.isFinite(Number(filters.minAvailableBeds)) ||
+      Number(filters.minAvailableBeds) < 0);
 
   return (
     <Paper className="surface capacity-panel">
@@ -813,6 +940,8 @@ export function HospitalCapacityPanel({
             type="number"
             value={filters.minAvailableBeds}
             onChange={onUpdateMinBeds}
+            error={minBedsInvalid}
+            helperText={minBedsInvalid ? "Enter a non-negative number" : ""}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 3 }}>
@@ -1102,7 +1231,8 @@ export function PredictionReviewMap({
 
     const bounds = L.latLngBounds([]);
     predictions.forEach((prediction) => {
-      const color = severityColors[prediction.severity];
+      const color =
+        severityRoles[severityRoleKey(prediction.severity)].foreground;
       const selected = prediction.id === selectedPredictionId;
       if (prediction.geometry?.coordinates?.[0]?.length) {
         const polygonPoints = prediction.geometry.coordinates[0].map(
@@ -1185,6 +1315,15 @@ export function AlertWorkflowPanel({
   const queueAlerts = alerts.filter(
     (alert) => alert.status !== "published" && alert.status !== "expired",
   );
+  const radiusFieldsInvalid =
+    form.targetType === "radius" &&
+    (!form.targetLatitude.trim() ||
+      !form.targetLongitude.trim() ||
+      !form.targetRadiusMeters.trim());
+  const customGeometryInvalid =
+    form.targetType === "custom" &&
+    form.targetGeometry.trim() !== "" &&
+    !parseTargetGeometry(form.targetGeometry);
 
   return (
     <Paper className="surface alert-panel">
@@ -1297,6 +1436,12 @@ export function AlertWorkflowPanel({
                     value={form.targetLatitude}
                     onChange={onUpdateForm("targetLatitude")}
                     fullWidth
+                    error={radiusFieldsInvalid && !form.targetLatitude.trim()}
+                    helperText={
+                      radiusFieldsInvalid && !form.targetLatitude.trim()
+                        ? "Latitude is required"
+                        : ""
+                    }
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
@@ -1306,6 +1451,12 @@ export function AlertWorkflowPanel({
                     value={form.targetLongitude}
                     onChange={onUpdateForm("targetLongitude")}
                     fullWidth
+                    error={radiusFieldsInvalid && !form.targetLongitude.trim()}
+                    helperText={
+                      radiusFieldsInvalid && !form.targetLongitude.trim()
+                        ? "Longitude is required"
+                        : ""
+                    }
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
@@ -1315,6 +1466,14 @@ export function AlertWorkflowPanel({
                     value={form.targetRadiusMeters}
                     onChange={onUpdateForm("targetRadiusMeters")}
                     fullWidth
+                    error={
+                      radiusFieldsInvalid && !form.targetRadiusMeters.trim()
+                    }
+                    helperText={
+                      radiusFieldsInvalid && !form.targetRadiusMeters.trim()
+                        ? "Radius is required"
+                        : ""
+                    }
                   />
                 </Grid>
               </>
@@ -1329,6 +1488,10 @@ export function AlertWorkflowPanel({
                   multiline
                   minRows={3}
                   fullWidth
+                  error={customGeometryInvalid}
+                  helperText={
+                    customGeometryInvalid ? "Enter valid GeoJSON polygon" : ""
+                  }
                 />
               </Grid>
             ) : null}
@@ -1616,14 +1779,7 @@ export function IncidentDetailPanel({
           </Typography>
           <Typography variant="h6">{incident.reference}</Typography>
         </Box>
-        <Chip
-          size="small"
-          label={severityLabel(incident.severity)}
-          style={{
-            backgroundColor: severityColors[incident.severity],
-            color: "#FFFFFF",
-          }}
-        />
+        <SeverityChip severity={incident.severity} />
       </Stack>
 
       <Typography variant="body2" color="text.secondary">

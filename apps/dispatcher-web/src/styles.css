@@ -1,40 +1,65 @@
+@import "@nadaa/brand/brand.css";
+
 :root {
-  color: #101828;
-  background: #f3f6fa;
-  font-family:
-    "Outfit",
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --nadaa-topbar-accent: var(--nadaa-green);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  color: var(--nadaa-text-primary);
+  background: var(--nadaa-surface);
+  font-family: var(--nadaa-font-family);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  z-index: 10000;
+  padding: var(--nadaa-space-2) var(--nadaa-space-3);
+  background: var(--nadaa-navy);
+  color: var(--nadaa-white);
+  text-decoration: none;
+  font-weight: 600;
+  border-radius: 0 0 var(--nadaa-radius-md) 0;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: var(--nadaa-focus-outline);
+  outline-offset: 2px;
 }
 
 .topbar {
-  background: #0d1b3d;
-  border-bottom: 4px solid #118d4e;
+  border-bottom: 4px solid var(--nadaa-topbar-accent);
 }
 
 .toolbar {
   min-height: 76px;
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--nadaa-space-4);
 }
 
 .brand-lockup {
@@ -45,8 +70,8 @@ body {
   width: 54px;
   height: 54px;
   object-fit: contain;
-  border-radius: 8px;
-  background: #ffffff;
+  border-radius: var(--nadaa-radius-md);
+  background: var(--nadaa-surface-elevated);
 }
 
 .topbar-actions {
@@ -57,12 +82,12 @@ body {
 
 .session-chip {
   background: rgba(255, 255, 255, 0.14) !important;
-  color: #ffffff !important;
+  color: var(--nadaa-white) !important;
 }
 
 .dashboard-shell {
-  padding-top: 24px;
-  padding-bottom: 40px;
+  padding-top: var(--nadaa-space-6);
+  padding-bottom: var(--nadaa-space-10);
 }
 
 .access-shell {
@@ -72,37 +97,37 @@ body {
 }
 
 .access-panel {
-  padding: 28px;
+  padding: var(--nadaa-space-7);
   display: grid;
-  gap: 12px;
+  gap: var(--nadaa-space-3);
   text-align: center;
 }
 
 .page-heading {
-  margin-bottom: 18px;
+  margin-bottom: var(--nadaa-space-5);
 }
 
 .feed-alert {
-  margin-bottom: 16px;
+  margin-bottom: var(--nadaa-space-4);
 }
 
 .privacy-alert {
-  margin-top: 16px;
+  margin-top: var(--nadaa-space-4);
 }
 
 .feed-progress {
-  margin-bottom: 16px;
+  margin-bottom: var(--nadaa-space-4);
 }
 
 .metric-card,
 .surface {
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  border-radius: 8px !important;
-  box-shadow: 0 18px 48px rgba(13, 27, 61, 0.08) !important;
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  border-radius: var(--nadaa-radius-md) !important;
+  box-shadow: var(--nadaa-shadow-xl) !important;
 }
 
 .metric-card {
-  padding: 18px;
+  padding: var(--nadaa-space-5);
 }
 
 .metric-icon {
@@ -111,25 +136,25 @@ body {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 8px;
-  background: #f5f8fc;
+  border-radius: var(--nadaa-radius-md);
+  background: var(--nadaa-mist);
 }
 
 .main-grid,
 .filter-surface {
-  margin-top: 20px;
+  margin-top: var(--nadaa-space-5);
 }
 
 .surface {
-  padding: 20px;
+  padding: var(--nadaa-space-5);
 }
 
 .section-heading {
-  margin-bottom: 16px !important;
+  margin-bottom: var(--nadaa-space-4) !important;
 }
 
 .map-surface {
-  margin-bottom: 20px;
+  margin-bottom: var(--nadaa-space-5);
 }
 
 .map-frame {
@@ -137,9 +162,9 @@ body {
   height: 452px;
   margin-top: 18px;
   overflow: hidden;
-  border-radius: 8px;
-  border: 1px solid rgba(13, 27, 61, 0.12);
-  background: #dfeaf2;
+  border-radius: var(--nadaa-radius-md);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
+  background: var(--nadaa-border);
 }
 
 .leaflet-command-map {
@@ -148,27 +173,23 @@ body {
   min-height: 452px;
 }
 
-.leaflet-container {
-  font: inherit;
-}
-
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
-  border-radius: 8px;
-}
-
 .map-empty {
   position: absolute;
   inset: 0;
   z-index: 500;
   display: grid;
   place-items: center;
-  padding: 20px;
-  background: rgba(243, 246, 250, 0.86);
+  padding: var(--nadaa-space-5);
+  background: color-mix(in srgb, var(--nadaa-surface) 86%, transparent);
 }
 
 .incident-table {
   overflow-x: auto;
+}
+
+.incident-table:focus-visible {
+  outline: var(--nadaa-focus-outline);
+  outline-offset: -2px;
 }
 
 .incident-table table {
@@ -179,8 +200,12 @@ body {
   cursor: pointer;
 }
 
+.incident-row td {
+  min-height: 44px;
+}
+
 .incident-row.Mui-selected td {
-  background: rgba(17, 141, 78, 0.08);
+  background: color-mix(in srgb, var(--nadaa-green) 8%, transparent);
 }
 
 .severity-chip {
@@ -189,12 +214,12 @@ body {
 }
 
 .alert-panel {
-  border-top: 6px solid #e53935;
+  border-top: 6px solid var(--nadaa-red);
 }
 
 .ml-review-panel {
-  margin-top: 20px;
-  border-top: 6px solid #0b6fb8;
+  margin-top: var(--nadaa-space-5);
+  border-top: 6px solid var(--nadaa-info);
 }
 
 .ml-review-alert {
@@ -202,13 +227,13 @@ body {
 }
 
 .capacity-panel {
-  margin-top: 20px;
-  border-top: 6px solid #118d4e;
+  margin-top: var(--nadaa-space-5);
+  border-top: 6px solid var(--nadaa-green);
 }
 
 .capacity-filters {
-  margin-top: 16px;
-  margin-bottom: 6px;
+  margin-top: var(--nadaa-space-4);
+  margin-bottom: var(--nadaa-space-1);
 }
 
 .capacity-list {
@@ -219,17 +244,17 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  border-radius: 8px;
-  background: #f8fafc;
+  gap: var(--nadaa-space-3);
+  padding: var(--nadaa-space-3);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  background: var(--nadaa-mist);
 }
 
 .hospital-card .MuiLinearProgress-root {
   height: 8px;
-  border-radius: 999px;
-  background: rgba(13, 27, 61, 0.08);
+  border-radius: var(--nadaa-radius-full);
+  background: color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
 }
 
 .hospital-card .MuiAlert-root {
@@ -240,31 +265,31 @@ body {
 .prediction-review-map {
   height: 336px;
   overflow: hidden;
-  border-radius: 8px;
-  border: 1px solid rgba(13, 27, 61, 0.12);
-  background: #dfeaf2;
+  border-radius: var(--nadaa-radius-md);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
+  background: var(--nadaa-border);
 }
 
 .prediction-list {
   max-height: 316px;
-  margin-top: 12px;
+  margin-top: var(--nadaa-space-3);
   overflow: auto;
   padding-right: 4px;
 }
 
 .prediction-row {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--nadaa-space-2);
+  padding: var(--nadaa-space-3);
   cursor: pointer;
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  background: var(--nadaa-mist);
 }
 
 .prediction-row.selected {
-  border-color: rgba(17, 141, 78, 0.46);
-  background: rgba(17, 141, 78, 0.08);
+  border-color: color-mix(in srgb, var(--nadaa-green) 46%, transparent);
+  background: color-mix(in srgb, var(--nadaa-green) 8%, transparent);
 }
 
 .prediction-detail {
@@ -273,76 +298,76 @@ body {
 
 .factor-row {
   display: grid;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  border-radius: 8px;
-  background: #f8fafc;
+  gap: var(--nadaa-space-2);
+  padding: var(--nadaa-space-2);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  background: var(--nadaa-mist);
 }
 
 .alert-queue-row {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  border-radius: 8px;
-  background: #f8fafc;
+  gap: var(--nadaa-space-2);
+  padding: var(--nadaa-space-3);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  background: var(--nadaa-mist);
 }
 
 .alert-actions {
-  row-gap: 8px;
+  row-gap: var(--nadaa-space-2);
 }
 
 .target-preview {
   display: grid;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  border-radius: 8px;
-  background: #f8fafc;
+  gap: var(--nadaa-space-3);
+  padding: var(--nadaa-space-3);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  background: var(--nadaa-mist);
 }
 
 .target-preview-map {
   height: 172px;
   overflow: hidden;
-  border-radius: 8px;
-  border: 1px solid rgba(13, 27, 61, 0.12);
-  background: #dfeaf2;
+  border-radius: var(--nadaa-radius-md);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
+  background: var(--nadaa-border);
 }
 
 .detail-panel {
-  border-top: 6px solid #118d4e;
+  border-top: 6px solid var(--nadaa-green);
 }
 
 .abuse-signal-row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px;
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  border-radius: 8px;
-  background: #fff9e6;
+  gap: var(--nadaa-space-3);
+  padding: var(--nadaa-space-2);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  background: color-mix(in srgb, var(--nadaa-gold) 10%, var(--nadaa-white));
 }
 
 .detail-divider {
-  margin: 16px 0 !important;
+  margin: var(--nadaa-space-4) 0 !important;
 }
 
 .detail-actions {
-  margin-top: 18px;
+  margin-top: var(--nadaa-space-5);
 }
 
 .fact {
   min-height: 66px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  background: #f8fafc;
+  padding: var(--nadaa-space-2);
+  border-radius: var(--nadaa-radius-md);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  background: var(--nadaa-mist);
 }
 
 .timeline-row {
   position: relative;
-  padding-left: 18px;
+  padding-left: var(--nadaa-space-5);
 }
 
 .timeline-row::before {
@@ -352,28 +377,28 @@ body {
   left: 0;
   width: 8px;
   height: 8px;
-  border-radius: 999px;
-  background: #118d4e;
+  border-radius: var(--nadaa-radius-full);
+  background: var(--nadaa-green);
 }
 
 .assignment-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  background: #f8fafc;
+  gap: var(--nadaa-space-3);
+  padding: var(--nadaa-space-2);
+  border-radius: var(--nadaa-radius-md);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  background: var(--nadaa-mist);
 }
 
 .duplicate-review-row {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(13, 27, 61, 0.08);
-  background: #f8fafc;
+  gap: var(--nadaa-space-2);
+  padding: var(--nadaa-space-3);
+  border-radius: var(--nadaa-radius-md);
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  background: var(--nadaa-mist);
 }
 
 .duplicate-review-row .MuiFormControlLabel-root {
@@ -383,7 +408,7 @@ body {
 .duplicate-comparison {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--nadaa-space-2);
 }
 
 .duplicate-comparison > * {
@@ -395,12 +420,17 @@ body {
   padding: 22px;
 }
 
+.MuiButton-root {
+  min-height: 44px;
+  min-width: 44px;
+}
+
 @media (max-width: 900px) {
   .toolbar {
     align-items: flex-start;
     min-height: 136px;
-    padding-top: 12px;
-    padding-bottom: 12px;
+    padding-top: var(--nadaa-space-3);
+    padding-bottom: var(--nadaa-space-3);
     flex-direction: column;
   }
 
@@ -416,7 +446,7 @@ body {
 
 @media (max-width: 760px) {
   .dashboard-shell {
-    padding-top: 18px;
+    padding-top: var(--nadaa-space-4);
   }
 
   .duplicate-comparison {
@@ -425,7 +455,7 @@ body {
 
   .surface,
   .metric-card {
-    padding: 16px;
+    padding: var(--nadaa-space-4);
   }
 
   .map-frame,

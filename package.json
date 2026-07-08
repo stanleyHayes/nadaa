@@ -29,7 +29,9 @@
     "security:scan": "node scripts/security-scan.mjs",
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:marketing": "node scripts/smoke-marketing.mjs",
+    "smoke:aid": "node scripts/smoke-aid.mjs",
     "smoke:road-closure": "node scripts/smoke-road-closure.mjs",
+    "smoke:route": "node scripts/smoke-route.mjs",
     "smoke:relief": "node scripts/smoke-relief.mjs",
     "smoke:citizen-mobile": "node scripts/smoke-citizen-mobile.mjs",
     "smoke:dispatcher-mobile": "node scripts/smoke-dispatcher-mobile.mjs",
@@ -53,6 +55,8 @@
     "smoke:integration": "node scripts/smoke-integration.mjs",
     "smoke:staging": "node scripts/smoke-staging.mjs",
     "go:test": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && go test ./...); done",
+    "go:lint": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && golangci-lint run ./...); done",
+    "go:vet": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && go vet ./...); done",
     "format": "prettier --write \"**/*.{md,json,ts,tsx,css,yml,yaml}\""
   },
   "devDependencies": {

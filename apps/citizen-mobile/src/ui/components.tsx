@@ -1,6 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { mobileTheme } from "../app/theme";
+import { hazardBadgeFor, severityBadgeFor } from "@nadaa/brand/native";
+import { hexToRgba, mobileTheme } from "../app/theme";
 
 type ActionButtonProps = {
   disabled?: boolean;
@@ -18,10 +19,15 @@ export function ActionButton({
   tone = "navy",
 }: ActionButtonProps) {
   const color =
-    tone === "plain" ? mobileTheme.colors.navy : mobileTheme.colors.white;
+    tone === "plain"
+      ? mobileTheme.colors.navy
+      : tone === "navy"
+        ? mobileTheme.colors.white
+        : mobileTheme.colors.ink;
   return (
     <Pressable
       accessibilityLabel={label}
+      accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
       style={[
@@ -66,7 +72,7 @@ export function Field({
         multiline={multiline}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="rgba(85, 91, 102, 0.72)"
+        placeholderTextColor={hexToRgba(mobileTheme.colors.muted, 0.72)}
         style={[styles.input, multiline ? styles.inputMultiline : null]}
         value={value}
       />
@@ -117,6 +123,8 @@ export function SegmentedControl<Option extends string>({
     <View style={styles.segmented}>
       {options.map((option) => (
         <Pressable
+          accessibilityLabel={option.label}
+          accessibilityRole="button"
           key={option.value}
           onPress={() => onChange(option.value)}
           style={[
@@ -145,12 +153,99 @@ export function StatusPill({
   label: string;
   tone?: "danger" | "gold" | "green" | "navy";
 }) {
+  const pillStyle =
+    tone === "danger"
+      ? styles.pill_danger
+      : tone === "gold"
+        ? styles.pill_gold
+        : tone === "green"
+          ? styles.pill_green
+          : styles.pill_navy;
   return (
-    <View style={[styles.pill, styles[`pill_${tone}`]]}>
-      <Text style={styles.pillText}>{label}</Text>
+    <View style={[styles.pill, pillStyle]}>
+      <Text style={[styles.pillText, styles[`pillText_${tone}`]]}>{label}</Text>
     </View>
   );
 }
+
+/** Accessible severity badge with icon + text + color. */
+export function SeverityBadge({ severity }: { severity: string }) {
+  const normalized = normalizeSeverity(severity);
+  const badge = severityBadgeFor(normalized);
+  const icon = severityIconMap[badge.icon] ?? "info";
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: badge.background,
+          borderColor: badge.border,
+        },
+      ]}
+    >
+      <Feather color={badge.color} name={icon} size={14} />
+      <Text style={[styles.badgeText, { color: badge.color }]}>{severity}</Text>
+    </View>
+  );
+}
+
+/** Accessible hazard badge with icon + text + color. */
+export function HazardBadge({ hazard }: { hazard: string }) {
+  const badge = hazardBadgeFor(hazard);
+  const icon = hazardIconMap[hazard.toLowerCase()] ?? "alert-circle";
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: badge.background,
+          borderColor: badge.border,
+        },
+      ]}
+    >
+      <Feather color={badge.color} name={icon} size={14} />
+      <Text style={[styles.badgeText, { color: badge.color }]}>{hazard}</Text>
+    </View>
+  );
+}
+
+function normalizeSeverity(severity: string): string {
+  const map: Record<string, string> = {
+    advisory: "info",
+    emergency: "severe",
+    high: "high",
+    life_threatening: "severe",
+    low: "low",
+    moderate: "medium",
+    normal: "low",
+    severe: "severe",
+    severe_warning: "severe",
+    watch: "medium",
+    warning: "high",
+  };
+  return map[severity.toLowerCase()] ?? "info";
+}
+
+const severityIconMap: Record<string, string> = {
+  AlertOctagon: "alert-octagon",
+  AlertTriangle: "alert-triangle",
+  CheckCircle2: "check-circle",
+  Info: "info",
+};
+
+const hazardIconMap: Record<string, string> = {
+  blocked_drain: "droplet",
+  building_collapse: "home",
+  disease_outbreak: "thermometer",
+  electrical_hazard: "zap",
+  fire: "flame",
+  flood: "droplet",
+  landslide: "anchor",
+  medical_emergency: "activity",
+  other: "alert-circle",
+  road_crash: "truck",
+  security_incident: "shield",
+};
 
 const styles = StyleSheet.create({
   actionButton: {
@@ -160,12 +255,27 @@ const styles = StyleSheet.create({
     gap: mobileTheme.spacing.sm,
     justifyContent: "center",
     minHeight: 44,
+    minWidth: 44,
     paddingHorizontal: mobileTheme.spacing.md,
     paddingVertical: mobileTheme.spacing.sm,
   },
   actionButtonText: {
     fontFamily: mobileTheme.font.semibold,
     fontSize: 14,
+  },
+  badge: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  badgeText: {
+    fontFamily: mobileTheme.font.semibold,
+    fontSize: 12,
   },
   button_danger: {
     backgroundColor: mobileTheme.colors.danger,
@@ -194,11 +304,11 @@ const styles = StyleSheet.create({
   },
   card_danger: {
     backgroundColor: mobileTheme.colors.softRed,
-    borderColor: "rgba(229, 57, 53, 0.22)",
+    borderColor: hexToRgba(mobileTheme.colors.danger, 0.22),
   },
   card_green: {
     backgroundColor: mobileTheme.colors.softGreen,
-    borderColor: "rgba(17, 141, 78, 0.18)",
+    borderColor: hexToRgba(mobileTheme.colors.green, 0.18),
   },
   card_navy: {
     backgroundColor: mobileTheme.colors.navy,
@@ -263,21 +373,38 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   pill_danger: {
-    backgroundColor: mobileTheme.colors.danger,
+    backgroundColor: mobileTheme.colors.softRed,
+    borderColor: hexToRgba(mobileTheme.colors.danger, 0.25),
+    borderWidth: 1,
   },
   pill_gold: {
-    backgroundColor: mobileTheme.colors.gold,
+    backgroundColor: mobileTheme.colors.softGold,
+    borderColor: hexToRgba(mobileTheme.colors.gold, 0.35),
+    borderWidth: 1,
   },
   pill_green: {
-    backgroundColor: mobileTheme.colors.green,
+    backgroundColor: mobileTheme.colors.softGreen,
+    borderColor: hexToRgba(mobileTheme.colors.green, 0.25),
+    borderWidth: 1,
   },
   pill_navy: {
     backgroundColor: mobileTheme.colors.navy,
   },
   pillText: {
-    color: mobileTheme.colors.white,
     fontFamily: mobileTheme.font.semibold,
     fontSize: 12,
+  },
+  pillText_danger: {
+    color: mobileTheme.colors.danger,
+  },
+  pillText_gold: {
+    color: mobileTheme.colors.ink,
+  },
+  pillText_green: {
+    color: mobileTheme.colors.green,
+  },
+  pillText_navy: {
+    color: mobileTheme.colors.white,
   },
   segmented: {
     backgroundColor: mobileTheme.colors.white,
@@ -288,8 +415,11 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   segment: {
+    alignItems: "center",
     borderRadius: 6,
     flex: 1,
+    justifyContent: "center",
+    minHeight: 44,
     paddingVertical: 9,
   },
   segmentActive: {

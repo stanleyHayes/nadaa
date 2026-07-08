@@ -1,212 +1,507 @@
-# Architecture
+# NADAA Architecture Guide
 
-NADAA is the Ghana National Disaster Alert and Response Platform. It is designed as an AI-assisted, human-approved emergency preparedness, warning, response, and recovery platform.
+This guide is for engineers, operators, and technical maintainers of the National Disaster Alert & Response Platform (NADAA). It explains the architecture, technology choices, component responsibilities, data flows, deployment topology, security model, and development workflow.
 
-## Architecture Goals
+---
 
-- Keep citizen workflows fast, mobile-first, and resilient under poor connectivity.
-- Keep authority workflows auditable, role-protected, and operationally clear.
-- Treat flood risk as the first hazard while preserving an extensible hazard model.
-- Keep public warning decisions human-approved.
-- Make agency integrations replaceable through explicit adapters and contracts.
-- Keep geospatial data, incident data, media, alert delivery, and ML predictions traceable by source and timestamp.
+## Table of contents
 
-## Current Foundation
+1. [Overview and goals](#overview-and-goals)
+2. [High-level architecture](#high-level-architecture)
+3. [Technology stack](#technology-stack)
+4. [Frontend applications](#frontend-applications)
+5. [Backend services](#backend-services)
+6. [Shared packages](#shared-packages)
+7. [Data layer](#data-layer)
+8. [Integration architecture](#integration-architecture)
+9. [ML pipeline](#ml-pipeline)
+10. [Security architecture](#security-architecture)
+11. [API conventions](#api-conventions)
+12. [Deployment topology](#deployment-topology)
+13. [Development workflow](#development-workflow)
+14. [Operational runbooks](#operational-runbooks)
+15. [Future extensions](#future-extensions)
 
-- `apps/citizen-web` - React/Vite citizen PWA starter.
-- `apps/dispatcher-web` - React/Vite dispatcher command console for incident triage, verification, assignment, alerts, duplicate review, abuse review, timelines, and maps.
-- `apps/admin-web` - React/Vite governance console for agencies, authority users, roles, MFA support, audit logs, data sources, alert rules, and platform configuration.
-- `apps/authority-dashboard` - React/Vite compatibility shell retained while authority workflows split into dispatcher, agency, and admin apps.
-- `packages/brand` - brand constants, slogan, palette, and feature pillars.
-- `packages/shared-types` - shared TypeScript domain contracts.
-- `services/auth-service` - Go citizen and agency authentication starter with mock OTP/MFA, signed bearer tokens, RBAC, and audit events.
-- `services/alert-service` - Go alert draft, submission, approval, rejection, emergency override, and audit-event starter.
-- `services/incident-service` - Go incident intake starter with validation, rate limiting, media references, and priority review flagging.
-- `services/guide-service` - Go emergency guidance starter with hazard/stage/language lookup, offline availability metadata, and seed-aligned content fixtures.
-- `services/integration-service` - Go integration contract and mock-adapter starter for agency, weather, hydrology, incident, alert, hospital, road, utility, and shelter data exchange.
-- `services/notification-service` - Go citizen alert feed, mock push/SMS provider abstraction, and delivery log starter.
-- `services/risk-service` - first Go service with `GET /healthz` and `GET /api/v1/risk`.
-- `services/shelter-service` - Go shelter and recovery support starter with nearby lookup and protected capacity updates.
-- `infra/docker/docker-compose.yml` - local PostGIS, Redis, and MinIO.
-- `database/migrations/001_core_geospatial_schema.sql` - core PostGIS schema and indexes.
-- `database/seeds/001_ghana_mvp_seed.sql` - development seed data for Ghana MVP fixtures.
+---
 
-## Target Runtime Topology
+## Overview and goals
+
+NADAA is an AI-assisted, human-approved emergency preparedness, warning, response, and recovery platform for Ghana. The architecture is designed around these goals:
+
+- **Citizen-first and mobile-first.** Public workflows must work on low-bandwidth devices and degrade gracefully when connectivity is poor.
+- **Human authority over public warnings.** ML predictions and automated signals are decision support only; a public alert cannot be published without human approval.
+- **Role-based access and auditability.** Every sensitive authority action is attributable through signed tokens, RBAC, MFA, and append-only audit logs.
+- **Hazard-extensible.** Flood risk is the first hazard, but the data model and service boundaries support fire, road crash, storm, disease outbreak, and others.
+- **Replaceable integrations.** Partner data sources and delivery providers are isolated behind contract-first adapters.
+- **Geospatial by default.** Locations, target areas, shelters, and risk cells are stored and queried with PostGIS.
+
+---
+
+## High-level architecture
 
 ```text
-Citizen Web / Mobile / USSD / WhatsApp
-        |
-        v
-API Gateway / Edge Routing
-        |
-        +--> Auth Service
-        +--> Risk Service -----> PostGIS + ML Service
-        +--> Incident Service -> PostGIS + Object Storage
-        +--> Alert Service ----> Notification Service
-        +--> Dispatch Service -> Agency Users + Timelines
-        +--> Guide Service
-        +--> Shelter Service -> Shelter Capacity + Recovery Support
-        +--> Integration Service -> GMet, Hydro, NADMO, Police, Fire, Ambulance, Hospitals
-
-Dispatcher Web / Agency Web / Admin Web
-        |
-        +--> Incident, Alert, Dispatch, Risk, Shelter, ML, Integration APIs
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Client layer                                    │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐        │
+│  │ Citizen Web  │ │ Dispatcher   │ │ Agency Web   │ │ Admin Web    │        │
+│  │ (PWA)        │ │ Web          │ │              │ │              │        │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘        │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                         │
+│  │ Marketing    │ │ Authority    │ │ Mobile apps  │                         │
+│  │ Web          │ │ Dashboard    │ │ (Expo/RN)    │                         │
+│  └──────────────┘ └──────────────┘ └──────────────┘                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                              API gateway / edge
+                                       │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            Service layer                                     │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐            │
+│  │ auth-       │ │ incident-   │ │ alert-      │ │ risk-       │            │
+│  │ service     │ │ service     │ │ service     │ │ service     │            │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘            │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐            │
+│  │ guide-      │ │ shelter-    │ │ notification│ │ integration │            │
+│  │ service     │ │ service     │ │ service     │ │ service     │            │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘            │
+│  ┌─────────────┐                                                             │
+│  │ ml-service  │                                                             │
+│  └─────────────┘                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             Data layer                                       │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐            │
+│  │ PostgreSQL  │ │ Redis       │ │ MinIO       │ │ Object      │            │
+│  │ + PostGIS   │ │ cache/queue │ │ object      │ │ storage     │            │
+│  │             │ │             │ │ storage     │ │ adapters    │            │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘            │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Service Boundaries
+---
 
-### Auth Service
+## Technology stack
 
-Owns citizen accounts, agency users, admins, sessions, MFA, role-based access, and agency membership.
+### Frontend
 
-Primary dependencies:
+- **Framework:** React with Vite.
+- **Language:** TypeScript.
+- **UI library:** MUI (Material UI) with Emotion for styling.
+- **State management:** React hooks and context; server state fetched via API clients.
+- **Maps:** Leaflet / Mapbox GL for command and citizen maps.
+- **Mobile:** Expo / React Native for citizen-mobile and dispatcher-mobile.
 
-- User database.
-- MFA provider or app-based OTP.
-- Audit logging.
+### Backend
 
-### Risk Service
+- **Language:** Go 1.25.
+- **Standard library only.** No external Go dependencies in services.
+- **HTTP server:** `net/http` with graceful shutdown and sensible timeouts.
+- **Authentication:** Custom signed bearer tokens with HMAC-SHA256.
 
-Owns area risk lookup, hazard risk scoring, nearby emergency facilities, recommended actions, and risk API aggregation. It can include shelter summaries for backwards-compatible preparedness context, while shelter capacity ownership lives in the shelter service.
+### Data and infrastructure
 
-Primary dependencies:
+- **Primary database:** PostgreSQL with PostGIS extension.
+- **Cache / queue:** Redis.
+- **Object storage:** MinIO (local/S3-compatible) for media and model artifacts.
+- **Containerization:** Docker and Docker Compose locally; Kubernetes planned for production.
+- **CI/CD:** GitHub Actions.
+- **Package manager:** pnpm workspaces.
 
-- PostGIS risk zones.
-- Shelter-service summaries and facility records.
-- Weather/hydrology observations.
-- ML prediction service.
+### ML
 
-### Shelter Service
+- **Language:** Python for training pipelines.
+- **Model artifact format:** JSON metadata and sample predictions.
+- **Serving:** Go `ml-service` loads artifacts in-memory and exposes a REST API.
 
-Owns shelter records, occupancy/capacity updates, citizen nearby shelter lookup, and recovery support locations.
+---
 
-Primary dependencies:
+## Frontend applications
 
-- PostGIS shelter and recovery support records.
-- Authority RBAC/MFA.
-- District assembly or shelter-operator feeds.
+All web apps live under `apps/` and share brand, types, and configuration through workspace packages.
 
-### Incident Service
+| App                   | Path                       | Purpose                                                                                                                     |
+| --------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `marketing-web`       | `apps/marketing-web`       | Public marketing and stakeholder conversion site.                                                                           |
+| `citizen-web`         | `apps/citizen-web`         | Citizen PWA for risk checks, reporting, alerts, guides, shelters, and recovery support.                                     |
+| `dispatcher-web`      | `apps/dispatcher-web`      | Incident command console: triage, verification, assignment, duplicate review, abuse review, timelines, maps, and ML review. |
+| `agency-web`          | `apps/agency-web`          | Agency-scoped portal for assigned incidents, responder updates, shelter/hospital capacity, and relief management.           |
+| `admin-web`           | `apps/admin-web`           | Governance console for agencies, users, roles, MFA, audit logs, data sources, and alert rules.                              |
+| `authority-dashboard` | `apps/authority-dashboard` | Compatibility shell retained while workflows move to dispatcher, agency, and admin apps.                                    |
+| `citizen-mobile`      | `apps/citizen-mobile`      | Expo/React Native citizen app with push alerts, offline guides, GPS/media reporting, and shelter lookup.                    |
+| `dispatcher-mobile`   | `apps/dispatcher-mobile`   | Expo/React Native triage app for shift use.                                                                                 |
 
-Owns citizen reports, agency reports, media metadata, duplicate candidates, incident verification, audited status transitions, starter agency assignments, timeline events, severity, and incident record lifecycle.
+### Frontend modularity
 
-Primary dependencies:
+Each web app follows the same layout:
 
-- PostGIS incidents.
-- Object storage for media.
-- Dispatch service for future assignment orchestration and responder visibility.
-- Audit logging.
+- `src/App.tsx` is a thin entrypoint.
+- `src/app/` holds app-wide configuration, theme, routing, and session helpers.
+- `src/features/<feature>/` holds domain-specific components, data hooks, types, and utilities.
+- Large features are split into `data.ts`, `types.ts`, `utils.ts`, and focused `*.tsx` components.
 
-### Alert Service
+---
 
-Owns alert drafts, approval workflow, emergency override, targeting metadata, publication status, expiry, audit, and alert history.
+## Backend services
 
-Primary dependencies:
+All services live under `services/`. Each service is a Go module with the following layout:
 
-- PostGIS target geometry.
-- Notification service.
-- Auth/RBAC.
-- Audit logging.
+```text
+services/<service>/
+├── cmd/server/main.go          # entry point with graceful shutdown
+├── internal/config/config.go   # environment-based configuration
+├── internal/models/models.go   # request/response/domain types
+├── internal/store/store.go     # persistence interface and in-memory implementation
+├── internal/utils/utils.go     # service-specific helpers
+└── internal/handlers/          # HTTP handlers, routes, middleware, tests
+```
 
-### Dispatch Service
+| Service                | Responsibility                                                                                                                    | Key endpoints                                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth-service`         | Citizen and agency authentication, mock OTP/MFA, signed bearer tokens, RBAC, audit events.                                        | `POST /api/v1/auth/citizens/register`, `POST /api/v1/auth/citizens/login`, `POST /api/v1/auth/agency/login`, `GET /api/v1/audit/logs`       |
+| `incident-service`     | Incident intake, validation, rate limiting, media references, verification, assignment, timeline, duplicate review, abuse review. | `POST /api/v1/incidents`, `POST /api/v1/incidents/{id}/verify`, `POST /api/v1/incidents/{id}/assign`, `POST /api/v1/incidents/{id}/merge`   |
+| `alert-service`        | Alert draft, submit, approve, reject, emergency override, target geometry, audit events.                                          | `POST /api/v1/alerts`, `POST /api/v1/alerts/{id}/submit`, `POST /api/v1/alerts/{id}/approve`, `POST /api/v1/alerts/{id}/emergency-override` |
+| `risk-service`         | Area risk lookup, nearby shelters/facilities, recommended actions, ML decision-support enrichment.                                | `GET /api/v1/risk`                                                                                                                          |
+| `ml-service`           | Flood-risk prediction serving from versioned model artifacts.                                                                     | `POST /api/v1/ml/flood/predictions`, `GET /api/v1/ml/prediction-logs`                                                                       |
+| `guide-service`        | Emergency guidance catalog with hazard/stage/language filtering and offline availability metadata.                                | `GET /api/v1/guides`                                                                                                                        |
+| `shelter-service`      | Shelter and recovery support lookup, protected capacity updates, relief points, aid requests/pledges, hospital capacity.          | `GET /api/v1/shelters`, `POST /api/v1/relief-points`, `POST /api/v1/aid-requests`                                                           |
+| `notification-service` | Citizen alert feed, mock and provider-based push/SMS/USSD/WhatsApp/voice delivery, delivery logs.                                 | `GET /api/v1/notifications/alerts`, `POST /api/v1/notifications/delivery-attempts`                                                          |
+| `integration-service`  | Contract-first adapters for weather, hydrology, road closures, hospital capacity, utility outages, incident/alert sync.           | `POST /api/v1/integrations/observations`, `POST /api/v1/integrations/road-closures/imports`                                                 |
+| `road-closure-service` | Road closure list/create/update and adapter-import.                                                                               | `GET /api/v1/road-closures`, `POST /api/v1/road-closures`                                                                                   |
 
-Owns agency assignment, responder status, response timeline, internal notes, escalation, and closure handoff.
+> **Note:** `dispatch-service` is currently a placeholder directory and is not implemented as a separate service. Dispatch workflows live in `dispatcher-web` and `incident-service`.
 
-Primary dependencies:
+### Graceful shutdown
 
-- Agency model.
-- Incident service.
-- Notification service for responder updates.
+Every service uses an `http.Server` with:
 
-### Guide Service
+- `ReadTimeout: 10s`
+- `WriteTimeout: 30s`
+- `IdleTimeout: 120s`
+- Signal-based shutdown on `SIGINT` / `SIGTERM` with a 10-second context timeout.
 
-Owns emergency preparedness, response, and recovery guide content, including hazard type, stage, language, offline availability, and stable ordering for citizen offline caching.
+Example pattern in `cmd/server/main.go`:
 
-Primary dependencies:
+```go
+srv := &http.Server{
+    Addr:         cfg.Addr,
+    Handler:      handler,
+    ReadTimeout:  10 * time.Second,
+    WriteTimeout: 30 * time.Second,
+    IdleTimeout:  120 * time.Second,
+}
 
-- Emergency guide records in PostGIS.
-- Future CMS/editor workflow.
-- Citizen PWA cache.
+go func() {
+    log.Printf("%s listening on %s", serviceName, cfg.Addr)
+    if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+        log.Fatalf("server error: %v", err)
+    }
+}()
 
-### Notification Service
+sig := make(chan os.Signal, 1)
+signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+<-sig
 
-Owns citizen alert feed aggregation, provider abstraction for push and SMS, delivery logs, and the extension path for email, WhatsApp, voice alerts, retries, and future cell broadcast.
+ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancel()
+if err := srv.Shutdown(ctx); err != nil {
+    log.Printf("shutdown error: %v", err)
+}
+```
 
-Primary dependencies:
+---
 
-- Alert service approved/published alert feed.
-- Provider credentials through environment secrets.
-- Notification delivery logs.
+## Shared packages
 
-### Integration Service
+Workspace packages live under `packages/`:
 
-Owns external data ingestion and outbound sync with NADMO, GMet, Ghana Hydrological Authority, police, fire, ambulance, hospitals, utilities, and district assemblies.
+| Package        | Path                    | Purpose                                                               |
+| -------------- | ----------------------- | --------------------------------------------------------------------- |
+| `brand`        | `packages/brand`        | Brand constants: slogan, palette, feature pillars, typography tokens. |
+| `shared-types` | `packages/shared-types` | Shared TypeScript domain contracts used across apps and services.     |
+| `config`       | `packages/config`       | Shared configuration helpers and environment validation.              |
 
-Primary dependencies:
+A cross-service shared Go package was intentionally deferred to a separate story. Each Go service currently keeps its own `internal/utils` helpers, which is intentional until the interfaces stabilize.
 
-- Adapter registry.
-- Import job logs.
-- Source-specific credentials.
-- Contract matrix in `docs/integrations.md`.
+---
 
-### ML Service
+## Data layer
 
-Owns model serving, flood prediction, prediction metadata, explainability, model versioning, and later simulation/triage/computer vision.
+### PostgreSQL + PostGIS
 
-Primary dependencies:
+- Core operational data: incidents, alerts, agencies, users, audit logs, shelters, relief points, road closures, aid coordination.
+- Geospatial indexing for locations, target geometries, and risk cells.
+- Migration files live in `database/migrations/`.
+- Seed data lives in `database/seeds/`.
 
-- Feature pipeline outputs.
-- MLflow or equivalent model registry.
-- Risk service.
-- Prediction logs.
+### Redis
 
-## Data Stores
+- Session/cache layer.
+- Queue backend for notification delivery retries.
+- Rate-limit counters for public incident intake.
 
-- PostgreSQL + PostGIS: authoritative relational and geospatial store for users, agencies, incidents, alerts, risk zones, shelters, observations, and predictions.
-- Redis: caching, rate limits, queues, and short-lived workflow state.
-- Object storage: incident media, voice alert assets, imagery, and generated exports.
-- Versioned repository data assets: MVP flood-risk feature fixtures, generated JSON/CSV outputs, and manifests for repeatable model experiments.
-- Future analytical store: model features, reporting aggregates, and open data exports if PostGIS and repository fixtures become too operationally loaded.
+### MinIO / object storage
 
-## MVP Scope Boundary
+- Private media: incident photos, videos, voice alert assets.
+- Model artifacts for `ml-service`.
+- Short-lived signed URLs for authorized media access.
 
-MVP includes:
+---
 
-- Citizen web/PWA foundation.
-- Citizen phone login foundation.
-- Risk checker with flood-first scoring.
-- Incident reporting with GPS/media metadata.
-- Authority incident map, verification, assignment, and timeline.
-- Admin governance console for roles, MFA, audit, data-source, and alert-rule oversight.
-- Alert creation, approval, and geofenced targeting.
-- In-app alert feed and notification abstraction.
-- Emergency guidance and shelter map/list.
-- Flood-risk feature pipeline, baseline model, and human review view.
-- Core docs, QA matrix, CI/CD, and staging readiness.
+## Integration architecture
 
-Phase 2 includes inclusive channels, field coordination, hospital capacity, relief logistics, road closures, route planning, missing persons, damage exports, and remote sensing ingestion.
+Integrations are contract-first and adapter-based. See `docs/integrations.md` for the full contract matrix.
 
-Phase 3 includes advanced simulation, AI triage, computer vision, predictive resource positioning, school preparedness, campaigns, open data, cell broadcast, and national-scale hardening.
+Key principles:
 
-## Data Ownership Assumptions
+- Every import preserves `source`, `observedAt`/`updatedAt`, validity window, and source constraints.
+- Every outbound sync includes a `correlationId` for idempotency.
+- Adapter failures are retryable and dead-lettered but must not block manual incident response or human-approved alerts.
+- Credentials live in environment secrets or a secret manager, never in source control.
 
-- Citizen profile and report data is owned by the platform operator and governed by privacy policy and emergency reporting rules.
-- Agency user and assignment data is owned by the participating agency or platform operator depending on deployment agreement.
-- Weather, hydrology, police, fire, ambulance, hospital, utility, and district assembly data remains owned by the originating institution.
-- Imported external data must keep source, license/usage constraints, freshness timestamp, and contact point.
-- Open-data exports must be anonymized, aggregated, and approved before publication.
+Inbound integrations:
 
-## Integration Assumptions
+- Weather and hydrology observations (`integration-service`).
+- Road closure imports (`integration-service` forwards to `road-closure-service`).
+- Hospital capacity feeds (`shelter-service`).
+- Relief inventory updates (`shelter-service`).
+- Utility outage feeds (`integration-service`).
 
-- Official agency APIs may not be available during MVP.
-- MVP should use fixture/mock adapters for weather, hydrology, shelter, facility, and agency data.
-- Adapters must isolate source-specific authentication, payload shape, rate limits, and retry behavior.
-- Integration failures must not block manual incident response or manual alert approval.
+Outbound integrations:
 
-## Safety Principles
+- Incident and alert sync to NADMO and partner agencies.
+- SMS/USSD/WhatsApp/voice delivery through notification providers.
 
-- Public alerts require human approval.
-- ML output is decision support and must include confidence, model version, and explanation factors.
-- Authority actions are role-protected and audited.
-- Citizen location and identity data are minimized and protected.
-- Suspicious report scoring can inform human review but must not silently suppress urgent life-safety reports.
+---
+
+## ML pipeline
+
+1. **Feature pipeline:** `scripts/build-flood-risk-features.mjs` generates a versioned 44-column feature set from fixture inputs.
+2. **Training:** Python scripts train a baseline logistic-regression model and produce model artifacts.
+3. **Artifacts:** `data/flood-risk/models/` contains model metadata and sample predictions.
+4. **Serving:** `ml-service` loads artifacts in-memory and serves predictions through a REST API.
+5. **Decision support:** `risk-service` enriches risk responses with ML predictions, explanation factors, and safety flags (`humanReviewRequired: true`, `autoPublishAllowed: false`).
+6. **Human review:** Dispatcher-web ML review panel lets authorized users create alert drafts from predictions. Drafts still require human approval.
+
+---
+
+## Security architecture
+
+### Authentication
+
+- **Citizens:** phone-based registration/login with mock OTP in development; production integrates with an OTP provider.
+- **Agency users:** email/password login with mandatory MFA setup before first use.
+- **Tokens:** custom signed bearer tokens with HMAC-SHA256. Tokens include user ID, user type, role, agency ID, MFA state, and expiry.
+
+### Authorization
+
+- Role-based access control (RBAC) for all authority endpoints.
+- Initial roles: `citizen`, `agency_viewer`, `dispatcher`, `responder`, `nadmo_officer`, `district_officer`, `agency_admin`, `system_admin`.
+- Agency admins are scoped to their own agency.
+- Separation of duties: non-system approvers cannot approve their own alert draft.
+
+### Audit
+
+- Sensitive actions create append-only audit records.
+- Minimum fields: actor user ID, actor agency ID, actor role, action, target type, target ID, request ID, IP address, user agent, before/after snapshots, created at.
+- Audit retention: at least 24 months in production unless policy requires longer.
+
+### Runtime HTTP hardening
+
+- CORS controlled by `NADAA_ALLOWED_ORIGINS` (comma-separated allowlist).
+- Wildcard CORS is only acceptable for local development and fixture testing.
+- Defensive headers on all API responses:
+  - `X-Content-Type-Options: nosniff`
+  - `X-Frame-Options: DENY`
+  - `Referrer-Policy: no-referrer`
+  - `Content-Security-Policy`
+  - `Strict-Transport-Security`
+  - `Cache-Control: no-store`
+
+### Secret handling
+
+- Secrets are loaded from environment variables or a secret manager.
+- Never commit API keys, database credentials, provider tokens, or OTP secrets.
+
+---
+
+## API conventions
+
+- Base path: `/api/v1`.
+- Request and response bodies are JSON unless media upload explicitly uses signed URLs or multipart form data.
+- Error shape:
+
+```json
+{
+  "error": {
+    "code": "invalid_coordinates",
+    "message": "lat and lng query parameters are required"
+  }
+}
+```
+
+- List endpoints support `limit`, `cursor`, `sort`, and filter-specific query parameters.
+- Authority write endpoints preserve actor, role, agency, MFA-completed, and request-id context through headers or token claims.
+
+---
+
+## Deployment topology
+
+### Local development
+
+- `infra/docker/docker-compose.yml` starts PostgreSQL/PostGIS, Redis, and MinIO.
+- Each app and service can be started individually with `pnpm dev:*` or `go run ./cmd/server`.
+- `NADAA_ALLOWED_ORIGINS` can be left empty for wildcard CORS during local development.
+
+### Staging
+
+- Seeded non-production data.
+- Sandbox/test notification providers.
+- Explicit CORS allowlist for staging app origins.
+- Manual staging smoke workflow in GitHub Actions.
+
+### Beta
+
+- Production-like approved data.
+- Limited real providers.
+- Selected users and agencies.
+
+### Production
+
+- National service with real providers.
+- Strict CORS allowlist.
+- Non-root container runtimes.
+- Secret manager for credentials.
+- Backup, monitoring, and hypercare runbooks.
+
+---
+
+## Development workflow
+
+### Branch and commit conventions
+
+- Branch: `feature/NADAA-123-short-name`
+- Commit: `NADAA-123 implement short name`
+- PR: `NADAA-123 Short Name`
+
+### Verification
+
+Run the full verification suite before opening a PR:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm go:test
+pnpm validate:docs
+pnpm security:scan
+pnpm audit --audit-level high
+pnpm exec prettier --check .
+git diff --check
+```
+
+### Go linting
+
+A top-level `.golangci.yml` configures linters for the Go services. Run it per service:
+
+```bash
+cd services/<service>
+golangci-lint run ./...
+```
+
+Current enabled linters: `errcheck`, `govet`, `ineffassign`, `staticcheck`, `unused`, `revive`, `gocognit`, `misspell`, `gosec`.
+
+### Testing
+
+- Go services: `go test ./...` from each service directory.
+- Frontend: `pnpm test` runs type checks across workspace packages and apps.
+- Smoke tests: `pnpm smoke:<scenario>` scripts exercise live local or staging endpoints.
+
+---
+
+## Operational runbooks
+
+### Start local infrastructure
+
+```bash
+docker compose -f infra/docker/docker-compose.yml up -d
+```
+
+### Start a Go service
+
+```bash
+cd services/<service>
+go run ./cmd/server
+```
+
+### Start a web app
+
+```bash
+pnpm dev:<app>
+```
+
+### Health checks
+
+Each service exposes `GET /healthz` returning:
+
+```json
+{ "status": "ok", "service": "<service-name>" }
+```
+
+### Graceful shutdown
+
+Services respond to `SIGINT` and `SIGTERM`. In container orchestration, configure a termination grace period of at least 15 seconds.
+
+### Logs
+
+- Go services log startup, request handling errors, and shutdown errors through the standard `log` package.
+- `notification-service` and `shelter-service` use structured `INFO`, `WARN`, and `ERROR` logs.
+- Logs must not contain raw phone numbers, full message bodies, media captions, passwords, OTPs, tokens, or private media.
+
+### Security scan
+
+```bash
+pnpm security:scan
+```
+
+### Dependency audit
+
+```bash
+pnpm audit --audit-level high
+```
+
+---
+
+## Future extensions
+
+Planned capabilities that will extend the architecture:
+
+- Real-time flood simulation and predictive ambulance/fire positioning.
+- Computer vision for flood/fire image verification.
+- Cell broadcast and telecom integration for mass alerts.
+- National open disaster data portal.
+- School emergency preparedness module.
+- Drone and satellite image ingestion.
+- Cross-service shared Go package to reduce duplicated helpers.
+- bcrypt/argon2 credential hashing and JWT token migration.
+
+---
+
+## Directory structure reference
+
+```text
+nadaa/
+├── apps/                      # React/Vite and React Native applications
+├── packages/                  # Shared workspace packages
+├── services/                  # Go backend services
+├── database/                  # Migrations and seeds
+├── data/                      # Flood-risk datasets and model artifacts
+├── infra/                     # Docker, Kubernetes, Terraform, staging
+├── scripts/                   # Smoke tests, validation, and build scripts
+├── docs/                      # Product, architecture, API, security, and user guides
+├── .github/workflows/         # CI/CD pipelines
+├── .golangci.yml              # Go lint configuration
+├── pnpm-workspace.yaml        # pnpm workspace definition
+└── tsconfig.base.json         # Shared TypeScript configuration
+```

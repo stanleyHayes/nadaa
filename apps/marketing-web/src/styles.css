@@ -1,8 +1,35 @@
+@import "@nadaa/brand/brand.css";
+
 :root {
-  color: #101828;
-  background: #f5f8fc;
+  --nadaa-topbar-accent: var(--nadaa-gold);
+  --nadaa-border-subtle: color-mix(in srgb, var(--nadaa-navy) 10%, transparent);
+  --nadaa-border-subtle-green: color-mix(
+    in srgb,
+    var(--nadaa-green) 22%,
+    transparent
+  );
+  --nadaa-border-subtle-red: color-mix(
+    in srgb,
+    var(--nadaa-red) 25%,
+    transparent
+  );
+  --nadaa-emergency-bg: color-mix(
+    in srgb,
+    var(--nadaa-red) 6%,
+    var(--nadaa-white)
+  );
+  --nadaa-emergency-text: color-mix(
+    in srgb,
+    var(--nadaa-red) 80%,
+    var(--nadaa-ink)
+  );
+  --nadaa-hero-shade: color-mix(in srgb, var(--nadaa-white) 84%, transparent);
+  --nadaa-card-bg: color-mix(in srgb, var(--nadaa-white) 86%, transparent);
+
+  color: var(--nadaa-text-primary);
+  background: var(--nadaa-surface);
   font-family:
-    "Outfit",
+    var(--nadaa-font-family),
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -16,8 +43,19 @@
   scroll-padding-top: 88px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+}
+
 * {
   box-sizing: border-box;
+}
+
+*:focus-visible {
+  outline: var(--nadaa-focus-outline);
+  outline-offset: 2px;
 }
 
 body {
@@ -36,11 +74,34 @@ textarea {
   font: inherit;
 }
 
+.skip-link {
+  position: absolute;
+  top: -2.5rem;
+  left: var(--nadaa-space-4);
+  z-index: 100;
+  padding: var(--nadaa-space-2) var(--nadaa-space-4);
+  border-radius: var(--nadaa-radius-md);
+  background: var(--nadaa-navy);
+  color: var(--nadaa-text-inverse);
+  font-weight: 800;
+  text-decoration: none;
+  transition: top 160ms ease;
+}
+
+.skip-link:focus-visible {
+  top: var(--nadaa-space-3);
+  outline: var(--nadaa-focus-outline);
+}
+
 .site-shell {
   min-height: 100svh;
   background:
-    linear-gradient(180deg, rgba(245, 248, 252, 0.98), rgba(245, 248, 252, 1)),
-    #f5f8fc;
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--nadaa-mist) 98%, transparent),
+      var(--nadaa-mist)
+    ),
+    var(--nadaa-mist);
 }
 
 .site-header {
@@ -50,11 +111,11 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--nadaa-space-6);
   min-height: 76px;
-  padding: 14px clamp(18px, 4vw, 56px);
-  border-bottom: 1px solid rgba(13, 27, 61, 0.1);
-  background: rgba(255, 255, 255, 0.92);
+  padding: var(--nadaa-space-3) clamp(18px, 4vw, 56px);
+  border-bottom: 1px solid var(--nadaa-border-subtle);
+  background: color-mix(in srgb, var(--nadaa-white) 92%, transparent);
   backdrop-filter: blur(14px);
 }
 
@@ -62,7 +123,7 @@ textarea {
 .site-footer > div {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--nadaa-space-3);
   min-width: 0;
 }
 
@@ -82,41 +143,41 @@ textarea {
 
 .brand-mark strong,
 .site-footer strong {
-  color: #0d1b3d;
+  color: var(--nadaa-navy);
   font-size: 1.05rem;
   line-height: 1;
 }
 
 .brand-mark small,
 .site-footer small {
-  color: #555b66;
+  color: var(--nadaa-text-secondary);
   font-size: 0.78rem;
 }
 
 .site-nav {
   display: flex;
   align-items: center;
-  gap: clamp(12px, 2vw, 24px);
-  color: #263142;
+  gap: clamp(var(--nadaa-space-3), 2vw, var(--nadaa-space-6));
+  color: var(--nadaa-navy);
   font-weight: 700;
 }
 
 .site-nav a {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 44px;
   border-bottom: 2px solid transparent;
 }
 
 .site-nav a:hover {
-  border-color: #118d4e;
-  color: #0d1b3d;
+  border-color: var(--nadaa-green);
+  color: var(--nadaa-navy);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--nadaa-space-2);
 }
 
 .link-button,
@@ -125,17 +186,17 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--nadaa-space-2);
   min-height: 44px;
-  border-radius: 8px;
-  padding: 0 16px;
+  border-radius: var(--nadaa-radius-md);
+  padding: 0 var(--nadaa-space-4);
   font-weight: 800;
 }
 
 .link-button.emergency {
-  border: 1px solid rgba(229, 57, 53, 0.25);
-  color: #b42318;
-  background: #fff5f4;
+  border: 1px solid var(--nadaa-border-subtle-red);
+  color: var(--nadaa-emergency-text);
+  background: var(--nadaa-emergency-bg);
 }
 
 .icon-button {
@@ -144,10 +205,10 @@ textarea {
   height: 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(13, 27, 61, 0.14);
-  border-radius: 8px;
-  color: #0d1b3d;
-  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 14%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  color: var(--nadaa-navy);
+  background: var(--nadaa-white);
 }
 
 .hero-section {
@@ -159,26 +220,26 @@ textarea {
   background-image: url("/brand/nadaa-brand-sheet.png");
   background-position: center;
   background-size: cover;
-  border-bottom: 1px solid rgba(13, 27, 61, 0.1);
+  border-bottom: 1px solid var(--nadaa-border-subtle);
 }
 
 .hero-shade {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.84);
+  background: var(--nadaa-hero-shade);
 }
 
 .hero-content {
   position: relative;
   z-index: 1;
-  width: min(760px, calc(100% - 32px));
+  width: min(760px, calc(100% - var(--nadaa-space-8)));
   margin-left: clamp(18px, 7vw, 96px);
   padding: clamp(54px, 8vw, 96px) 0;
 }
 
 .eyebrow {
-  margin: 0 0 12px;
-  color: #118d4e;
+  margin: 0 0 var(--nadaa-space-3);
+  color: var(--nadaa-green);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -187,7 +248,7 @@ textarea {
 
 .hero-content h1 {
   margin: 0;
-  color: #0d1b3d;
+  color: var(--nadaa-navy);
   font-size: clamp(4rem, 16vw, 10rem);
   line-height: 0.86;
   letter-spacing: 0;
@@ -195,8 +256,8 @@ textarea {
 
 .hero-subtitle {
   max-width: 680px;
-  margin: 24px 0 0;
-  color: #243047;
+  margin: var(--nadaa-space-6) 0 0;
+  color: var(--nadaa-navy);
   font-size: clamp(1.15rem, 2.2vw, 1.55rem);
   line-height: 1.45;
   font-weight: 600;
@@ -205,48 +266,48 @@ textarea {
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 32px;
+  gap: var(--nadaa-space-3);
+  margin-top: var(--nadaa-space-8);
 }
 
 .primary-action {
-  color: #ffffff;
-  background: #0d1b3d;
+  color: var(--nadaa-text-inverse);
+  background: var(--nadaa-navy);
 }
 
 .secondary-action {
-  border: 1px solid rgba(13, 27, 61, 0.16);
-  color: #0d1b3d;
-  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 16%, transparent);
+  color: var(--nadaa-navy);
+  background: var(--nadaa-white);
 }
 
 .hero-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--nadaa-space-3);
   margin-top: 36px;
   max-width: 640px;
 }
 
 .hero-metrics span {
   min-height: 84px;
-  border: 1px solid rgba(13, 27, 61, 0.12);
-  border-radius: 8px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--nadaa-border-subtle);
+  border-radius: var(--nadaa-radius-md);
+  padding: var(--nadaa-space-4);
+  background: var(--nadaa-card-bg);
 }
 
 .hero-metrics strong {
   display: block;
-  color: #e53935;
+  color: var(--nadaa-red);
   font-size: clamp(1.4rem, 3vw, 2rem);
   line-height: 1;
 }
 
 .hero-metrics small {
   display: block;
-  margin-top: 8px;
-  color: #555b66;
+  margin-top: var(--nadaa-space-2);
+  color: var(--nadaa-text-secondary);
   font-weight: 700;
 }
 
@@ -255,16 +316,16 @@ textarea {
 .section-grid,
 .research-section,
 .contact-section {
-  width: min(1180px, calc(100% - 32px));
+  width: min(1180px, calc(100% - var(--nadaa-space-8)));
   margin: 0 auto;
 }
 
 .statement-band {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  gap: clamp(24px, 5vw, 72px);
-  padding: clamp(32px, 6vw, 64px) 0;
-  border-bottom: 1px solid rgba(13, 27, 61, 0.1);
+  gap: clamp(var(--nadaa-space-6), 5vw, 72px);
+  padding: clamp(var(--nadaa-space-8), 6vw, var(--nadaa-space-16)) 0;
+  border-bottom: 1px solid var(--nadaa-border-subtle);
 }
 
 .statement-band h2,
@@ -272,7 +333,7 @@ textarea {
 .section-heading h2,
 .contact-copy h2 {
   margin: 0;
-  color: #0d1b3d;
+  color: var(--nadaa-navy);
   font-size: clamp(2rem, 5vw, 4rem);
   line-height: 1;
   letter-spacing: 0;
@@ -283,7 +344,7 @@ textarea {
 .section-heading p,
 .contact-copy p {
   margin: 0;
-  color: #555b66;
+  color: var(--nadaa-text-secondary);
   font-size: 1.05rem;
   line-height: 1.7;
 }
@@ -292,25 +353,25 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
   gap: clamp(22px, 4vw, 52px);
-  padding: clamp(64px, 8vw, 96px) 0;
+  padding: clamp(var(--nadaa-space-16), 8vw, 96px) 0;
 }
 
 .section-copy {
   display: grid;
-  gap: 20px;
+  gap: var(--nadaa-space-5);
 }
 
 .about-panel {
   align-self: stretch;
-  border: 1px solid rgba(17, 141, 78, 0.22);
-  border-radius: 8px;
-  padding: clamp(24px, 4vw, 36px);
-  color: #0d1b3d;
-  background: #ffffff;
+  border: 1px solid var(--nadaa-border-subtle-green);
+  border-radius: var(--nadaa-radius-md);
+  padding: clamp(var(--nadaa-space-6), 4vw, 36px);
+  color: var(--nadaa-navy);
+  background: var(--nadaa-white);
 }
 
 .about-panel svg {
-  color: #118d4e;
+  color: var(--nadaa-green);
 }
 
 .about-panel h3,
@@ -319,8 +380,8 @@ textarea {
 .service-card h3,
 .research-card h3,
 .benefit-card h3 {
-  margin: 16px 0 8px;
-  color: #0d1b3d;
+  margin: var(--nadaa-space-4) 0 var(--nadaa-space-2);
+  color: var(--nadaa-navy);
   font-size: 1.2rem;
   line-height: 1.2;
 }
@@ -333,7 +394,7 @@ textarea {
 .benefit-card li,
 .contact-card p {
   margin: 0;
-  color: #555b66;
+  color: var(--nadaa-text-secondary);
   line-height: 1.62;
 }
 
@@ -345,7 +406,7 @@ textarea {
 
 .section-heading {
   display: grid;
-  gap: 16px;
+  gap: var(--nadaa-space-4);
   max-width: 780px;
   margin-bottom: clamp(28px, 5vw, 44px);
 }
@@ -361,7 +422,7 @@ textarea {
 .platform-grid,
 .contact-grid {
   display: grid;
-  gap: 16px;
+  gap: var(--nadaa-space-4);
 }
 
 .feature-grid {
@@ -375,22 +436,22 @@ textarea {
 .benefit-card,
 .contact-card {
   min-height: 100%;
-  border: 1px solid rgba(13, 27, 61, 0.1);
-  border-radius: 8px;
+  border: 1px solid var(--nadaa-border-subtle);
+  border-radius: var(--nadaa-radius-md);
   padding: 22px;
-  background: #ffffff;
+  background: var(--nadaa-white);
 }
 
 .feature-card span {
   display: block;
   width: 42px;
   height: 6px;
-  border-radius: 8px;
+  border-radius: var(--nadaa-radius-md);
 }
 
 .platform-section {
-  border-top: 1px solid rgba(13, 27, 61, 0.1);
-  border-bottom: 1px solid rgba(13, 27, 61, 0.1);
+  border-top: 1px solid var(--nadaa-border-subtle);
+  border-bottom: 1px solid var(--nadaa-border-subtle);
 }
 
 .platform-grid {
@@ -403,14 +464,14 @@ textarea {
 }
 
 .platform-card span {
-  color: #118d4e;
+  color: var(--nadaa-green);
   font-size: 0.82rem;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .platform-card strong {
-  color: #0d1b3d;
+  color: var(--nadaa-navy);
 }
 
 .service-grid {
@@ -418,20 +479,20 @@ textarea {
 }
 
 .service-card svg {
-  color: #e53935;
+  color: var(--nadaa-red);
 }
 
 .research-section {
   width: 100%;
   max-width: none;
-  padding-left: max(16px, calc((100% - 1180px) / 2));
-  padding-right: max(16px, calc((100% - 1180px) / 2));
-  background: #0d1b3d;
+  padding-left: max(var(--nadaa-space-4), calc((100% - 1180px) / 2));
+  padding-right: max(var(--nadaa-space-4), calc((100% - 1180px) / 2));
+  background: var(--nadaa-navy);
 }
 
 .research-section .eyebrow,
 .research-section h2 {
-  color: #ffffff;
+  color: var(--nadaa-text-inverse);
 }
 
 .research-grid {
@@ -439,23 +500,23 @@ textarea {
 }
 
 .research-card {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--nadaa-white) 14%, transparent);
+  background: color-mix(in srgb, var(--nadaa-white) 8%, transparent);
 }
 
 .research-card svg,
 .research-card h3,
 .research-card a {
-  color: #ffffff;
+  color: var(--nadaa-text-inverse);
 }
 
 .research-card p {
-  color: rgba(255, 255, 255, 0.76);
+  color: color-mix(in srgb, var(--nadaa-white) 76%, transparent);
 }
 
 .research-card a {
   display: inline-flex;
-  margin-top: 16px;
+  margin-top: var(--nadaa-space-4);
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -466,22 +527,22 @@ textarea {
 }
 
 .benefit-card svg {
-  color: #118d4e;
+  color: var(--nadaa-green);
 }
 
 .benefit-card ul {
   display: grid;
-  gap: 10px;
-  margin: 16px 0 0;
+  gap: var(--nadaa-space-2);
+  margin: var(--nadaa-space-4) 0 0;
   padding-left: 18px;
 }
 
 .contact-section {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  gap: clamp(24px, 5vw, 54px);
+  gap: clamp(var(--nadaa-space-6), 5vw, 54px);
   align-items: start;
-  border-top: 1px solid rgba(13, 27, 61, 0.1);
+  border-top: 1px solid var(--nadaa-border-subtle);
 }
 
 .contact-copy {
@@ -495,7 +556,7 @@ textarea {
 
 .contact-card {
   display: grid;
-  gap: 10px;
+  gap: var(--nadaa-space-2);
   transition:
     transform 160ms ease,
     border-color 160ms ease;
@@ -503,51 +564,51 @@ textarea {
 
 .contact-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(17, 141, 78, 0.36);
+  border-color: color-mix(in srgb, var(--nadaa-green) 36%, transparent);
 }
 
 .contact-card svg {
-  color: #e53935;
+  color: var(--nadaa-red);
 }
 
 .contact-card span {
-  color: #555b66;
+  color: var(--nadaa-text-secondary);
   font-size: 0.82rem;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .contact-card strong {
-  color: #0d1b3d;
+  color: var(--nadaa-navy);
   font-size: 1.15rem;
 }
 
 .site-footer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-  gap: 20px;
+  gap: var(--nadaa-space-5);
   align-items: center;
-  padding: 28px clamp(18px, 4vw, 56px);
-  border-top: 1px solid rgba(13, 27, 61, 0.1);
-  background: #ffffff;
+  padding: var(--nadaa-space-5) clamp(18px, 4vw, 56px);
+  border-top: 1px solid var(--nadaa-border-subtle);
+  background: var(--nadaa-white);
 }
 
 .site-footer p {
   margin: 0;
-  color: #555b66;
+  color: var(--nadaa-text-secondary);
 }
 
 .site-footer > a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 42px;
-  border-radius: 8px;
+  gap: var(--nadaa-space-2);
+  min-height: 44px;
+  border-radius: var(--nadaa-radius-md);
   padding: 0 14px;
-  color: #ffffff;
+  color: var(--nadaa-text-inverse);
   font-weight: 800;
-  background: #118d4e;
+  background: var(--nadaa-green);
 }
 
 @media (max-width: 1080px) {
@@ -567,7 +628,7 @@ textarea {
 @media (max-width: 760px) {
   .site-header {
     min-height: 70px;
-    gap: 12px;
+    gap: var(--nadaa-space-3);
   }
 
   .site-nav {
@@ -576,11 +637,11 @@ textarea {
     display: none;
     grid-template-columns: 1fr;
     gap: 0;
-    border: 1px solid rgba(13, 27, 61, 0.12);
-    border-radius: 8px;
-    padding: 8px;
-    background: #ffffff;
-    box-shadow: 0 18px 42px rgba(13, 27, 61, 0.12);
+    border: 1px solid color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
+    border-radius: var(--nadaa-radius-md);
+    padding: var(--nadaa-space-2);
+    background: var(--nadaa-white);
+    box-shadow: var(--nadaa-shadow-xl);
   }
 
   .site-nav.is-open {
@@ -588,7 +649,7 @@ textarea {
   }
 
   .site-nav a {
-    padding: 0 10px;
+    padding: 0 var(--nadaa-space-2);
   }
 
   .icon-button {
@@ -601,7 +662,7 @@ textarea {
   }
 
   .hero-content {
-    width: min(100% - 32px, 680px);
+    width: min(calc(100% - var(--nadaa-space-8)), 680px);
     margin: 0 auto;
   }
 

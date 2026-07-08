@@ -10,6 +10,7 @@ import {
   FormControl,
   Grid,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -19,14 +20,22 @@ import {
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
+  AlertOctagon,
+  AlertTriangle,
   Ambulance,
   Bed,
   Building2,
+  CheckCircle2,
   ClipboardList,
+  HandHeart,
+  Info,
   MapPin,
   Users,
 } from "lucide-react";
+import { hazardRoles, severityRoles } from "@nadaa/brand";
 import type {
+  AidPledgeRecord,
+  AidRequestRecord,
   HospitalCapacityRecord,
   IncidentRecord,
   IncidentStatus,
@@ -35,6 +44,8 @@ import type {
   ShelterRecord,
 } from "@nadaa/shared-types";
 import {
+  aidRequestCategoryOptions,
+  aidRequestPriorityOptions,
   hazardLabel,
   hospitalCapacityOptions,
   hospitalUnitStatusOptions,
@@ -45,15 +56,21 @@ import {
   statusLabel,
 } from "./data";
 import {
+  aidLabel,
+  aidPriorityColor,
+  aidProgressPercent,
+  aidStatusColor,
   allowedTransitions,
   hospitalBedPercent,
   hospitalCapacityColor,
+  mapHazardRole,
+  mapSeverityRole,
   reliefLabel,
   reliefStatusColor,
-  severityColor,
   stockSummary,
 } from "./utils";
 import type {
+  AidRequestFormState,
   HospitalCapacityFormState,
   IncidentFilterState,
   ReliefPointFormState,
@@ -228,6 +245,71 @@ export function IncidentFilters({
   );
 }
 
+const severityIcons = {
+  low: CheckCircle2,
+  medium: AlertTriangle,
+  high: AlertTriangle,
+  severe: AlertOctagon,
+  info: Info,
+} as const;
+
+export function SeverityChip({
+  severity,
+  size = "small",
+}: {
+  severity: IncidentRecord["severity"];
+  size?: "small" | "medium";
+}) {
+  const roleKey = mapSeverityRole(severity);
+  const role = severityRoles[roleKey];
+  const Icon = severityIcons[roleKey];
+  return (
+    <Chip
+      icon={<Icon size={size === "small" ? 14 : 16} />}
+      label={severityLabel(severity)}
+      size={size}
+      sx={{
+        backgroundColor: role.background,
+        border: `1px solid ${role.border}`,
+        color: role.foreground,
+        fontWeight: 700,
+        minWidth: 78,
+        ".MuiChip-icon": {
+          color: role.foreground,
+        },
+      }}
+    />
+  );
+}
+
+export function HazardChip({
+  hazard,
+  size = "small",
+}: {
+  hazard: IncidentRecord["type"];
+  size?: "small" | "medium";
+}) {
+  const roleKey = mapHazardRole(hazard);
+  const role = hazardRoles[roleKey];
+  return (
+    <Chip
+      icon={<MapPin size={size === "small" ? 14 : 16} />}
+      label={hazardLabel(hazard)}
+      size={size}
+      sx={{
+        backgroundColor: role.background,
+        border: `1px solid ${role.border}`,
+        color: role.foreground,
+        fontWeight: 600,
+        ".MuiChip-icon": {
+          color: role.foreground,
+        },
+      }}
+      variant="outlined"
+    />
+  );
+}
+
 export function IncidentListItem({
   incident,
   onClick,
@@ -245,7 +327,7 @@ export function IncidentListItem({
         border: (theme) =>
           selected
             ? `2px solid ${theme.palette.primary.main}`
-            : "1px solid #e5e7eb",
+            : "1px solid var(--nadaa-divider)",
         borderRadius: 2,
         cursor: "pointer",
         p: 2,
@@ -262,19 +344,10 @@ export function IncidentListItem({
             {incident.description}
           </Typography>
         </Box>
-        <Chip
-          color={severityColor(incident.severity)}
-          label={severityLabel(incident.severity)}
-          size="small"
-        />
+        <SeverityChip severity={incident.severity} />
       </Stack>
       <Stack direction="row" flexWrap="wrap" gap={1} mt={1}>
-        <Chip
-          icon={<MapPin size={14} />}
-          label={hazardLabel(incident.type)}
-          size="small"
-          variant="outlined"
-        />
+        <HazardChip hazard={incident.type} />
         <Chip
           label={statusLabel(incident.status)}
           size="small"
@@ -295,17 +368,14 @@ export function IncidentDetail({ incident }: { incident: IncidentRecord }) {
         <Typography fontWeight={800} variant="h5">
           {incident.reference}
         </Typography>
-        <Chip
-          color={severityColor(incident.severity)}
-          label={severityLabel(incident.severity)}
-        />
+        <SeverityChip severity={incident.severity} size="medium" />
       </Stack>
 
       <Typography variant="body1">{incident.description}</Typography>
 
       <Stack direction="row" flexWrap="wrap" gap={1}>
         <Chip label={statusLabel(incident.status)} />
-        <Chip icon={<MapPin size={14} />} label={hazardLabel(incident.type)} />
+        <HazardChip hazard={incident.type} size="medium" />
         {incident.priorityReview ? (
           <Chip color="error" label="Priority review" />
         ) : null}
@@ -448,12 +518,19 @@ export function StatusUpdateForm({
 
       {requiresNotes ? (
         <TextField
+          error={requiresNotes && !form.resolutionNotes.trim()}
+          helperText={
+            requiresNotes && !form.resolutionNotes.trim()
+              ? "Resolution notes are required to close or mark as false report"
+              : ""
+          }
           label="Resolution notes (required)"
           multiline
           onChange={(event) =>
             onChange({ ...form, resolutionNotes: event.target.value })
           }
           placeholder="Explain how the incident was resolved"
+          required
           rows={3}
           size="small"
           value={form.resolutionNotes}
@@ -743,8 +820,11 @@ export function ReliefPointForm({
   return (
     <Stack spacing={2}>
       <TextField
+        error={!form.name.trim()}
+        helperText={!form.name.trim() ? "Name is required" : ""}
         label="Name"
         onChange={(event) => onChange({ ...form, name: event.target.value })}
+        required
         size="small"
         value={form.name}
       />
@@ -816,17 +896,23 @@ export function ReliefPointForm({
       />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <TextField
+          error={!form.lat.trim()}
           fullWidth
+          helperText={!form.lat.trim() ? "Latitude is required" : ""}
           label="Latitude"
           onChange={(event) => onChange({ ...form, lat: event.target.value })}
+          required
           size="small"
           type="number"
           value={form.lat}
         />
         <TextField
+          error={!form.lng.trim()}
           fullWidth
+          helperText={!form.lng.trim() ? "Longitude is required" : ""}
           label="Longitude"
           onChange={(event) => onChange({ ...form, lng: event.target.value })}
+          required
           size="small"
           type="number"
           value={form.lng}
@@ -914,6 +1000,344 @@ export function ReliefStockHistoryList({
           <Typography mt={1} variant="body2">
             {stockSummary(entry.stockCategories)}
           </Typography>
+        </Paper>
+      ))}
+    </Stack>
+  );
+}
+
+export function AidRequestCard({
+  onSelect,
+  request,
+  selected,
+}: {
+  onSelect: () => void;
+  request: AidRequestRecord;
+  selected?: boolean;
+}) {
+  const progress = aidProgressPercent(request);
+
+  return (
+    <Card
+      onClick={onSelect}
+      sx={{
+        borderColor: selected ? "primary.main" : undefined,
+        cursor: "pointer",
+      }}
+      variant="outlined"
+    >
+      <CardContent>
+        <Stack direction="row" justifyContent="space-between" spacing={2}>
+          <Box>
+            <Typography fontWeight={700}>{request.title}</Typography>
+            <Typography color="text.secondary" variant="body2">
+              {aidLabel(request.category)} · {request.district}
+            </Typography>
+          </Box>
+          <Stack alignItems="flex-end" spacing={1}>
+            <Chip
+              color={aidStatusColor(request.status)}
+              label={aidLabel(request.status)}
+              size="small"
+            />
+            <Chip
+              color={aidPriorityColor(request.priority)}
+              label={aidLabel(request.priority)}
+              size="small"
+              variant="outlined"
+            />
+          </Stack>
+        </Stack>
+
+        <Typography mt={1} variant="body2">
+          {request.quantityPledged.toLocaleString("en-GH")} /{" "}
+          {request.quantityNeeded.toLocaleString("en-GH")}{" "}
+          {request.quantityUnit} pledged
+        </Typography>
+        <LinearProgress sx={{ mt: 1 }} value={progress} variant="determinate" />
+        <Stack direction="row" flexWrap="wrap" gap={1} mt={1.5}>
+          <Chip
+            icon={<HandHeart size={14} />}
+            label={`${request.pledges.length} pledges`}
+            size="small"
+            variant="outlined"
+          />
+          <Chip
+            label={`Needed by ${new Date(request.neededBy).toLocaleDateString("en-GH")}`}
+            size="small"
+            variant="outlined"
+          />
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AidRequestForm({
+  form,
+  onChange,
+  onSubmit,
+  submitLabel,
+}: {
+  form: AidRequestFormState;
+  onChange: (form: AidRequestFormState) => void;
+  onSubmit: () => void;
+  submitLabel: string;
+}) {
+  return (
+    <Stack spacing={2}>
+      <TextField
+        error={!form.title.trim()}
+        helperText={!form.title.trim() ? "Title is required" : ""}
+        label="Title"
+        onChange={(event) => onChange({ ...form, title: event.target.value })}
+        required
+        size="small"
+        value={form.title}
+      />
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <FormControl fullWidth size="small">
+          <InputLabel>Category</InputLabel>
+          <Select
+            label="Category"
+            onChange={(event: SelectChangeEvent) =>
+              onChange({
+                ...form,
+                category: event.target.value as typeof form.category,
+              })
+            }
+            value={form.category}
+          >
+            {aidRequestCategoryOptions.map((category) => (
+              <MenuItem key={category} value={category}>
+                {aidLabel(category)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl fullWidth size="small">
+          <InputLabel>Priority</InputLabel>
+          <Select
+            label="Priority"
+            onChange={(event: SelectChangeEvent) =>
+              onChange({
+                ...form,
+                priority: event.target.value as typeof form.priority,
+              })
+            }
+            value={form.priority}
+          >
+            {aidRequestPriorityOptions.map((priority) => (
+              <MenuItem key={priority} value={priority}>
+                {aidLabel(priority)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <TextField
+          fullWidth
+          label="Region"
+          onChange={(event) =>
+            onChange({ ...form, region: event.target.value })
+          }
+          size="small"
+          value={form.region}
+        />
+        <TextField
+          fullWidth
+          label="District"
+          onChange={(event) =>
+            onChange({ ...form, district: event.target.value })
+          }
+          size="small"
+          value={form.district}
+        />
+      </Stack>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <TextField
+          fullWidth
+          label="Latitude"
+          onChange={(event) => onChange({ ...form, lat: event.target.value })}
+          size="small"
+          type="number"
+          value={form.lat}
+        />
+        <TextField
+          fullWidth
+          label="Longitude"
+          onChange={(event) => onChange({ ...form, lng: event.target.value })}
+          size="small"
+          type="number"
+          value={form.lng}
+        />
+      </Stack>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <TextField
+          error={!form.receivingOrganization.trim()}
+          fullWidth
+          helperText={
+            !form.receivingOrganization.trim()
+              ? "Receiving organization is required"
+              : ""
+          }
+          label="Receiving organization"
+          onChange={(event) =>
+            onChange({ ...form, receivingOrganization: event.target.value })
+          }
+          required
+          size="small"
+          value={form.receivingOrganization}
+        />
+        <TextField
+          fullWidth
+          label="Contact"
+          onChange={(event) =>
+            onChange({ ...form, contact: event.target.value })
+          }
+          size="small"
+          value={form.contact}
+        />
+      </Stack>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <TextField
+          error={!form.quantityNeeded.trim()}
+          fullWidth
+          helperText={
+            !form.quantityNeeded.trim() ? "Quantity needed is required" : ""
+          }
+          label="Quantity needed"
+          onChange={(event) =>
+            onChange({ ...form, quantityNeeded: event.target.value })
+          }
+          required
+          size="small"
+          type="number"
+          value={form.quantityNeeded}
+        />
+        <TextField
+          fullWidth
+          label="Unit"
+          onChange={(event) =>
+            onChange({ ...form, quantityUnit: event.target.value })
+          }
+          size="small"
+          value={form.quantityUnit}
+        />
+      </Stack>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <TextField
+          fullWidth
+          InputLabelProps={{ shrink: true }}
+          label="Needed by"
+          onChange={(event) =>
+            onChange({ ...form, neededBy: event.target.value })
+          }
+          size="small"
+          type="datetime-local"
+          value={form.neededBy}
+        />
+        <FormControl fullWidth size="small">
+          <InputLabel>Visibility</InputLabel>
+          <Select
+            label="Visibility"
+            onChange={(event: SelectChangeEvent) =>
+              onChange({
+                ...form,
+                visibility: event.target.value as typeof form.visibility,
+              })
+            }
+            value={form.visibility}
+          >
+            <MenuItem value="public">Public</MenuItem>
+            <MenuItem value="partners_only">Partners only</MenuItem>
+          </Select>
+        </FormControl>
+      </Stack>
+      <TextField
+        label="Source relief point ID"
+        onChange={(event) =>
+          onChange({ ...form, sourceReliefPointId: event.target.value })
+        }
+        size="small"
+        value={form.sourceReliefPointId}
+      />
+      <TextField
+        error={!form.description.trim()}
+        helperText={!form.description.trim() ? "Description is required" : ""}
+        label="Description"
+        multiline
+        onChange={(event) =>
+          onChange({ ...form, description: event.target.value })
+        }
+        required
+        rows={3}
+        size="small"
+        value={form.description}
+      />
+      <Button
+        disabled={
+          !form.title.trim() ||
+          !form.receivingOrganization.trim() ||
+          !form.quantityNeeded.trim() ||
+          !form.description.trim()
+        }
+        onClick={onSubmit}
+        variant="contained"
+      >
+        {submitLabel}
+      </Button>
+    </Stack>
+  );
+}
+
+export function AidPledgeList({ pledges }: { pledges: AidPledgeRecord[] }) {
+  if (!pledges.length) {
+    return <EmptyState message="No partner pledges recorded yet." />;
+  }
+
+  return (
+    <Stack spacing={1.25}>
+      {pledges.map((pledge) => (
+        <Paper key={pledge.id} sx={{ p: 2 }} variant="outlined">
+          <Stack direction="row" justifyContent="space-between" spacing={2}>
+            <Box>
+              <Typography fontWeight={700}>{pledge.donorName}</Typography>
+              <Typography color="text.secondary" variant="body2">
+                {aidLabel(pledge.donorType)} ·{" "}
+                {new Date(pledge.pledgedAt).toLocaleString("en-GH")}
+              </Typography>
+            </Box>
+            <Stack alignItems="flex-end" spacing={1}>
+              <Chip label={aidLabel(pledge.status)} size="small" />
+              <Chip
+                color={
+                  pledge.reviewStatus === "flagged"
+                    ? "error"
+                    : pledge.reviewStatus === "cleared"
+                      ? "success"
+                      : "warning"
+                }
+                label={aidLabel(pledge.reviewStatus)}
+                size="small"
+                variant="outlined"
+              />
+            </Stack>
+          </Stack>
+          <Typography mt={1} variant="body2">
+            {pledge.quantity.toLocaleString("en-GH")} {pledge.unit}
+          </Typography>
+          {pledge.note ? (
+            <Typography color="text.secondary" mt={0.5} variant="body2">
+              {pledge.note}
+            </Typography>
+          ) : null}
+          {pledge.fraudReviewNotes ? (
+            <Alert severity="info" sx={{ mt: 1 }}>
+              {pledge.fraudReviewNotes}
+            </Alert>
+          ) : null}
         </Paper>
       ))}
     </Stack>

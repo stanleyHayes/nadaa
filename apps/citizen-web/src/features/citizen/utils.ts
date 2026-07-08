@@ -1,3 +1,4 @@
+import { hazardRoles, severityRoles } from "@nadaa/brand";
 import type {
   AlertSeverity,
   AreaRiskResponse,
@@ -9,6 +10,7 @@ import type {
   InitiateMediaUploadRequest,
   MediaUploadResponse,
   ReliefStockCategory,
+  RiskLevel,
   ShelterStatus,
 } from "@nadaa/shared-types";
 import { GUIDE_CACHE_KEY, INCIDENT_API_BASE } from "../../app/config";
@@ -83,6 +85,44 @@ export function hazardLabel(hazard: HazardType): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
+
+export function severityRoleFor(
+  level: RiskLevel | AlertSeverity,
+): keyof typeof severityRoles {
+  if (level === "moderate" || level === "advisory") return "medium";
+  if (level === "emergency" || level === "severe_warning") return "severe";
+  if (level === "watch" || level === "warning") return "high";
+  if (level === "low") return "low";
+  if (level === "high") return "high";
+  if (level === "severe") return "severe";
+  return "info";
+}
+
+export function hazardRoleFor(hazard: HazardType): keyof typeof hazardRoles {
+  switch (hazard) {
+    case "flood":
+    case "blocked_drain":
+    case "tidal_wave":
+      return "flood";
+    case "fire":
+      return "fire";
+    case "road_crash":
+      return "road";
+    case "medical_emergency":
+      return "medical";
+    case "building_collapse":
+    case "landslide":
+      return "geological";
+    case "disease_outbreak":
+      return "disease";
+    case "storm":
+      return "storm";
+    default:
+      return "default";
+  }
+}
+
+export { hazardRoles, severityRoles };
 
 export function formatDateTime(value: string): string {
   const date = new Date(value);

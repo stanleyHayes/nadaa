@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/risk-service/go.mod ./
 RUN go mod download
 COPY services/risk-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/risk-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/risk-service ./cmd/server
 
 FROM alpine:3.22
 

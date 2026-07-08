@@ -1,14 +1,15 @@
 import { Text, View } from "react-native";
 import {
   ActionButton,
+  CapacityBadge,
   Card,
   ListItem,
   Metric,
   ScreenHeading,
   SelectField,
-  StatusPill,
   uiStyles,
 } from "../../../ui/components";
+import { mobileTheme } from "../../../app/theme";
 import { formatDateTime } from "../data";
 import type { DispatcherScreenProps } from "./types";
 
@@ -93,16 +94,7 @@ export function CapacityScreen({ actions, state }: DispatcherScreenProps) {
                       <Text style={stylesFacilityName}>{facility.name}</Text>
                       <Text style={stylesMuted}>{facility.address}</Text>
                     </View>
-                    <StatusPill
-                      label={facility.emergencyCapacity}
-                      tone={
-                        facility.emergencyCapacity === "available"
-                          ? "green"
-                          : facility.emergencyCapacity === "limited"
-                            ? "gold"
-                            : "danger"
-                      }
-                    />
+                    <CapacityBadge capacity={facility.emergencyCapacity} />
                   </View>
                   <View style={stylesMetricRow}>
                     <Metric label="Beds" value={facility.availableBeds} />
@@ -132,15 +124,15 @@ export function CapacityScreen({ actions, state }: DispatcherScreenProps) {
 }
 
 const stylesBody = {
-  color: "#101828",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 15,
   lineHeight: 22,
 };
 
 const stylesFacilityName = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 16,
 };
 
@@ -150,29 +142,29 @@ const stylesGrow = {
 
 const stylesMetricRow = {
   flexDirection: "row",
-  gap: 10,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesMuted = {
-  color: "#555B66",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.muted,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 13,
 };
 
 const stylesRow = {
   alignItems: "center",
   flexDirection: "row",
-  gap: 12,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesSectionTitle = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };
 
 const stylesStale = {
-  color: "#B42318",
-  fontFamily: "Outfit_600SemiBold",
+  color: mobileTheme.colors.danger,
+  fontFamily: mobileTheme.font.semibold,
   fontSize: 13,
 };

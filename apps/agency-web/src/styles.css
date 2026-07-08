@@ -1,3 +1,13 @@
+@import "@nadaa/brand/brand.css";
+
+:root {
+  --nadaa-topbar-accent: var(--nadaa-green);
+}
+
+* {
+  box-sizing: border-box;
+}
+
 html,
 body,
 #root {
@@ -6,16 +16,42 @@ body,
 }
 
 body {
-  background-color: #f3f6fa;
-  font-family:
-    "Outfit",
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
+  color: var(--nadaa-text-primary);
+  background-color: var(--nadaa-surface);
+  font-family: var(--nadaa-font-family);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  z-index: 1200;
+  padding: var(--nadaa-space-2) var(--nadaa-space-4);
+  background: var(--nadaa-navy);
+  color: var(--nadaa-text-inverse);
+  text-decoration: none;
+  border-radius: var(--nadaa-radius-md);
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: var(--nadaa-space-2);
+  left: var(--nadaa-space-2);
+  outline: var(--nadaa-focus-outline);
+  outline-offset: 2px;
+}
+
+.topbar {
+  border-bottom: 4px solid var(--nadaa-topbar-accent);
+}
+
+.MuiButton-root,
+.MuiIconButton-root,
+.MuiChip-root {
+  min-height: 44px;
+  min-width: 44px;
 }

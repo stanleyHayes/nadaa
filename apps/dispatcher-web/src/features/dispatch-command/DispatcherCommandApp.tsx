@@ -71,12 +71,14 @@ import {
   AlertWorkflowPanel,
   CommandSelect,
   EmptyState,
+  HazardChip,
   HospitalCapacityPanel,
   IncidentDetailPanel,
   IncidentMap,
   MLPredictionReviewPanel,
   PrivacyChip,
   ReliefPointPanel,
+  SeverityChip,
   StatusLine,
 } from "./components";
 import {
@@ -88,7 +90,6 @@ import {
   fallbackMLPredictions,
   predictionReviewPoints,
   assignmentAgencyOptions,
-  severityColors,
 } from "./data";
 import type {
   AbuseReviewFormState,
@@ -1094,6 +1095,9 @@ function DispatcherCommandApp() {
   return (
     <ThemeProvider theme={dispatcherTheme}>
       <CssBaseline />
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
       <AppBar position="sticky" elevation={0} className="topbar">
         <Toolbar className="toolbar">
           <Stack
@@ -1140,7 +1144,12 @@ function DispatcherCommandApp() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" className="dashboard-shell">
+      <Container
+        maxWidth="xl"
+        className="dashboard-shell"
+        component="main"
+        id="main-content"
+      >
         <Stack
           direction={{ xs: "column", md: "row" }}
           justifyContent="space-between"
@@ -1393,7 +1402,7 @@ function DispatcherCommandApp() {
               />
             </Paper>
 
-            <Paper className="surface incident-table">
+            <Paper className="surface">
               <Stack
                 direction="row"
                 spacing={1}
@@ -1404,62 +1413,65 @@ function DispatcherCommandApp() {
                 <Typography variant="h6">Incident queue</Typography>
               </Stack>
               {filteredIncidents.length ? (
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Reference</TableCell>
-                      <TableCell>Hazard</TableCell>
-                      <TableCell>District</TableCell>
-                      <TableCell>Severity</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Privacy</TableCell>
-                      <TableCell>Assigned</TableCell>
-                      <TableCell>Age</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredIncidents.map((incident) => (
-                      <TableRow
-                        key={incident.id}
-                        hover
-                        selected={incident.id === selectedIncident?.id}
-                        onClick={() => setSelectedIncidentId(incident.id)}
-                        className="incident-row"
-                      >
-                        <TableCell>
-                          <Typography variant="subtitle2">
-                            {incident.reference}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {incident.locality}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{hazardLabel(incident.type)}</TableCell>
-                        <TableCell>{incident.district}</TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={severityLabel(incident.severity)}
-                            className="severity-chip"
-                            style={{
-                              backgroundColor:
-                                severityColors[incident.severity],
-                              color: "#FFFFFF",
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>{statusLabel(incident.status)}</TableCell>
-                        <TableCell>
-                          <PrivacyChip incident={incident} />
-                        </TableCell>
-                        <TableCell>{incident.assignedAgency}</TableCell>
-                        <TableCell>
-                          {formatIncidentAge(incident.createdAt)}
-                        </TableCell>
+                <Box
+                  className="incident-table"
+                  tabIndex={0}
+                  role="region"
+                  aria-label="Incident queue table, scroll horizontally on small screens"
+                >
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Reference</TableCell>
+                        <TableCell>Hazard</TableCell>
+                        <TableCell>District</TableCell>
+                        <TableCell>Severity</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Privacy</TableCell>
+                        <TableCell>Assigned</TableCell>
+                        <TableCell>Age</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHead>
+                    <TableBody>
+                      {filteredIncidents.map((incident) => (
+                        <TableRow
+                          key={incident.id}
+                          hover
+                          selected={incident.id === selectedIncident?.id}
+                          onClick={() => setSelectedIncidentId(incident.id)}
+                          className="incident-row"
+                        >
+                          <TableCell>
+                            <Typography variant="subtitle2">
+                              {incident.reference}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {incident.locality}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <HazardChip hazard={incident.type} />
+                          </TableCell>
+                          <TableCell>{incident.district}</TableCell>
+                          <TableCell>
+                            <SeverityChip severity={incident.severity} />
+                          </TableCell>
+                          <TableCell>{statusLabel(incident.status)}</TableCell>
+                          <TableCell>
+                            <PrivacyChip incident={incident} />
+                          </TableCell>
+                          <TableCell>{incident.assignedAgency}</TableCell>
+                          <TableCell>
+                            {formatIncidentAge(incident.createdAt)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
               ) : (
                 <EmptyState
                   title="No incidents match these filters"

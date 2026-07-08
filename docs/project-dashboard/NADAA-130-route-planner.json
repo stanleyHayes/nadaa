@@ -1,0 +1,28 @@
+{
+  "client": "NADAA Ghana",
+  "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+  "phase": "Phase 2",
+  "sprint": "Sprint 11",
+  "epic": "EPIC 12: Evacuation And Route Planning",
+  "story": "Evacuation Route Planner",
+  "jiraKey": "NADAA-130",
+  "branchName": "feature/NADAA-130-evacuation-route-planner",
+  "pullRequestUrl": "",
+  "status": "Done",
+  "assignedTeamMember": "Codex",
+  "estimatedEffortPoints": 8,
+  "actualEffortHours": 3,
+  "progressPercentage": 100,
+  "lastUpdated": "2026-07-07",
+  "dependencies": ["NADAA-131", "NADAA-040"],
+  "blockers": [],
+  "verification": [
+    "services/route-service go test ./...",
+    "services/route-service go build ./cmd/server",
+    "pnpm validate:dashboard",
+    "pnpm go:test",
+    "docker build -f services/route-service/Dockerfile -t nadaa/route-service:local .",
+    "git diff --check"
+  ],
+  "notes": "Evacuation Route Planner completed with services/route-service Go API (plan, options, health), in-memory route calculation with closure and risk avoidance, shelter-service fallback integration, decision-support disclaimer, structured INFO/WARN/ERROR logging, docs, dashboard record, and verification."
+}

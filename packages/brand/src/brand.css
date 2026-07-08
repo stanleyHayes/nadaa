@@ -1,0 +1,71 @@
+/* NADAA brand CSS custom properties.
+   Import once at the root of each web app so utility classes can use tokens. */
+
+:root {
+  /* Core palette */
+  --nadaa-navy: #0d1b3d;
+  --nadaa-green: #118d4e;
+  --nadaa-red: #e53935;
+  --nadaa-gold: #f4c20d;
+  --nadaa-slate: #555b66;
+  --nadaa-white: #ffffff;
+  --nadaa-mist: #f5f8fc;
+  --nadaa-ink: #101828;
+
+  /* Semantic roles */
+  --nadaa-surface: var(--nadaa-mist);
+  --nadaa-surface-elevated: var(--nadaa-white);
+  --nadaa-border: #dfeaf2;
+  --nadaa-divider: #e4e7ec;
+  --nadaa-text-primary: var(--nadaa-ink);
+  --nadaa-text-secondary: var(--nadaa-slate);
+  --nadaa-text-inverse: var(--nadaa-white);
+  --nadaa-primary: var(--nadaa-navy);
+  --nadaa-secondary: var(--nadaa-green);
+  --nadaa-accent: var(--nadaa-gold);
+  --nadaa-info: #0b6fb8;
+  --nadaa-success: var(--nadaa-green);
+  --nadaa-warning: var(--nadaa-gold);
+  --nadaa-danger: var(--nadaa-red);
+
+  /* Spacing */
+  --nadaa-space-0: 0px;
+  --nadaa-space-1: 4px;
+  --nadaa-space-2: 8px;
+  --nadaa-space-3: 12px;
+  --nadaa-space-4: 16px;
+  --nadaa-space-5: 20px;
+  --nadaa-space-6: 24px;
+  --nadaa-space-8: 32px;
+  --nadaa-space-10: 40px;
+  --nadaa-space-12: 48px;
+  --nadaa-space-16: 64px;
+
+  /* Typography */
+  --nadaa-font-family: "Outfit", "Helvetica Neue", Arial, sans-serif;
+  --nadaa-radius-sm: 4px;
+  --nadaa-radius-md: 8px;
+  --nadaa-radius-lg: 12px;
+  --nadaa-radius-xl: 16px;
+
+  /* Shadows */
+  --nadaa-shadow-sm: 0 1px 2px rgba(13, 27, 61, 0.06);
+  --nadaa-shadow-md: 0 4px 12px rgba(13, 27, 61, 0.08);
+  --nadaa-shadow-lg: 0 8px 24px rgba(13, 27, 61, 0.1);
+  --nadaa-shadow-xl: 0 18px 48px rgba(13, 27, 61, 0.12);
+
+  /* Focus */
+  --nadaa-focus-color: var(--nadaa-gold);
+  --nadaa-focus-outline: 2px solid var(--nadaa-focus-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

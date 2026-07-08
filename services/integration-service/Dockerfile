@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/integration-service/go.mod ./
 RUN go mod download
 COPY services/integration-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/integration-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/integration-service ./cmd/server
 
 FROM alpine:3.22
 

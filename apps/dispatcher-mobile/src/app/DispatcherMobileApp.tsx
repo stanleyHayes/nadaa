@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { nadaaBrand } from "@nadaa/brand";
 import { dispatcherTabs, type DispatcherTab } from "./navigation";
-import { mobileTheme } from "./theme";
+import { mobileTheme, withAlpha } from "./theme";
 import { useDispatcherMobileState } from "../features/dispatcher-mobile/useDispatcherMobileState";
 import { ActionScreen } from "../features/dispatcher-mobile/screens/ActionScreen";
 import { CapacityScreen } from "../features/dispatcher-mobile/screens/CapacityScreen";
@@ -81,6 +81,7 @@ export default function DispatcherMobileApp() {
           return (
             <Pressable
               accessibilityLabel={tab.label}
+              accessibilityRole="button"
               key={tab.id}
               onPress={() => setActiveTab(tab.id)}
               style={[styles.tab, isActive ? styles.tabActive : null]}
@@ -118,21 +119,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     flexDirection: "row",
-    gap: 12,
+    gap: mobileTheme.spacing.md,
   },
   brandText: {
     flex: 1,
-    gap: 2,
+    gap: mobileTheme.spacing.sm,
   },
   callButton: {
     alignItems: "center",
-    borderColor: "rgba(255, 255, 255, 0.36)",
+    borderColor: withAlpha(mobileTheme.colors.white, 0.36),
     borderRadius: mobileTheme.radius.md,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 8,
-    minHeight: 42,
-    paddingHorizontal: 12,
+    gap: mobileTheme.spacing.sm,
+    minHeight: 44,
+    paddingHorizontal: mobileTheme.spacing.md,
   },
   callText: {
     color: mobileTheme.colors.white,
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
     borderBottomColor: mobileTheme.colors.gold,
     borderBottomWidth: 4,
     flexDirection: "row",
-    gap: 12,
+    gap: mobileTheme.spacing.md,
     minHeight: 82,
     paddingHorizontal: mobileTheme.spacing.lg,
     paddingVertical: mobileTheme.spacing.md,
@@ -170,15 +171,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   slogan: {
-    color: "rgba(255, 255, 255, 0.74)",
+    color: mobileTheme.colors.white,
     fontFamily: mobileTheme.font.regular,
     fontSize: 12,
+    opacity: 0.74,
   },
   tab: {
     alignItems: "center",
     borderRadius: mobileTheme.radius.md,
     flex: 1,
-    gap: 4,
+    gap: mobileTheme.spacing.sm,
     justifyContent: "center",
     minHeight: 58,
   },
@@ -199,9 +201,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     bottom: 0,
     flexDirection: "row",
-    gap: 4,
+    gap: mobileTheme.spacing.sm,
     left: 0,
-    padding: 8,
+    padding: mobileTheme.spacing.md,
     position: "absolute",
     right: 0,
   },

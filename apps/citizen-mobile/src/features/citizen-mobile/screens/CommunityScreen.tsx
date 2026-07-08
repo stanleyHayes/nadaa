@@ -4,6 +4,7 @@ import type {
   VolunteerTaskRecord,
   VolunteerTaskStatus,
 } from "@nadaa/shared-types";
+import { mobileTheme } from "../../../app/theme";
 import {
   ActionButton,
   Card,
@@ -11,6 +12,7 @@ import {
   Metric,
   ScreenHeading,
   SegmentedControl,
+  SeverityBadge,
   StatusPill,
   uiStyles,
 } from "../../../ui/components";
@@ -219,6 +221,9 @@ function VolunteerTaskCard({
           tone={task.escalationRequired ? "danger" : "gold"}
         />
       </View>
+      <View style={stylesBadgeRow}>
+        <SeverityBadge severity={task.priority} />
+      </View>
       <Text style={stylesBody}>{task.instructions}</Text>
       <View style={stylesTaskMeta}>
         <Metric label="Priority" value={task.priority} />
@@ -240,15 +245,21 @@ function VolunteerTaskCard({
   );
 }
 
+const stylesBadgeRow = {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: mobileTheme.spacing.sm,
+};
+
 const stylesBody = {
-  color: "#101828",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 15,
   lineHeight: 22,
 };
 
 const stylesButtonGrid = {
-  gap: 8,
+  gap: mobileTheme.spacing.sm,
 };
 
 const stylesGrow = {
@@ -261,20 +272,20 @@ const stylesMetricRow = {
 };
 
 const stylesMuted = {
-  color: "#555B66",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.muted,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 13,
 };
 
 const stylesRow = {
   alignItems: "center",
   flexDirection: "row",
-  gap: 12,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesSectionTitle = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };
 

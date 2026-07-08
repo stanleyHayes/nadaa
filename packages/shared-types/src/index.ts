@@ -1390,6 +1390,137 @@ export interface UpdateReliefPointRequest {
   sourceRef?: string;
 }
 
+export type AidRequestCategory =
+  | "food"
+  | "water"
+  | "medical"
+  | "hygiene"
+  | "shelter"
+  | "logistics"
+  | "cash"
+  | "equipment"
+  | "volunteers"
+  | "other";
+
+export type AidRequestPriority = "low" | "medium" | "high" | "urgent";
+
+export type AidRequestStatus =
+  | "pending_review"
+  | "approved"
+  | "open"
+  | "partially_matched"
+  | "fulfilled"
+  | "paused"
+  | "closed"
+  | "rejected";
+
+export type AidPledgeStatus =
+  "pledged" | "accepted" | "received" | "cancelled" | "flagged";
+
+export type AidPledgeReviewStatus = "pending_review" | "cleared" | "flagged";
+
+export type AidDonorType =
+  | "individual"
+  | "business"
+  | "ngo"
+  | "faith_group"
+  | "diaspora"
+  | "government"
+  | "other";
+
+export interface AidPledgeRecord {
+  id: string;
+  aidRequestId: string;
+  donorName: string;
+  donorType: AidDonorType;
+  contact: string;
+  quantity: number;
+  unit: string;
+  note?: string;
+  status: AidPledgeStatus;
+  reviewStatus: AidPledgeReviewStatus;
+  fraudReviewNotes?: string;
+  reviewedBy?: string;
+  pledgedAt: string;
+  updatedAt: string;
+}
+
+export interface AidRequestRecord {
+  id: string;
+  title: string;
+  category: AidRequestCategory;
+  priority: AidRequestPriority;
+  status: AidRequestStatus;
+  region: string;
+  district: string;
+  location: Coordinates;
+  receivingOrganization: string;
+  contact: string;
+  quantityNeeded: number;
+  quantityUnit: string;
+  quantityPledged: number;
+  description: string;
+  neededBy: string;
+  visibility: "public" | "partners_only";
+  sourceReliefPointId?: string;
+  createdBy: string;
+  approvedBy?: string;
+  approvalNotes?: string;
+  antiFraudNotes?: string;
+  pledges: AidPledgeRecord[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AidRequestListResponse {
+  aidRequests: AidRequestRecord[];
+  generatedAt: string;
+}
+
+export interface AidPledgeListResponse {
+  aidRequestId: string;
+  pledges: AidPledgeRecord[];
+  generatedAt: string;
+}
+
+export interface CreateAidRequestRequest {
+  title: string;
+  category: AidRequestCategory;
+  priority: AidRequestPriority;
+  region?: string;
+  district?: string;
+  location: Coordinates;
+  receivingOrganization: string;
+  contact?: string;
+  quantityNeeded: number;
+  quantityUnit: string;
+  description: string;
+  neededBy: string;
+  visibility?: "public" | "partners_only";
+  sourceReliefPointId?: string;
+}
+
+export interface ReviewAidRequestRequest {
+  status: "approved" | "open" | "paused" | "closed" | "rejected";
+  approvalNotes?: string;
+  antiFraudNotes?: string;
+}
+
+export interface CreateAidPledgeRequest {
+  donorName: string;
+  donorType: AidDonorType;
+  contact: string;
+  quantity: number;
+  unit: string;
+  note?: string;
+}
+
+export interface ReviewAidPledgeRequest {
+  status?: AidPledgeStatus;
+  reviewStatus?: AidPledgeReviewStatus;
+  fraudReviewNotes?: string;
+}
+
 export interface ShelterOccupancyUpdateRequest {
   capacity?: number;
   currentOccupancy?: number;
@@ -1592,4 +1723,51 @@ export interface AreaRiskResponse {
   nearestShelters: ShelterSummary[];
   nearbyFacilities: EmergencyFacilitySummary[];
   recommendedActions: string[];
+}
+
+export type RouteWaypointType = "shelter" | "higher_ground" | "manual";
+
+export interface RouteCoordinates {
+  lat: number;
+  lng: number;
+}
+
+export interface RouteSegment {
+  start: RouteCoordinates;
+  end: RouteCoordinates;
+  distanceMeters: number;
+  mode: string;
+}
+
+export interface RouteTargetShelter {
+  id: string;
+  name: string;
+  location: RouteCoordinates;
+  status: string;
+}
+
+export interface RoutePlanRequest {
+  origin: RouteCoordinates;
+  destination?: RouteCoordinates;
+  waypointType: RouteWaypointType;
+  avoidRiskLevels?: string[];
+  closureBufferMeters?: number;
+}
+
+export interface RoutePlanResponse {
+  route: RouteCoordinates[];
+  segments: RouteSegment[];
+  distanceMeters: number;
+  estimatedDurationMinutes: number;
+  targetShelter?: RouteTargetShelter;
+  avoidedClosures: string[];
+  avoidedRiskZones: string[];
+  disclaimer: string;
+  decisionSupport: boolean;
+  generatedAt: string;
+}
+
+export interface RouteOptionsResponse {
+  waypointTypes: string[];
+  generatedAt: string;
 }

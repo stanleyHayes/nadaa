@@ -1,4 +1,9 @@
+import { hazardRoles, severityRoles } from "@nadaa/brand";
 import type {
+  AidRequestPriority,
+  AidRequestRecord,
+  AidRequestStatus,
+  HazardType,
   HospitalCapacityRecord,
   HospitalCapacityStatus,
   IncidentRecord,
@@ -9,7 +14,11 @@ import type {
   RiskLevel,
 } from "@nadaa/shared-types";
 import { incidentTransitionOptions, severityOrder } from "./data";
-import type { IncidentFilterState, ReliefPointFormState } from "./types";
+import type {
+  AidRequestFormState,
+  IncidentFilterState,
+  ReliefPointFormState,
+} from "./types";
 
 export function allowedTransitions(status: IncidentStatus) {
   return incidentTransitionOptions[status] ?? [];
@@ -43,6 +52,42 @@ export function severityColor(severity: RiskLevel) {
     case "low":
     default:
       return "success";
+  }
+}
+
+export function mapSeverityRole(
+  severity: RiskLevel,
+): keyof typeof severityRoles {
+  if (severity === "emergency") return "severe";
+  if (severity === "moderate") return "medium";
+  return severity as keyof typeof severityRoles;
+}
+
+export function mapHazardRole(hazard: HazardType): keyof typeof hazardRoles {
+  switch (hazard) {
+    case "flood":
+    case "blocked_drain":
+    case "tidal_wave":
+      return "flood";
+    case "fire":
+    case "electrical_hazard":
+      return "fire";
+    case "road_crash":
+    case "marine_accident":
+      return "road";
+    case "building_collapse":
+    case "landslide":
+      return "geological";
+    case "medical_emergency":
+      return "medical";
+    case "disease_outbreak":
+      return "disease";
+    case "storm":
+      return "storm";
+    case "security_incident":
+    case "other":
+    default:
+      return "default";
   }
 }
 
@@ -84,6 +129,49 @@ export function reliefLabel(value: string) {
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+export function aidLabel(value: string) {
+  return reliefLabel(value);
+}
+
+export function aidStatusColor(status: AidRequestStatus) {
+  switch (status) {
+    case "pending_review":
+      return "warning";
+    case "approved":
+    case "open":
+    case "partially_matched":
+      return "success";
+    case "fulfilled":
+      return "info";
+    case "rejected":
+    case "closed":
+      return "error";
+    default:
+      return "default";
+  }
+}
+
+export function aidPriorityColor(priority: AidRequestPriority) {
+  switch (priority) {
+    case "urgent":
+      return "error";
+    case "high":
+      return "warning";
+    case "medium":
+      return "info";
+    default:
+      return "default";
+  }
+}
+
+export function aidProgressPercent(request: AidRequestRecord) {
+  if (!request.quantityNeeded) return 0;
+  return Math.min(
+    100,
+    Math.round((request.quantityPledged / request.quantityNeeded) * 100),
+  );
 }
 
 export function stockSummary(categories: ReliefStockCategory[]) {
@@ -145,5 +233,27 @@ export function reliefPointToForm(
     schedule: point.schedule,
     status: point.status,
     stockCategories: serializeStockCategories(point.stockCategories),
+  };
+}
+
+export function aidRequestToForm(
+  request: AidRequestRecord,
+): AidRequestFormState {
+  return {
+    title: request.title,
+    category: request.category,
+    priority: request.priority,
+    region: request.region,
+    district: request.district,
+    lat: request.location.lat.toString(),
+    lng: request.location.lng.toString(),
+    receivingOrganization: request.receivingOrganization,
+    contact: request.contact,
+    quantityNeeded: request.quantityNeeded.toString(),
+    quantityUnit: request.quantityUnit,
+    description: request.description,
+    neededBy: request.neededBy.slice(0, 16),
+    visibility: request.visibility,
+    sourceReliefPointId: request.sourceReliefPointId ?? "",
   };
 }

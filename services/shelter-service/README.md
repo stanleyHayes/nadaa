@@ -1,6 +1,6 @@
 # Shelter Service
 
-The shelter service owns shelter capacity, nearby shelter lookup, recovery support locations, hospital capacity, and relief distribution point tracking for the NADAA platform.
+The shelter service owns shelter capacity, nearby shelter lookup, recovery support locations, hospital capacity, relief distribution point tracking, and donation/aid coordination for the NADAA platform.
 
 ## Current endpoints
 
@@ -14,11 +14,18 @@ The shelter service owns shelter capacity, nearby shelter lookup, recovery suppo
 - `POST /api/v1/relief-points`
 - `PATCH /api/v1/relief-points/{id}`
 - `GET /api/v1/relief-points/{id}/stock-history`
+- `GET /api/v1/aid-requests?category=hygiene&priority=high`
+- `POST /api/v1/aid-requests`
+- `PATCH /api/v1/aid-requests/{id}/review`
+- `POST /api/v1/aid-requests/{id}/pledges`
+- `GET /api/v1/aid-requests/{id}/pledges`
+- `PATCH /api/v1/aid-requests/{id}/pledges/{pledgeId}/review`
+- `GET /api/v1/aid-requests/report.csv`
 - `GET /api/v1/hospitals/capacity?lat=5.5600&lng=-0.2000`
 - `PATCH /api/v1/hospitals/{id}/capacity`
 - `POST /api/v1/hospitals/capacity/imports/fixture`
 
-Shelter occupancy, relief point create/update, and hospital capacity updates require authority headers:
+Shelter occupancy, relief point create/update, aid request create/review/export, aid pledge review/list, and hospital capacity updates require authority headers:
 
 - `X-NADAA-Actor-ID`
 - `X-NADAA-Actor-Role`
@@ -47,9 +54,11 @@ go test ./...
 ```bash
 pnpm smoke:shelter
 pnpm smoke:relief
+pnpm smoke:aid
 ```
 
 `smoke:relief` expects the service on port `8093` by default; override with `RELIEF_API_URL`.
+`smoke:aid` expects the service on port `8093` by default; override with `SHELTER_API_URL`.
 
 ## Notes
 

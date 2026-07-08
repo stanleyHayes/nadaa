@@ -1,6 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { mobileTheme } from "../app/theme";
+import { hazardBadgeFor, severityBadgeFor } from "@nadaa/brand/native";
+import { mobileTheme, withAlpha } from "../app/theme";
 
 type ActionButtonProps = {
   disabled?: boolean;
@@ -30,7 +31,7 @@ export function ActionButton({
         disabled ? styles.disabled : null,
       ]}
     >
-      <Feather color={color} name={icon} size={17} />
+      {icon ? <Feather color={color} name={icon} size={17} /> : null}
       <Text style={[styles.actionButtonText, { color }]}>{label}</Text>
     </Pressable>
   );
@@ -66,7 +67,7 @@ export function Field({
         multiline={multiline}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="rgba(85, 91, 102, 0.72)"
+        placeholderTextColor={mobileTheme.colors.muted}
         style={[styles.input, multiline ? styles.inputMultiline : null]}
         value={value}
       />
@@ -117,6 +118,8 @@ export function SegmentedControl<Option extends string>({
     <View style={styles.segmented}>
       {options.map((option) => (
         <Pressable
+          accessibilityLabel={option.label}
+          accessibilityRole="button"
           key={option.value}
           onPress={() => onChange(option.value)}
           style={[
@@ -138,6 +141,7 @@ export function SegmentedControl<Option extends string>({
   );
 }
 
+/** Accessible status pill with WCAG 2.1 AA contrast. */
 export function StatusPill({
   label,
   tone = "navy",
@@ -147,7 +151,145 @@ export function StatusPill({
 }) {
   return (
     <View style={[styles.pill, styles[`pill_${tone}`]]}>
-      <Text style={styles.pillText}>{label}</Text>
+      <Text style={[styles.pillText, styles[`pillText_${tone}`]]}>{label}</Text>
+    </View>
+  );
+}
+
+const severityIconMap: Record<string, string> = {
+  AlertOctagon: "alert-octagon",
+  AlertTriangle: "alert-triangle",
+  CheckCircle2: "check-circle",
+  Info: "info",
+};
+
+function severityIcon(name: string): string {
+  return severityIconMap[name] ?? "alert-circle";
+}
+
+/** Accessible severity badge: icon + text + color. */
+export function SeverityBadge({ severity }: { severity: string }) {
+  const badge = severityBadgeFor(severity);
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: badge.background,
+          borderColor: badge.border,
+        },
+      ]}
+    >
+      <Feather color={badge.color} name={severityIcon(badge.icon)} size={14} />
+      <Text style={[styles.badgeText, { color: badge.color }]}>{severity}</Text>
+    </View>
+  );
+}
+
+const hazardIconMap: Record<string, string> = {
+  blocked_drain: "x-octagon",
+  building_collapse: "home",
+  disease_outbreak: "activity",
+  electrical_hazard: "zap",
+  fire: "sun",
+  flood: "cloud-rain",
+  landslide: "alert-triangle",
+  marine_accident: "anchor",
+  medical_emergency: "plus",
+  other: "help-circle",
+  road_crash: "truck",
+  security_incident: "shield",
+  storm: "cloud-lightning",
+  tidal_wave: "wind",
+};
+
+function hazardIcon(hazard: string): string {
+  return hazardIconMap[hazard.toLowerCase()] ?? "alert-circle";
+}
+
+function formatHazardLabel(hazard: string): string {
+  return hazard
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+/** Accessible hazard badge: icon + text + color. */
+export function HazardBadge({ hazard }: { hazard: string }) {
+  const badge = hazardBadgeFor(hazard);
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: badge.background,
+          borderColor: badge.border,
+        },
+      ]}
+    >
+      <Feather color={badge.color} name={hazardIcon(hazard)} size={14} />
+      <Text style={[styles.badgeText, { color: badge.color }]}>
+        {formatHazardLabel(hazard)}
+      </Text>
+    </View>
+  );
+}
+
+const urgencySeverityMap: Record<string, string> = {
+  high: "high",
+  life_threatening: "severe",
+  low: "low",
+  moderate: "medium",
+};
+
+function formatUrgencyLabel(urgency: string): string {
+  return urgency
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+/** Accessible urgency badge mapped to severity tokens. */
+export function UrgencyBadge({ urgency }: { urgency: string }) {
+  const badge = severityBadgeFor(urgencySeverityMap[urgency] ?? urgency);
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: badge.background,
+          borderColor: badge.border,
+        },
+      ]}
+    >
+      <Feather color={badge.color} name={severityIcon(badge.icon)} size={14} />
+      <Text style={[styles.badgeText, { color: badge.color }]}>
+        {formatUrgencyLabel(urgency)}
+      </Text>
+    </View>
+  );
+}
+
+const capacitySeverityMap: Record<string, string> = {
+  available: "low",
+  full: "severe",
+  limited: "medium",
+};
+
+/** Accessible hospital capacity badge mapped to severity tokens. */
+export function CapacityBadge({ capacity }: { capacity: string }) {
+  const badge = severityBadgeFor(capacitySeverityMap[capacity] ?? capacity);
+  const label = capacity.charAt(0).toUpperCase() + capacity.slice(1);
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: badge.background,
+          borderColor: badge.border,
+        },
+      ]}
+    >
+      <Feather color={badge.color} name={severityIcon(badge.icon)} size={14} />
+      <Text style={[styles.badgeText, { color: badge.color }]}>{label}</Text>
     </View>
   );
 }
@@ -171,6 +313,8 @@ export function SelectField<Option extends string>({
           const selected = option.value === value;
           return (
             <Pressable
+              accessibilityLabel={option.label}
+              accessibilityRole="button"
               key={option.value}
               onPress={() => onChange(option.value)}
               style={[
@@ -205,6 +349,7 @@ export function ListItem({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
       style={[styles.listItem, selected ? styles.listItemSelected : null]}
     >
@@ -227,6 +372,20 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontFamily: mobileTheme.font.semibold,
     fontSize: 14,
+  },
+  badge: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: mobileTheme.spacing.sm,
+    paddingHorizontal: mobileTheme.spacing.md,
+    paddingVertical: mobileTheme.spacing.sm,
+  },
+  badgeText: {
+    fontFamily: mobileTheme.font.semibold,
+    fontSize: 12,
   },
   button_danger: {
     backgroundColor: mobileTheme.colors.danger,
@@ -255,11 +414,11 @@ const styles = StyleSheet.create({
   },
   card_danger: {
     backgroundColor: mobileTheme.colors.softRed,
-    borderColor: "rgba(229, 57, 53, 0.22)",
+    borderColor: withAlpha(mobileTheme.colors.danger, 0.22),
   },
   card_green: {
     backgroundColor: mobileTheme.colors.softGreen,
-    borderColor: "rgba(17, 141, 78, 0.18)",
+    borderColor: withAlpha(mobileTheme.colors.green, 0.18),
   },
   card_navy: {
     backgroundColor: mobileTheme.colors.navy,
@@ -269,10 +428,10 @@ const styles = StyleSheet.create({
     opacity: 0.58,
   },
   field: {
-    gap: 6,
+    gap: mobileTheme.spacing.sm,
   },
   heading: {
-    gap: 4,
+    gap: mobileTheme.spacing.sm,
   },
   input: {
     backgroundColor: mobileTheme.colors.white,
@@ -306,6 +465,7 @@ const styles = StyleSheet.create({
     borderRadius: mobileTheme.radius.md,
     borderWidth: 1,
     gap: mobileTheme.spacing.sm,
+    minHeight: 44,
     padding: mobileTheme.spacing.md,
   },
   listItemSelected: {
@@ -316,7 +476,7 @@ const styles = StyleSheet.create({
     backgroundColor: mobileTheme.colors.softBlue,
     borderRadius: mobileTheme.radius.md,
     flex: 1,
-    gap: 2,
+    gap: mobileTheme.spacing.sm,
     padding: mobileTheme.spacing.md,
   },
   metricLabel: {
@@ -348,9 +508,20 @@ const styles = StyleSheet.create({
     backgroundColor: mobileTheme.colors.navy,
   },
   pillText: {
-    color: mobileTheme.colors.white,
     fontFamily: mobileTheme.font.semibold,
     fontSize: 12,
+  },
+  pillText_danger: {
+    color: mobileTheme.colors.white,
+  },
+  pillText_gold: {
+    color: mobileTheme.colors.ink,
+  },
+  pillText_green: {
+    color: mobileTheme.colors.white,
+  },
+  pillText_navy: {
+    color: mobileTheme.colors.white,
   },
   segmented: {
     backgroundColor: mobileTheme.colors.white,
@@ -358,12 +529,15 @@ const styles = StyleSheet.create({
     borderRadius: mobileTheme.radius.md,
     borderWidth: 1,
     flexDirection: "row",
-    padding: 3,
+    padding: mobileTheme.spacing.sm,
   },
   segment: {
-    borderRadius: 6,
+    alignItems: "center",
+    borderRadius: mobileTheme.radius.sm,
     flex: 1,
-    paddingVertical: 9,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingVertical: mobileTheme.spacing.sm,
   },
   segmentActive: {
     backgroundColor: mobileTheme.colors.navy,
@@ -383,10 +557,13 @@ const styles = StyleSheet.create({
     gap: mobileTheme.spacing.sm,
   },
   selectOption: {
+    alignItems: "center",
     backgroundColor: mobileTheme.colors.white,
     borderColor: mobileTheme.colors.border,
     borderRadius: mobileTheme.radius.md,
     borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 44,
     paddingHorizontal: mobileTheme.spacing.md,
     paddingVertical: mobileTheme.spacing.sm,
   },

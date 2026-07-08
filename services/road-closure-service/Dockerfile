@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/road-closure-service/go.mod ./
 RUN go mod download
 COPY services/road-closure-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/road-closure-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/road-closure-service ./cmd/server
 
 FROM alpine:3.22
 

@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/ml-service/go.mod ./
 RUN go mod download
 COPY services/ml-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ml-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ml-service ./cmd/server
 
 FROM alpine:3.22
 

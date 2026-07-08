@@ -69,6 +69,7 @@ jobs:
           - services/notification-service
           - services/risk-service
           - services/road-closure-service
+          - services/route-service
           - services/shelter-service
     steps:
       - name: Check out repository
@@ -125,6 +126,8 @@ jobs:
             dockerfile: services/risk-service/Dockerfile
           - name: road-closure-service
             dockerfile: services/road-closure-service/Dockerfile
+          - name: route-service
+            dockerfile: services/route-service/Dockerfile
           - name: shelter-service
             dockerfile: services/shelter-service/Dockerfile
     steps:

@@ -1,4 +1,5 @@
 import { Text, View } from "react-native";
+import { hexToRgba, mobileTheme } from "../../../app/theme";
 import {
   ActionButton,
   Card,
@@ -82,37 +83,38 @@ const stylesGrow = {
 const stylesListItem = {
   alignItems: "center",
   flexDirection: "row",
-  gap: 12,
+  gap: mobileTheme.spacing.md,
 };
 
 const stylesListTitle = {
-  color: "#101828",
-  fontFamily: "Outfit_600SemiBold",
+  color: mobileTheme.colors.ink,
+  fontFamily: mobileTheme.font.semibold,
   fontSize: 15,
 };
 
 const stylesMuted = {
-  color: "#555B66",
-  fontFamily: "Outfit_400Regular",
+  color: mobileTheme.colors.muted,
+  fontFamily: mobileTheme.font.regular,
   fontSize: 13,
   lineHeight: 19,
 };
 
 const stylesPermissionRow = {
   alignItems: "center",
-  borderTopColor: "rgba(13, 27, 61, 0.08)",
+  borderTopColor: hexToRgba(mobileTheme.colors.navy, 0.08),
   borderTopWidth: 1,
   flexDirection: "row",
   gap: 10,
-  paddingTop: 12,
+  paddingTop: mobileTheme.spacing.md,
+  minHeight: 44,
 };
 
 const stylesStack = {
-  gap: 14,
+  gap: mobileTheme.spacing.md + 2,
 };
 
 const stylesTitle = {
-  color: "#0D1B3D",
-  fontFamily: "Outfit_800ExtraBold",
+  color: mobileTheme.colors.navy,
+  fontFamily: mobileTheme.font.bold,
   fontSize: 18,
 };

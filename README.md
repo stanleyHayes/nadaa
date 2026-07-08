@@ -171,7 +171,7 @@ cd services/shelter-service
 go run .
 ```
 
-The shelter service listens on `:8093` by default and exposes shelter/recovery lookup, relief point management, stock history, and hospital capacity endpoints. With shelter-service running on `:8093`, verify nearby shelters, protected occupancy updates, relief point list/nearby/create/update/stock-history behavior, hospital capacity filters, manual capacity updates, and fixture imports with `pnpm smoke:shelter`.
+The shelter service listens on `:8093` by default and exposes shelter/recovery lookup, relief point management, stock history, hospital capacity, and donation/aid coordination endpoints. With shelter-service running on `:8093`, verify nearby shelters, protected occupancy updates, relief point list/nearby/create/update/stock-history behavior, aid request/pledge coordination, hospital capacity filters, manual capacity updates, and fixture imports with `pnpm smoke:shelter`, `pnpm smoke:relief`, and `pnpm smoke:aid`.
 
 Run the Go integration service:
 

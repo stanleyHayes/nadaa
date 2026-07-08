@@ -22,18 +22,27 @@ import type { SelectChangeEvent } from "@mui/material/Select";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
+  AlertOctagon,
+  AlertTriangle,
   BellRing,
+  CheckCircle2,
   CheckCheck,
   Crosshair,
+  Flame,
   GitMerge,
+  Info,
   ShieldAlert,
   Truck,
+  Waves,
 } from "lucide-react";
-import { nadaaBrand } from "@nadaa/brand";
+import { nadaaBrand, severityRoles, hazardRoles } from "@nadaa/brand";
 import type {
+  AlertSeverity,
   AlertTarget,
   AuthorityAlertRecord,
   DuplicateReviewCandidate,
+  HazardType,
+  RiskLevel,
 } from "@nadaa/shared-types";
 import {
   alertSeverityOptions,
@@ -86,6 +95,145 @@ export function CommandSelect({
         {children}
       </Select>
     </FormControl>
+  );
+}
+
+const severityIconComponents = {
+  CheckCircle2,
+  AlertTriangle,
+  AlertOctagon,
+  Info,
+} as const;
+
+const alertSeverityRole: Record<AlertSeverity, keyof typeof severityRoles> = {
+  advisory: "info",
+  watch: "low",
+  warning: "medium",
+  severe_warning: "high",
+  emergency: "severe",
+};
+
+const incidentSeverityRole: Record<RiskLevel, keyof typeof severityRoles> = {
+  low: "low",
+  moderate: "medium",
+  high: "high",
+  severe: "severe",
+  emergency: "severe",
+};
+
+function chipLabelForSeverity(severity: RiskLevel | AlertSeverity) {
+  if (
+    ["advisory", "watch", "warning", "severe_warning", "emergency"].includes(
+      severity,
+    )
+  ) {
+    return alertSeverityLabel(severity as AlertSeverity);
+  }
+  return severityLabel(severity as RiskLevel);
+}
+
+export function SeverityChip({
+  label,
+  severity,
+  size = "small",
+}: {
+  label?: string;
+  severity: RiskLevel | AlertSeverity;
+  size?: "small" | "medium";
+}) {
+  const directRole = severityRoles[severity as keyof typeof severityRoles];
+  const roleKey = directRole
+    ? (severity as keyof typeof severityRoles)
+    : (incidentSeverityRole[severity as RiskLevel] ??
+      alertSeverityRole[severity as AlertSeverity] ??
+      "info");
+  const role = severityRoles[roleKey];
+  const Icon = severityIconComponents[role.icon];
+  return (
+    <Chip
+      size={size}
+      label={label ?? chipLabelForSeverity(severity)}
+      icon={<Icon size={14} />}
+      className="severity-chip"
+      style={{
+        backgroundColor: role.background,
+        color: role.foreground,
+        borderColor: role.border,
+      }}
+    />
+  );
+}
+
+const hazardIconComponents: Record<
+  string,
+  React.ComponentType<{ size?: number }>
+> = {
+  flood: Waves,
+  fire: Flame,
+  storm: Waves,
+  medical: ShieldAlert,
+};
+
+const hazardRoleMap: Record<string, keyof typeof hazardRoles> = {
+  flood: "flood",
+  fire: "fire",
+  road_crash: "road",
+  building_collapse: "geological",
+  medical_emergency: "medical",
+  disease_outbreak: "disease",
+  electrical_hazard: "fire",
+  blocked_drain: "default",
+  landslide: "geological",
+  marine_accident: "default",
+  storm: "storm",
+  tidal_wave: "default",
+  security_incident: "default",
+  other: "default",
+};
+
+export function HazardChip({
+  hazard,
+  label,
+  size = "small",
+}: {
+  hazard: HazardType;
+  label?: string;
+  size?: "small" | "medium";
+}) {
+  const roleKey = hazardRoleMap[hazard] ?? "default";
+  const role = hazardRoles[roleKey];
+  const Icon = hazardIconComponents[hazard] ?? ShieldAlert;
+  return (
+    <Chip
+      size={size}
+      label={label ?? hazardLabel(hazard)}
+      icon={<Icon size={14} />}
+      className="hazard-chip"
+      style={{
+        backgroundColor: role.background,
+        color: role.foreground,
+        borderColor: role.border,
+      }}
+    />
+  );
+}
+
+export function ScrollableTable({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <Box
+      className="incident-table"
+      tabIndex={0}
+      role="region"
+      aria-label={label}
+    >
+      {children}
+    </Box>
   );
 }
 
@@ -389,11 +537,7 @@ export function AlertWorkflowPanel({
               <Typography variant="subtitle2">
                 Draft from {selectedIncident.reference}
               </Typography>
-              <Chip
-                size="small"
-                label={alertSeverityLabel(form.severity)}
-                color={form.severity === "emergency" ? "error" : "warning"}
-              />
+              <SeverityChip severity={form.severity} />
             </Stack>
             <Typography variant="body2" color="text.secondary">
               {hazardLabel(selectedIncident.type)} · {selectedIncident.district}
@@ -795,14 +939,7 @@ export function IncidentDetailPanel({
           </Typography>
           <Typography variant="h6">{incident.reference}</Typography>
         </Box>
-        <Chip
-          size="small"
-          label={severityLabel(incident.severity)}
-          style={{
-            backgroundColor: severityColors[incident.severity],
-            color: "#FFFFFF",
-          }}
-        />
+        <SeverityChip severity={incident.severity} />
       </Stack>
 
       <Typography variant="body2" color="text.secondary">

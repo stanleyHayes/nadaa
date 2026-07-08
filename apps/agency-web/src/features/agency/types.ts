@@ -1,4 +1,6 @@
 import type {
+  AidRequestCategory,
+  AidRequestPriority,
   HazardType,
   HospitalCapacityRecord,
   HospitalCapacityStatus,
@@ -10,7 +12,8 @@ import type {
   ShelterRecord,
 } from "@nadaa/shared-types";
 
-export type AgencyTab = "dashboard" | "incident" | "capacity" | "relief";
+export type AgencyTab =
+  "dashboard" | "incident" | "capacity" | "relief" | "aid";
 
 export type IncidentLoadState =
   "loading" | "ready" | "fallback" | "empty" | "error";
@@ -65,6 +68,24 @@ export type ReliefPointFormState = {
   schedule: string;
   status: ReliefPointStatus;
   stockCategories: string;
+};
+
+export type AidRequestFormState = {
+  title: string;
+  category: AidRequestCategory;
+  priority: AidRequestPriority;
+  region: string;
+  district: string;
+  lat: string;
+  lng: string;
+  receivingOrganization: string;
+  contact: string;
+  quantityNeeded: string;
+  quantityUnit: string;
+  description: string;
+  neededBy: string;
+  visibility: "public" | "partners_only";
+  sourceReliefPointId: string;
 };
 
 export type AgencyIncident = IncidentRecord & {
