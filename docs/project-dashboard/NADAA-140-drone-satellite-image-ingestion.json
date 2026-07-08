@@ -1,0 +1,30 @@
+{
+  "client": "NADAA Ghana",
+  "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+  "phase": "Phase 2",
+  "sprint": "Sprint 12",
+  "epic": "EPIC 2: Geospatial Data And Risk Checker",
+  "story": "Drone And Satellite Image Ingestion",
+  "jiraKey": "NADAA-140",
+  "branchName": "feature/NADAA-140-drone-satellite-image-ingestion",
+  "pullRequestUrl": "",
+  "status": "Done",
+  "assignedTeamMember": "Kimi",
+  "estimatedEffortPoints": 13,
+  "actualEffortHours": 3,
+  "progressPercentage": 100,
+  "lastUpdated": "2026-07-07",
+  "dependencies": ["NADAA-031", "NADAA-040", "NADAA-070"],
+  "blockers": [],
+  "verification": [
+    "services/imagery-service go test ./...",
+    "services/imagery-service go build .",
+    "docker build -f services/imagery-service/Dockerfile -t nadaa/imagery-service:local .",
+    "pnpm validate:dashboard",
+    "pnpm validate:docs",
+    "pnpm go:test",
+    "pnpm security:scan",
+    "git diff --check"
+  ],
+  "notes": "Imagery-service Go API completed with multipart drone/satellite/other image upload, metadata validation, local disk file storage, authority list/detail/download/delete/expire endpoints, retention lifecycle, public GeoJSON footprint FeatureCollection, structured INFO/WARN/ERROR logging, Dockerfile, CI matrix entries, docs, and dashboard record."
+}

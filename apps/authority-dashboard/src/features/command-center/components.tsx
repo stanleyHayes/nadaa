@@ -41,8 +41,8 @@ import type {
   AlertTarget,
   AuthorityAlertRecord,
   DuplicateReviewCandidate,
-  HazardType,
-  RiskLevel,
+  ImageryGeoJSONFeatureCollection,
+  ImageryGeoJSONFeatureProperties,
 } from "@nadaa/shared-types";
 import {
   alertSeverityOptions,
@@ -239,16 +239,19 @@ export function ScrollableTable({
 
 export function IncidentMap({
   incidents,
+  imageryFeatures,
   onSelect,
   selectedIncidentId,
 }: {
   incidents: CommandIncident[];
+  imageryFeatures?: ImageryGeoJSONFeatureCollection;
   onSelect: (incidentId: string) => void;
   selectedIncidentId?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const imageryLayerRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) {
@@ -270,11 +273,13 @@ export function IncidentMap({
 
     mapRef.current = map;
     layerRef.current = L.layerGroup().addTo(map);
+    imageryLayerRef.current = L.layerGroup().addTo(map);
 
     return () => {
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
+      imageryLayerRef.current = null;
     };
   }, []);
 
@@ -333,6 +338,58 @@ export function IncidentMap({
       },
     );
   }, [incidents, selectedIncidentId]);
+
+  useEffect(() => {
+    const layer = imageryLayerRef.current;
+    const map = mapRef.current;
+    if (!layer || !map) {
+      return;
+    }
+
+    layer.clearLayers();
+    if (!imageryFeatures?.features?.length) {
+      return;
+    }
+
+    const colors: Record<string, string> = {
+      drone: nadaaBrand.colors.gold,
+      satellite: nadaaBrand.colors.navy,
+      other: nadaaBrand.colors.slate,
+    };
+
+    const geoJson = L.geoJSON(
+      imageryFeatures as unknown as GeoJSON.GeoJsonObject,
+      {
+        style: (feature) => {
+          const source =
+            (feature?.properties?.source as string | undefined) ?? "other";
+          const color = colors[source] ?? nadaaBrand.colors.slate;
+          return {
+            color,
+            fillColor: color,
+            fillOpacity: 0.12,
+            weight: 2,
+          };
+        },
+        onEachFeature: (feature, leafletFeature) => {
+          const props = feature.properties as
+            ImageryGeoJSONFeatureProperties | undefined;
+          if (props) {
+            leafletFeature.bindPopup(
+              `<strong>${props.reference}</strong><br>Source: ${props.source}<br>Resolution: ${props.resolutionMeters} m<br>Captured: ${new Date(
+                props.captureTime,
+              ).toLocaleString()}`,
+            );
+          }
+        },
+      },
+    ).addTo(layer);
+
+    const bounds = geoJson.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds.pad(0.08), { animate: true, maxZoom: 13 });
+    }
+  }, [imageryFeatures]);
 
   return (
     <Box className="map-frame">

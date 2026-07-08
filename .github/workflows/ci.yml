@@ -71,6 +71,7 @@ jobs:
           - services/road-closure-service
           - services/route-service
           - services/shelter-service
+          - services/imagery-service
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -130,6 +131,8 @@ jobs:
             dockerfile: services/route-service/Dockerfile
           - name: shelter-service
             dockerfile: services/shelter-service/Dockerfile
+          - name: imagery-service
+            dockerfile: services/imagery-service/Dockerfile
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

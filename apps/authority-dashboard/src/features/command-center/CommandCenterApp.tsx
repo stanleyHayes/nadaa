@@ -44,6 +44,7 @@ import type {
   CreateReliefPointRequest,
   DuplicateReviewCandidate,
   DuplicateReviewResponse,
+  ImageryGeoJSONFeatureCollection,
   IncidentAbuseReviewRequest,
   IncidentListResponse,
   IncidentRecord,
@@ -84,7 +85,7 @@ import {
   SeverityChip,
   StatusLine,
 } from "./components";
-import { RoutePlannerPanel } from "./RoutePlannerPanel";
+import { ImageryPanel } from "./ImageryPanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -193,6 +194,10 @@ function CommandCenterApp() {
   const [reliefHistory, setReliefHistory] = useState<ReliefStockHistoryEntry[]>(
     [],
   );
+  const [showImageryOverlay, setShowImageryOverlay] = useState(false);
+  const [imageryFeatures, setImageryFeatures] = useState<
+    ImageryGeoJSONFeatureCollection | undefined
+  >(undefined);
 
   const refreshIncidents = async (signal?: AbortSignal) => {
     setLoadState("loading");
@@ -1346,6 +1351,7 @@ function CommandCenterApp() {
 
               <IncidentMap
                 incidents={filteredIncidents}
+                imageryFeatures={imageryFeatures}
                 selectedIncidentId={selectedIncident?.id}
                 onSelect={setSelectedIncidentId}
               />
@@ -1898,16 +1904,11 @@ function CommandCenterApp() {
                 </Stack>
               </Paper>
 
-              <RoutePlannerPanel
-                selectedIncident={
-                  selectedIncident
-                    ? {
-                        id: selectedIncident.id,
-                        reference: selectedIncident.reference,
-                        location: selectedIncident.location,
-                      }
-                    : undefined
-                }
+              <ImageryPanel
+                selectedIncidentId={selectedIncident?.id}
+                showOverlay={showImageryOverlay}
+                onToggleOverlay={setShowImageryOverlay}
+                onFeaturesChange={setImageryFeatures}
               />
 
               <Paper className="surface">

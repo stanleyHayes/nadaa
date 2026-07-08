@@ -1725,49 +1725,76 @@ export interface AreaRiskResponse {
   recommendedActions: string[];
 }
 
-export type RouteWaypointType = "shelter" | "higher_ground" | "manual";
+// NADAA-140 — Drone and satellite imagery ingestion
 
-export interface RouteCoordinates {
-  lat: number;
-  lng: number;
+export type ImagerySource = "drone" | "satellite" | "other";
+
+export type ImageryStatus = "active" | "expired";
+
+export interface ImageryGeometry {
+  type: "Polygon";
+  coordinates: number[][][];
 }
 
-export interface RouteSegment {
-  start: RouteCoordinates;
-  end: RouteCoordinates;
-  distanceMeters: number;
-  mode: string;
-}
-
-export interface RouteTargetShelter {
+export interface ImageryRecord {
   id: string;
-  name: string;
-  location: RouteCoordinates;
-  status: string;
+  reference: string;
+  source: ImagerySource;
+  captureTime: string;
+  geometry: ImageryGeometry;
+  coverageAreaKm2: number;
+  resolutionMeters: number;
+  license?: string;
+  relatedIncidentId?: string;
+  relatedRiskZoneId?: string;
+  mlWorkflowId?: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  storagePath: string;
+  status: ImageryStatus;
+  uploadedBy: string;
+  createdAt: string;
+  expiresAt: string;
 }
 
-export interface RoutePlanRequest {
-  origin: RouteCoordinates;
-  destination?: RouteCoordinates;
-  waypointType: RouteWaypointType;
-  avoidRiskLevels?: string[];
-  closureBufferMeters?: number;
-}
-
-export interface RoutePlanResponse {
-  route: RouteCoordinates[];
-  segments: RouteSegment[];
-  distanceMeters: number;
-  estimatedDurationMinutes: number;
-  targetShelter?: RouteTargetShelter;
-  avoidedClosures: string[];
-  avoidedRiskZones: string[];
-  disclaimer: string;
-  decisionSupport: boolean;
+export interface ImageryListResponse {
+  imagery: ImageryRecord[];
   generatedAt: string;
 }
 
-export interface RouteOptionsResponse {
-  waypointTypes: string[];
-  generatedAt: string;
+export interface ImageryLifecycleResponse {
+  expiredCount: number;
+}
+
+export interface ImageryGeoJSONFeatureProperties {
+  id: string;
+  reference: string;
+  source: ImagerySource;
+  captureTime: string;
+  resolutionMeters: number;
+  downloadUrl: string;
+}
+
+export interface ImageryGeoJSONFeature {
+  type: "Feature";
+  geometry: ImageryGeometry;
+  properties: ImageryGeoJSONFeatureProperties;
+}
+
+export interface ImageryGeoJSONFeatureCollection {
+  type: "FeatureCollection";
+  features: ImageryGeoJSONFeature[];
+}
+
+export interface CreateImageryRequest {
+  source: ImagerySource;
+  captureTime: string;
+  geometry: string;
+  coverageAreaKm2: string;
+  resolutionMeters: string;
+  license?: string;
+  relatedIncidentId?: string;
+  relatedRiskZoneId?: string;
+  mlWorkflowId?: string;
 }
