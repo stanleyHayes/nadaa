@@ -72,6 +72,7 @@ import {
   ROAD_CLOSURE_API_BASE,
   SHELTER_API_BASE,
 } from "../../app/config";
+import DonorPortal from "./DonorPortal";
 import { citizenTheme } from "../../app/theme";
 import {
   areaPresets,
@@ -1602,6 +1603,468 @@ function CitizenApp() {
                     className="shelter-map-preview"
                     aria-label="Nearby shelter map preview"
                   >
+                    <Siren size={21} color={nadaaBrand.colors.gold} />
+                    <Typography variant="h6">Report incident</Typography>
+                  </Stack>
+                  <Stack
+                    component="form"
+                    spacing={1.5}
+                    onSubmit={submitReport}
+                    noValidate
+                  >
+                    <FormControl fullWidth>
+                      <InputLabel>Hazard type</InputLabel>
+                      <Select
+                        value={reportForm.hazard}
+                        label="Hazard type"
+                        onChange={(event) =>
+                          updateReportForm(
+                            "hazard",
+                            event.target.value as HazardType,
+                          )
+                        }
+                      >
+                        {hazardOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Grid container spacing={1.25}>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="Latitude"
+                          value={reportForm.lat}
+                          onChange={(event) =>
+                            updateReportForm("lat", event.target.value)
+                          }
+                          fullWidth
+                          inputMode="decimal"
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="Longitude"
+                          value={reportForm.lng}
+                          onChange={(event) =>
+                            updateReportForm("lng", event.target.value)
+                          }
+                          fullWidth
+                          inputMode="decimal"
+                        />
+                      </Grid>
+                    </Grid>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      startIcon={<LocateFixed size={18} />}
+                      onClick={useCurrentLocation}
+                      disabled={reportState.status === "loading"}
+                    >
+                      Use GPS
+                    </Button>
+                    <TextField
+                      label="What happened?"
+                      value={reportForm.description}
+                      onChange={(event) =>
+                        updateReportForm("description", event.target.value)
+                      }
+                      multiline
+                      minRows={3}
+                      inputProps={{ maxLength: 2000 }}
+                    />
+                    <Grid container spacing={1.25}>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="People affected"
+                          value={reportForm.peopleAffected}
+                          onChange={(event) =>
+                            updateReportForm(
+                              "peopleAffected",
+                              event.target.value,
+                            )
+                          }
+                          fullWidth
+                          inputMode="numeric"
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 6 }}>
+                        <FormControl fullWidth>
+                          <InputLabel>Urgency</InputLabel>
+                          <Select
+                            value={reportForm.urgency}
+                            label="Urgency"
+                            onChange={(event) =>
+                              updateReportForm(
+                                "urgency",
+                                event.target.value as IncidentUrgency,
+                              )
+                            }
+                          >
+                            {urgencyOptions.map((option) => (
+                              <MenuItem key={option.value} value={option.value}>
+                                {option.label}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                    {reportForm.urgency === "life_threatening" ? (
+                      <Alert severity="error" className="warning-alert">
+                        <Typography variant="body2">
+                          Call 112 immediately after sending this report.
+                        </Typography>
+                      </Alert>
+                    ) : null}
+                    <TextField
+                      label="Accessibility needs"
+                      value={reportForm.accessibilityNeeds}
+                      onChange={(event) =>
+                        updateReportForm(
+                          "accessibilityNeeds",
+                          event.target.value,
+                        )
+                      }
+                      inputProps={{ maxLength: 500 }}
+                    />
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<ImagePlus size={18} />}
+                    >
+                      Add media
+                      <input
+                        type="file"
+                        hidden
+                        multiple
+                        accept={supportedMediaTypes.join(",")}
+                        onChange={handleFileSelection}
+                      />
+                    </Button>
+                    {reportForm.files.length > 0 ? (
+                      <Stack spacing={0.75}>
+                        {reportForm.files.map((file) => (
+                          <Chip
+                            key={`${file.name}-${file.size}`}
+                            label={`${file.name} · ${formatFileSize(file.size)}`}
+                            className="media-chip"
+                          />
+                        ))}
+                      </Stack>
+                    ) : null}
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
+                      <Typography>Injuries reported</Typography>
+                      <Switch
+                        checked={reportForm.injuriesReported}
+                        onChange={(event) =>
+                          updateReportForm(
+                            "injuriesReported",
+                            event.target.checked,
+                          )
+                        }
+                      />
+                    </Stack>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
+                      <Typography>Report anonymously</Typography>
+                      <Switch
+                        checked={reportForm.anonymous}
+                        onChange={(event) =>
+                          setReportForm((current) => ({
+                            ...current,
+                            anonymous: event.target.checked,
+                            contactPermission: event.target.checked
+                              ? false
+                              : current.contactPermission,
+                          }))
+                        }
+                      />
+                    </Stack>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
+                      <Typography>Allow contact</Typography>
+                      <Switch
+                        checked={
+                          !reportForm.anonymous && reportForm.contactPermission
+                        }
+                        onChange={(event) =>
+                          updateReportForm(
+                            "contactPermission",
+                            event.target.checked,
+                          )
+                        }
+                        disabled={reportForm.anonymous}
+                      />
+                    </Stack>
+                    <Alert severity="info" className="warning-alert">
+                      NADAA uses report location to route emergency response,
+                      detect duplicates, and coordinate verified authority
+                      actions. Anonymous reports hide your identity; disabling
+                      contact means responders cannot call you back through this
+                      report.
+                    </Alert>
+                    {reportState.status === "error" ? (
+                      <Alert severity="error" className="warning-alert">
+                        {reportState.message}
+                      </Alert>
+                    ) : null}
+                    {reportState.status === "success" ? (
+                      <Alert
+                        severity={
+                          reportState.priorityReview ? "warning" : "success"
+                        }
+                        className="warning-alert"
+                      >
+                        <Typography variant="subtitle2">
+                          Report {reportState.reference} received
+                        </Typography>
+                        <Typography variant="body2">
+                          Call 112 if anyone is in immediate danger.
+                        </Typography>
+                      </Alert>
+                    ) : null}
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="error"
+                      disabled={reportState.status === "loading"}
+                      startIcon={
+                        reportState.status === "loading" ? (
+                          <Loader2 size={18} className="spin-icon" />
+                        ) : (
+                          <Siren size={18} />
+                        )
+                      }
+                    >
+                      {reportState.status === "loading"
+                        ? reportState.message
+                        : "Send report"}
+                    </Button>
+                  </Stack>
+                </Paper>
+              </Grid>
+            </Grid>
+          </Grid>
+
+          <Grid size={{ xs: 12, lg: 4 }}>
+            <Stack spacing={2.5}>
+              <Paper className="surface emergency-card">
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <LifeBuoy size={26} />
+                  <Box>
+                    <Typography variant="h6">Emergency help</Typography>
+                    <Typography variant="body2">
+                      Police, fire, ambulance, NADMO and relief agencies.
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="error"
+                  startIcon={<Phone size={18} />}
+                >
+                  Call 112 now
+                </Button>
+              </Paper>
+
+              <DonorPortal />
+
+              <Paper className="surface">
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "stretch", sm: "center" }}
+                  className="section-heading"
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Cross size={21} color={nadaaBrand.colors.green} />
+                    <Box>
+                      <Typography variant="h6">Nearby shelters</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Capacity and facilities
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    size="small"
+                    startIcon={
+                      shelterState.status === "loading" ? (
+                        <Loader2 size={16} className="spin-icon" />
+                      ) : (
+                        <RefreshCw size={16} />
+                      )
+                    }
+                    onClick={refreshShelterSupport}
+                    disabled={shelterState.status === "loading"}
+                  >
+                    Refresh
+                  </Button>
+                </Stack>
+                {shelterState.status === "fallback" ||
+                shelterState.status === "error" ? (
+                  <Alert
+                    severity={
+                      shelterState.status === "fallback" ? "warning" : "error"
+                    }
+                    className="warning-alert"
+                  >
+                    {shelterState.message}
+                  </Alert>
+                ) : null}
+                <Box
+                  className="shelter-map-preview"
+                  aria-label="Nearby shelter map preview"
+                >
+                  <Typography variant="caption" color="text.secondary">
+                    {riskCoordinates.lat}, {riskCoordinates.lng}
+                  </Typography>
+                  {shelterSupport.shelters.slice(0, 3).map((shelter, index) => (
+                    <Box
+                      className={`shelter-map-dot shelter-map-dot-${index}`}
+                      key={shelter.id}
+                      title={shelter.name}
+                    >
+                      {index + 1}
+                    </Box>
+                  ))}
+                </Box>
+                <Stack spacing={1.25}>
+                  {shelterSupport.shelters.length > 0 ? (
+                    shelterSupport.shelters.map((shelter) => (
+                      <Paper
+                        variant="outlined"
+                        className="shelter-row"
+                        key={shelter.id}
+                      >
+                        <Stack
+                          direction="row"
+                          justifyContent="space-between"
+                          spacing={1}
+                        >
+                          <Box>
+                            <Typography variant="subtitle2">
+                              {shelter.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {formatOccupancy(shelter)}
+                              {shelter.distanceMeters
+                                ? ` · ${formatDistance(shelter.distanceMeters)}`
+                                : ""}
+                            </Typography>
+                            {shelter.facilities.length ? (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {formatListLabel(shelter.facilities)}
+                              </Typography>
+                            ) : null}
+                          </Box>
+                          {shelter.contact ? (
+                            <Chip
+                              size="small"
+                              label={shelter.contact}
+                              color={
+                                shelter.status === "full"
+                                  ? "warning"
+                                  : "success"
+                              }
+                            />
+                          ) : null}
+                        </Stack>
+                      </Paper>
+                    ))
+                  ) : (
+                    <Alert severity="info" className="warning-alert">
+                      No nearby shelters were returned for this area.
+                    </Alert>
+                  )}
+                </Stack>
+              </Paper>
+
+              {roadClosures.length > 0 && (
+                <Paper className="surface">
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    className="section-heading"
+                  >
+                    <TriangleAlert size={21} color={nadaaBrand.colors.gold} />
+                    <Box>
+                      <Typography variant="h6">Road closures</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Active closures near this area
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Stack spacing={1.25}>
+                    {roadClosures.map((closure) => (
+                      <Paper
+                        variant="outlined"
+                        className="shelter-row"
+                        key={closure.id}
+                      >
+                        <Stack
+                          direction="row"
+                          justifyContent="space-between"
+                          spacing={1}
+                        >
+                          <Box>
+                            <Typography variant="subtitle2">
+                              {closure.roadName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {closure.reason ?? "Road closure"} ·{" "}
+                              {closure.severity}
+                            </Typography>
+                            {closure.detourNote ? (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                Detour: {closure.detourNote}
+                              </Typography>
+                            ) : null}
+                          </Box>
+                          <Chip
+                            size="small"
+                            label={closure.status}
+                            color="warning"
+                          />
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Paper>
+              )}
+
+              <Paper className="surface">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  className="section-heading"
+                >
+                  <LifeBuoy size={21} color={nadaaBrand.colors.gold} />
+                  <Box>
+                    <Typography variant="h6">Relief distribution</Typography>
                     <Typography variant="caption" color="text.secondary">
                       {riskCoordinates.lat}, {riskCoordinates.lng}
                     </Typography>

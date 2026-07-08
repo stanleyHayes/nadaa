@@ -1725,49 +1725,168 @@ export interface AreaRiskResponse {
   recommendedActions: string[];
 }
 
-export type RouteWaypointType = "shelter" | "higher_ground" | "manual";
+// NADAA-123 — Donation and aid coordination
 
-export interface RouteCoordinates {
-  lat: number;
-  lng: number;
-}
+export type DonorType =
+  "individual" | "organization" | "ngo" | "government" | "other";
 
-export interface RouteSegment {
-  start: RouteCoordinates;
-  end: RouteCoordinates;
-  distanceMeters: number;
-  mode: string;
-}
+export type DonorStatus = "active" | "inactive";
 
-export interface RouteTargetShelter {
+export interface DonorRecord {
   id: string;
+  reference: string;
   name: string;
-  location: RouteCoordinates;
-  status: string;
+  type: DonorType;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  region?: string;
+  district?: string;
+  itemsOffered: string[];
+  monetaryPledgeGhs?: number;
+  status: DonorStatus;
+  notes?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface RoutePlanRequest {
-  origin: RouteCoordinates;
-  destination?: RouteCoordinates;
-  waypointType: RouteWaypointType;
-  avoidRiskLevels?: string[];
-  closureBufferMeters?: number;
+export interface CreateDonorRequest {
+  name: string;
+  type: DonorType;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  region?: string;
+  district?: string;
+  itemsOffered?: string[];
+  monetaryPledgeGhs?: number;
+  notes?: string;
 }
 
-export interface RoutePlanResponse {
-  route: RouteCoordinates[];
-  segments: RouteSegment[];
-  distanceMeters: number;
-  estimatedDurationMinutes: number;
-  targetShelter?: RouteTargetShelter;
-  avoidedClosures: string[];
-  avoidedRiskZones: string[];
-  disclaimer: string;
-  decisionSupport: boolean;
+export interface UpdateDonorRequest {
+  status?: DonorStatus;
+  notes?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  itemsOffered?: string[];
+  monetaryPledgeGhs?: number;
+}
+
+export interface DonorListResponse {
+  donors: DonorRecord[];
   generatedAt: string;
 }
 
-export interface RouteOptionsResponse {
-  waypointTypes: string[];
+export interface AidCatalogRecord {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  defaultUnit: string;
+  priorityScore: number;
+}
+
+export interface AidCatalogListResponse {
+  items: AidCatalogRecord[];
+  generatedAt: string;
+}
+
+export type AidRequestPriority = "low" | "medium" | "high" | "critical";
+
+export type AidRequestStatus =
+  "open" | "partially_fulfilled" | "fulfilled" | "closed";
+
+export interface AidRequestRecord {
+  id: string;
+  reference: string;
+  title: string;
+  description?: string;
+  category: string;
+  itemCode: string;
+  quantityNeeded: number;
+  quantityFulfilled: number;
+  unit: string;
+  priority: AidRequestPriority;
+  locationLabel?: string;
+  region?: string;
+  district?: string;
+  beneficiaryCount?: number;
+  status: AidRequestStatus;
+  requestedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAidRequestRequest {
+  title: string;
+  description?: string;
+  category: string;
+  itemCode: string;
+  quantityNeeded: number;
+  unit: string;
+  priority?: AidRequestPriority;
+  locationLabel?: string;
+  region?: string;
+  district?: string;
+  beneficiaryCount?: number;
+}
+
+export interface UpdateAidRequestRequest {
+  status?: AidRequestStatus;
+  quantityNeeded?: number;
+  priority?: AidRequestPriority;
+  description?: string;
+  locationLabel?: string;
+  region?: string;
+  district?: string;
+  beneficiaryCount?: number;
+}
+
+export interface AidRequestListResponse {
+  requests: AidRequestRecord[];
+  generatedAt: string;
+}
+
+export type PledgeStatus = "pledged" | "delivered" | "cancelled";
+
+export interface PledgeRecord {
+  id: string;
+  reference: string;
+  aidRequestId: string;
+  donorId?: string;
+  donorName: string;
+  quantityPledged: number;
+  quantityDelivered: number;
+  status: PledgeStatus;
+  deliveryNote?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePledgeRequest {
+  donorName: string;
+  quantityPledged: number;
+  contactEmail?: string;
+  contactPhone?: string;
+  donorId?: string;
+}
+
+export interface UpdatePledgeRequest {
+  status?: PledgeStatus;
+  quantityDelivered?: number;
+  deliveryNote?: string;
+}
+
+export interface AllocatePledgeRequest {
+  pledgeId: string;
+  quantity: number;
+}
+
+export interface PledgeListResponse {
+  pledges: PledgeRecord[];
   generatedAt: string;
 }
