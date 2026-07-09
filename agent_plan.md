@@ -1439,7 +1439,7 @@ Goal: guide safer movement during emergencies and help affected people recover d
 - Estimate: 8 points.
 - Dependencies: NADAA-080, NADAA-040.
 
-#### NADAA-132: Missing Persons Module
+#### NADAA-132: Missing Persons Module |
 
 - Outcome: authorities can manage missing persons reports linked to disasters while protecting sensitive personal data.
 - Acceptance criteria:
@@ -1455,7 +1455,7 @@ Goal: guide safer movement during emergencies and help affected people recover d
 - Estimate: 13 points.
 - Dependencies: NADAA-030, NADAA-090.
 
-#### NADAA-133: Insurance And Property Damage Claim Export
+#### NADAA-133: Insurance And Property Damage Claim Export |
 
 - Outcome: affected citizens can export verified incident and damage information for insurance, district assembly, or relief processes.
 - Acceptance criteria:
@@ -1475,7 +1475,7 @@ Goal: guide safer movement during emergencies and help affected people recover d
 
 Goal: bring drone and satellite evidence into incident verification, flood mapping, and recovery analysis.
 
-#### NADAA-140: Drone And Satellite Image Ingestion
+#### NADAA-140: Drone And Satellite Image Ingestion |
 
 - Outcome: analysts can upload or import drone/satellite imagery and link it to incidents, risk zones, or ML workflows.
 - Acceptance criteria:
@@ -1549,9 +1549,9 @@ Deliverables:
 #### Sprint 12: Recovery, Routing, And Remote Sensing
 
 - NADAA-130 Evacuation Route Planner.
-- NADAA-132 Missing Persons Module.
-- NADAA-133 Insurance And Property Damage Claim Export.
-- NADAA-140 Drone And Satellite Image Ingestion.
+- NADAA-132 Missing Persons Module. |
+- NADAA-133 Insurance And Property Damage Claim Export. |
+- NADAA-140 Drone And Satellite Image Ingestion. |
 
 Deliverables:
 
@@ -1582,7 +1582,7 @@ Goal: improve prediction, triage, verification, and resource placement while pre
   - Render simulation map layers.
   - Add validation and limitations report.
 - Estimate: 21 points.
-- Dependencies: NADAA-070, NADAA-072, NADAA-081, NADAA-140.
+- Dependencies: NADAA-070, NADAA-072, NADAA-081, NADAA-140. |
 
 #### NADAA-151: AI Incident Triage
 
@@ -1614,7 +1614,7 @@ Goal: improve prediction, triage, verification, and resource placement while pre
   - Add evidence panel in authority dashboard.
   - Add privacy and retention review.
 - Estimate: 13 points.
-- Dependencies: NADAA-031, NADAA-040, NADAA-140.
+- Dependencies: NADAA-031, NADAA-040, NADAA-140. |
 
 #### NADAA-153: Predictive Ambulance And Fire Station Positioning
 
@@ -1834,15 +1834,15 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-171 | Phase 2 | Sprint 11    | Refactor Go Services Into Modular Packages | Done   | Codex      | feature/NADAA-171-go-service-modularization | Split every Go service `main.go` monolith into `cmd/server`, `internal/config`, `internal/models`, `internal/store`, `internal/utils`, and `internal/handlers`; moved tests into `internal/handlers`; updated Dockerfiles; also finalized pending `apps/admin-web` modular refactor. Full verification passed.                                                   |
 | NADAA-130 | Phase 2 | Sprint 12    | Evacuation Route Planner                   | Done   | Kimi       | feature/NADAA-130-evacuation-route-planner  | services/route-service Go API with in-memory route planning, closure/risk avoidance, shelter-service integration, decision-support disclaimer, tests, Dockerfile, README, dashboard record, CI Docker matrix entry, and smoke script. Citizen-web and authority-dashboard route planner UI with accessible forms and Leaflet polyline. Full verification passed. |
 | NADAA-131 | Phase 2 | Sprint 11    | Road Closure Integration                   | Done   | Codex      | main                                        | `services/road-closure-service` Go API with list/create/update/adapter-import, database migration, shared TypeScript contracts, dispatcher-web map polyline layer, agency-web nearby closure context, citizen-web closure cards, integration-service adapter import endpoint, smoke script, CI Docker matrix, docs, dashboard record, and verification.          |
-| NADAA-132 | Phase 2 | Sprint 12    | Missing Persons Module                     | Todo   | Unassigned | TBD                                         | Sensitive data workflow.                                                                                                                                                                                                                                                                                                                                         |
-| NADAA-133 | Phase 2 | Sprint 12    | Insurance And Property Damage Claim Export | Todo   | Unassigned | TBD                                         | Recovery case export.                                                                                                                                                                                                                                                                                                                                            |
-| NADAA-140 | Phase 2 | Sprint 12    | Drone And Satellite Image Ingestion        | Todo   | Unassigned | TBD                                         | Supports verification and ML.                                                                                                                                                                                                                                                                                                                                    |
+| NADAA-132 | Phase 2 | Sprint 12 | Missing Persons Module | Done | Kimi | feature/NADAA-132-missing-persons-module | Modular missing-person-service with citizen private intake, authority review/closure/audit, public approved search, citizen-web and authority-dashboard panels, PostGIS migration, shared types, smoke script, CI/Docker wiring. Full verification passed.  |
+| NADAA-133 | Phase 2 | Sprint 12 | Insurance And Property Damage Claim Export | Done | Kimi | feature/NADAA-133-insurance-damage-claim-export | Modular damage-claim-service with citizen claim intake, authority list/detail/update/verify/close, CSV/PDF export, shared TypeScript contracts, citizen-web and authority-dashboard UI, smoke script, CI/Docker wiring. Full verification passed.  |
+| NADAA-140 | Phase 2 | Sprint 12 | Drone And Satellite Image Ingestion | Done | Kimi | feature/NADAA-140-drone-satellite-image-ingestion | Modular imagery-service with drone/satellite/other upload, authority list/filter, public GeoJSON footprint, download, lifecycle/expire, citizen-web and authority-dashboard map overlays, shared types, smoke script, CI/Docker wiring. Full verification passed.  |
 
 ### Phase 3 Tracker
 
 | ID        | Phase   | Sprint       | Story                                                 | Status | Owner      | Branch/PR | Notes                                       |
 | --------- | ------- | ------------ | ----------------------------------------------------- | ------ | ---------- | --------- | ------------------------------------------- |
-| NADAA-150 | Phase 3 | Sprint 13/14 | Real-Time Flood Simulation                            | Todo   | Unassigned | TBD       | Spans two sprints.                          |
+| NADAA-150 | Phase 3 | Sprint 13/14 | Real-Time Flood Simulation | In Progress | Kimi | feature/NADAA-150-real-time-flood-simulation | Claimed. First-pass simulation job runner, versioned outputs, and authority map layer. Implementation plan required before coding. |
 | NADAA-151 | Phase 3 | Sprint 13    | AI Incident Triage                                    | Todo   | Unassigned | TBD       | Human-supervised only.                      |
 | NADAA-152 | Phase 3 | Sprint 14    | Computer Vision For Flood And Fire Image Verification | Todo   | Unassigned | TBD       | Supports verification, not auto-escalation. |
 | NADAA-153 | Phase 3 | Sprint 14    | Predictive Ambulance And Fire Station Positioning     | Todo   | Unassigned | TBD       | Agency decision support.                    |
