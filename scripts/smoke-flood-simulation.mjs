@@ -1,4 +1,5 @@
-const baseURL = process.env.SIMULATION_API_URL?.trim() || "http://127.0.0.1:8094";
+const baseURL =
+  process.env.SIMULATION_API_URL?.trim() || "http://127.0.0.1:8094";
 
 const health = await fetch(`${baseURL}/healthz`);
 if (!health.ok) {
