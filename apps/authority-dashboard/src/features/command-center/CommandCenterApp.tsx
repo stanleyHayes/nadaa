@@ -86,6 +86,7 @@ import {
 } from "./components";
 import { RoutePlannerPanel } from "./RoutePlannerPanel";
 import DonationPanel from "./DonationPanel";
+import DamageClaimsPanel from "./DamageClaimsPanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -1912,6 +1913,7 @@ function CommandCenterApp() {
               />
 
               <DonationPanel />
+              <DamageClaimsPanel />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">
