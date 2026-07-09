@@ -84,7 +84,8 @@ import {
   SeverityChip,
   StatusLine,
 } from "./components";
-import DonationPanel, { type DonationLoadState } from "./DonationPanel";
+import { RoutePlannerPanel } from "./RoutePlannerPanel";
+import DonationPanel from "./DonationPanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -192,11 +193,6 @@ function CommandCenterApp() {
   );
   const [reliefHistory, setReliefHistory] = useState<ReliefStockHistoryEntry[]>(
     [],
-  );
-  const [donationLoadState, setDonationLoadState] =
-    useState<DonationLoadState>("loading");
-  const [donationFeedback, setDonationFeedback] = useState(
-    "Loading donation coordination",
   );
 
   const refreshIncidents = async (signal?: AbortSignal) => {
@@ -1903,12 +1899,19 @@ function CommandCenterApp() {
                 </Stack>
               </Paper>
 
-              <DonationPanel
-                loadState={donationLoadState}
-                feedback={donationFeedback}
-                onLoadStateChange={setDonationLoadState}
-                onFeedbackChange={setDonationFeedback}
+              <RoutePlannerPanel
+                selectedIncident={
+                  selectedIncident
+                    ? {
+                        id: selectedIncident.id,
+                        reference: selectedIncident.reference,
+                        location: selectedIncident.location,
+                      }
+                    : undefined
+                }
               />
+
+              <DonationPanel />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">

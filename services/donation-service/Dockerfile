@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/donation-service/go.mod ./
 RUN go mod download
 COPY services/donation-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/donation-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/donation-service ./cmd/server
 
 FROM alpine:3.22
 

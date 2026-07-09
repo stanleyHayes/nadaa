@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"bytes"
@@ -7,11 +7,16 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/stanleyHayes/nadaa/services/donation-service/internal/config"
+	"github.com/stanleyHayes/nadaa/services/donation-service/internal/models"
+	"github.com/stanleyHayes/nadaa/services/donation-service/internal/store"
 )
 
-func newTestServer() *server {
+func newTestServer() *Server {
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
-	return &server{store: newMemoryStore(now), now: func() time.Time { return now }}
+	cfg := &config.Config{Addr: ":8100", AllowedOrigins: nil}
+	return NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
 }
 
 func TestHealthz(t *testing.T) {
@@ -19,7 +24,7 @@ func TestHealthz(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 
-	srv.healthHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
@@ -31,13 +36,13 @@ func TestListAidCatalog(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/aid-catalog", nil)
 
-	srv.listCatalogHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
 	}
 
-	var payload aidCatalogResponse
+	var payload models.AidCatalogResponse
 	decodeResponse(t, response, &payload)
 	if len(payload.Items) < 5 {
 		t.Fatalf("expected at least 5 catalog items, got %#v", payload.Items)
@@ -52,13 +57,13 @@ func TestListAidRequests(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests", nil)
 
-	srv.listAidRequestsHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
 	}
 
-	var payload aidRequestListResponse
+	var payload models.AidRequestListResponse
 	decodeResponse(t, response, &payload)
 	if len(payload.Requests) != 2 {
 		t.Fatalf("expected 2 seeded aid requests, got %#v", payload.Requests)
@@ -73,13 +78,13 @@ func TestListAidRequestsFiltersByCategory(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests?category=medical", nil)
 
-	srv.listAidRequestsHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
 	}
 
-	var payload aidRequestListResponse
+	var payload models.AidRequestListResponse
 	decodeResponse(t, response, &payload)
 	if len(payload.Requests) != 1 || payload.Requests[0].Category != "medical" {
 		t.Fatalf("expected one medical request, got %#v", payload.Requests)
@@ -88,7 +93,7 @@ func TestListAidRequestsFiltersByCategory(t *testing.T) {
 
 func TestCreateDonorPublic(t *testing.T) {
 	srv := newTestServer()
-	body := createDonorRequest{
+	body := models.CreateDonorRequest{
 		Name:         "Accra Community Relief",
 		Type:         "ngo",
 		ContactName:  "Ama Mensah",
@@ -103,13 +108,13 @@ func TestCreateDonorPublic(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/donors", jsonBody(body))
 	request.Header.Set("Content-Type", "application/json")
 
-	srv.createDonorHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusCreated {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
 	}
 
-	var payload donorRecord
+	var payload models.Donor
 	decodeResponse(t, response, &payload)
 	if payload.Name != body.Name || payload.Type != "ngo" || payload.Status != "active" || payload.CreatedBy != "public" {
 		t.Fatalf("expected created donor, got %#v", payload)
@@ -118,7 +123,7 @@ func TestCreateDonorPublic(t *testing.T) {
 
 func TestCreateAidRequestRequiresAuthority(t *testing.T) {
 	srv := newTestServer()
-	body := createAidRequestRequest{
+	body := models.CreateAidRequestRequest{
 		Title:          "Test request",
 		Category:       "water",
 		ItemCode:       "water_liter",
@@ -133,7 +138,7 @@ func TestCreateAidRequestRequiresAuthority(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests", jsonBody(body))
 	request.Header.Set("Content-Type", "application/json")
 
-	srv.createAidRequestHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
@@ -142,7 +147,7 @@ func TestCreateAidRequestRequiresAuthority(t *testing.T) {
 
 func TestCreateAndUpdateAidRequestAuthority(t *testing.T) {
 	srv := newTestServer()
-	body := createAidRequestRequest{
+	body := models.CreateAidRequestRequest{
 		Title:          "Water for Madina",
 		Category:       "water",
 		ItemCode:       "water_liter",
@@ -156,30 +161,29 @@ func TestCreateAndUpdateAidRequestAuthority(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := authorityRequest(http.MethodPost, "/api/v1/aid-requests", jsonBody(body))
 
-	srv.createAidRequestHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusCreated {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
 	}
 
-	var created aidRequestRecord
+	var created models.AidRequest
 	decodeResponse(t, response, &created)
 	if created.Status != "open" || created.RequestedBy != "usr_donation_operator" {
 		t.Fatalf("expected created aid request, got %#v", created)
 	}
 
-	update := updateAidRequestRequest{Status: "closed"}
+	update := models.UpdateAidRequestRequest{Status: "closed"}
 	updateResponse := httptest.NewRecorder()
 	updateRequest := authorityRequest(http.MethodPatch, "/api/v1/aid-requests/"+created.ID, jsonBody(update))
-	updateRequest.SetPathValue("id", created.ID)
 
-	srv.updateAidRequestHandler(updateResponse, updateRequest)
+	srv.Routes().ServeHTTP(updateResponse, updateRequest)
 
 	if updateResponse.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, updateResponse.Code, updateResponse.Body.String())
 	}
 
-	var updated aidRequestRecord
+	var updated models.AidRequest
 	decodeResponse(t, updateResponse, &updated)
 	if updated.Status != "closed" {
 		t.Fatalf("expected closed status, got %#v", updated)
@@ -189,10 +193,10 @@ func TestCreateAndUpdateAidRequestAuthority(t *testing.T) {
 func TestUpdateDonorRequiresAuthority(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPatch, "/api/v1/donors/donor_001", jsonBody(updateDonorRequest{Status: "inactive"}))
-	request.SetPathValue("id", "donor_001")
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/donors/donor_001", jsonBody(models.UpdateDonorRequest{Status: "inactive"}))
+	request.Header.Set("Content-Type", "application/json")
 
-	srv.updateDonorHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
@@ -201,7 +205,7 @@ func TestUpdateDonorRequiresAuthority(t *testing.T) {
 
 func TestCreateAndUpdateDonorAuthority(t *testing.T) {
 	srv := newTestServer()
-	body := createDonorRequest{
+	body := models.CreateDonorRequest{
 		Name:         "Govt Relief Fund",
 		Type:         "government",
 		ContactName:  "Kofi Asante",
@@ -213,30 +217,29 @@ func TestCreateAndUpdateDonorAuthority(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := authorityRequest(http.MethodPost, "/api/v1/donors", jsonBody(body))
 
-	srv.createDonorHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusCreated {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
 	}
 
-	var created donorRecord
+	var created models.Donor
 	decodeResponse(t, response, &created)
 	if created.CreatedBy != "usr_donation_operator" {
 		t.Fatalf("expected authority createdBy, got %#v", created)
 	}
 
-	update := updateDonorRequest{Status: "inactive", Notes: "Paused for review"}
+	update := models.UpdateDonorRequest{Status: "inactive", Notes: "Paused for review"}
 	updateResponse := httptest.NewRecorder()
 	updateRequest := authorityRequest(http.MethodPatch, "/api/v1/donors/"+created.ID, jsonBody(update))
-	updateRequest.SetPathValue("id", created.ID)
 
-	srv.updateDonorHandler(updateResponse, updateRequest)
+	srv.Routes().ServeHTTP(updateResponse, updateRequest)
 
 	if updateResponse.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, updateResponse.Code, updateResponse.Body.String())
 	}
 
-	var updated donorRecord
+	var updated models.Donor
 	decodeResponse(t, updateResponse, &updated)
 	if updated.Status != "inactive" || updated.Notes != "Paused for review" {
 		t.Fatalf("expected updated donor, got %#v", updated)
@@ -246,7 +249,7 @@ func TestCreateAndUpdateDonorAuthority(t *testing.T) {
 func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 	srv := newTestServer()
 
-	donorBody := createDonorRequest{
+	donorBody := models.CreateDonorRequest{
 		Name:         "Tema Relief Group",
 		Type:         "organization",
 		ContactEmail: "tema@example.com",
@@ -256,26 +259,25 @@ func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 	donorResponse := httptest.NewRecorder()
 	donorRequest := httptest.NewRequest(http.MethodPost, "/api/v1/donors", jsonBody(donorBody))
 	donorRequest.Header.Set("Content-Type", "application/json")
-	srv.createDonorHandler(donorResponse, donorRequest)
+	srv.Routes().ServeHTTP(donorResponse, donorRequest)
 	if donorResponse.Code != http.StatusCreated {
 		t.Fatalf("expected donor created, got %d: %s", donorResponse.Code, donorResponse.Body.String())
 	}
-	var donor donorRecord
+	var donor models.Donor
 	decodeResponse(t, donorResponse, &donor)
 
-	pledgeBody := createPledgeRequest{
+	pledgeBody := models.CreatePledgeRequest{
 		DonorID:         donor.ID,
 		QuantityPledged: 300,
 	}
 	pledgeResponse := httptest.NewRecorder()
 	pledgeRequest := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(pledgeBody))
 	pledgeRequest.Header.Set("Content-Type", "application/json")
-	pledgeRequest.SetPathValue("id", "request_001")
-	srv.createPledgeHandler(pledgeResponse, pledgeRequest)
+	srv.Routes().ServeHTTP(pledgeResponse, pledgeRequest)
 	if pledgeResponse.Code != http.StatusCreated {
 		t.Fatalf("expected pledge created, got %d: %s", pledgeResponse.Code, pledgeResponse.Body.String())
 	}
-	var pledge pledgeRecord
+	var pledge models.Pledge
 	decodeResponse(t, pledgeResponse, &pledge)
 	if pledge.Status != "pledged" || pledge.QuantityPledged != 300 {
 		t.Fatalf("expected pledged record, got %#v", pledge)
@@ -283,64 +285,59 @@ func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 
 	requestResponse := httptest.NewRecorder()
 	requestRequest := httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests/request_001", nil)
-	requestRequest.SetPathValue("id", "request_001")
-	srv.getAidRequestHandler(requestResponse, requestRequest)
+	srv.Routes().ServeHTTP(requestResponse, requestRequest)
 	if requestResponse.Code != http.StatusOK {
 		t.Fatalf("expected request found, got %d: %s", requestResponse.Code, requestResponse.Body.String())
 	}
-	var req aidRequestRecord
+	var req models.AidRequest
 	decodeResponse(t, requestResponse, &req)
 	if req.Status != "partially_fulfilled" || req.QuantityFulfilled != 300 {
 		t.Fatalf("expected partially fulfilled request, got %#v", req)
 	}
 
-	pledgeBody2 := createPledgeRequest{
+	pledgeBody2 := models.CreatePledgeRequest{
 		DonorID:         donor.ID,
 		QuantityPledged: 200,
 	}
 	pledgeResponse2 := httptest.NewRecorder()
 	pledgeRequest2 := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(pledgeBody2))
 	pledgeRequest2.Header.Set("Content-Type", "application/json")
-	pledgeRequest2.SetPathValue("id", "request_001")
-	srv.createPledgeHandler(pledgeResponse2, pledgeRequest2)
+	srv.Routes().ServeHTTP(pledgeResponse2, pledgeRequest2)
 	if pledgeResponse2.Code != http.StatusCreated {
 		t.Fatalf("expected second pledge created, got %d: %s", pledgeResponse2.Code, pledgeResponse2.Body.String())
 	}
-	var pledge2 pledgeRecord
+	var pledge2 models.Pledge
 	decodeResponse(t, pledgeResponse2, &pledge2)
 
 	requestResponse2 := httptest.NewRecorder()
 	requestRequest2 := httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests/request_001", nil)
-	requestRequest2.SetPathValue("id", "request_001")
-	srv.getAidRequestHandler(requestResponse2, requestRequest2)
+	srv.Routes().ServeHTTP(requestResponse2, requestRequest2)
 	if requestResponse2.Code != http.StatusOK {
 		t.Fatalf("expected request found after second pledge, got %d: %s", requestResponse2.Code, requestResponse2.Body.String())
 	}
-	var reqAfterPledge aidRequestRecord
+	var reqAfterPledge models.AidRequest
 	decodeResponse(t, requestResponse2, &reqAfterPledge)
 	if reqAfterPledge.Status != "fulfilled" || reqAfterPledge.QuantityFulfilled != 500 {
 		t.Fatalf("expected fulfilled request after second pledge, got %#v", reqAfterPledge)
 	}
 
 	allocateResponse := httptest.NewRecorder()
-	allocateRequest := authorityRequest(http.MethodPost, "/api/v1/aid-requests/request_001/allocate", jsonBody(allocateRequest{
+	allocateRequest := authorityRequest(http.MethodPost, "/api/v1/aid-requests/request_001/allocate", jsonBody(models.AllocateRequest{
 		PledgeID: pledge.ID,
 		Quantity: 300,
 	}))
-	allocateRequest.SetPathValue("id", "request_001")
-	srv.allocatePledgeHandler(allocateResponse, allocateRequest)
+	srv.Routes().ServeHTTP(allocateResponse, allocateRequest)
 	if allocateResponse.Code != http.StatusOK {
 		t.Fatalf("expected allocate success, got %d: %s", allocateResponse.Code, allocateResponse.Body.String())
 	}
 
 	pledgeListRecorder := httptest.NewRecorder()
 	pledgeListRequest := httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests/request_001/pledges", nil)
-	pledgeListRequest.SetPathValue("id", "request_001")
-	srv.listRequestPledgesHandler(pledgeListRecorder, pledgeListRequest)
+	srv.Routes().ServeHTTP(pledgeListRecorder, pledgeListRequest)
 	if pledgeListRecorder.Code != http.StatusOK {
 		t.Fatalf("expected pledge list, got %d: %s", pledgeListRecorder.Code, pledgeListRecorder.Body.String())
 	}
-	var list pledgeListResponse
+	var list models.PledgeListResponse
 	decodeResponse(t, pledgeListRecorder, &list)
 	found := false
 	for _, p := range list.Pledges {
@@ -357,13 +354,13 @@ func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 func TestAllocateRequiresAuthority(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/allocate", jsonBody(allocateRequest{
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/allocate", jsonBody(models.AllocateRequest{
 		PledgeID: "pledge_001",
 		Quantity: 10,
 	}))
-	request.SetPathValue("id", "request_001")
+	request.Header.Set("Content-Type", "application/json")
 
-	srv.allocatePledgeHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
@@ -375,7 +372,7 @@ func TestListPledgesRequiresAuthority(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/pledges", nil)
 
-	srv.listPledgesHandler(response, request)
+	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)

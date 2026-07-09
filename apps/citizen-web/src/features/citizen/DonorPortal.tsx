@@ -16,8 +16,8 @@ import { nadaaBrand } from "@nadaa/brand";
 import type {
   AidCatalogListResponse,
   AidCatalogRecord,
-  AidRequestListResponse,
-  AidRequestRecord,
+  DonationAidRequestListResponse,
+  DonationAidRequestRecord,
   CreateDonorRequest,
   CreatePledgeRequest,
   DonorRecord,
@@ -67,7 +67,7 @@ const fallbackCatalog: AidCatalogRecord[] = [
   },
 ];
 
-const fallbackAidRequests: AidRequestRecord[] = [
+const fallbackAidRequests: DonationAidRequestRecord[] = [
   {
     id: "request_001",
     reference: "AR-20260707-001",
@@ -169,7 +169,7 @@ function statusLabel(status: string) {
 export function DonorPortal() {
   const [catalog, setCatalog] = useState<AidCatalogRecord[]>(fallbackCatalog);
   const [aidRequests, setAidRequests] =
-    useState<AidRequestRecord[]>(fallbackAidRequests);
+    useState<DonationAidRequestRecord[]>(fallbackAidRequests);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [feedback, setFeedback] = useState("Loading aid opportunities");
   const [donorForm, setDonorForm] = useState<DonorRegistrationForm>(
@@ -213,7 +213,7 @@ export function DonorPortal() {
       );
       if (requestsResponse.ok) {
         const payload =
-          (await requestsResponse.json()) as AidRequestListResponse;
+          (await requestsResponse.json()) as DonationAidRequestListResponse;
         setAidRequests(
           payload.requests.length ? payload.requests : fallbackAidRequests,
         );
@@ -288,7 +288,7 @@ export function DonorPortal() {
     }
   };
 
-  const submitPledge = async (aidRequest: AidRequestRecord) => {
+  const submitPledge = async (aidRequest: DonationAidRequestRecord) => {
     const form = pledgeForms[aidRequest.id] ?? buildDefaultPledgeForm();
     const quantityPledged = Number(form.quantityPledged);
     if (

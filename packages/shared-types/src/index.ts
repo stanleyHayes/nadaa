@@ -1725,6 +1725,53 @@ export interface AreaRiskResponse {
   recommendedActions: string[];
 }
 
+export type RouteWaypointType = "shelter" | "higher_ground" | "manual";
+
+export interface RouteCoordinates {
+  lat: number;
+  lng: number;
+}
+
+export interface RouteSegment {
+  start: RouteCoordinates;
+  end: RouteCoordinates;
+  distanceMeters: number;
+  mode: string;
+}
+
+export interface RouteTargetShelter {
+  id: string;
+  name: string;
+  location: RouteCoordinates;
+  status: string;
+}
+
+export interface RoutePlanRequest {
+  origin: RouteCoordinates;
+  destination?: RouteCoordinates;
+  waypointType: RouteWaypointType;
+  avoidRiskLevels?: string[];
+  closureBufferMeters?: number;
+}
+
+export interface RoutePlanResponse {
+  route: RouteCoordinates[];
+  segments: RouteSegment[];
+  distanceMeters: number;
+  estimatedDurationMinutes: number;
+  targetShelter?: RouteTargetShelter;
+  avoidedClosures: string[];
+  avoidedRiskZones: string[];
+  disclaimer: string;
+  decisionSupport: boolean;
+  generatedAt: string;
+}
+
+export interface RouteOptionsResponse {
+  waypointTypes: string[];
+  generatedAt: string;
+}
+
 // NADAA-123 — Donation and aid coordination
 
 export type DonorType =
@@ -1793,12 +1840,12 @@ export interface AidCatalogListResponse {
   generatedAt: string;
 }
 
-export type AidRequestPriority = "low" | "medium" | "high" | "critical";
+export type DonationAidRequestPriority = "low" | "medium" | "high" | "critical";
 
-export type AidRequestStatus =
+export type DonationAidRequestStatus =
   "open" | "partially_fulfilled" | "fulfilled" | "closed";
 
-export interface AidRequestRecord {
+export interface DonationAidRequestRecord {
   id: string;
   reference: string;
   title: string;
@@ -1808,35 +1855,35 @@ export interface AidRequestRecord {
   quantityNeeded: number;
   quantityFulfilled: number;
   unit: string;
-  priority: AidRequestPriority;
+  priority: DonationAidRequestPriority;
   locationLabel?: string;
   region?: string;
   district?: string;
   beneficiaryCount?: number;
-  status: AidRequestStatus;
+  status: DonationAidRequestStatus;
   requestedBy: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateAidRequestRequest {
+export interface CreateDonationAidRequestRequest {
   title: string;
   description?: string;
   category: string;
   itemCode: string;
   quantityNeeded: number;
   unit: string;
-  priority?: AidRequestPriority;
+  priority?: DonationAidRequestPriority;
   locationLabel?: string;
   region?: string;
   district?: string;
   beneficiaryCount?: number;
 }
 
-export interface UpdateAidRequestRequest {
-  status?: AidRequestStatus;
+export interface UpdateDonationAidRequestRequest {
+  status?: DonationAidRequestStatus;
   quantityNeeded?: number;
-  priority?: AidRequestPriority;
+  priority?: DonationAidRequestPriority;
   description?: string;
   locationLabel?: string;
   region?: string;
@@ -1844,8 +1891,8 @@ export interface UpdateAidRequestRequest {
   beneficiaryCount?: number;
 }
 
-export interface AidRequestListResponse {
-  requests: AidRequestRecord[];
+export interface DonationAidRequestListResponse {
+  requests: DonationAidRequestRecord[];
   generatedAt: string;
 }
 

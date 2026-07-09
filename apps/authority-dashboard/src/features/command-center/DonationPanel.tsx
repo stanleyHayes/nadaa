@@ -22,10 +22,10 @@ import { nadaaBrand } from "@nadaa/brand";
 import type {
   AidCatalogRecord,
   AidCatalogListResponse,
-  AidRequestListResponse,
-  AidRequestRecord,
-  AidRequestStatus,
-  CreateAidRequestRequest,
+  DonationAidRequestListResponse,
+  DonationAidRequestRecord,
+  DonationAidRequestStatus,
+  CreateDonationAidRequestRequest,
   CreateDonorRequest,
   DonorListResponse,
   DonorRecord,
@@ -33,14 +33,14 @@ import type {
   PledgeListResponse,
   PledgeRecord,
   PledgeStatus,
-  UpdateAidRequestRequest,
+  UpdateDonationAidRequestRequest,
   UpdatePledgeRequest,
 } from "@nadaa/shared-types";
 import { DONATION_API_BASE } from "../../app/config";
 import { authorityHeaders } from "../../app/session";
 import { CommandSelect } from "./components";
 
-const aidRequestStatuses: AidRequestStatus[] = [
+const aidRequestStatuses: DonationAidRequestStatus[] = [
   "open",
   "partially_fulfilled",
   "fulfilled",
@@ -98,7 +98,7 @@ const fallbackCatalog: AidCatalogRecord[] = [
   },
 ];
 
-const fallbackAidRequests: AidRequestRecord[] = [
+const fallbackAidRequests: DonationAidRequestRecord[] = [
   {
     id: "request_001",
     reference: "AR-20260707-001",
@@ -166,8 +166,8 @@ const fallbackPledges: PledgeRecord[] = [];
 export type DonationLoadState = "loading" | "ready" | "fallback" | "error";
 
 export interface DonationPanelProps {
-  loadState: DonationLoadState;
-  feedback: string;
+  loadState?: DonationLoadState;
+  feedback?: string;
   onLoadStateChange?: (state: DonationLoadState) => void;
   onFeedbackChange?: (message: string) => void;
 }
@@ -286,14 +286,14 @@ function statusLabel(status: string) {
 }
 
 export function DonationPanel({
-  loadState,
-  feedback,
+  loadState = "fallback",
+  feedback = "",
   onLoadStateChange,
   onFeedbackChange,
 }: DonationPanelProps) {
   const [catalog, setCatalog] = useState<AidCatalogRecord[]>(fallbackCatalog);
   const [aidRequests, setAidRequests] =
-    useState<AidRequestRecord[]>(fallbackAidRequests);
+    useState<DonationAidRequestRecord[]>(fallbackAidRequests);
   const [donors, setDonors] = useState<DonorRecord[]>(fallbackDonors);
   const [pledges, setPledges] = useState<PledgeRecord[]>(fallbackPledges);
   const [busy, setBusy] = useState(false);
@@ -362,7 +362,7 @@ export function DonationPanel({
       );
       if (requestsResponse.ok) {
         const payload =
-          (await requestsResponse.json()) as AidRequestListResponse;
+          (await requestsResponse.json()) as DonationAidRequestListResponse;
         setAidRequests(
           payload.requests.length ? payload.requests : fallbackAidRequests,
         );
@@ -470,7 +470,7 @@ export function DonationPanel({
       return;
     }
 
-    const payload: CreateAidRequestRequest = {
+    const payload: CreateDonationAidRequestRequest = {
       title: aidForm.title.trim(),
       description: aidForm.description.trim(),
       category: aidForm.category,
@@ -478,7 +478,8 @@ export function DonationPanel({
       quantityNeeded,
       unit:
         aidForm.unit.trim() || (selectedCatalogItem?.defaultUnit ?? "units"),
-      priority: (aidForm.priority as AidRequestRecord["priority"]) || "medium",
+      priority:
+        (aidForm.priority as DonationAidRequestRecord["priority"]) || "medium",
       locationLabel: aidForm.locationLabel.trim(),
       region: aidForm.region.trim(),
       district: aidForm.district.trim(),
@@ -496,7 +497,7 @@ export function DonationPanel({
       if (!response.ok) {
         throw new Error(`donation API returned ${response.status}`);
       }
-      const request = (await response.json()) as AidRequestRecord;
+      const request = (await response.json()) as DonationAidRequestRecord;
       setAidRequests((current) => [request, ...current]);
       setAidForm(buildDefaultAidRequestForm());
       setLoadState("ready");
@@ -564,14 +565,14 @@ export function DonationPanel({
     }
   };
 
-  const updateAidRequestStatus = async (
-    request: AidRequestRecord,
-    status: AidRequestStatus,
+  const updateDonationAidRequestStatus = async (
+    request: DonationAidRequestRecord,
+    status: DonationAidRequestStatus,
   ) => {
     setBusy(true);
     setFeedback("");
     try {
-      const payload: UpdateAidRequestRequest = { status };
+      const payload: UpdateDonationAidRequestRequest = { status };
       const response = await fetch(
         `${DONATION_API_BASE}/aid-requests/${request.id}`,
         {
@@ -583,7 +584,7 @@ export function DonationPanel({
       if (!response.ok) {
         throw new Error(`donation API returned ${response.status}`);
       }
-      const updated = (await response.json()) as AidRequestRecord;
+      const updated = (await response.json()) as DonationAidRequestRecord;
       setAidRequests((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
@@ -599,7 +600,7 @@ export function DonationPanel({
     }
   };
 
-  const deleteAidRequest = async (request: AidRequestRecord) => {
+  const deleteAidRequest = async (request: DonationAidRequestRecord) => {
     setBusy(true);
     setFeedback("");
     try {
@@ -995,7 +996,7 @@ export function DonationPanel({
                           variant="outlined"
                           disabled={busy || request.status === status}
                           onClick={() =>
-                            void updateAidRequestStatus(request, status)
+                            void updateDonationAidRequestStatus(request, status)
                           }
                         >
                           {status === "partially_fulfilled"

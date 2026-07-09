@@ -31,15 +31,21 @@ Allowed authority roles are `system_admin`, `agency_admin`, `agency_viewer`, `na
 ## Run
 
 ```bash
-go run .
+go run ./cmd/server
 ```
 
-The service listens on `:8100` by default. Override with `NADAA_DONATION_ADDR`.
+The service listens on `:8100` by default. Override with `PORT`.
 
 ## Test
 
 ```bash
 go test ./...
+```
+
+## Build
+
+```bash
+go build ./cmd/server
 ```
 
 ## Environment variables
