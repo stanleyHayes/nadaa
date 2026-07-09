@@ -1823,3 +1823,169 @@ export interface RouteOptionsResponse {
   waypointTypes: string[];
   generatedAt: string;
 }
+
+// NADAA-123 — Donation and aid coordination
+
+export type DonorType =
+  "individual" | "organization" | "ngo" | "government" | "other";
+
+export type DonorStatus = "active" | "inactive";
+
+export interface DonorRecord {
+  id: string;
+  reference: string;
+  name: string;
+  type: DonorType;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  region?: string;
+  district?: string;
+  itemsOffered: string[];
+  monetaryPledgeGhs?: number;
+  status: DonorStatus;
+  notes?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDonorRequest {
+  name: string;
+  type: DonorType;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  region?: string;
+  district?: string;
+  itemsOffered?: string[];
+  monetaryPledgeGhs?: number;
+  notes?: string;
+}
+
+export interface UpdateDonorRequest {
+  status?: DonorStatus;
+  notes?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  itemsOffered?: string[];
+  monetaryPledgeGhs?: number;
+}
+
+export interface DonorListResponse {
+  donors: DonorRecord[];
+  generatedAt: string;
+}
+
+export interface AidCatalogRecord {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  defaultUnit: string;
+  priorityScore: number;
+}
+
+export interface AidCatalogListResponse {
+  items: AidCatalogRecord[];
+  generatedAt: string;
+}
+
+export type DonationAidRequestPriority = "low" | "medium" | "high" | "critical";
+
+export type DonationAidRequestStatus =
+  "open" | "partially_fulfilled" | "fulfilled" | "closed";
+
+export interface DonationAidRequestRecord {
+  id: string;
+  reference: string;
+  title: string;
+  description?: string;
+  category: string;
+  itemCode: string;
+  quantityNeeded: number;
+  quantityFulfilled: number;
+  unit: string;
+  priority: DonationAidRequestPriority;
+  locationLabel?: string;
+  region?: string;
+  district?: string;
+  beneficiaryCount?: number;
+  status: DonationAidRequestStatus;
+  requestedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDonationAidRequestRequest {
+  title: string;
+  description?: string;
+  category: string;
+  itemCode: string;
+  quantityNeeded: number;
+  unit: string;
+  priority?: DonationAidRequestPriority;
+  locationLabel?: string;
+  region?: string;
+  district?: string;
+  beneficiaryCount?: number;
+}
+
+export interface UpdateDonationAidRequestRequest {
+  status?: DonationAidRequestStatus;
+  quantityNeeded?: number;
+  priority?: DonationAidRequestPriority;
+  description?: string;
+  locationLabel?: string;
+  region?: string;
+  district?: string;
+  beneficiaryCount?: number;
+}
+
+export interface DonationAidRequestListResponse {
+  requests: DonationAidRequestRecord[];
+  generatedAt: string;
+}
+
+export type PledgeStatus = "pledged" | "delivered" | "cancelled";
+
+export interface PledgeRecord {
+  id: string;
+  reference: string;
+  aidRequestId: string;
+  donorId?: string;
+  donorName: string;
+  quantityPledged: number;
+  quantityDelivered: number;
+  status: PledgeStatus;
+  deliveryNote?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePledgeRequest {
+  donorName: string;
+  quantityPledged: number;
+  contactEmail?: string;
+  contactPhone?: string;
+  donorId?: string;
+}
+
+export interface UpdatePledgeRequest {
+  status?: PledgeStatus;
+  quantityDelivered?: number;
+  deliveryNote?: string;
+}
+
+export interface AllocatePledgeRequest {
+  pledgeId: string;
+  quantity: number;
+}
+
+export interface PledgeListResponse {
+  pledges: PledgeRecord[];
+  generatedAt: string;
+}

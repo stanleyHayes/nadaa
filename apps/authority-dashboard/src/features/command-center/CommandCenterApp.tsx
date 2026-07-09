@@ -85,6 +85,7 @@ import {
   StatusLine,
 } from "./components";
 import { RoutePlannerPanel } from "./RoutePlannerPanel";
+import DonationPanel from "./DonationPanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -1909,6 +1910,8 @@ function CommandCenterApp() {
                     : undefined
                 }
               />
+
+              <DonationPanel />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">
