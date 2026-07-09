@@ -13,18 +13,25 @@
   "estimatedEffortPoints": 13,
   "actualEffortHours": 3,
   "progressPercentage": 100,
-  "lastUpdated": "2026-07-07",
+  "lastUpdated": "2026-07-08",
   "dependencies": ["NADAA-031", "NADAA-040", "NADAA-070"],
   "blockers": [],
   "verification": [
     "services/imagery-service go test ./...",
-    "services/imagery-service go build .",
+    "services/imagery-service go build ./cmd/server",
+    "pnpm go:lint",
     "docker build -f services/imagery-service/Dockerfile -t nadaa/imagery-service:local .",
     "pnpm validate:dashboard",
     "pnpm validate:docs",
     "pnpm go:test",
     "pnpm security:scan",
+    "pnpm lint",
+    "pnpm typecheck",
+    "pnpm test",
+    "pnpm build",
+    "pnpm smoke:imagery",
+    "pnpm exec prettier --check .",
     "git diff --check"
   ],
-  "notes": "Imagery-service Go API completed with multipart drone/satellite/other image upload, metadata validation, local disk file storage, authority list/detail/download/delete/expire endpoints, retention lifecycle, public GeoJSON footprint FeatureCollection, structured INFO/WARN/ERROR logging, Dockerfile, CI matrix entries, docs, and dashboard record."
+  "notes": "Imagery-service converted to the NADAA-171/172 modular package structure (cmd/server + internal/config|models|store|utils|handlers) with graceful http.Server shutdown, CORS/security headers, multipart drone/satellite/other image upload, metadata validation, local disk storage, authority list/detail/download/delete/expire endpoints, retention lifecycle runner, public GeoJSON FeatureCollection footprint, structured INFO/WARN/ERROR logging, tests, Dockerfile, README, CI matrix entries, live smoke:imagery, and full verification."
 }

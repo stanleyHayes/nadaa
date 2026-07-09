@@ -4,7 +4,7 @@ WORKDIR /src
 COPY services/imagery-service/go.mod ./
 RUN go mod download
 COPY services/imagery-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/imagery-service .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/imagery-service ./cmd/server
 
 FROM alpine:3.22
 

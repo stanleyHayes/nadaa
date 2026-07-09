@@ -43,7 +43,7 @@ Uploaded files must be images (`image/*`) and may not exceed 20 MB. Files are st
 ## Run
 
 ```bash
-go run .
+go run ./cmd/server
 ```
 
 The service listens on `:8099` by default. Override with `PORT`.

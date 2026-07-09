@@ -41,8 +41,10 @@ import type {
   AlertTarget,
   AuthorityAlertRecord,
   DuplicateReviewCandidate,
+  HazardType,
   ImageryGeoJSONFeatureCollection,
   ImageryGeoJSONFeatureProperties,
+  RiskLevel,
 } from "@nadaa/shared-types";
 import {
   alertSeverityOptions,

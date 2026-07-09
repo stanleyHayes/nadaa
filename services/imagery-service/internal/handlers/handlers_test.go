@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"bytes"
@@ -13,19 +13,19 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stanleyHayes/nadaa/services/imagery-service/internal/config"
+	"github.com/stanleyHayes/nadaa/services/imagery-service/internal/models"
+	"github.com/stanleyHayes/nadaa/services/imagery-service/internal/store"
 )
 
-func newTestServer(t *testing.T) *server {
+func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
 	storageDir := filepath.Join(t.TempDir(), "uploads")
-	_ = os.MkdirAll(storageDir, 0o755)
-	cfg := config{storagePath: storageDir, retentionDays: 90}
-	return &server{
-		store:  newMemoryStore(now),
-		now:    func() time.Time { return now },
-		config: cfg,
-	}
+	_ = os.MkdirAll(storageDir, 0o750)
+	cfg := &config.Config{Addr: ":8099", StoragePath: storageDir, RetentionDays: 90}
+	return NewServer(store.NewMemoryStore(now, 90), func() time.Time { return now }, cfg)
 }
 
 func TestHealth(t *testing.T) {
@@ -61,7 +61,7 @@ func TestCreateImageryViaMultipart(t *testing.T) {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
 	}
 
-	var record imageryRecord
+	var record models.ImageryRecord
 	decodeResponse(t, response, &record)
 	if record.Source != "drone" {
 		t.Fatalf("expected source drone, got %s", record.Source)
@@ -108,7 +108,7 @@ func TestListImagery(t *testing.T) {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
 	}
 
-	var payload imageryListResponse
+	var payload models.ImageryListResponse
 	decodeResponse(t, response, &payload)
 	if len(payload.Imagery) < 1 {
 		t.Fatalf("expected drone imagery, got %#v", payload)
@@ -135,7 +135,7 @@ func TestGeoJSON(t *testing.T) {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
 	}
 
-	var payload geoJSONFeatureCollection
+	var payload models.GeoJSONFeatureCollection
 	decodeResponse(t, response, &payload)
 	if payload.Type != "FeatureCollection" {
 		t.Fatalf("expected FeatureCollection, got %s", payload.Type)
@@ -165,7 +165,7 @@ func TestLifecycleExpiry(t *testing.T) {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
 	}
 
-	var payload imageryLifecycleResponse
+	var payload models.ImageryLifecycleResponse
 	decodeResponse(t, response, &payload)
 	if payload.ExpiredCount < 1 {
 		t.Fatalf("expected at least one expired record, got %d", payload.ExpiredCount)
@@ -175,7 +175,7 @@ func TestLifecycleExpiry(t *testing.T) {
 	listRequest := authorityRequest(http.MethodGet, "/api/v1/imagery?status=expired", nil)
 	srv.listImageryHandler(listResponse, listRequest)
 
-	var listPayload imageryListResponse
+	var listPayload models.ImageryListResponse
 	decodeResponse(t, listResponse, &listPayload)
 	if len(listPayload.Imagery) < 1 {
 		t.Fatalf("expected expired imagery after lifecycle, got %#v", listPayload)
@@ -186,7 +186,7 @@ func TestLifecycleExpiry(t *testing.T) {
 	geoRequest.Host = "example.com"
 	srv.geoJSONHandler(geoResponse, geoRequest)
 
-	var geoPayload geoJSONFeatureCollection
+	var geoPayload models.GeoJSONFeatureCollection
 	decodeResponse(t, geoResponse, &geoPayload)
 	if len(geoPayload.Features) == 0 {
 		t.Fatalf("expected active features remaining, got %#v", geoPayload)
@@ -247,7 +247,7 @@ func TestCreateImageryRejectsTooLarge(t *testing.T) {
 	}
 }
 
-func uploadRecord(t *testing.T, srv *server, source string, filename string, data []byte, contentType string) imageryRecord {
+func uploadRecord(t *testing.T, srv *Server, source string, filename string, data []byte, contentType string) models.ImageryRecord {
 	t.Helper()
 	fields := map[string]string{
 		"source":           source,
@@ -262,7 +262,7 @@ func uploadRecord(t *testing.T, srv *server, source string, filename string, dat
 	if response.Code != http.StatusCreated {
 		t.Fatalf("upload failed: status %d, %s", response.Code, response.Body.String())
 	}
-	var record imageryRecord
+	var record models.ImageryRecord
 	decodeResponse(t, response, &record)
 	return record
 }
