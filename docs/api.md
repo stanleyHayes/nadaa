@@ -705,6 +705,64 @@ Returns the selected incident plus full incident records for open duplicate cand
 
 Allowed merge roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. Each duplicate id must already be a duplicate candidate for the primary incident. The primary incident remains the operational record; merged duplicate records are closed with `mergedIntoId`, `mergedBy`, `mergedAt`, and `mergeReason` trace fields. Accepted merges append `incident.merged` and `incident.merged_into` timeline events and create audit events for the primary and duplicate records.
 
+`GET /api/v1/incidents/{id}/triage`
+
+Returns an explainable AI triage suggestion for an incident. Allowed reader roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`, `responder`, and `agency_viewer`; MFA is required. Every call logs an `incident.triage_suggested` audit event containing the suggestion snapshot, so all model outputs are reviewable. Duplicate signals only count open candidates: incidents already merged or marked as false reports are excluded, matching the duplicate-review endpoint.
+
+```json
+{
+  "suggestion": {
+    "suggestionId": "trs_1f6c...",
+    "severity": "high",
+    "duplicateLikelihood": 0.82,
+    "topDuplicateIncidentIds": ["inc_02H..."],
+    "affectedPopulation": 31,
+    "suggestedAgency": {
+      "agencyType": "nadmo",
+      "agencyId": "00000000-0000-0000-0000-000000000101",
+      "name": "NADMO Accra Metro",
+      "reason": "NADMO coordinates multi-hazard disaster response for this report."
+    },
+    "confidence": "high",
+    "modelVersion": "incident-triage-rules-0.1.0",
+    "featureSetVersion": "incident-features.v1",
+    "explanationFactors": [
+      {
+        "feature": "urgency",
+        "label": "Reported urgency",
+        "value": "high",
+        "contribution": 0.6,
+        "direction": "increases_risk"
+      }
+    ],
+    "humanReviewRequired": true,
+    "autoPublishAllowed": false
+  }
+}
+```
+
+The suggestion is decision-support only: it never verifies, assigns, closes, or alerts the incident. `humanReviewRequired` is always `true` and `autoPublishAllowed` is always `false`.
+
+`POST /api/v1/incidents/{id}/triage-review`
+
+Records dispatcher acceptance or override of the triage suggestion.
+
+```json
+{
+  "accepted": false,
+  "suggestionId": "trs_1f6c...",
+  "overriddenFields": {
+    "severity": "emergency",
+    "affectedPopulation": 60,
+    "suggestedAgencyType": "fire",
+    "suggestedAgencyId": "00000000-0000-0000-0000-000000000201"
+  },
+  "reason": "Dispatcher callback confirmed trapped vehicles and upgraded severity."
+}
+```
+
+Allowed review roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. A reason is required when `accepted` is `false` or `overriddenFields` is supplied. `overriddenFields` is sparse: send only the fields the dispatcher actually edited, an empty object is rejected with `empty_override`, and the audit snapshot records only the supplied fields so an unedited field is never logged as an explicit zero. When `suggestionId` references one of the last five logged suggestions for the incident, the audit entry pairs the dispatcher decision with that exact suggestion (`triageSuggestionSource: "logged"`); an unknown `suggestionId` is rejected with `unknown_suggestion`, and omitting it falls back to a fresh recomputation (`"recomputed"`). The endpoint appends an `incident.triage_accepted` or `incident.triage_overridden` timeline event and audit log entry with the reviewed model suggestion and dispatcher values. It does not modify incident status or create assignments automatically.
+
 ### Road Closures
 
 `GET /api/v1/road-closures?status=active&lat=5.570&lng=-0.200&radius=30000&bbox=-0.30,5.50,-0.15,5.60&limit=50`

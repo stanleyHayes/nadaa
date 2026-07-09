@@ -59,6 +59,12 @@ var (
 		"monitor":      true,
 		"false_report": true,
 	}
+	allowedTriageSeverities = map[string]bool{
+		"low":       true,
+		"moderate":  true,
+		"high":      true,
+		"emergency": true,
+	}
 )
 
 var errValidation = errors.New("validation failed")
@@ -300,6 +306,46 @@ func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, sanitizeIncidentForAuthority(incident, ctx))
 }
 
+func (s *server) suggestTriageHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, incidentReadRoles)
+	if !ok {
+		return
+	}
+
+	suggestion, code, message := s.store.SuggestTriage(r.PathValue("id"), ctx, s.now())
+	if code != "" {
+		utils.WriteError(w, statusForCode(code), code, message)
+		return
+	}
+	utils.WriteJSON(w, http.StatusOK, models.TriageResponse{Suggestion: suggestion})
+}
+
+func (s *server) reviewTriageHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, triageReviewRoles)
+	if !ok {
+		return
+	}
+
+	var request models.TriageReviewRequest
+	if err := utils.DecodeJSON(r, &request); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
+		return
+	}
+
+	normalized, code, message := normalizeTriageReviewRequest(request)
+	if code != "" {
+		utils.WriteError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	incident, code, message := s.store.RecordTriageOverride(r.PathValue("id"), normalized, ctx, s.now())
+	if code != "" {
+		utils.WriteError(w, statusForCode(code), code, message)
+		return
+	}
+	utils.WriteJSON(w, http.StatusOK, models.TriageReviewResponse{Incident: sanitizeIncidentForAuthority(incident, ctx)})
+}
+
 func normalizeIncidentRequest(request models.CreateIncidentRequest) (models.CreateIncidentRequest, error) {
 	request.Type = strings.TrimSpace(strings.ToLower(request.Type))
 	request.Description = strings.TrimSpace(request.Description)
@@ -472,6 +518,59 @@ func normalizeAssignmentRequest(request models.AssignmentRequest) (models.Assign
 		return request, "invalid_responder_lead", "responderLead must be 140 safe characters or fewer"
 	}
 	return request, "", ""
+}
+
+func normalizeTriageReviewRequest(request models.TriageReviewRequest) (models.TriageReviewRequest, string, string) {
+	request.Reason = strings.TrimSpace(request.Reason)
+	request.SuggestionID = strings.TrimSpace(request.SuggestionID)
+
+	if request.SuggestionID != "" && !utils.MediaRefPattern.MatchString(request.SuggestionID) {
+		return request, "invalid_suggestion_id", "suggestionId must be a safe suggestion reference"
+	}
+
+	if fields := request.OverriddenFields; fields != nil {
+		if code, message := normalizeTriageOverrideFields(fields); code != "" {
+			return request, code, message
+		}
+	}
+
+	if !request.Accepted || request.OverriddenFields != nil {
+		if len(request.Reason) < 5 || len(request.Reason) > 1000 || utils.UnsafeText(request.Reason) {
+			return request, "invalid_reason", "reason must be 5 to 1000 safe characters when overriding or rejecting a suggestion"
+		}
+	}
+
+	return request, "", ""
+}
+
+func normalizeTriageOverrideFields(fields *models.TriageOverrideFields) (string, string) {
+	if fields.Severity != nil {
+		*fields.Severity = strings.TrimSpace(strings.ToLower(*fields.Severity))
+		if !allowedTriageSeverities[*fields.Severity] {
+			return "invalid_severity", "severity must be low, moderate, high, or emergency"
+		}
+	}
+	if fields.SuggestedAgencyType != nil {
+		*fields.SuggestedAgencyType = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(strings.ToLower(*fields.SuggestedAgencyType)), "-", "_"), " ", "_")
+		if !allowedAgencyTypes[*fields.SuggestedAgencyType] {
+			return "invalid_agency_type", "suggestedAgencyType must be a supported agency type"
+		}
+	}
+	if fields.SuggestedAgencyID != nil {
+		*fields.SuggestedAgencyID = strings.TrimSpace(*fields.SuggestedAgencyID)
+		if !utils.MediaRefPattern.MatchString(*fields.SuggestedAgencyID) {
+			return "invalid_agency_id", "suggestedAgencyId must be a safe agency reference"
+		}
+	}
+	if fields.AffectedPopulation != nil {
+		if *fields.AffectedPopulation < 0 || *fields.AffectedPopulation > 1000000 {
+			return "invalid_people_affected", "affectedPopulation must be between 0 and 1000000"
+		}
+	}
+	if fields.Severity == nil && fields.AffectedPopulation == nil && fields.SuggestedAgencyType == nil && fields.SuggestedAgencyID == nil {
+		return "empty_override", "overriddenFields must include at least one field when supplied"
+	}
+	return "", ""
 }
 
 func validationCode(request models.CreateIncidentRequest) string {

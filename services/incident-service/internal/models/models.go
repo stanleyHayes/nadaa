@@ -324,6 +324,66 @@ type IncidentAuditListResponse struct {
 	Logs []AuditEvent `json:"logs"`
 }
 
+// TriageExplanationFactor describes one input to the triage suggestion.
+type TriageExplanationFactor struct {
+	Feature      string  `json:"feature"`
+	Label        string  `json:"label"`
+	Value        any     `json:"value"`
+	Contribution float64 `json:"contribution"`
+	Direction    string  `json:"direction"`
+}
+
+// TriageAgencySuggestion recommends a responder agency type and optional id.
+type TriageAgencySuggestion struct {
+	AgencyType string `json:"agencyType"`
+	AgencyID   string `json:"agencyId,omitempty"`
+	Name       string `json:"name"`
+	Reason     string `json:"reason"`
+}
+
+// TriageSuggestion is an explainable, human-reviewed incident triage output.
+type TriageSuggestion struct {
+	SuggestionID            string                    `json:"suggestionId"`
+	Severity                string                    `json:"severity"`
+	DuplicateLikelihood     float64                   `json:"duplicateLikelihood"`
+	TopDuplicateIncidentIDs []string                  `json:"topDuplicateIncidentIds"`
+	AffectedPopulation      int                       `json:"affectedPopulation"`
+	SuggestedAgency         TriageAgencySuggestion    `json:"suggestedAgency"`
+	Confidence              string                    `json:"confidence"`
+	ModelVersion            string                    `json:"modelVersion"`
+	FeatureSetVersion       string                    `json:"featureSetVersion"`
+	ExplanationFactors      []TriageExplanationFactor `json:"explanationFactors"`
+	HumanReviewRequired     bool                      `json:"humanReviewRequired"`
+	AutoPublishAllowed      bool                      `json:"autoPublishAllowed"`
+}
+
+// TriageOverrideFields captures dispatcher edits to a triage suggestion.
+// Pointer fields distinguish "not overridden" from an explicit zero or empty value.
+type TriageOverrideFields struct {
+	Severity            *string `json:"severity,omitempty"`
+	AffectedPopulation  *int    `json:"affectedPopulation,omitempty"`
+	SuggestedAgencyType *string `json:"suggestedAgencyType,omitempty"`
+	SuggestedAgencyID   *string `json:"suggestedAgencyId,omitempty"`
+}
+
+// TriageReviewRequest records whether a dispatcher accepted or overrode a suggestion.
+type TriageReviewRequest struct {
+	Accepted         bool                  `json:"accepted"`
+	SuggestionID     string                `json:"suggestionId,omitempty"`
+	OverriddenFields *TriageOverrideFields `json:"overriddenFields,omitempty"`
+	Reason           string                `json:"reason,omitempty"`
+}
+
+// TriageResponse returns a triage suggestion for an incident.
+type TriageResponse struct {
+	Suggestion TriageSuggestion `json:"suggestion"`
+}
+
+// TriageReviewResponse returns the incident after a triage review is recorded.
+type TriageReviewResponse struct {
+	Incident IncidentRecord `json:"incident"`
+}
+
 // AuditEvent records an authority action.
 type AuditEvent struct {
 	ID            string         `json:"id"`

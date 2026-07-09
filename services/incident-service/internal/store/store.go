@@ -24,6 +24,10 @@ const (
 	AbuseReviewThreshold     = 0.55
 	ReporterBurstWindow      = 30 * time.Minute
 	ReporterBurstPreviousMin = 2
+
+	TriageModelVersion       = "incident-triage-rules-0.1.0"
+	TriageFeatureSetVersion  = "incident-features.v1"
+	TriageSuggestionLogLimit = 5
 )
 
 var (
@@ -94,6 +98,8 @@ type Store interface {
 	ListIncidents(assignedAgencyID string) []models.IncidentRecord
 	DuplicateReview(id string) (models.DuplicateReviewResponse, string, string)
 	ListAudit(limit int) []models.AuditEvent
+	SuggestTriage(id string, ctx models.AuthorityContext, now time.Time) (models.TriageSuggestion, string, string)
+	RecordTriageOverride(id string, request models.TriageReviewRequest, ctx models.AuthorityContext, now time.Time) (models.IncidentRecord, string, string)
 	TransitionIncident(id string, nextStatus string, ctx models.AuthorityContext, request models.IncidentWorkflowRequest, now time.Time) (models.IncidentRecord, string, string)
 	MergeIncidents(primaryID string, request models.MergeIncidentsRequest, ctx models.AuthorityContext, now time.Time) (models.MergeIncidentsResponse, string, string)
 	ReviewAbuse(id string, request models.AbuseReviewRequest, ctx models.AuthorityContext, now time.Time) (models.IncidentRecord, string, string)
@@ -121,17 +127,19 @@ type MemoryStore struct {
 	media                 map[string]models.MediaRecord
 	volunteers            map[string]models.VolunteerProfile
 	volunteerTasks        map[string]models.VolunteerTaskRecord
+	triageSuggestions     map[string][]models.TriageSuggestion
 	audit                 []models.AuditEvent
 }
 
 // NewMemoryStore creates an empty in-memory store.
 func NewMemoryStore() Store {
 	return &MemoryStore{
-		incidents:      map[string]models.IncidentRecord{},
-		media:          map[string]models.MediaRecord{},
-		volunteers:     map[string]models.VolunteerProfile{},
-		volunteerTasks: map[string]models.VolunteerTaskRecord{},
-		audit:          []models.AuditEvent{},
+		incidents:         map[string]models.IncidentRecord{},
+		media:             map[string]models.MediaRecord{},
+		volunteers:        map[string]models.VolunteerProfile{},
+		volunteerTasks:    map[string]models.VolunteerTaskRecord{},
+		triageSuggestions: map[string][]models.TriageSuggestion{},
+		audit:             []models.AuditEvent{},
 	}
 }
 
@@ -229,6 +237,122 @@ func (m *MemoryStore) DuplicateReview(id string) (models.DuplicateReviewResponse
 	}
 
 	return models.DuplicateReviewResponse{Incident: incident, Candidates: candidates}, "", ""
+}
+
+// SuggestTriage returns an explainable triage suggestion for an incident and
+// logs the suggestion exposure so every model output is reviewable.
+func (m *MemoryStore) SuggestTriage(id string, ctx models.AuthorityContext, now time.Time) (models.TriageSuggestion, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	incident, ok := m.incidents[id]
+	if !ok {
+		return models.TriageSuggestion{}, "not_found", "incident was not found"
+	}
+
+	suggestion := suggestTriageForIncident(incident, m.openDuplicateCandidatesLocked(incident))
+	suggestion.SuggestionID = utils.NewID("trs")
+	timestamp := now.UTC()
+
+	logged := append(m.triageSuggestions[incident.ID], suggestion)
+	if len(logged) > TriageSuggestionLogLimit {
+		logged = logged[len(logged)-TriageSuggestionLogLimit:]
+	}
+	m.triageSuggestions[incident.ID] = logged
+
+	after := map[string]any{"triageSuggestion": snapshotTriageSuggestion(suggestion)}
+	m.appendAuditLocked("incident.triage_suggested", ctx, incident.ID, nil, after, timestamp)
+	return suggestion, "", ""
+}
+
+// RecordTriageOverride logs dispatcher acceptance or override of a triage suggestion.
+func (m *MemoryStore) RecordTriageOverride(id string, request models.TriageReviewRequest, ctx models.AuthorityContext, now time.Time) (models.IncidentRecord, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	incident, ok := m.incidents[id]
+	if !ok {
+		return models.IncidentRecord{}, "not_found", "incident was not found"
+	}
+	if incident.Status == "closed" || incident.Status == "false_report" {
+		return models.IncidentRecord{}, "invalid_transition", "closed and false-report incidents are terminal"
+	}
+
+	suggestion, suggestionSource := m.resolveTriageSuggestionLocked(incident, request.SuggestionID)
+	if request.SuggestionID != "" && suggestionSource == "" {
+		return models.IncidentRecord{}, "unknown_suggestion", "suggestionId does not match a logged suggestion for this incident"
+	}
+	before := snapshotIncident(incident)
+	timestamp := now.UTC()
+
+	action := "incident.triage_accepted"
+	message := "AI triage suggestion accepted by dispatcher"
+	metadata := map[string]string{
+		"suggestionId":      suggestion.SuggestionID,
+		"suggestionSource":  suggestionSource,
+		"modelVersion":      suggestion.ModelVersion,
+		"featureSetVersion": suggestion.FeatureSetVersion,
+		"confidence":        suggestion.Confidence,
+	}
+
+	if !request.Accepted || request.OverriddenFields != nil {
+		action = "incident.triage_overridden"
+		message = "AI triage suggestion overridden by dispatcher"
+		metadata["overrideReason"] = request.Reason
+		if fields := request.OverriddenFields; fields != nil {
+			if fields.Severity != nil {
+				metadata["suggestedSeverity"] = suggestion.Severity
+				metadata["dispatcherSeverity"] = *fields.Severity
+			}
+			if fields.SuggestedAgencyType != nil {
+				metadata["suggestedAgencyType"] = suggestion.SuggestedAgency.AgencyType
+				metadata["dispatcherAgencyType"] = *fields.SuggestedAgencyType
+			}
+		}
+	}
+
+	incident.Timeline = append(incident.Timeline, newTimelineEvent(action, message, ctx, metadata, timestamp))
+	incident.UpdatedAt = timestamp
+	m.incidents[incident.ID] = incident
+
+	after := snapshotIncident(incident)
+	after["triageSuggestion"] = snapshotTriageSuggestion(suggestion)
+	after["triageSuggestionSource"] = suggestionSource
+	if !request.Accepted || request.OverriddenFields != nil {
+		after["triageOverride"] = snapshotTriageOverride(request)
+	}
+	m.appendAuditLocked(action, ctx, incident.ID, before, after, timestamp)
+	return incident, "", ""
+}
+
+// resolveTriageSuggestionLocked returns the logged suggestion the dispatcher
+// reviewed when a suggestionId is supplied, or a fresh recomputation otherwise.
+// The second return value is "logged", "recomputed", or "" when the id is unknown.
+func (m *MemoryStore) resolveTriageSuggestionLocked(incident models.IncidentRecord, suggestionID string) (models.TriageSuggestion, string) {
+	if suggestionID != "" {
+		for _, logged := range m.triageSuggestions[incident.ID] {
+			if logged.SuggestionID == suggestionID {
+				return logged, "logged"
+			}
+		}
+		return models.TriageSuggestion{}, ""
+	}
+	return suggestTriageForIncident(incident, m.openDuplicateCandidatesLocked(incident)), "recomputed"
+}
+
+// openDuplicateCandidatesLocked filters an incident's duplicate candidates with
+// the same predicate the duplicate-review endpoint applies, so triage never
+// scores candidates dispatchers have already merged or marked as false reports.
+func (m *MemoryStore) openDuplicateCandidatesLocked(incident models.IncidentRecord) []models.DuplicateCandidate {
+	open := make([]models.DuplicateCandidate, 0, len(incident.DuplicateCandidates))
+	for _, candidate := range incident.DuplicateCandidates {
+		candidateIncident, exists := m.incidents[candidate.IncidentID]
+		if !exists || candidateIncident.MergedIntoID != "" || candidateIncident.Status == "false_report" {
+			continue
+		}
+		open = append(open, candidate)
+	}
+	return open
 }
 
 // TransitionIncident moves an incident to a new status.
@@ -1452,4 +1576,279 @@ func volunteerActorContextByID(volunteerID string) models.AuthorityContext {
 		ActorUserID: volunteerID,
 		ActorRole:   "citizen",
 	}
+}
+
+func suggestTriageForIncident(incident models.IncidentRecord, openCandidates []models.DuplicateCandidate) models.TriageSuggestion {
+	severity := triageSeverity(incident)
+	duplicateLikelihood, topDuplicates := triageDuplicateSignal(openCandidates)
+	affectedPopulation := triageAffectedPopulation(incident, openCandidates)
+	agency := triageSuggestedAgency(incident)
+	confidence := triageConfidence(incident, duplicateLikelihood)
+
+	factors := []models.TriageExplanationFactor{
+		{
+			Feature:      "urgency",
+			Label:        "Reported urgency",
+			Value:        incident.Urgency,
+			Contribution: triageUrgencyContribution(incident.Urgency),
+			Direction:    "increases_risk",
+		},
+		{
+			Feature:      "people_affected",
+			Label:        "People directly affected",
+			Value:        incident.PeopleAffected,
+			Contribution: triagePeopleContribution(incident.PeopleAffected),
+			Direction:    "increases_risk",
+		},
+		{
+			Feature:      "hazard_type",
+			Label:        "Hazard type",
+			Value:        incident.Type,
+			Contribution: triageHazardContribution(incident.Type),
+			Direction:    "increases_risk",
+		},
+	}
+
+	if incident.InjuriesReported {
+		factors = append(factors, models.TriageExplanationFactor{
+			Feature:      "injuries_reported",
+			Label:        "Injuries reported",
+			Value:        true,
+			Contribution: 0.25,
+			Direction:    "increases_risk",
+		})
+	}
+
+	if len(openCandidates) > 0 {
+		factors = append(factors, models.TriageExplanationFactor{
+			Feature:      "duplicate_candidates",
+			Label:        "Duplicate report candidates",
+			Value:        len(openCandidates),
+			Contribution: roundScore(duplicateLikelihood),
+			Direction:    "increases_risk",
+		})
+	} else {
+		factors = append(factors, models.TriageExplanationFactor{
+			Feature:      "duplicate_candidates",
+			Label:        "No duplicate candidates",
+			Value:        0,
+			Contribution: -0.10,
+			Direction:    "reduces_risk",
+		})
+	}
+
+	if incident.AbuseReviewRequired {
+		factors = append(factors, models.TriageExplanationFactor{
+			Feature:      "abuse_review_required",
+			Label:        "Suspicious report signals flagged",
+			Value:        incident.AbuseScore,
+			Contribution: -0.15,
+			Direction:    "reduces_risk",
+		})
+	}
+
+	return models.TriageSuggestion{
+		Severity:                severity,
+		DuplicateLikelihood:     roundScore(duplicateLikelihood),
+		TopDuplicateIncidentIDs: topDuplicates,
+		AffectedPopulation:      affectedPopulation,
+		SuggestedAgency:         agency,
+		Confidence:              confidence,
+		ModelVersion:            TriageModelVersion,
+		FeatureSetVersion:       TriageFeatureSetVersion,
+		ExplanationFactors:      factors,
+		HumanReviewRequired:     true,
+		AutoPublishAllowed:      false,
+	}
+}
+
+func triageSeverity(incident models.IncidentRecord) string {
+	if incident.Urgency == "life_threatening" || incident.InjuriesReported {
+		return "emergency"
+	}
+	if incident.Urgency == "high" || incident.PeopleAffected >= 20 {
+		return "high"
+	}
+	if incident.Urgency == "moderate" || incident.PeopleAffected >= 5 {
+		return "moderate"
+	}
+	return "low"
+}
+
+func triageDuplicateSignal(openCandidates []models.DuplicateCandidate) (float64, []string) {
+	if len(openCandidates) == 0 {
+		return 0, []string{}
+	}
+	maxScore := 0.0
+	for _, candidate := range openCandidates {
+		if candidate.Score > maxScore {
+			maxScore = candidate.Score
+		}
+	}
+	limit := len(openCandidates)
+	if limit > 3 {
+		limit = 3
+	}
+	ids := make([]string, 0, limit)
+	for index := 0; index < limit; index++ {
+		ids = append(ids, openCandidates[index].IncidentID)
+	}
+	return maxScore, ids
+}
+
+func triageAffectedPopulation(incident models.IncidentRecord, openCandidates []models.DuplicateCandidate) int {
+	base := incident.PeopleAffected
+	if base <= 0 {
+		base = 1
+	}
+	if incident.Urgency == "life_threatening" {
+		base = base * 2
+	}
+	if len(openCandidates) > 0 {
+		base = base + len(openCandidates)*3
+	}
+	if base > 1000000 {
+		return 1000000
+	}
+	return base
+}
+
+func triageSuggestedAgency(incident models.IncidentRecord) models.TriageAgencySuggestion {
+	switch incident.Type {
+	case "fire", "electrical_hazard", "building_collapse":
+		return models.TriageAgencySuggestion{
+			AgencyType: "fire",
+			AgencyID:   "00000000-0000-0000-0000-000000000201",
+			Name:       "Ghana National Fire Service",
+			Reason:     "Primary responder for fire and structural collapse incidents.",
+		}
+	case "road_crash":
+		return models.TriageAgencySuggestion{
+			AgencyType: "police",
+			AgencyID:   "00000000-0000-0000-0000-000000000203",
+			Name:       "Ghana Police Service",
+			Reason:     "Traffic and scene control for road crashes; ambulance should be co-dispatched for casualties.",
+		}
+	case "medical_emergency", "disease_outbreak":
+		return models.TriageAgencySuggestion{
+			AgencyType: "ambulance",
+			AgencyID:   "00000000-0000-0000-0000-000000000202",
+			Name:       "National Ambulance Service",
+			Reason:     "Primary responder for medical and health incidents.",
+		}
+	case "blocked_drain":
+		return models.TriageAgencySuggestion{
+			AgencyType: "district_assembly",
+			AgencyID:   "00000000-0000-0000-0000-000000000204",
+			Name:       "Accra Metropolitan Assembly",
+			Reason:     "Local sanitation and drainage works responsibility.",
+		}
+	case "security_incident":
+		return models.TriageAgencySuggestion{
+			AgencyType: "police",
+			AgencyID:   "00000000-0000-0000-0000-000000000203",
+			Name:       "Ghana Police Service",
+			Reason:     "Law enforcement lead for security incidents.",
+		}
+	default:
+		return models.TriageAgencySuggestion{
+			AgencyType: "nadmo",
+			AgencyID:   "00000000-0000-0000-0000-000000000101",
+			Name:       "NADMO Accra Metro",
+			Reason:     "NADMO coordinates multi-hazard disaster response for this report.",
+		}
+	}
+}
+
+func triageConfidence(incident models.IncidentRecord, duplicateLikelihood float64) string {
+	if incident.PeopleAffected > 0 && (incident.Urgency != "low" || duplicateLikelihood > 0) {
+		return "high"
+	}
+	if incident.PeopleAffected > 0 || incident.Urgency != "low" {
+		return "medium"
+	}
+	return "low"
+}
+
+func triageUrgencyContribution(urgency string) float64 {
+	switch urgency {
+	case "life_threatening":
+		return 0.90
+	case "high":
+		return 0.60
+	case "moderate":
+		return 0.30
+	default:
+		return 0.10
+	}
+}
+
+func triagePeopleContribution(peopleAffected int) float64 {
+	if peopleAffected >= 50 {
+		return 0.70
+	}
+	if peopleAffected >= 20 {
+		return 0.50
+	}
+	if peopleAffected >= 5 {
+		return 0.30
+	}
+	if peopleAffected > 0 {
+		return 0.10
+	}
+	return 0
+}
+
+func triageHazardContribution(hazard string) float64 {
+	switch hazard {
+	case "fire", "medical_emergency", "building_collapse":
+		return 0.40
+	case "flood", "road_crash", "electrical_hazard", "security_incident":
+		return 0.30
+	case "landslide", "storm", "tidal_wave":
+		return 0.35
+	default:
+		return 0.20
+	}
+}
+
+func snapshotTriageSuggestion(suggestion models.TriageSuggestion) map[string]any {
+	return map[string]any{
+		"suggestionId":            suggestion.SuggestionID,
+		"severity":                suggestion.Severity,
+		"duplicateLikelihood":     suggestion.DuplicateLikelihood,
+		"topDuplicateIncidentIds": append([]string{}, suggestion.TopDuplicateIncidentIDs...),
+		"affectedPopulation":      suggestion.AffectedPopulation,
+		"suggestedAgencyType":     suggestion.SuggestedAgency.AgencyType,
+		"suggestedAgencyId":       suggestion.SuggestedAgency.AgencyID,
+		"confidence":              suggestion.Confidence,
+		"modelVersion":            suggestion.ModelVersion,
+		"featureSetVersion":       suggestion.FeatureSetVersion,
+	}
+}
+
+// snapshotTriageOverride records only the fields the dispatcher actually
+// supplied, so an unedited field is never audited as an explicit zero value.
+func snapshotTriageOverride(request models.TriageReviewRequest) map[string]any {
+	snapshot := map[string]any{
+		"accepted": request.Accepted,
+		"reason":   request.Reason,
+	}
+	if fields := request.OverriddenFields; fields != nil {
+		overridden := map[string]any{}
+		if fields.Severity != nil {
+			overridden["severity"] = *fields.Severity
+		}
+		if fields.AffectedPopulation != nil {
+			overridden["affectedPopulation"] = *fields.AffectedPopulation
+		}
+		if fields.SuggestedAgencyType != nil {
+			overridden["suggestedAgencyType"] = *fields.SuggestedAgencyType
+		}
+		if fields.SuggestedAgencyID != nil {
+			overridden["suggestedAgencyId"] = *fields.SuggestedAgencyID
+		}
+		snapshot["overriddenFields"] = overridden
+	}
+	return snapshot
 }

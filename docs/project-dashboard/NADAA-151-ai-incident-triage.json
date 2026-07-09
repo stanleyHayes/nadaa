@@ -1,0 +1,40 @@
+[
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "MVP",
+    "sprint": "Sprint 7 / Phase 3",
+    "epic": "EPIC 4: Authority Incident Command Dashboard",
+    "story": "Implement AI Incident Triage Suggestions",
+    "jiraKey": "NADAA-151",
+    "branchName": "feature/NADAA-151-ai-incident-triage",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Claude",
+    "estimatedEffortPoints": 13,
+    "actualEffortHours": 0,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-09",
+    "dependencies": ["NADAA-033", "NADAA-041", "NADAA-091"],
+    "blockers": [],
+    "verification": [
+      "services/incident-service go test ./...",
+      "pnpm --filter @nadaa/shared-types typecheck",
+      "pnpm --filter @nadaa/dispatcher-web typecheck",
+      "pnpm --filter @nadaa/dispatcher-web build",
+      "pnpm smoke:ai-triage with INCIDENT_API_URL=http://127.0.0.1:18084/api/v1",
+      "pnpm validate:docs",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm go:lint",
+      "pnpm go:vet",
+      "pnpm security:scan",
+      "pnpm audit --audit-level high",
+      "git diff --check"
+    ],
+    "notes": "Adds explainable, human-reviewed AI triage suggestions for severity, duplicate likelihood, affected population, and suggested agency routing. Extends incident-service with GET /triage and POST /triage-review endpoints, adds dispatcher-web AI triage panel, shared types, smoke script, docs, and dashboard tracking. Suggestions are decision-support only and never auto-verify, assign, close, or alert. Hardened after adversarial multi-agent review: every suggestion exposure is audit-logged with a suggestionId, reviews reference the exact suggestion the dispatcher saw, overrides record only edited fields, duplicate signals exclude merged/false-report candidates, and the dispatcher UI validates inputs, aborts stale fetches, and never applies an unlogged acceptance."
+  }
+]

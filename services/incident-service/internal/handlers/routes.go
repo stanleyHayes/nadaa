@@ -13,6 +13,8 @@ func (s *server) Routes(allowedOrigins map[string]bool) http.Handler {
 	mux.HandleFunc("POST /api/v1/incidents", s.createIncidentHandler)
 	mux.HandleFunc("GET /api/v1/incidents", s.listIncidentsHandler)
 	mux.HandleFunc("GET /api/v1/incidents/{id}/duplicates", s.duplicateReviewHandler)
+	mux.HandleFunc("GET /api/v1/incidents/{id}/triage", s.suggestTriageHandler)
+	mux.HandleFunc("POST /api/v1/incidents/{id}/triage-review", s.reviewTriageHandler)
 	mux.HandleFunc("GET /api/v1/incidents/audit", s.listIncidentAuditHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/merge", s.mergeIncidentHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/abuse-review", s.reviewAbuseHandler)

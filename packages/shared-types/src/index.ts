@@ -953,6 +953,58 @@ export interface AssignIncidentRequest {
   responderLead?: string;
 }
 
+export interface IncidentTriageExplanationFactor {
+  feature: string;
+  label: string;
+  value: string | number | boolean;
+  contribution: number;
+  direction: "increases_risk" | "reduces_risk";
+}
+
+export interface IncidentTriageAgencySuggestion {
+  agencyType: AgencyType;
+  agencyId?: string;
+  name: string;
+  reason: string;
+}
+
+export type IncidentTriageSeverity = "low" | "moderate" | "high" | "emergency";
+
+export interface IncidentTriageSuggestion {
+  suggestionId: string;
+  severity: IncidentTriageSeverity;
+  duplicateLikelihood: number;
+  topDuplicateIncidentIds: string[];
+  affectedPopulation: number;
+  suggestedAgency: IncidentTriageAgencySuggestion;
+  confidence: "low" | "medium" | "high";
+  modelVersion: string;
+  featureSetVersion: string;
+  explanationFactors: IncidentTriageExplanationFactor[];
+  humanReviewRequired: true;
+  autoPublishAllowed: false;
+}
+
+export interface IncidentTriageReviewRequest {
+  accepted: boolean;
+  suggestionId?: string;
+  overriddenFields?: {
+    severity?: IncidentTriageSeverity;
+    affectedPopulation?: number;
+    suggestedAgencyType?: AgencyType;
+    suggestedAgencyId?: string;
+  };
+  reason?: string;
+}
+
+export interface IncidentTriageResponse {
+  suggestion: IncidentTriageSuggestion;
+}
+
+export interface IncidentTriageReviewResponse {
+  incident: IncidentRecord;
+}
+
 export type VolunteerAvailabilityStatus = "available" | "busy" | "off_duty";
 export type VolunteerVerificationStatus =
   "pending" | "verified" | "rejected" | "suspended";

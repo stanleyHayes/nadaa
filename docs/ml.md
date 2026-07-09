@@ -217,6 +217,41 @@ Current MVP serving implementation:
 - Authority users must see confidence, explanation, and model version.
 - Overrides and alert decisions should be captured for later model evaluation.
 
+## Incident Triage Suggestions (NADAA-151)
+
+The incident service serves explainable, rules-based triage suggestions for dispatchers. The model identifier is `incident-triage-rules-0.1.0` over feature set `incident-features.v1`.
+
+### Triage Labels
+
+- Severity: `low`, `moderate`, `high`, `emergency`.
+- Duplicate likelihood: `0.0` to `1.0`, taken from the strongest scored duplicate candidate, with up to three linked incident ids.
+- Affected population: integer estimate derived from reported people affected, urgency, and duplicate report volume, capped at 1,000,000.
+- Suggested agency routing: one of the supported agency types (`fire`, `police`, `ambulance`, `district_assembly`, `nadmo`) with a plain-language reason.
+- Confidence: `low`, `medium`, `high` based on input completeness.
+
+### Triage Features And Evaluation Data
+
+- Inputs: reported urgency, people affected, injuries reported, hazard type, duplicate candidate scores (NADAA-033), and abuse review signals (NADAA-091).
+- Duplicate signals only count open candidates: incidents already merged or marked as false reports are excluded, matching the duplicate-review endpoint, so triage never scores reports dispatchers have already dismissed.
+- Every suggestion returns per-feature explanation factors with contribution weights and direction so dispatchers can see why a value was suggested.
+- Evaluation data: every suggestion exposure is logged as an `incident.triage_suggested` audit event with a unique `suggestionId`, and triage review events pair the dispatcher decision (accept or override) with the exact logged suggestion the dispatcher saw, forming the labeled dataset for future model training and threshold tuning.
+
+### Human Oversight Rules
+
+- `humanReviewRequired` is always `true` and `autoPublishAllowed` is always `false`.
+- Suggestions never verify, close, assign, or merge incidents and never create alerts.
+- Dispatchers can edit severity, affected population, and agency routing before acting; overrides require a written reason and record only the fields the dispatcher actually changed.
+- Every suggestion exposure is audit-logged (`incident.triage_suggested`), and every acceptance or override is logged as an `incident.triage_accepted` or `incident.triage_overridden` timeline event plus an audit event capturing the reviewed suggestion (matched by `suggestionId`), dispatcher values, model version, and feature set version.
+
+### Bias And Error Review Process
+
+- Review cadence: NADMO reviews triage audit logs at least once per sprint and after every major incident surge.
+- Override rate: track the share of suggestions overridden overall and segmented by hazard type, region/district, reporter anonymity, and accessibility needs. A segment whose override rate diverges by more than 15 percentage points from the platform average triggers a rules review.
+- Error taxonomy: classify overrides as severity under-call, severity over-call, wrong agency routing, wrong population estimate, or duplicate mis-scoring; record the classification in the review notes.
+- Under-call escalation: any suggestion overridden from `low`/`moderate` to `emergency` is reviewed within the same sprint because under-calls carry life-safety risk.
+- Data bias checks: compare triage outcomes for anonymous versus identified reporters and for low-connectivity districts to detect systematic under-weighting of underserved communities.
+- Change control: rule or weight changes bump `TriageModelVersion`, are documented in this file, and require review sign-off before deployment; suggestions produced by prior versions remain attributable through the logged model version.
+
 ## Data Risks
 
 - Official weather and hydrology access may lag delivery.

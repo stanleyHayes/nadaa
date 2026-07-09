@@ -20,6 +20,9 @@ import type {
   IncidentRecord,
   IncidentStatus,
   IncidentTimelineEvent,
+  IncidentTriageResponse,
+  IncidentTriageReviewRequest,
+  IncidentTriageSuggestion,
   MLPredictionResponse,
   RiskLevel,
 } from "@nadaa/shared-types";
@@ -39,6 +42,8 @@ import type {
   IncidentStatusFormState,
   MLPredictionReview,
   MLPredictionReviewPoint,
+  TriageSuggestionFormState,
+  TriageSuggestionReview,
 } from "./types";
 
 export function buildQueueMetrics(incidents: CommandIncident[]) {
@@ -359,6 +364,104 @@ export function buildDefaultAssignmentForm(
       : "Respond to the selected incident and report field status.",
     responderLead: agency.responderLead,
   };
+}
+
+export function buildDefaultTriageForm(
+  suggestion?: IncidentTriageSuggestion,
+): TriageSuggestionFormState {
+  if (!suggestion) {
+    return {
+      severity: "moderate",
+      affectedPopulation: "",
+      agencyId: assignmentAgencyOptions[0]!.id,
+      agencyType: assignmentAgencyOptions[0]!.type,
+      reason: "",
+    };
+  }
+
+  const agency =
+    assignmentAgencyOptions.find(
+      (option) => option.type === suggestion.suggestedAgency.agencyType,
+    ) ?? assignmentAgencyOptions[0]!;
+
+  return {
+    severity: suggestion.severity,
+    affectedPopulation: String(suggestion.affectedPopulation),
+    agencyId: suggestion.suggestedAgency.agencyId ?? agency.id,
+    agencyType: suggestion.suggestedAgency.agencyType,
+    reason: "",
+  };
+}
+
+export function parseTriageAffectedPopulation(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d{1,7}$/.test(trimmed)) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return parsed >= 0 && parsed <= 1000000 ? parsed : null;
+}
+
+export function triagePopulationError(value: string): string {
+  return parseTriageAffectedPopulation(value) === null
+    ? "Enter a whole number between 0 and 1,000,000."
+    : "";
+}
+
+export function triageReasonError(reason: string): string {
+  return reason.trim().length < 5
+    ? "Reason is required (at least 5 characters) when overriding."
+    : "";
+}
+
+export function triageAcceptRequest(
+  suggestion: IncidentTriageSuggestion,
+): IncidentTriageReviewRequest {
+  return {
+    accepted: true,
+    suggestionId: suggestion.suggestionId || undefined,
+  };
+}
+
+export function triageOverrideRequestFromForm(
+  suggestion: IncidentTriageSuggestion,
+  form: TriageSuggestionFormState,
+): IncidentTriageReviewRequest {
+  const population = parseTriageAffectedPopulation(form.affectedPopulation);
+
+  const overriddenFields: NonNullable<
+    IncidentTriageReviewRequest["overriddenFields"]
+  > = {};
+  if (form.severity !== suggestion.severity) {
+    overriddenFields.severity = form.severity;
+  }
+  if (population !== null && population !== suggestion.affectedPopulation) {
+    overriddenFields.affectedPopulation = population;
+  }
+  if (
+    form.agencyType !== suggestion.suggestedAgency.agencyType ||
+    (suggestion.suggestedAgency.agencyId &&
+      form.agencyId !== suggestion.suggestedAgency.agencyId)
+  ) {
+    overriddenFields.suggestedAgencyType = form.agencyType;
+    overriddenFields.suggestedAgencyId = form.agencyId;
+  }
+
+  return {
+    accepted: false,
+    suggestionId: suggestion.suggestionId || undefined,
+    overriddenFields: Object.keys(overriddenFields).length
+      ? overriddenFields
+      : undefined,
+    reason: form.reason.trim(),
+  };
+}
+
+export function triageSuggestionFromResponse(
+  incidentId: string,
+  payload: IncidentTriageResponse,
+): TriageSuggestionReview {
+  return { ...payload.suggestion, incidentId };
 }
 
 export function latestActiveAssignment(incident?: IncidentRecord) {
@@ -915,6 +1018,17 @@ export function hazardLabel(hazard: HazardType) {
 
 export function severityLabel(severity: RiskLevel) {
   return severity[0].toUpperCase() + severity.slice(1);
+}
+
+export function triageConfidenceLabel(value: "low" | "medium" | "high") {
+  return value[0].toUpperCase() + value.slice(1);
+}
+
+export function agencyTypeLabel(type: AgencyType) {
+  return type
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 export function alertSeverityLabel(severity: AlertSeverity) {

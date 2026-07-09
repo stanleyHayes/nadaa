@@ -1,11 +1,13 @@
 import { nadaaBrand } from "@nadaa/brand";
 import type {
+  AgencyType,
   AlertSeverity,
   AlertTargetType,
   AuthorityAlertRecord,
   Coordinates,
   HospitalCapacityRecord,
   IncidentStatus,
+  IncidentTriageSeverity,
   RiskLevel,
 } from "@nadaa/shared-types";
 import type {
@@ -14,6 +16,7 @@ import type {
   FilterState,
   MLPredictionReview,
   MLPredictionReviewPoint,
+  TriageSuggestionReview,
 } from "./types";
 
 export const assignmentAgencyOptions: AssignmentAgencyOption[] = [
@@ -817,6 +820,142 @@ export const fallbackMLPredictions: MLPredictionReview[] = [
     reviewStatus: "needs_review",
   },
 ];
+
+// Triage severities the incident-service accepts for overrides (no "severe").
+export const triageSeverityOptions: IncidentTriageSeverity[] = [
+  "low",
+  "moderate",
+  "high",
+  "emergency",
+];
+
+export function fallbackTriageSuggestion(
+  incident: CommandIncident,
+): TriageSuggestionReview {
+  const severity: IncidentTriageSeverity =
+    incident.urgency === "life_threatening" || incident.injuriesReported
+      ? "emergency"
+      : incident.urgency === "high" || incident.peopleAffected >= 20
+        ? "high"
+        : incident.urgency === "moderate" || incident.peopleAffected >= 5
+          ? "moderate"
+          : "low";
+
+  const duplicateLikelihood = incident.duplicateCandidates.length
+    ? Math.max(
+        ...incident.duplicateCandidates.map((candidate) => candidate.score),
+      )
+    : 0;
+
+  const topDuplicateIncidentIds = incident.duplicateCandidates
+    .slice(0, 3)
+    .map((candidate) => candidate.incidentId);
+
+  // Mirrors the incident-service triageSuggestedAgency rules.
+  const agency =
+    incident.type === "fire" ||
+    incident.type === "electrical_hazard" ||
+    incident.type === "building_collapse"
+      ? {
+          agencyType: "fire" as AgencyType,
+          agencyId: "00000000-0000-0000-0000-000000000201",
+          name: "Ghana National Fire Service",
+          reason: "Primary responder for fire and structural collapse incidents.",
+        }
+      : incident.type === "road_crash" || incident.type === "security_incident"
+        ? {
+            agencyType: "police" as AgencyType,
+            agencyId: "00000000-0000-0000-0000-000000000203",
+            name: "Ghana Police Service",
+            reason:
+              incident.type === "road_crash"
+                ? "Traffic and scene control for road crashes."
+                : "Law enforcement lead for security incidents.",
+          }
+        : incident.type === "medical_emergency" ||
+            incident.type === "disease_outbreak"
+          ? {
+              agencyType: "ambulance" as AgencyType,
+              agencyId: "00000000-0000-0000-0000-000000000202",
+              name: "National Ambulance Service",
+              reason: "Primary responder for medical and health incidents.",
+            }
+          : incident.type === "blocked_drain"
+            ? {
+                agencyType: "district_assembly" as AgencyType,
+                agencyId: "00000000-0000-0000-0000-000000000204",
+                name: "Accra Metropolitan Assembly",
+                reason: "Local drainage and sanitation works responsibility.",
+              }
+            : {
+                agencyType: "nadmo" as AgencyType,
+                agencyId: "00000000-0000-0000-0000-000000000101",
+                name: "NADMO Accra Metro",
+                reason: "NADMO coordinates multi-hazard disaster response.",
+              };
+
+  return {
+    suggestionId: "",
+    severity,
+    duplicateLikelihood: Math.round(duplicateLikelihood * 100) / 100,
+    topDuplicateIncidentIds,
+    affectedPopulation: incident.peopleAffected || 1,
+    suggestedAgency: agency,
+    confidence:
+      incident.peopleAffected > 0 && incident.urgency !== "low"
+        ? "high"
+        : incident.peopleAffected > 0 || incident.urgency !== "low"
+          ? "medium"
+          : "low",
+    modelVersion: "incident-triage-rules-0.1.0-fixture",
+    featureSetVersion: "incident-features.v1",
+    explanationFactors: [
+      {
+        feature: "urgency",
+        label: "Reported urgency",
+        value: incident.urgency,
+        contribution:
+          incident.urgency === "life_threatening"
+            ? 0.9
+            : incident.urgency === "high"
+              ? 0.6
+              : incident.urgency === "moderate"
+                ? 0.3
+                : 0.1,
+        direction: "increases_risk",
+      },
+      {
+        feature: "people_affected",
+        label: "People directly affected",
+        value: incident.peopleAffected,
+        contribution:
+          incident.peopleAffected >= 20
+            ? 0.5
+            : incident.peopleAffected >= 5
+              ? 0.3
+              : 0.1,
+        direction: "increases_risk",
+      },
+      {
+        feature: "hazard_type",
+        label: "Hazard type",
+        value: incident.type,
+        contribution: 0.3,
+        direction: "increases_risk",
+      },
+      {
+        feature: "duplicate_candidates",
+        label: "Duplicate report candidates",
+        value: incident.duplicateCandidates.length,
+        contribution: duplicateLikelihood,
+        direction: "increases_risk",
+      },
+    ],
+    humanReviewRequired: true,
+    autoPublishAllowed: false,
+    incidentId: incident.id,
+  };
+}
 
 export const incidentStatusOptions: IncidentStatus[] = [
   "reported",

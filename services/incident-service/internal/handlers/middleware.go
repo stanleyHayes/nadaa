@@ -59,6 +59,13 @@ var (
 		"responder":        true,
 		"agency_viewer":    true,
 	}
+	triageReviewRoles = map[string]bool{
+		"system_admin":     true,
+		"agency_admin":     true,
+		"nadmo_officer":    true,
+		"district_officer": true,
+		"dispatcher":       true,
+	}
 	reporterContactRoles = map[string]bool{
 		"system_admin":     true,
 		"agency_admin":     true,
