@@ -1836,3 +1836,145 @@ export interface RouteOptionsResponse {
   waypointTypes: string[];
   generatedAt: string;
 }
+
+export interface CVLabel {
+  label: string;
+  confidence: number;
+  bbox?: number[];
+}
+
+export type CVReviewStatus = "pending" | "approved" | "rejected";
+
+export interface CVAnalysisRequest {
+  imageId: string;
+  imageUrl?: string;
+  imageName?: string;
+}
+
+export interface CVAnalysisResult {
+  id: string;
+  imageId: string;
+  labels: CVLabel[];
+  modelVersion: string;
+  limitations: string;
+  humanReviewRequired: boolean;
+  createdAt: string;
+  reviewedBy?: string;
+  reviewStatus?: CVReviewStatus;
+  reviewNote?: string;
+}
+
+export interface CVAnalysisResponse {
+  result: CVAnalysisResult;
+  safety: {
+    humanReviewRequired: boolean;
+    autoPublishAllowed: false;
+    message: string;
+  };
+}
+
+export interface CVResultListResponse {
+  results: CVAnalysisResult[];
+}
+
+export interface CVResultDetailResponse {
+  result: CVAnalysisResult;
+}
+
+export type CVImageItemStatus =
+  "pending" | "analyzed" | "reviewed" | "approved" | "rejected";
+
+export interface CVImageItem {
+  id: string;
+  url: string;
+  name: string;
+  incidentId?: string;
+  uploadedAt: string;
+  status: CVImageItemStatus;
+  cvResult?: CVAnalysisResult;
+}
+
+export type ForecastConfidence = "low" | "medium" | "high";
+export type ForecastRiskLevel =
+  "low" | "moderate" | "high" | "severe" | "emergency";
+
+export interface ForecastFactor {
+  name: string;
+  label: string;
+  value: number;
+  weight: number;
+  direction: "increases_demand" | "reduces_demand";
+}
+
+export interface DemandForecast {
+  id: string;
+  region: string;
+  district: string;
+  timeWindowStart: string;
+  timeWindowEnd: string;
+  predictedIncidentCount: number;
+  hazardType: string;
+  confidence: ForecastConfidence;
+  confidenceScore: number;
+  factors: ForecastFactor[];
+  riskLevel: ForecastRiskLevel;
+  generatedAt: string;
+}
+
+export interface ForecastListResponse {
+  forecasts: DemandForecast[];
+  generatedAt: string;
+}
+
+export interface ForecastDetailResponse {
+  forecast: DemandForecast;
+  forecasts: DemandForecast[];
+  generatedAt: string;
+}
+
+export interface StagingSuggestion {
+  id: string;
+  location: Coordinates;
+  locationLabel: string;
+  agencyType: string;
+  reason: string;
+  confidence: ForecastConfidence;
+  confidenceScore: number;
+  operationalConstraints: string[];
+  recommendedUnits: number;
+  radiusMeters: number;
+  generatedAt: string;
+}
+
+export interface StagingSuggestionListResponse {
+  suggestions: StagingSuggestion[];
+  generatedAt: string;
+}
+
+export interface CompareScenarioRequest {
+  region?: string;
+  riskLevel?: string;
+  historicalWeight?: number;
+  capacityFactor?: number;
+  hazardTypes?: string[];
+  timeWindowHours?: number;
+}
+
+export interface ScenarioSummary {
+  totalPredictedIncidents: number;
+  averageConfidenceScore: number;
+  highestRiskRegion: string;
+  highestRiskHazard: string;
+}
+
+export interface ScenarioResult {
+  name: string;
+  parameters: CompareScenarioRequest;
+  forecasts: DemandForecast[];
+  summary: ScenarioSummary;
+}
+
+export interface CompareScenarioResponse {
+  scenarios: ScenarioResult[];
+  generatedAt: string;
+}

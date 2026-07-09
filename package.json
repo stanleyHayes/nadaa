@@ -33,6 +33,7 @@
     "smoke:road-closure": "node scripts/smoke-road-closure.mjs",
     "smoke:route": "node scripts/smoke-route.mjs",
     "smoke:flood-simulation": "node scripts/smoke-flood-simulation.mjs",
+    "smoke:predictive-positioning": "node scripts/smoke-predictive-positioning.mjs",
     "smoke:relief": "node scripts/smoke-relief.mjs",
     "smoke:citizen-mobile": "node scripts/smoke-citizen-mobile.mjs",
     "smoke:dispatcher-mobile": "node scripts/smoke-dispatcher-mobile.mjs",
@@ -58,7 +59,8 @@
     "go:test": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && go test ./...); done",
     "go:lint": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && golangci-lint run ./...); done",
     "go:vet": "for mod in services/*/go.mod; do service=$(dirname \"$mod\"); echo \"$service\"; (cd \"$service\" && go vet ./...); done",
-    "format": "prettier --write \"**/*.{md,json,ts,tsx,css,yml,yaml}\""
+    "format": "prettier --write \"**/*.{md,json,ts,tsx,css,yml,yaml}\"",
+    "smoke:cv-verification": "node scripts/smoke-cv-verification.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.0",

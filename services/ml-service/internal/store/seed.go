@@ -52,6 +52,7 @@ func loadPredictionStore(modelDir string) (*MemoryStore, error) {
 		model:       model,
 		predictions: artifact.Predictions,
 		features:    features,
+		cvCache:     newCVResultCache(),
 	}, nil
 }
 

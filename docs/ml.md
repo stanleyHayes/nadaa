@@ -234,3 +234,27 @@ Current MVP serving implementation:
 5. MVP prediction logs aligned to the `ml_predictions` table shape.
 6. Durable prediction persistence.
 7. Authority review UI before alert drafting or approval.
+
+### Computer Vision Image Verification (NADAA-152)
+
+Purpose: decision-support image analysis for flood and fire evidence detection.
+
+Current implementation:
+
+- `services/ml-service` exposes `POST /api/v1/cv/analyze`, `GET /api/v1/cv/results/{imageId}`, and `GET /api/v1/cv/results`.
+- The first-pass engine is a deterministic rule-based mock that parses filenames for hints.
+- Supported labels: `flood_evidence`, `fire_evidence`, `smoke_evidence`, `no_evidence`, `unclear`, `sensitive`, `person_in_distress`.
+- Confidence threshold for human review: 0.7. Sensitive labels always require review.
+- Model version: `cv-mock-rule-engine-0.1.0`.
+- Limitations are returned with every result to remind users this is not real inference.
+- Results are cached in-memory by `imageId`.
+- Safety policy: `autoPublishAllowed=false`, `humanReviewRequired` based on confidence/labels.
+
+Future integration path:
+
+1. Replace mock engine with ONNX/TensorFlow Lite model serving.
+2. Add real bounding box coordinates from object detection.
+3. Add image preprocessing pipeline (resize, normalize, augment).
+4. Add model versioning and A/B testing.
+5. Add batch analysis endpoint for multiple images.
+6. Integrate with incident-service media ingestion pipeline (NADAA-140).

@@ -86,6 +86,7 @@ import {
 } from "./components";
 import { RoutePlannerPanel } from "./RoutePlannerPanel";
 import { FloodSimulationPanel } from "./FloodSimulationPanel";
+import { CVEvidencePanel } from "./CVEvidencePanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -1912,6 +1913,8 @@ function CommandCenterApp() {
               />
 
               <FloodSimulationPanel />
+
+              <CVEvidencePanel />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">

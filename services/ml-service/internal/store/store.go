@@ -15,6 +15,7 @@ import (
 
 // Store is the persistence interface for prediction and simulation data.
 type Store interface {
+	CVStore
 	Predict(req models.PredictionRequest, now time.Time) (models.PredictionResponse, error)
 	ListLogs() []models.PredictionLog
 	ModelVersion() string
@@ -31,6 +32,7 @@ type MemoryStore struct {
 	features     []FeatureRow
 	simulations  []models.SimulationRun
 	simulationMu sync.Mutex
+	cvCache      *cvResultCache
 	mu           sync.Mutex
 }
 

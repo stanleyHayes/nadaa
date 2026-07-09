@@ -8,3 +8,5 @@ export const ROUTE_API_BASE =
   import.meta.env.VITE_ROUTE_SERVICE_URL ?? "http://localhost:8096";
 export const SIMULATION_API_BASE =
   import.meta.env.VITE_SIMULATION_API_URL ?? "http://localhost:8094/api/v1";
+export const CV_API_BASE =
+  import.meta.env.VITE_CV_API_URL ?? "http://localhost:8094/api/v1";
