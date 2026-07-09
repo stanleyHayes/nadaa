@@ -1525,6 +1525,40 @@ Authority only. Exports aid needs, pledge totals, pledge counts, priorities, dis
 
 The shelter service emits `INFO` logs for aid request list/create/review/export and pledge create/list/review success; `WARN` logs for invalid JSON, unsupported filters, unauthorized authority context, validation failures, pending request pledge attempts, and missing records; and `ERROR` logs for response encoding or CSV write failures. Logs must not include raw donor phone numbers, private donor notes, or sensitive beneficiary details.
 
+### Missing Persons And Family Reunification
+
+Base URL: `http://localhost:8101/api/v1`
+
+`POST /missing-persons`
+
+Public intake. Creates a private `pending_review` record with reporter contact details, consent flags, last-seen location/time, optional photo URL, optional related incident ID, and person description. Public visibility is never enabled during intake.
+
+`GET /missing-persons?q=kojo&district=Accra`
+
+Public approved search. Returns only records with `reviewStatus=approved`, `publicVisibility=public`, and an active/located status. Reporter contact details, review notes, and closure notes are never returned.
+
+`GET /missing-persons/{id}`
+
+Public approved lookup. Unapproved, private, rejected, closed, and reunited records return `404` to avoid leaking sensitive case state.
+
+`GET /authority/missing-persons`
+
+Authority only. Returns full sensitive records, including reporter contact, review notes, consent flags, and closure metadata.
+
+`PATCH /authority/missing-persons/{id}/review`
+
+Authority only. Supports `decision=approve_public`, `approve_private`, or `reject`. `approve_public` requires `publicSummary`; `reject` requires `reviewNotes`.
+
+`PATCH /authority/missing-persons/{id}/close`
+
+Authority only. Supports `closureType` values `reunited`, `located_safe`, `duplicate`, `withdrawn`, `deceased`, and `other`. Closure moves the record back to private visibility and writes an audit entry.
+
+`GET /authority/missing-persons/{id}/audit`
+
+Authority only. Returns create, review, and closure audit events.
+
+The missing-person-service emits `INFO` logs for public search, intake, authority list, review, closure, and audit reads; `WARN` logs for invalid JSON, validation failures, missing/unauthorized authority context, and missing records; and `ERROR` logs for response encoding or server shutdown failures. Logs must not include reporter phone numbers, full descriptions, closure notes, or private review notes.
+
 `GET /api/v1/hospitals/capacity?lat=5.5600&lng=-0.2000&service=emergency&emergencyCapacity=available&minAvailableBeds=10&includeStale=false`
 
 Returns nearby hospital and emergency facility capacity sorted by freshness, distance, capacity status, and available beds. Dispatchers can omit coordinates for a national list or filter by service, capacity status, minimum available beds, stale-data visibility, and `limit`.

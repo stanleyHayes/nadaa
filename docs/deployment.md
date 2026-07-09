@@ -104,6 +104,15 @@ go run .
 
 Shelter-service also owns the Phase 2 hospital capacity tracker, relief distribution endpoints, and donation/aid coordination endpoints. Runtime logs use `INFO` for shelter/recovery, relief point, aid request, aid pledge, and hospital capacity reads, creates, reviews, updates, exports, stock-history reads, and fixture imports; `WARN` for invalid coordinates, failed validation, unauthorized authority context, missing records, stale/fixture workflow problems, and pledge attempts against unapproved aid requests; and `ERROR` for response encoding or CSV write failures. Do not log private patient details, hospital staff personal data, raw donor phone numbers, private donor notes, or sensitive beneficiary details.
 
+Run missing person service:
+
+```bash
+cd services/missing-person-service
+go run ./cmd/server
+```
+
+Missing-person-service owns sensitive family reunification intake, public approved search, authority review, closure/reunification, and audit endpoints. Runtime logs use `INFO` for public search, intake, authority queue reads, reviews, closures, and audit reads; `WARN` for invalid input and authority failures; and `ERROR` for response encoding or server lifecycle failures. Do not log reporter phone numbers, full descriptions, review notes, or closure notes. Verify locally with `pnpm smoke:missing-person`.
+
 Run integration service:
 
 ```bash

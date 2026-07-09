@@ -71,6 +71,7 @@ jobs:
           - services/road-closure-service
           - services/route-service
           - services/donation-service
+          - services/missing-person-service
           - services/shelter-service
     steps:
       - name: Check out repository
@@ -131,6 +132,8 @@ jobs:
             dockerfile: services/route-service/Dockerfile
           - name: donation-service
             dockerfile: services/donation-service/Dockerfile
+          - name: missing-person-service
+            dockerfile: services/missing-person-service/Dockerfile
           - name: shelter-service
             dockerfile: services/shelter-service/Dockerfile
     steps:

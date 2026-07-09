@@ -131,6 +131,7 @@ import {
 } from "./utils";
 import RoutePlanner from "./RoutePlanner";
 import DonorPortal from "./DonorPortal";
+import MissingPersonsPanel from "./MissingPersonsPanel";
 
 function CitizenApp() {
   const [area, setArea] = useState("Accra Central");
@@ -1203,6 +1204,10 @@ function CitizenApp() {
 
                 <Grid size={{ xs: 12, md: 6 }}>
                   <DonorPortal />
+                </Grid>
+
+                <Grid size={{ xs: 12 }}>
+                  <MissingPersonsPanel />
                 </Grid>
 
                 <Grid size={{ xs: 12, md: 6 }}>

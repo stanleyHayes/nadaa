@@ -1654,5 +1654,48 @@
       "git diff --check"
     ],
     "notes": "Evacuation Route Planner completed with services/route-service Go API (plan, options, health), in-memory route calculation with closure and risk avoidance, shelter-service fallback integration, decision-support disclaimer, structured INFO/WARN/ERROR logging, docs, dashboard record, and verification."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "Phase 2",
+    "sprint": "Sprint 12",
+    "epic": "EPIC 13: Mobility, Recovery, And Case Management",
+    "story": "Missing Persons Module",
+    "jiraKey": "NADAA-132",
+    "branchName": "feature/NADAA-123-donation-and-aid-coordination",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 13,
+    "actualEffortHours": 4,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-09",
+    "dependencies": ["NADAA-030", "NADAA-090"],
+    "blockers": [],
+    "verification": [
+      "services/missing-person-service go test ./...",
+      "pnpm --filter @nadaa/shared-types typecheck",
+      "pnpm --filter @nadaa/citizen-web typecheck",
+      "pnpm --filter @nadaa/citizen-web build",
+      "pnpm --filter @nadaa/authority-dashboard typecheck",
+      "pnpm --filter @nadaa/authority-dashboard build",
+      "pnpm smoke:missing-person",
+      "pnpm validate:dashboard",
+      "pnpm validate:database",
+      "pnpm validate:docs",
+      "pnpm security:scan",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm go:test",
+      "pnpm go:lint",
+      "docker build -f services/missing-person-service/Dockerfile -t nadaa/missing-person-service:local .",
+      "pnpm audit --audit-level high",
+      "pnpm exec prettier --check",
+      "git diff --check"
+    ],
+    "notes": "Missing Persons Module completed with missing-person-service private intake, authority MFA/RBAC review and public visibility approval workflow, closure/reunification audit trail, public approved search, PostGIS migration, shared TypeScript contracts, citizen and authority web panels, smoke/docs/dashboard updates, CI Docker wiring, structured INFO/WARN/ERROR logs, and verification."
   }
 ]

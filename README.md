@@ -173,6 +173,15 @@ go run .
 
 The shelter service listens on `:8093` by default and exposes shelter/recovery lookup, relief point management, stock history, hospital capacity, and donation/aid coordination endpoints. With shelter-service running on `:8093`, verify nearby shelters, protected occupancy updates, relief point list/nearby/create/update/stock-history behavior, aid request/pledge coordination, hospital capacity filters, manual capacity updates, and fixture imports with `pnpm smoke:shelter`, `pnpm smoke:relief`, and `pnpm smoke:aid`.
 
+Run the Go missing person service:
+
+```bash
+cd services/missing-person-service
+go run ./cmd/server
+```
+
+The missing person service listens on `:8101` by default and exposes private intake, authority review, public approved search, closure/reunification, and audit endpoints. Citizen and authority web apps use `VITE_MISSING_PERSON_API_URL`, defaulting to `http://localhost:8101/api/v1`. Verify the privacy workflow with `pnpm smoke:missing-person`.
+
 Run the Go integration service:
 
 ```bash
