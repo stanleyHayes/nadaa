@@ -1,4 +1,4 @@
-import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   AppBar,
@@ -46,6 +46,9 @@ import type {
   IncidentListResponse,
   IncidentRecord,
   IncidentStatusUpdateRequest,
+  IncidentTriageResponse,
+  IncidentTriageReviewRequest,
+  IncidentTriageReviewResponse,
   MergeIncidentsRequest,
   MergeIncidentsResponse,
   MLPredictionResponse,
@@ -68,6 +71,7 @@ import {
 } from "../../app/session";
 import { dispatcherTheme } from "../../app/theme";
 import {
+  AITriageSuggestionPanel,
   AlertWorkflowPanel,
   CommandSelect,
   EmptyState,
@@ -88,6 +92,7 @@ import {
   fallbackHospitalFacilities,
   fallbackIncidents,
   fallbackMLPredictions,
+  fallbackTriageSuggestion,
   predictionReviewPoints,
   assignmentAgencyOptions,
 } from "./data";
@@ -104,16 +109,21 @@ import type {
   IncidentStatusFormState,
   MLPredictionReview,
   MLReviewLoadState,
+  TriageLoadState,
+  TriageSuggestionFormState,
+  TriageSuggestionReview,
 } from "./types";
 import {
   alertStatusLabel,
   abuseDecisionLabel,
+  agencyTypeLabel,
   assignmentForIncident,
   buildAlertTarget,
   buildDefaultAbuseReviewForm,
   buildDefaultAlertForm,
   buildDefaultAssignmentForm,
   buildDefaultStatusForm,
+  buildDefaultTriageForm,
   buildAlertRequestFromPrediction,
   buildFilterOptions,
   buildQueueMetrics,
@@ -125,6 +135,11 @@ import {
   predictionResponseToReview,
   severityLabel,
   statusLabel,
+  triageAcceptRequest,
+  triageOverrideRequestFromForm,
+  triagePopulationError,
+  triageReasonError,
+  triageSuggestionFromResponse,
 } from "./utils";
 
 function DispatcherCommandApp() {
@@ -189,6 +204,20 @@ function DispatcherCommandApp() {
   const [predictionReviewNotes, setPredictionReviewNotes] = useState<
     Record<string, string>
   >({});
+  const [triageSuggestion, setTriageSuggestion] = useState<
+    TriageSuggestionReview | undefined
+  >(fallbackTriageSuggestion(fallbackIncidents[0]!));
+  const [triageLoadState, setTriageLoadState] =
+    useState<TriageLoadState>("loading");
+  const [triageMessage, setTriageMessage] = useState(
+    "Loading AI triage suggestion",
+  );
+  const [triageBusy, setTriageBusy] = useState(false);
+  const [triageFeedback, setTriageFeedback] = useState("");
+  const [triageForm, setTriageForm] = useState<TriageSuggestionFormState>(
+    buildDefaultTriageForm(fallbackTriageSuggestion(fallbackIncidents[0]!)),
+  );
+  const triageAbortRef = useRef<AbortController | null>(null);
   const [hospitalFacilities, setHospitalFacilities] = useState<
     HospitalCapacityRecord[]
   >(fallbackHospitalFacilities);
@@ -339,6 +368,53 @@ function DispatcherCommandApp() {
     void refreshMLPredictions(controller.signal);
     return () => controller.abort();
   }, []);
+
+  const refreshTriage = async (incidentId: string) => {
+    triageAbortRef.current?.abort();
+    const controller = new AbortController();
+    triageAbortRef.current = controller;
+
+    setTriageLoadState("loading");
+    setTriageMessage("Loading AI triage suggestion");
+
+    try {
+      const response = await fetch(
+        `${INCIDENT_API_BASE}/incidents/${incidentId}/triage`,
+        {
+          headers: dispatcherHeaders(),
+          signal: controller.signal,
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`incident API returned ${response.status}`);
+      }
+
+      const payload = (await response.json()) as IncidentTriageResponse;
+      if (controller.signal.aborted) {
+        return;
+      }
+      const suggestion = triageSuggestionFromResponse(incidentId, payload);
+      setTriageSuggestion(suggestion);
+      setTriageForm(buildDefaultTriageForm(suggestion));
+      setTriageLoadState("ready");
+      setTriageMessage("Live AI triage connected.");
+    } catch (error) {
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      const incident = incidents.find((item) => item.id === incidentId);
+      const fallback = incident
+        ? fallbackTriageSuggestion(incident)
+        : fallbackTriageSuggestion(fallbackIncidents[0]!);
+      setTriageSuggestion(fallback);
+      setTriageForm(buildDefaultTriageForm(fallback));
+      setTriageLoadState("fallback");
+      setTriageMessage(
+        "Incident triage API unavailable. Showing rule-based fixture suggestion.",
+      );
+    }
+  };
 
   const filteredIncidents = useMemo(
     () => incidents.filter((incident) => matchesFilters(incident, filters)),
@@ -577,18 +653,41 @@ function DispatcherCommandApp() {
     setAbuseFeedback("");
     setAssignmentFeedback("");
     setMergeFeedback("");
+    setTriageFeedback("");
 
-    if (
-      !selectedIncident ||
-      selectedIncident.source !== "api" ||
-      !selectedIncident.duplicateCandidates.length
-    ) {
+    if (!selectedIncident) {
+      setTriageSuggestion(undefined);
+      setTriageForm(buildDefaultTriageForm());
+      setTriageLoadState("empty");
+      setTriageMessage("Select an incident to see its AI triage suggestion.");
       return;
     }
 
+    const fallback = fallbackTriageSuggestion(selectedIncident);
+    setTriageSuggestion(fallback);
+    setTriageForm(buildDefaultTriageForm(fallback));
+
+    if (selectedIncident.source !== "api") {
+      setTriageLoadState("fallback");
+      setTriageMessage(
+        "Fixture incident: showing the rule-based fixture suggestion. Reviews are not logged for fixture data.",
+      );
+    }
+
     const controller = new AbortController();
-    void refreshDuplicateReview(selectedIncident.id, controller.signal);
-    return () => controller.abort();
+    if (selectedIncident.source === "api") {
+      void refreshTriage(selectedIncident.id);
+    }
+    if (
+      selectedIncident.source === "api" &&
+      selectedIncident.duplicateCandidates.length
+    ) {
+      void refreshDuplicateReview(selectedIncident.id, controller.signal);
+    }
+    return () => {
+      controller.abort();
+      triageAbortRef.current?.abort();
+    };
   }, [selectedIncident?.id]);
 
   const updateFilter =
@@ -693,6 +792,164 @@ function DispatcherCommandApp() {
         return { ...current, [key]: value };
       });
     };
+
+  const updateTriageForm =
+    (key: keyof TriageSuggestionFormState) =>
+    (
+      event:
+        ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
+    ) => {
+      const value = event.target.value;
+      setTriageForm((current) => {
+        if (key === "agencyId") {
+          const agency = assignmentAgencyOptions.find(
+            (item) => item.id === value,
+          );
+          if (!agency) {
+            return current;
+          }
+          return {
+            ...current,
+            agencyId: agency.id,
+            agencyType: agency.type,
+          };
+        }
+        if (key === "affectedPopulation") {
+          return { ...current, [key]: value };
+        }
+        return { ...current, [key]: value };
+      });
+    };
+
+  const copyTriageSuggestionToAssignmentForm = () => {
+    if (!triageSuggestion) {
+      return;
+    }
+    const agency = assignmentAgencyOptions.find(
+      (item) => item.type === triageSuggestion.suggestedAgency.agencyType,
+    );
+    if (agency) {
+      setAssignmentForm((current) => ({
+        ...current,
+        agencyId: agency.id,
+        agencyName: agency.name,
+        agencyType: agency.type,
+        responderLead: agency.responderLead,
+        instructions: selectedIncident
+          ? `Respond to ${hazardLabel(selectedIncident.type).toLowerCase()} incident ${selectedIncident.reference}. ${selectedIncident.description}`
+          : current.instructions,
+      }));
+    }
+  };
+
+  const acceptTriageSuggestion = async () => {
+    if (!selectedIncident || !triageSuggestion) {
+      return;
+    }
+
+    if (selectedIncident.source !== "api") {
+      copyTriageSuggestionToAssignmentForm();
+      setTriageFeedback(
+        "Suggestion copied to the agency assignment form. Acceptance logging needs the incident-service API for this incident.",
+      );
+      return;
+    }
+
+    setTriageBusy(true);
+    setTriageFeedback("");
+    try {
+      const payload = await postTriageReview(
+        selectedIncident.id,
+        triageAcceptRequest(triageSuggestion),
+      );
+      applyIncidentUpdate(payload.incident);
+      copyTriageSuggestionToAssignmentForm();
+      setTriageFeedback(
+        `Triage acceptance logged for ${payload.incident.reference}. Suggestion copied to the agency assignment form. Review before assigning.`,
+      );
+    } catch (error) {
+      setTriageFeedback(
+        `Acceptance was not logged, so the suggestion was not applied. ${triageErrorDetail(error)}`,
+      );
+    } finally {
+      setTriageBusy(false);
+    }
+  };
+
+  const overrideTriageSuggestion = async () => {
+    if (!selectedIncident || !triageSuggestion) {
+      return;
+    }
+
+    if (selectedIncident.source !== "api") {
+      setTriageFeedback(
+        "Overrides can only be logged for live incidents from the incident-service API.",
+      );
+      return;
+    }
+
+    const request: IncidentTriageReviewRequest = triageOverrideRequestFromForm(
+      triageSuggestion,
+      triageForm,
+    );
+
+    setTriageBusy(true);
+    setTriageFeedback("");
+    try {
+      const payload = await postTriageReview(selectedIncident.id, request);
+      const incident = payload.incident;
+      applyIncidentUpdate(incident);
+      const agency = assignmentAgencyOptions.find(
+        (item) => item.id === triageForm.agencyId,
+      );
+      if (agency) {
+        setAssignmentForm((current) => ({
+          ...current,
+          agencyId: agency.id,
+          agencyName: agency.name,
+          agencyType: agency.type,
+          responderLead: agency.responderLead,
+        }));
+      }
+      setTriageFeedback(
+        `Triage override recorded for ${incident.reference}. Assignment form updated.`,
+      );
+    } catch (error) {
+      setTriageFeedback(
+        `Triage override was not recorded. ${triageErrorDetail(error)}`,
+      );
+    } finally {
+      setTriageBusy(false);
+    }
+  };
+
+  const postTriageReview = async (
+    incidentId: string,
+    request: IncidentTriageReviewRequest,
+  ): Promise<IncidentTriageReviewResponse> => {
+    const response = await fetch(
+      `${INCIDENT_API_BASE}/incidents/${incidentId}/triage-review`,
+      {
+        method: "POST",
+        headers: dispatcherHeaders(),
+        body: JSON.stringify(request),
+      },
+    );
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      throw new Error(
+        body?.error?.message ?? `incident API returned ${response.status}`,
+      );
+    }
+    return (await response.json()) as IncidentTriageReviewResponse;
+  };
+
+  const triageErrorDetail = (error: unknown) =>
+    error instanceof Error && error.message
+      ? error.message
+      : "The incident-service API must be running for this incident.";
 
   const refreshDuplicateReview = async (
     incidentId: string,
@@ -1483,6 +1740,40 @@ function DispatcherCommandApp() {
 
           <Grid size={{ xs: 12, lg: 4 }}>
             <Stack spacing={2.5}>
+              <AITriageSuggestionPanel
+                busy={triageBusy}
+                canAccept={
+                  !!triageSuggestion &&
+                  !!selectedIncident &&
+                  (selectedIncident.source === "api"
+                    ? triageLoadState === "ready"
+                    : triageLoadState === "fallback")
+                }
+                canOverride={
+                  !!triageSuggestion &&
+                  selectedIncident?.source === "api" &&
+                  triageLoadState === "ready"
+                }
+                feedback={triageFeedback}
+                form={triageForm}
+                incident={triageSuggestion}
+                loadMessage={triageMessage}
+                loadState={triageLoadState}
+                onAccept={() => void acceptTriageSuggestion()}
+                onOverride={() => void overrideTriageSuggestion()}
+                onRefresh={() => {
+                  if (selectedIncident?.source === "api") {
+                    void refreshTriage(selectedIncident.id);
+                  }
+                }}
+                onUpdateForm={updateTriageForm}
+                populationError={triagePopulationError(
+                  triageForm.affectedPopulation,
+                )}
+                reasonError={triageReasonError(triageForm.reason)}
+                suggestion={triageSuggestion}
+              />
+
               <IncidentDetailPanel
                 abuseBusy={abuseBusy}
                 abuseFeedback={abuseFeedback}

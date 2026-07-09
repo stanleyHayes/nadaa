@@ -9,6 +9,9 @@ import type {
   IncidentAssignmentPriority,
   IncidentRecord,
   IncidentStatus,
+  IncidentTriageAgencySuggestion,
+  IncidentTriageSeverity,
+  IncidentTriageSuggestion,
   MLPredictionSummary,
   RiskLevel,
 } from "@nadaa/shared-types";
@@ -107,4 +110,19 @@ export type AssignmentAgencyOption = {
   name: string;
   type: AgencyType;
   responderLead: string;
+};
+
+export type TriageLoadState =
+  "loading" | "ready" | "fallback" | "error" | "empty";
+
+export type TriageSuggestionFormState = {
+  severity: IncidentTriageSeverity;
+  affectedPopulation: string;
+  agencyId: string;
+  agencyType: AgencyType;
+  reason: string;
+};
+
+export type TriageSuggestionReview = IncidentTriageSuggestion & {
+  incidentId: string;
 };

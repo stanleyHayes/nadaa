@@ -222,6 +222,11 @@ body {
   border-top: 6px solid var(--nadaa-info);
 }
 
+.triage-panel {
+  margin-top: var(--nadaa-space-5);
+  border-top: 6px solid var(--nadaa-navy);
+}
+
 .ml-review-alert {
   margin-bottom: 14px;
 }
