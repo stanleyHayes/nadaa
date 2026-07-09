@@ -1226,6 +1226,71 @@ export interface MLPredictionLogListResponse {
   logs: MLPredictionLogRecord[];
 }
 
+export type FloodSimulationStatus =
+  "pending" | "running" | "completed" | "failed";
+
+export interface FloodSimulationScenario {
+  rainfallMmOverride?: number;
+  waterLevelTrendCmOverride?: number;
+  durationHours: number;
+  timeStepHours: number;
+}
+
+export interface FloodSimulationCell {
+  cellId: string;
+  region: string;
+  district: string;
+  community: string;
+  geometry: AlertTargetGeometry;
+  probability: number;
+  severity: RiskLevel;
+  depthBand: string;
+  confidence: "low" | "medium" | "high";
+  explanationFactors: MLExplanationFactor[];
+}
+
+export interface FloodSimulationFrame {
+  targetTime: string;
+  cells: FloodSimulationCell[];
+}
+
+export interface FloodSimulationRun {
+  id: string;
+  reference: string;
+  name: string;
+  status: FloodSimulationStatus;
+  scenario: FloodSimulationScenario;
+  frames: FloodSimulationFrame[];
+  assumptions: string[];
+  limitations: string[];
+  modelVersion: string;
+  featureSetVersion: string;
+  createdAt: string;
+  updatedAt: string;
+  safety: {
+    humanReviewRequired: boolean;
+    autoPublishAllowed: false;
+    message: string;
+  };
+}
+
+export interface CreateFloodSimulationRequest {
+  name: string;
+  rainfallMmOverride?: number;
+  waterLevelTrendCmOverride?: number;
+  durationHours?: number;
+  timeStepHours?: number;
+}
+
+export interface FloodSimulationListResponse {
+  simulations: FloodSimulationRun[];
+  generatedAt: string;
+}
+
+export interface FloodSimulationDetailResponse {
+  simulation: FloodSimulationRun;
+}
+
 export interface ShelterSummary {
   id: string;
   name: string;

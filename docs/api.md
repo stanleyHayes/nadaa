@@ -1755,6 +1755,94 @@ Response:
 
 Returns in-memory MVP prediction log records. Each record is aligned to the `ml_predictions` storage target and includes model version and input feature set version.
 
+### Flood Simulations
+
+`POST /api/v1/ml/flood/simulations`
+
+Runs a deterministic flood simulation using the baseline logistic model and the NADAA-070 feature grid. Rainfall and water-level overrides are applied linearly across the requested duration.
+
+```json
+{
+  "name": "Accra +50 mm rainfall scenario",
+  "rainfallMmOverride": 50,
+  "waterLevelTrendCmOverride": 10,
+  "durationHours": 6,
+  "timeStepHours": 1
+}
+```
+
+Response:
+
+```json
+{
+  "simulation": {
+    "id": "sim_20260709100000",
+    "reference": "FS-2026-00001",
+    "name": "Accra +50 mm rainfall scenario",
+    "status": "completed",
+    "scenario": {
+      "rainfallMmOverride": 50,
+      "waterLevelTrendCmOverride": 10,
+      "durationHours": 6,
+      "timeStepHours": 1
+    },
+    "frames": [
+      {
+        "targetTime": "2026-07-09T11:00:00Z",
+        "cells": [
+          {
+            "cellId": "grid-accra-central-001",
+            "region": "Greater Accra",
+            "district": "Accra Metropolitan",
+            "community": "Accra Central",
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [-0.21, 5.55],
+                  [-0.19, 5.55],
+                  [-0.19, 5.57],
+                  [-0.21, 5.57],
+                  [-0.21, 5.55]
+                ]
+              ]
+            },
+            "probability": 0.94,
+            "severity": "severe",
+            "depthBand": "> 1.2 m",
+            "confidence": "medium",
+            "explanationFactors": []
+          }
+        ]
+      }
+    ],
+    "assumptions": [
+      "Simulation applies user rainfall and water-level overrides linearly across the requested time window."
+    ],
+    "limitations": [
+      "The fixture training set has only five seed-aligned rows and is suitable for product/API integration, not production accuracy claims."
+    ],
+    "modelVersion": "flood-logistic-baseline-0.1.0",
+    "featureSetVersion": "flood-risk-features.v1",
+    "createdAt": "2026-07-09T10:00:00Z",
+    "updatedAt": "2026-07-09T10:00:01Z",
+    "safety": {
+      "humanReviewRequired": true,
+      "autoPublishAllowed": false,
+      "message": "Simulation output is decision support only and cannot publish alerts without authority review and approval."
+    }
+  }
+}
+```
+
+`GET /api/v1/ml/flood/simulations`
+
+Returns the list of simulation jobs sorted newest first.
+
+`GET /api/v1/ml/flood/simulations/{id}`
+
+Returns a single simulation job including all frames.
+
 ### ML-Reviewed Alert Drafts
 
 `POST /api/v1/alerts`

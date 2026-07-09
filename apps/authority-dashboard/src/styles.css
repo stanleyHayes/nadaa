@@ -464,9 +464,31 @@ body {
   margin-top: var(--nadaa-space-3);
 }
 
+.simulation-panel {
+  border-top: 6px solid var(--nadaa-info);
+}
+
+.simulation-map-frame {
+  position: relative;
+  height: 320px;
+  margin-top: var(--nadaa-space-4);
+  overflow: hidden;
+  border-radius: var(--nadaa-radius-md);
+  border: 1px solid var(--nadaa-border);
+  background: var(--nadaa-border);
+}
+
+.simulation-map {
+  position: absolute;
+  inset: 0;
+  min-height: 320px;
+}
+
 @media (max-width: 760px) {
   .route-map-frame,
-  .route-map {
+  .route-map,
+  .simulation-map-frame,
+  .simulation-map {
     height: 220px;
     min-height: 220px;
   }

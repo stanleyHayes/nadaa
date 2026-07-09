@@ -6,3 +6,5 @@ export const SHELTER_API_BASE =
   import.meta.env.VITE_SHELTER_API_URL ?? "http://localhost:8093/api/v1";
 export const ROUTE_API_BASE =
   import.meta.env.VITE_ROUTE_SERVICE_URL ?? "http://localhost:8096";
+export const SIMULATION_API_BASE =
+  import.meta.env.VITE_SIMULATION_API_URL ?? "http://localhost:8094/api/v1";

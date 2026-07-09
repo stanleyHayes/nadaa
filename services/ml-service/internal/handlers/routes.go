@@ -8,5 +8,8 @@ func (s *server) routes() *http.ServeMux {
 	mux.HandleFunc("GET /healthz", s.healthHandler)
 	mux.HandleFunc("POST /api/v1/ml/flood/predictions", s.createFloodPredictionHandler)
 	mux.HandleFunc("GET /api/v1/ml/prediction-logs", s.listPredictionLogsHandler)
+	mux.HandleFunc("POST /api/v1/ml/flood/simulations", s.createSimulationHandler)
+	mux.HandleFunc("GET /api/v1/ml/flood/simulations", s.listSimulationsHandler)
+	mux.HandleFunc("GET /api/v1/ml/flood/simulations/{id}", s.getSimulationHandler)
 	return mux
 }
