@@ -1937,3 +1937,122 @@ export interface PledgeListResponse {
   pledges: PledgeRecord[];
   generatedAt: string;
 }
+
+// NADAA-132 — Missing persons module
+
+export type MissingPersonStatus =
+  "pending_review" | "active" | "located" | "reunited" | "closed" | "rejected";
+
+export type MissingPersonReviewStatus = "pending" | "approved" | "rejected";
+
+export type MissingPersonPublicVisibility = "private" | "public";
+
+export type MissingPersonReviewDecision =
+  "approve_public" | "approve_private" | "reject";
+
+export type MissingPersonClosureType =
+  | "reunited"
+  | "located_safe"
+  | "duplicate"
+  | "withdrawn"
+  | "deceased"
+  | "other";
+
+export interface MissingPersonLastSeenLocation {
+  label: string;
+  region: string;
+  district: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface MissingPersonReporterContact {
+  name: string;
+  phone?: string;
+  email?: string;
+  relationship: string;
+  consentToContact: boolean;
+  consentToPublicShare: boolean;
+}
+
+export interface PublicMissingPersonRecord {
+  id: string;
+  reference: string;
+  personName: string;
+  age?: number;
+  gender?: string;
+  description: string;
+  photoUrl?: string;
+  lastSeenAt: string;
+  lastSeenLocation: MissingPersonLastSeenLocation;
+  relatedIncidentId?: string;
+  status: MissingPersonStatus;
+  publicSummary?: string;
+  updatedAt: string;
+}
+
+export interface MissingPersonRecord extends PublicMissingPersonRecord {
+  reporter: MissingPersonReporterContact;
+  reviewStatus: MissingPersonReviewStatus;
+  publicVisibility: MissingPersonPublicVisibility;
+  reviewNotes?: string;
+  closureType?: MissingPersonClosureType;
+  closureNotes?: string;
+  createdBy: string;
+  createdAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  closedBy?: string;
+  closedAt?: string;
+}
+
+export interface MissingPersonAuditEntry {
+  id: string;
+  recordId: string;
+  action: string;
+  actorUserId?: string;
+  actorAgencyId?: string;
+  actorRole?: AgencyUserRole;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface CreateMissingPersonRequest {
+  personName: string;
+  age?: number;
+  gender?: string;
+  description: string;
+  photoUrl?: string;
+  lastSeenAt: string;
+  lastSeenLocation: MissingPersonLastSeenLocation;
+  relatedIncidentId?: string;
+  reporter: MissingPersonReporterContact;
+}
+
+export interface ReviewMissingPersonRequest {
+  decision: MissingPersonReviewDecision;
+  publicSummary?: string;
+  reviewNotes?: string;
+  status?: MissingPersonStatus;
+}
+
+export interface CloseMissingPersonRequest {
+  closureType: MissingPersonClosureType;
+  closureNotes: string;
+  reunitedWithFamily?: boolean;
+}
+
+export interface PublicMissingPersonListResponse {
+  records: PublicMissingPersonRecord[];
+  generatedAt: string;
+}
+
+export interface MissingPersonListResponse {
+  records: MissingPersonRecord[];
+  generatedAt: string;
+}
+
+export interface MissingPersonAuditResponse {
+  entries: MissingPersonAuditEntry[];
+  generatedAt: string;
+}

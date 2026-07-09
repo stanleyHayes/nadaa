@@ -33,6 +33,8 @@ const requiredTables = [
   "relief_point_stock_history",
   "aid_requests",
   "aid_pledges",
+  "missing_person_reports",
+  "missing_person_audit_entries",
 ];
 
 const requiredGeometryIndexes = [
@@ -47,6 +49,7 @@ const requiredGeometryIndexes = [
   "idx_road_closures_geometry",
   "idx_relief_points_geometry",
   "idx_aid_requests_geometry",
+  "idx_missing_person_reports_geometry",
 ];
 
 const requiredEnums = [
