@@ -1,10 +1,14 @@
-import type { ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import {
   Alert,
   Box,
   Button,
   Chip,
-  Grid,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -16,7 +20,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { KeyRound, UserPlus } from "lucide-react";
+import { KeyRound, UserPlus, X } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   AdminActionResult,
@@ -50,86 +54,115 @@ export function UserManagementPanel({
   ) => void;
   onSubmit: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+
   const nameInvalid = !form.name.trim();
   const emailInvalid = !form.email.includes("@");
   const phoneInvalid = !form.phone.startsWith("+233") || form.phone.length < 8;
   const agencyInvalid = !form.agencyId;
 
+  // Close the dialog once a create succeeds; keep it open on validation or
+  // network failure so the operator does not lose their input.
+  useEffect(() => {
+    if (actionResult?.severity === "success") {
+      setOpen(false);
+    }
+  }, [actionResult]);
+
+  const closeDialog = () => setOpen(false);
+
   return (
-    <Grid container spacing={2}>
-      <Grid size={{ xs: 12, lg: 8 }}>
-        <Paper className="surface">
-          <SectionHeader
-            eyebrow="Authority access"
-            title="Users, roles, and MFA state"
-            icon={<KeyRound size={22} color={nadaaBrand.colors.navy} />}
-          />
-          <Box
-            className="admin-table"
-            tabIndex={0}
-            aria-label="User management table, scroll horizontally on small screens"
+    <Paper className="surface">
+      <SectionHeader
+        eyebrow="Authority access"
+        title="Users, roles, and MFA state"
+        icon={<KeyRound size={22} color={nadaaBrand.colors.navy} />}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<UserPlus size={18} />}
+            onClick={() => setOpen(true)}
           >
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>User</TableCell>
-                  <TableCell>Role</TableCell>
-                  <TableCell>Agency</TableCell>
-                  <TableCell>MFA</TableCell>
-                  <TableCell>Last login</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <Typography fontWeight={800}>{user.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {user.email}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        className="role-chip"
-                        size="small"
-                        color={
-                          user.role === "system_admin" ? "primary" : "default"
-                        }
-                        label={roleLabel(user.role)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {user.agency.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {user.accessScope}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        color={user.mfaEnabled ? "success" : "warning"}
-                        label={user.mfaEnabled ? "Enabled" : "Setup pending"}
-                      />
-                    </TableCell>
-                    <TableCell>{formatDateTime(user.lastLoginAt)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        </Paper>
-      </Grid>
-      <Grid size={{ xs: 12, lg: 4 }}>
-        <Paper className="user-form">
-          <SectionHeader
-            eyebrow="Create user"
-            title="Provision authority access"
-            icon={<UserPlus size={22} color={nadaaBrand.colors.green} />}
-          />
-          <Stack spacing={1.5}>
-            {actionResult ? (
+            Create user
+          </Button>
+        }
+      />
+      {actionResult?.severity === "success" ? (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {actionResult.message}
+        </Alert>
+      ) : null}
+      <Box
+        className="admin-table"
+        tabIndex={0}
+        aria-label="User management table, scroll horizontally on small screens"
+      >
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>User</TableCell>
+              <TableCell>Role</TableCell>
+              <TableCell>Agency</TableCell>
+              <TableCell>MFA</TableCell>
+              <TableCell>Last login</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {users.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell>
+                  <Typography fontWeight={800}>{user.name}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {user.email}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    className="role-chip"
+                    size="small"
+                    color={
+                      user.role === "system_admin" ? "primary" : "default"
+                    }
+                    label={roleLabel(user.role)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2">{user.agency.name}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {user.accessScope}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    size="small"
+                    color={user.mfaEnabled ? "success" : "warning"}
+                    label={user.mfaEnabled ? "Enabled" : "Setup pending"}
+                  />
+                </TableCell>
+                <TableCell>{formatDateTime(user.lastLoginAt)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
+
+      <Dialog open={open} onClose={closeDialog} maxWidth="sm" fullWidth>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          Provision authority access
+          <IconButton aria-label="Close" size="small" onClick={closeDialog}>
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1.5} sx={{ mt: 1 }}>
+            {actionResult && actionResult.severity !== "success" ? (
               <Alert severity={actionResult.severity}>
                 {actionResult.message}
               </Alert>
@@ -203,17 +236,22 @@ export function UserManagementPanel({
                 </MenuItem>
               ))}
             </TextField>
-            <Button
-              variant="contained"
-              startIcon={<UserPlus size={18} />}
-              disabled={busy}
-              onClick={onSubmit}
-            >
-              {busy ? "Creating" : "Create user"}
-            </Button>
           </Stack>
-        </Paper>
-      </Grid>
-    </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDialog} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<UserPlus size={18} />}
+            disabled={busy}
+            onClick={onSubmit}
+          >
+            {busy ? "Creating" : "Create user"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Paper>
   );
 }
