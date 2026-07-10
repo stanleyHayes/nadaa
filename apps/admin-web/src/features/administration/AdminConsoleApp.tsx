@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { useAdminSession } from "@/app/session";
-import { adminTheme } from "@/app/theme";
+import { createAdminTheme } from "@/app/theme";
+import { useThemeMode } from "@/app/theme-mode";
 import { AdminConsoleShell } from "./AdminConsoleShell";
 import { hasAdminAccess } from "./rbac";
 import { AccessDenied } from "./components/AccessDenied";
@@ -20,6 +21,14 @@ function AdminConsoleApp() {
   const authorized = Boolean(
     session && hasAdminAccess(session.role, session.mfaCompleted),
   );
+  const mode = useThemeMode();
+
+  // Rebuild the MUI theme whenever the appearance mode or reduced-motion
+  // preference changes, so dialogs/menus/inputs match the CSS token flip.
+  const theme = useMemo(
+    () => createAdminTheme({ mode, reducedMotion: preferences.reducedMotion }),
+    [mode, preferences.reducedMotion],
+  );
 
   // Apply the admin's reduced-motion preference across the whole app.
   useEffect(() => {
@@ -32,7 +41,7 @@ function AdminConsoleApp() {
   }, [preferences.reducedMotion]);
 
   return (
-    <ThemeProvider theme={adminTheme}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       {session ? (
         authorized ? (

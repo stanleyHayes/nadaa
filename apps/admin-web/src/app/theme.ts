@@ -1,3 +1,16 @@
-import { createNadaaTheme } from "@nadaa/brand/theme";
+import { createNadaaTheme, type ThemeMode } from "@nadaa/brand/theme";
 
-export const adminTheme = createNadaaTheme({ accent: "operational" });
+/**
+ * Build the admin theme for a given appearance mode. Called from
+ * `AdminConsoleApp` inside a memo so the MUI palette tracks the light/dark
+ * toggle alongside the `--nadaa-*` CSS token flip.
+ */
+export function createAdminTheme(options: {
+  mode?: ThemeMode;
+  reducedMotion?: boolean;
+} = {}) {
+  return createNadaaTheme({ accent: "operational", ...options });
+}
+
+/** Default light theme, retained for any static consumer. */
+export const adminTheme = createAdminTheme();

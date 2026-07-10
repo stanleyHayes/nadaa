@@ -15,11 +15,14 @@ import {
   ChevronDown,
   LogOut,
   Menu as MenuIcon,
+  Moon,
   Settings,
+  Sun,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { type AdminSession } from "@/app/session";
+import { toggleThemeMode, useThemeMode } from "@/app/theme-mode";
 import type { NavItem } from "../navigation";
 import type { SettingsTab } from "../account";
 import { roleLabel } from "../utils";
@@ -76,6 +79,8 @@ export function Topbar({
   const [bellAnchor, setBellAnchor] = useState<null | HTMLElement>(null);
   const userOpen = Boolean(userAnchor);
   const bellOpen = Boolean(bellAnchor);
+  const mode = useThemeMode();
+  const isDark = mode === "dark";
 
   const openUser = (event: MouseEvent<HTMLElement>) =>
     setUserAnchor(event.currentTarget);
@@ -104,6 +109,21 @@ export function Topbar({
       </Stack>
 
       <Stack direction="row" spacing={1} alignItems="center">
+        <IconButton
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            toggleThemeMode({
+              x: rect.left + rect.width / 2,
+              y: rect.top + rect.height / 2,
+            });
+          }}
+          aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+          aria-pressed={isDark}
+          className="cc-topbar__theme"
+        >
+          {isDark ? <Sun size={19} /> : <Moon size={19} />}
+        </IconButton>
+
         <IconButton
           onClick={openBell}
           aria-label={

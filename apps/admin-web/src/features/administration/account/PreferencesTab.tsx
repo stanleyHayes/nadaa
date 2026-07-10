@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert, Box, Button, Snackbar, Stack } from "@mui/material";
 import { Rows3, Save, SlidersHorizontal, Zap } from "lucide-react";
 import type { AdminAccountPreferences } from "@/app/session";
+import { AppearanceCard } from "./AppearanceCard";
 import { PreferenceRow, SettingCard } from "./primitives";
 
 export function PreferencesTab({
@@ -62,6 +63,10 @@ export function PreferencesTab({
           </Box>
         </Stack>
       </SettingCard>
+
+      <Box sx={{ mt: 2.5 }}>
+        <AppearanceCard />
+      </Box>
 
       <Snackbar
         open={saved}
