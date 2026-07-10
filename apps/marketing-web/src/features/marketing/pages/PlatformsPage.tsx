@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
+import { PageBanner } from "../components/PageBanner";
 import { Reveal } from "../components/Reveal";
 import { coreFeatures, roleSurfaces, serviceLines } from "../data";
 
@@ -30,15 +31,11 @@ const serviceIcons = {
 export function PlatformsPage() {
   return (
     <>
-      <section className="page-head">
-        <p className="eyebrow">Platforms</p>
-        <h1>Built for each role in a response.</h1>
-        <p>
-          Five surfaces — citizen, command center, dispatch, response agency,
-          and admin — each with its own job, access model, and channels, on one
-          shared platform.
-        </p>
-      </section>
+      <PageBanner
+        eyebrow="Platforms"
+        subtitle="Five surfaces — citizen, command center, dispatch, response agency, and admin — each with its own job, access model, and channels, on one shared platform."
+        title="Built for each role in a response."
+      />
 
       <section className="content-section" aria-label="Role platforms">
         <div className="role-grid">

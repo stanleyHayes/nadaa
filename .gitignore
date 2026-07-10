@@ -31,3 +31,6 @@ __pycache__/
 .pytest_cache/
 
 services/*/server
+
+# Local demo credentials (not committed)
+credentials.txt

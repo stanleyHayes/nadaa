@@ -5,6 +5,7 @@ import {
   Lock,
   ShieldCheck,
 } from "lucide-react";
+import { PageBanner } from "../components/PageBanner";
 import { Reveal } from "../components/Reveal";
 import { StatBand } from "../components/StatBand";
 import { complianceItems, researchNotes, trustPoints } from "../data";
@@ -14,15 +15,11 @@ const complianceIcons = [Lock, Landmark, ShieldCheck, Accessibility] as const;
 export function TrustPage() {
   return (
     <>
-      <section className="page-head">
-        <p className="eyebrow">Trust &amp; compliance</p>
-        <h1>Accountable, private, and built for Ghana.</h1>
-        <p>
-          NADAA supports NADMO and Ghana's 112 service. Public-safety decisions
-          stay in human hands, personal data is minimised, and every sensitive
-          action is auditable.
-        </p>
-      </section>
+      <PageBanner
+        eyebrow="Trust & compliance"
+        subtitle="NADAA supports NADMO and Ghana's 112 service. Public-safety decisions stay in human hands, personal data is minimised, and every sensitive action is auditable."
+        title="Accountable, private, and built for Ghana."
+      />
 
       <StatBand plain />
 

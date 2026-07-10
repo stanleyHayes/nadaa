@@ -2060,3 +2060,62 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* uposa-style page banner band */
+.page-banner {
+  position: relative;
+  overflow: hidden;
+  color: var(--nadaa-text-inverse);
+  background:
+    url("/patterns/radar-rings-light.svg") no-repeat right -80px center /
+      clamp(320px, 40vw, 520px),
+    linear-gradient(
+      118deg,
+      var(--nadaa-navy),
+      color-mix(in srgb, var(--nadaa-navy) 80%, var(--nadaa-green))
+    );
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--nadaa-navy) 40%, transparent);
+}
+
+.page-banner::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--nadaa-gold),
+    color-mix(in srgb, var(--nadaa-gold) 30%, transparent)
+  );
+}
+
+.page-banner-inner {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, calc(100% - var(--nadaa-space-8)));
+  margin: 0 auto;
+  padding: clamp(52px, 8vw, 96px) 0 clamp(40px, 5vw, 60px);
+}
+
+.page-banner .eyebrow {
+  color: var(--nadaa-gold);
+}
+
+.page-banner h1 {
+  margin: var(--nadaa-space-2) 0 0;
+  color: var(--nadaa-white);
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  line-height: 1.03;
+  letter-spacing: 0;
+}
+
+.page-banner-sub {
+  max-width: 720px;
+  margin: var(--nadaa-space-4) 0 0;
+  color: color-mix(in srgb, var(--nadaa-white) 86%, transparent);
+  font-size: 1.1rem;
+  line-height: 1.7;
+}

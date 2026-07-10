@@ -1,18 +1,16 @@
 import { Mail, MapPinned, PhoneCall } from "lucide-react";
+import { PageBanner } from "../components/PageBanner";
 import { Reveal } from "../components/Reveal";
 import { contactCards } from "../data";
 
 export function ContactPage() {
   return (
     <>
-      <section className="page-head">
-        <p className="eyebrow">Contact</p>
-        <h1>Start with the right path.</h1>
-        <p>
-          Immediate emergencies belong on 112. Platform partnerships,
-          deployments, and demos belong in the onboarding lane.
-        </p>
-      </section>
+      <PageBanner
+        eyebrow="Contact"
+        subtitle="Immediate emergencies belong on 112. Platform partnerships, deployments, and demos belong in the onboarding lane."
+        title="Start with the right path."
+      />
 
       <section className="content-section" aria-label="Contact options">
         <div className="contact-grid">

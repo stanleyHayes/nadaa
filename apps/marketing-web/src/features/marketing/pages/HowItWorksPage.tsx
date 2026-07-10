@@ -1,15 +1,16 @@
 import { CheckCircle2 } from "lucide-react";
+import { PageBanner } from "../components/PageBanner";
 import { Reveal } from "../components/Reveal";
 import { differentiators, platformPositioning, responseLoop } from "../data";
 
 export function HowItWorksPage() {
   return (
     <>
-      <section className="page-head">
-        <p className="eyebrow">How it works</p>
-        <h1>One response loop, end to end.</h1>
-        <p>{platformPositioning}</p>
-      </section>
+      <PageBanner
+        eyebrow="How it works"
+        subtitle={platformPositioning}
+        title="One response loop, end to end."
+      />
 
       <section className="content-section" aria-label="Response loop">
         <ol className="loop-grid loop-grid--full">
