@@ -787,7 +787,7 @@ body {
 
 .cc-metric__value {
   margin-top: 4px;
-  font-size: clamp(2.2rem, 4vw, 3rem);
+  font-size: clamp(2.9rem, 5.5vw, 4.25rem);
   font-weight: 800;
   line-height: 1.02;
   letter-spacing: -0.02em;
