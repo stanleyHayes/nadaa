@@ -1422,3 +1422,519 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==================================================================
+ * Multi-page: motion primitives, parallax hero, stats, page heads,
+ * sign-up, CTA bands, and light-background section variants.
+ * ================================================================== */
+
+.reveal {
+  opacity: 0;
+  transition:
+    opacity 0.65s ease,
+    transform 0.65s cubic-bezier(0.2, 0.7, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.reveal--up {
+  transform: translateY(30px);
+}
+
+.reveal--3d {
+  transform: perspective(1200px) rotateX(14deg) translateY(42px);
+  transform-origin: center top;
+}
+
+.reveal--scale {
+  transform: scale(0.94);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none;
+  }
+}
+
+/* Parallax hero media layer */
+.hero-section {
+  background-image: none;
+  background-color: var(--nadaa-navy);
+}
+
+.hero-media {
+  position: absolute;
+  inset: -9% 0;
+  z-index: 0;
+  background: url("/media/hero-ghana-dawn.png") center / cover no-repeat;
+  will-change: transform;
+}
+
+.hero-shade {
+  z-index: 1;
+}
+
+.hero-content {
+  z-index: 2;
+}
+
+/* Footer nav */
+.site-footer .footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nadaa-space-4);
+}
+
+.site-footer .footer-nav a {
+  color: var(--nadaa-navy);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.site-footer .footer-nav a:hover {
+  color: var(--nadaa-green);
+}
+
+/* Stats band with animated counters */
+.stats-band {
+  width: min(1180px, calc(100% - var(--nadaa-space-8)));
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 44px) 0;
+}
+
+.stats-inner {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--nadaa-space-4);
+}
+
+.stat-tile {
+  border: 1px solid var(--nadaa-border-subtle);
+  border-radius: var(--nadaa-radius-lg);
+  padding: clamp(18px, 3vw, 26px);
+  background: var(--nadaa-white);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--nadaa-navy) 5%, transparent);
+}
+
+.stat-tile strong {
+  display: block;
+  color: var(--nadaa-navy);
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile span {
+  display: block;
+  margin-top: var(--nadaa-space-3);
+  color: var(--nadaa-text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.stats-band--plain .stat-tile {
+  box-shadow: none;
+}
+
+/* Inline "see more" section link */
+.section-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: clamp(22px, 3vw, 32px);
+  color: var(--nadaa-green);
+  font-weight: 800;
+}
+
+.section-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Role teaser cards (home) */
+.role-teaser-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--nadaa-space-3);
+}
+
+.role-teaser {
+  border: 1px solid var(--nadaa-border-subtle);
+  border-radius: var(--nadaa-radius-md);
+  padding: 20px;
+  background: var(--nadaa-white);
+}
+
+.role-teaser h3 {
+  margin: 0 0 var(--nadaa-space-2);
+  font-size: 1.12rem;
+}
+
+.role-teaser p {
+  margin: 0;
+  color: var(--nadaa-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* CTA band */
+.cta-band {
+  width: min(1180px, calc(100% - var(--nadaa-space-8)));
+  margin: 0 auto;
+  padding: clamp(40px, 6vw, 72px) 0;
+}
+
+.cta-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 48px);
+  padding: clamp(28px, 5vw, 52px);
+  border-radius: var(--nadaa-radius-xl, 18px);
+  color: var(--nadaa-text-inverse);
+  background:
+    url("/patterns/radar-rings-light.svg") no-repeat right -40px center / 360px,
+    linear-gradient(
+      120deg,
+      var(--nadaa-navy),
+      color-mix(in srgb, var(--nadaa-navy) 80%, var(--nadaa-green))
+    );
+}
+
+.cta-card .eyebrow {
+  color: var(--nadaa-gold);
+}
+
+.cta-card h2 {
+  margin: var(--nadaa-space-2) 0 var(--nadaa-space-3);
+  color: var(--nadaa-white);
+  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
+  line-height: 1.05;
+}
+
+.cta-card p {
+  margin: 0;
+  color: color-mix(in srgb, var(--nadaa-white) 84%, transparent);
+  line-height: 1.6;
+}
+
+.cta-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nadaa-space-3);
+}
+
+.ghost-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--nadaa-space-2);
+  min-height: 44px;
+  padding: 0 var(--nadaa-space-4);
+  border-radius: var(--nadaa-radius-md);
+  color: var(--nadaa-white);
+  font-weight: 800;
+  border: 1px solid color-mix(in srgb, var(--nadaa-white) 40%, transparent);
+  background: color-mix(in srgb, var(--nadaa-white) 10%, transparent);
+}
+
+/* Inner page heads */
+.page-head {
+  width: min(1180px, calc(100% - var(--nadaa-space-8)));
+  margin: 0 auto;
+  padding: clamp(44px, 7vw, 84px) 0 clamp(8px, 2vw, 20px);
+}
+
+.page-head h1 {
+  margin: var(--nadaa-space-2) 0 0;
+  color: var(--nadaa-navy);
+  font-size: clamp(2.4rem, 6vw, 4.2rem);
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.page-head p {
+  max-width: 720px;
+  margin: var(--nadaa-space-4) 0 0;
+  color: var(--nadaa-text-secondary);
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+.loop-grid--full {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Light-background variants of the trust/compliance/research cards */
+.compliance-grid--light {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compliance-card--light {
+  border-color: var(--nadaa-border-subtle);
+  background: var(--nadaa-white);
+}
+
+.compliance-card--light svg {
+  color: var(--nadaa-green);
+}
+
+.compliance-card--light h3 {
+  color: var(--nadaa-navy);
+}
+
+.compliance-card--light p {
+  color: var(--nadaa-text-secondary);
+}
+
+.trust-points--light {
+  margin-top: clamp(24px, 4vw, 36px);
+}
+
+.trust-points--light li {
+  color: var(--nadaa-text-secondary);
+}
+
+.trust-points--light svg {
+  color: var(--nadaa-green);
+}
+
+.research-grid--light .research-card--light {
+  border-color: var(--nadaa-border-subtle);
+  background: var(--nadaa-white);
+}
+
+.research-card--light svg {
+  color: var(--nadaa-red);
+}
+
+.research-card--light h3 {
+  color: var(--nadaa-navy);
+}
+
+.research-card--light p {
+  color: var(--nadaa-text-secondary);
+}
+
+.research-card--light a {
+  color: var(--nadaa-green);
+}
+
+/* Citizen sign-up */
+.signup-section {
+  width: min(1120px, calc(100% - var(--nadaa-space-8)));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: start;
+  padding: clamp(44px, 7vw, 84px) 0 clamp(56px, 8vw, 96px);
+}
+
+.signup-copy h1 {
+  margin: var(--nadaa-space-2) 0 0;
+  color: var(--nadaa-navy);
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  line-height: 1.05;
+}
+
+.signup-copy > p {
+  margin: var(--nadaa-space-4) 0 0;
+  color: var(--nadaa-text-secondary);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.signup-points {
+  display: grid;
+  gap: var(--nadaa-space-4);
+  margin: var(--nadaa-space-6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signup-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--nadaa-text-secondary);
+  line-height: 1.55;
+}
+
+.signup-points svg {
+  color: var(--nadaa-green);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.signup-form {
+  display: grid;
+  gap: var(--nadaa-space-4);
+  padding: clamp(24px, 4vw, 36px);
+  border: 1px solid var(--nadaa-border-subtle);
+  border-radius: var(--nadaa-radius-lg);
+  background: var(--nadaa-white);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--nadaa-space-3);
+}
+
+.field label {
+  color: var(--nadaa-navy);
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 18%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  background: var(--nadaa-white);
+  color: var(--nadaa-text-primary);
+}
+
+.field select {
+  padding: 0 10px;
+}
+
+.field input:focus-visible,
+.field select:focus-visible {
+  outline: var(--nadaa-focus-outline);
+  outline-offset: 1px;
+  border-color: var(--nadaa-navy);
+}
+
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"] {
+  border-color: var(--nadaa-red);
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--nadaa-text-secondary);
+  font-size: 0.82rem;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--nadaa-emergency-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.field-consent label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-weight: 500;
+  color: var(--nadaa-text-secondary);
+  line-height: 1.5;
+}
+
+.field-consent input {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--nadaa-navy);
+}
+
+.signup-submit {
+  justify-content: center;
+  width: 100%;
+  color: var(--nadaa-text-inverse);
+  background: var(--nadaa-navy);
+}
+
+.signup-done {
+  grid-column: 1 / -1;
+  max-width: 620px;
+  margin: 0 auto;
+  text-align: center;
+  padding: clamp(20px, 4vw, 40px) 0;
+}
+
+.signup-done-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  margin-bottom: var(--nadaa-space-4);
+  border-radius: 50%;
+  color: var(--nadaa-green);
+  background: color-mix(in srgb, var(--nadaa-green) 14%, var(--nadaa-white));
+}
+
+.signup-done h1 {
+  margin: var(--nadaa-space-2) 0 0;
+  color: var(--nadaa-navy);
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.signup-done > p {
+  max-width: 520px;
+  margin: var(--nadaa-space-4) auto 0;
+  color: var(--nadaa-text-secondary);
+  line-height: 1.7;
+}
+
+.signup-done .hero-actions {
+  justify-content: center;
+  margin-top: var(--nadaa-space-6);
+}
+
+.signup-done .ghost-action {
+  color: var(--nadaa-navy);
+  border-color: color-mix(in srgb, var(--nadaa-navy) 20%, transparent);
+  background: var(--nadaa-white);
+}
+
+@media (max-width: 900px) {
+  .stats-inner {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .role-teaser-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cta-card,
+  .signup-section {
+    grid-template-columns: 1fr;
+  }
+
+  .compliance-grid--light {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .loop-grid--full,
+  .role-teaser-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}
