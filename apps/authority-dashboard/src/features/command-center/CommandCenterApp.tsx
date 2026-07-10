@@ -92,6 +92,7 @@ import DamageClaimsPanel from "./DamageClaimsPanel";
 import { ImageryPanel } from "./ImageryPanel";
 import { FloodSimulationPanel } from "./FloodSimulationPanel";
 import { CVEvidencePanel } from "./CVEvidencePanel";
+import { ResourcePositioningPanel } from "./ResourcePositioningPanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -1924,6 +1925,8 @@ function CommandCenterApp() {
               <FloodSimulationPanel />
 
               <CVEvidencePanel />
+
+              <ResourcePositioningPanel />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">

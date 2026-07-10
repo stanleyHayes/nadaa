@@ -484,11 +484,40 @@ body {
   min-height: 320px;
 }
 
+.forecast-panel {
+  border-top: 6px solid var(--nadaa-info);
+}
+
+.forecast-map-frame {
+  position: relative;
+  height: 280px;
+  margin-top: var(--nadaa-space-3);
+  overflow: hidden;
+  border-radius: var(--nadaa-radius-md);
+  border: 1px solid var(--nadaa-border);
+  background: var(--nadaa-border);
+}
+
+.forecast-map {
+  position: absolute;
+  inset: 0;
+  min-height: 280px;
+}
+
+.forecast-row {
+  padding: var(--nadaa-space-3);
+  border-radius: var(--nadaa-radius-md);
+  border: 1px solid var(--nadaa-border);
+  background: var(--nadaa-surface-subtle, var(--nadaa-mist));
+}
+
 @media (max-width: 760px) {
   .route-map-frame,
   .route-map,
   .simulation-map-frame,
-  .simulation-map {
+  .simulation-map,
+  .forecast-map-frame,
+  .forecast-map {
     height: 220px;
     min-height: 220px;
   }
