@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Drawer } from "@mui/material";
-import { signOutAuthority, type AuthoritySession } from "@/app/session";
+import { Settings } from "lucide-react";
+import {
+  signOutAuthority,
+  useAuthoritySession,
+  type AuthoritySession,
+} from "@/app/session";
 import { useCommandData } from "./useCommandData";
 import {
   DEFAULT_VIEW,
@@ -8,10 +13,12 @@ import {
   isViewId,
   navItemById,
   type BadgeKey,
+  type NavItem,
   type ViewId,
 } from "./navigation";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar, type CommandNotification } from "./components/Topbar";
+import { AccountSettings, type SettingsTab } from "./account";
 import { OverviewView } from "./components/views/OverviewView";
 import { IncidentsView } from "./components/views/IncidentsView";
 import { AlertsView } from "./components/views/AlertsView";
@@ -20,6 +27,16 @@ import { ForecastingView } from "./components/views/ForecastingView";
 import { EvidenceView } from "./components/views/EvidenceView";
 import { RecoveryView } from "./components/views/RecoveryView";
 import { PreparednessView } from "./components/views/PreparednessView";
+
+/** Synthetic nav item so the topbar can title the settings view. */
+const SETTINGS_NAV_ITEM: NavItem = {
+  id: DEFAULT_VIEW,
+  label: "Settings",
+  description: "Manage your profile, security, notifications and preferences",
+  icon: Settings,
+};
+
+type ShellView = ViewId | "settings";
 
 const VIEW_KEY = "nadaa.authority.view";
 const COLLAPSE_KEY = "nadaa.authority.sidebar.collapsed";
@@ -41,11 +58,22 @@ function readInitialCollapsed(): boolean {
 
 export function CommandCenterShell({ session }: { session: AuthoritySession }) {
   const data = useCommandData();
-  const [activeView, setActiveView] = useState<ViewId>(readInitialView);
+  const {
+    preferences,
+    updateProfile,
+    updatePreferences,
+    setMfaEnabled,
+    changePassword,
+  } = useAuthoritySession();
+  const [activeView, setActiveView] = useState<ShellView>(readInitialView);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [collapsed, setCollapsed] = useState<boolean>(readInitialCollapsed);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
+    if (activeView === "settings") {
+      return;
+    }
     try {
       window.localStorage.setItem(VIEW_KEY, activeView);
     } catch {
@@ -126,10 +154,20 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
     setMobileNavOpen(false);
   };
 
+  const openSettings = (tab: SettingsTab) => {
+    setSettingsTab(tab);
+    setActiveView("settings");
+    setMobileNavOpen(false);
+  };
+
   const handleSignOut = () => {
     setMobileNavOpen(false);
     signOutAuthority();
   };
+
+  const isSettings = activeView === "settings";
+  const topbarView = isSettings ? SETTINGS_NAV_ITEM : navItemById(activeView);
+  const topbarGroup = isSettings ? "Account" : groupLabelForView(activeView);
 
   const renderView = () => {
     switch (activeView) {
@@ -147,6 +185,19 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
         return <RecoveryView />;
       case "preparedness":
         return <PreparednessView />;
+      case "settings":
+        return (
+          <AccountSettings
+            tab={settingsTab}
+            onTabChange={setSettingsTab}
+            user={session}
+            preferences={preferences}
+            onUpdateProfile={updateProfile}
+            onUpdatePreferences={updatePreferences}
+            onSetMfaEnabled={setMfaEnabled}
+            onChangePassword={changePassword}
+          />
+        );
       case "overview":
       default:
         return (
@@ -188,11 +239,12 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
 
       <div className="cc-main">
         <Topbar
-          view={navItemById(activeView)}
-          groupLabel={groupLabelForView(activeView)}
+          view={topbarView}
+          groupLabel={topbarGroup}
           session={session}
           notifications={notifications}
           onSignOut={handleSignOut}
+          onOpenSettings={openSettings}
           onOpenMobileNav={() => setMobileNavOpen(true)}
         />
         <main id="main-content" className="cc-content" tabIndex={-1}>

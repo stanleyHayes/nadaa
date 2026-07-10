@@ -10,9 +10,19 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { Bell, ChevronDown, LogOut, Menu as MenuIcon } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  LogOut,
+  Menu as MenuIcon,
+  Settings,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import { roleLabels, type AuthoritySession } from "@/app/session";
 import type { NavItem } from "../navigation";
+import type { SettingsTab } from "../account";
+import { initials } from "../account/primitives";
 import { Eyebrow } from "./primitives";
 
 export type CommandNotification = {
@@ -22,9 +32,26 @@ export type CommandNotification = {
   tone: "gold" | "red" | "green";
 };
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "NA";
+function MenuRow({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}) {
+  return (
+    <>
+      <Icon size={16} aria-hidden style={{ marginTop: 2, flex: "0 0 auto" }} />
+      <span style={{ display: "flex", minWidth: 0, flexDirection: "column" }}>
+        <span className="cc-menu__name" style={{ fontSize: "0.88rem" }}>
+          {title}
+        </span>
+        <span className="cc-menu__sub">{description}</span>
+      </span>
+    </>
+  );
 }
 
 export function Topbar({
@@ -33,6 +60,7 @@ export function Topbar({
   session,
   notifications,
   onSignOut,
+  onOpenSettings,
   onOpenMobileNav,
 }: {
   view: NavItem;
@@ -40,6 +68,7 @@ export function Topbar({
   session: AuthoritySession;
   notifications: CommandNotification[];
   onSignOut: () => void;
+  onOpenSettings: (tab: SettingsTab) => void;
   onOpenMobileNav: () => void;
 }) {
   const [userAnchor, setUserAnchor] = useState<null | HTMLElement>(null);
@@ -160,12 +189,49 @@ export function Topbar({
         <MenuItem
           onClick={() => {
             setUserAnchor(null);
+            onOpenSettings("profile");
+          }}
+          sx={{ alignItems: "flex-start", gap: 1.5, px: 2, py: 1.25 }}
+        >
+          <MenuRow
+            icon={UserRound}
+            title="Profile"
+            description="View and edit your account details"
+          />
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setUserAnchor(null);
+            onOpenSettings("security");
+          }}
+          sx={{ alignItems: "flex-start", gap: 1.5, px: 2, py: 1.25 }}
+        >
+          <MenuRow
+            icon={Settings}
+            title="Settings"
+            description="Security, notifications, and preferences"
+          />
+        </MenuItem>
+        <Divider component="li" />
+        <MenuItem
+          onClick={() => {
+            setUserAnchor(null);
             onSignOut();
           }}
-          className="cc-menu__signout"
+          sx={{
+            alignItems: "flex-start",
+            gap: 1.5,
+            px: 2,
+            py: 1.25,
+            color: "var(--nadaa-red, #e53935)",
+            "& .cc-menu__name": { color: "inherit" },
+          }}
         >
-          <LogOut size={16} />
-          Sign out
+          <MenuRow
+            icon={LogOut}
+            title="Sign out"
+            description="End your session on this device"
+          />
         </MenuItem>
       </Menu>
     </header>

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { hasCommandAccess, useAuthoritySession } from "@/app/session";
 import { authorityTheme } from "@/app/theme";
@@ -11,8 +12,18 @@ import { SignInScreen } from "./components/SignInScreen";
  * loads its data once access is granted.
  */
 function CommandCenterApp() {
-  const session = useAuthoritySession();
+  const { session, preferences } = useAuthoritySession();
   const authorized = hasCommandAccess(session);
+
+  // Apply the operator's reduced-motion preference across the whole app.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (preferences.reducedMotion) {
+      root.setAttribute("data-nadaa-reduced-motion", "reduce");
+    } else {
+      root.removeAttribute("data-nadaa-reduced-motion");
+    }
+  }, [preferences.reducedMotion]);
 
   return (
     <ThemeProvider theme={authorityTheme}>

@@ -1135,7 +1135,7 @@ body {
 
 .cc-metric__value {
   margin-top: 4px;
-  font-size: clamp(2.2rem, 4vw, 3rem);
+  font-size: clamp(2.9rem, 5.5vw, 4.25rem);
   font-weight: 800;
   line-height: 1.02;
   letter-spacing: -0.02em;
@@ -1768,4 +1768,14 @@ body {
   .cc-auth__panel {
     padding: 24px 16px 40px;
   }
+}
+
+/* Operator-selected reduced-motion preference (Settings -> Preferences). */
+:root[data-nadaa-reduced-motion="reduce"] *,
+:root[data-nadaa-reduced-motion="reduce"] *::before,
+:root[data-nadaa-reduced-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
