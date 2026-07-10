@@ -1,32 +1,32 @@
 const targets = [
   [
     "marketing-web",
-    localURL("LOCAL_MARKETING_URL", "http://127.0.0.1:5172/"),
+    localURL("LOCAL_MARKETING_URL", "http://127.0.0.1:5200/"),
     "NADAA Marketing",
   ],
   [
     "citizen-web",
-    localURL("LOCAL_CITIZEN_URL", "http://127.0.0.1:5173/"),
+    localURL("LOCAL_CITIZEN_URL", "http://127.0.0.1:5201/"),
     "NADAA Citizen",
   ],
   [
     "authority-dashboard",
-    localURL("LOCAL_AUTHORITY_URL", "http://127.0.0.1:5174/"),
+    localURL("LOCAL_AUTHORITY_URL", "http://127.0.0.1:5202/"),
     "NADAA Authority Dashboard",
   ],
   [
     "dispatcher-web",
-    localURL("LOCAL_DISPATCHER_URL", "http://127.0.0.1:5175/"),
+    localURL("LOCAL_DISPATCHER_URL", "http://127.0.0.1:5203/"),
     "NADAA Dispatch Command",
   ],
   [
     "admin-web",
-    localURL("LOCAL_ADMIN_URL", "http://127.0.0.1:5176/"),
+    localURL("LOCAL_ADMIN_URL", "http://127.0.0.1:5204/"),
     "NADAA Admin Console",
   ],
   [
     "agency-web",
-    localURL("LOCAL_AGENCY_URL", "http://127.0.0.1:5177/"),
+    localURL("LOCAL_AGENCY_URL", "http://127.0.0.1:5205/"),
     "NADAA Agency Operations",
   ],
 ];

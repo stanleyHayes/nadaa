@@ -1,7 +1,7 @@
 const url =
   process.env.MARKETING_URL?.trim() ||
   process.env.LOCAL_MARKETING_URL?.trim() ||
-  "http://127.0.0.1:5172/";
+  "http://127.0.0.1:5200/";
 
 const response = await fetch(url);
 if (!response.ok) {

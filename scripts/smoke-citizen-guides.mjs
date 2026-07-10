@@ -1,7 +1,7 @@
 const guideURL =
   process.env.GUIDE_API_URL?.trim() || "http://127.0.0.1:8086/api/v1";
 const citizenURL =
-  process.env.CITIZEN_WEB_URL?.trim() || "http://127.0.0.1:5173";
+  process.env.CITIZEN_WEB_URL?.trim() || "http://127.0.0.1:5201";
 
 const offlineGuides = await fetch(
   `${guideURL}/guides?offline=true&language=en`,
