@@ -51,11 +51,25 @@ export function SiteFooter() {
         </nav>
       </div>
 
-      <p className="footer-emergency">
-        <PhoneCall aria-hidden="true" size={15} />
-        In a life-threatening emergency, always call 112 first. NADAA supports
-        NADMO and Ghana's 112 service — it does not replace it.
-      </p>
+      <div className="footer-emergency" role="note">
+        <span className="footer-emergency-badge" aria-hidden="true">
+          <PhoneCall size={20} />
+        </span>
+        <div className="footer-emergency-copy">
+          <strong>In a life-threatening emergency, call 112 first.</strong>
+          <span>
+            NADAA supports NADMO and Ghana's 112 service — it does not replace
+            it.
+          </span>
+        </div>
+        <a
+          className="footer-emergency-call"
+          href={marketingLinks.emergencyPhone}
+        >
+          <PhoneCall aria-hidden="true" size={18} />
+          Call 112
+        </a>
+      </div>
 
       <div className="footer-legal">
         <small>
