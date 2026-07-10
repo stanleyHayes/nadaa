@@ -4,6 +4,7 @@ import type {
   IntegrationContractListResponse,
 } from "@nadaa/shared-types";
 import { adminHeaders } from "@/app/session";
+import { handleUnauthorized } from "@/app/http";
 import { buildAlertRulesFromAlerts, dataSourceFromContract } from "./utils";
 import {
   ALERT_API_BASE,
@@ -16,6 +17,7 @@ export async function fetchAuditLogs(signal?: AbortSignal) {
     headers: adminHeaders(),
     signal,
   });
+  handleUnauthorized(response);
   if (!response.ok) {
     throw new Error(`audit API returned ${response.status}`);
   }
@@ -31,6 +33,7 @@ export async function fetchDataSources(signal?: AbortSignal) {
       signal,
     },
   );
+  handleUnauthorized(response);
   if (!response.ok) {
     throw new Error(`integration API returned ${response.status}`);
   }
@@ -44,6 +47,7 @@ export async function fetchAlertRules(signal?: AbortSignal) {
     headers: adminHeaders(),
     signal,
   });
+  handleUnauthorized(response);
   if (!response.ok) {
     throw new Error(`alert API returned ${response.status}`);
   }

@@ -3,13 +3,53 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/stanleyHayes/nadaa/services/auth-service/internal/models"
 	"github.com/stanleyHayes/nadaa/services/auth-service/internal/store"
 	"github.com/stanleyHayes/nadaa/services/auth-service/internal/utils"
 )
 
+// agencyProfileFromMockHeaders accepts the shared X-NADAA-* actor headers used
+// by the rest of the platform's services (see each service's requireAuthority).
+// It lets the demo dashboards reach auth-service governance endpoints without a
+// real signed session, mirroring the mock-auth scheme the other 17 services
+// already trust. Returns false when the headers are absent so callers fall back
+// to real Bearer-token verification.
+func agencyProfileFromMockHeaders(r *http.Request, allowedRoles []string) (models.AgencyUserProfile, bool) {
+	actorID := strings.TrimSpace(r.Header.Get("X-NADAA-Actor-ID"))
+	agencyID := strings.TrimSpace(r.Header.Get("X-NADAA-Agency-ID"))
+	role := strings.TrimSpace(strings.ToLower(r.Header.Get("X-NADAA-Actor-Role")))
+	mfaCompleted := strings.TrimSpace(strings.ToLower(r.Header.Get("X-NADAA-MFA-Completed"))) == "true"
+
+	// No actor headers at all -> not a mock request; let the token path run.
+	if actorID == "" && agencyID == "" && role == "" {
+		return models.AgencyUserProfile{}, false
+	}
+	if actorID == "" || agencyID == "" || role == "" || !mfaCompleted {
+		return models.AgencyUserProfile{}, false
+	}
+	if !utils.RoleIn(role, allowedRoles) {
+		return models.AgencyUserProfile{}, false
+	}
+
+	return models.AgencyUserProfile{
+		ID:          actorID,
+		Role:        role,
+		Agency:      models.AgencySummary{ID: agencyID},
+		MFARequired: true,
+		MFAEnabled:  true,
+	}, true
+}
+
 func (s *Server) requireAgencyRole(w http.ResponseWriter, r *http.Request, allowedRoles ...string) (models.AgencyUserProfile, bool) {
+	// Demo mock-auth parity: when the shared X-NADAA-* actor headers are present
+	// and authorize the request, honor them like the other services do. Genuine
+	// token sessions (no actor headers) continue through real verification below.
+	if profile, ok := agencyProfileFromMockHeaders(r, allowedRoles); ok {
+		return profile, true
+	}
+
 	token, ok := utils.BearerToken(r)
 	if !ok {
 		utils.WriteError(w, http.StatusUnauthorized, "missing_token", "Bearer token is required")

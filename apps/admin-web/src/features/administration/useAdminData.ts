@@ -5,6 +5,7 @@ import type {
 } from "@nadaa/shared-types";
 import { AUTH_API_BASE } from "@/app/config";
 import { adminHeaders } from "@/app/session";
+import { handleUnauthorized } from "@/app/http";
 import { fetchAlertRules, fetchAuditLogs, fetchDataSources } from "./api";
 import { defaultUserForm } from "./data";
 import type {
@@ -115,6 +116,7 @@ export function useAdminData() {
         headers: adminHeaders(),
         body: JSON.stringify(userForm),
       });
+      handleUnauthorized(response);
       if (!response.ok) {
         throw new Error(`auth API returned ${response.status}`);
       }
