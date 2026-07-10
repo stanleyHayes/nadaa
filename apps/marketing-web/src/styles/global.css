@@ -300,7 +300,7 @@ textarea {
 .hero-metrics strong {
   display: block;
   color: var(--nadaa-red);
-  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-size: clamp(2rem, 4vw, 3rem);
   line-height: 1;
 }
 
