@@ -13,9 +13,6 @@ export function SiteLayout() {
 
   return (
     <div className="site-shell">
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
       <SiteHeader />
       <main id="main-content">
         {/* Keyed on the path so each navigation remounts and replays the

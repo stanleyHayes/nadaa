@@ -89,9 +89,6 @@ export function CitizenLayout() {
 
   return (
     <div className="citizen-app-shell">
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
 
       <div className="citizen-utility">
         <span className="citizen-utility__org">

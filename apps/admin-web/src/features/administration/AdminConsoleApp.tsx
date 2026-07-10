@@ -48,17 +48,11 @@ function AdminConsoleApp() {
           <AdminConsoleShell session={session} />
         ) : (
           <>
-            <a href="#main-content" className="skip-link">
-              Skip to main content
-            </a>
             <AccessDenied session={session} />
           </>
         )
       ) : (
         <>
-          <a href="#main-content" className="skip-link">
-            Skip to main content
-          </a>
           <SignInScreen />
         </>
       )}
