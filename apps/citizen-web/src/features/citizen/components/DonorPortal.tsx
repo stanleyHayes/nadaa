@@ -11,7 +11,14 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { HandHeart, HeartHandshake, Loader2, RefreshCw } from "lucide-react";
+import {
+  HandHeart,
+  HeartHandshake,
+  Loader2,
+  Package,
+  PackageOpen,
+  RefreshCw,
+} from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   AidCatalogListResponse,
@@ -26,6 +33,7 @@ import { DONATION_API_BASE } from "@/app/config";
 import { useCitizenSession } from "../session";
 import { DataTable, type DataTableColumn, type DataTableFilter } from "./DataTable";
 import { DetailDialog, type DetailField } from "./DetailDialog";
+import { EmptyState } from "./EmptyState";
 import { FormDialogButton } from "./FormDialogButton";
 
 const fallbackCatalog: AidCatalogRecord[] = [
@@ -870,6 +878,14 @@ export function DonorPortal() {
             searchPlaceholder="Search aid requests"
             filters={requestFilters}
             emptyMessage="No aid requests match your filters."
+            emptyState={
+              <EmptyState
+                icon={PackageOpen}
+                tone="green"
+                title="No aid requests"
+                description="No open aid requests match your search right now."
+              />
+            }
             onRowClick={setDetailRequest}
           />
         </Box>
@@ -887,6 +903,14 @@ export function DonorPortal() {
             filters={catalogFilters}
             pageSize={5}
             emptyMessage="No catalog items match your filters."
+            emptyState={
+              <EmptyState
+                icon={Package}
+                tone="green"
+                title="No catalog items"
+                description="Nothing matches your search."
+              />
+            }
           />
         </Box>
       </Stack>

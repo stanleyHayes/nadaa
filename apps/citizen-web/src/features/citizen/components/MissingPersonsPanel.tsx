@@ -18,7 +18,13 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { HeartHandshake, Loader2, Search, UserPlus } from "lucide-react";
+import {
+  HeartHandshake,
+  Loader2,
+  Search,
+  UserPlus,
+  UserSearch,
+} from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   CreateMissingPersonRequest,
@@ -30,6 +36,7 @@ import { MISSING_PERSON_API_BASE } from "@/app/config";
 import { useCitizenSession } from "../session";
 import { DataTable, type DataTableColumn } from "./DataTable";
 import { DetailDialog, type DetailField } from "./DetailDialog";
+import { EmptyState } from "./EmptyState";
 import { FormDialogButton } from "./FormDialogButton";
 
 // Report-form messaging, kept separate from the public data-load Alert so a
@@ -455,6 +462,14 @@ export default function MissingPersonsPanel() {
             },
           ]}
           emptyMessage="No approved public cases match this search."
+          emptyState={
+            <EmptyState
+              icon={UserSearch}
+              tone="gold"
+              title="No matching cases"
+              description="No approved public cases match your search — try a different name or clear the filters."
+            />
+          }
           onRowClick={setDetail}
           toolbarActions={
             <FormDialogButton

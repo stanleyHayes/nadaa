@@ -13,6 +13,7 @@ export {
 } from "./DataTable";
 export { FormDialogButton } from "./FormDialogButton";
 export { DetailDialog, type DetailField } from "./DetailDialog";
+export { EmptyState } from "./EmptyState";
 export { AnimatedCounter } from "./AnimatedCounter";
 export { CitizenHeader } from "./CitizenHeader";
 export { EmergencyBand } from "./EmergencyBand";

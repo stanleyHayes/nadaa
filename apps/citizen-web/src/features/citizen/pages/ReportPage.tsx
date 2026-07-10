@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import {
   BookmarkCheck,
+  FileText,
   ImagePlus,
   Loader2,
   LocateFixed,
@@ -53,6 +54,7 @@ import { useCitizenSession, type SavedReport } from "../session";
 import {
   DataTable,
   type DataTableColumn,
+  EmptyState,
   FormDialogButton,
   DetailDialog,
   type DetailField,
@@ -710,6 +712,14 @@ export function ReportPage() {
                   }
                   searchPlaceholder="Search your reports"
                   emptyMessage="You haven't submitted any reports yet."
+                  emptyState={
+                    <EmptyState
+                      icon={FileText}
+                      tone="navy"
+                      title="No reports yet"
+                      description="When you report an incident, a copy is saved here so you can track its status."
+                    />
+                  }
                 />
               </Stack>
             </Reveal>

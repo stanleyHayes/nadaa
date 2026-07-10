@@ -42,6 +42,9 @@ type DataTableProps<T> = {
   filters?: DataTableFilter<T>[];
   pageSize?: number;
   emptyMessage?: string;
+  /** Rich empty content (e.g. <EmptyState/>) shown when there are no rows;
+   * falls back to the emptyMessage text. */
+  emptyState?: ReactNode;
   toolbarActions?: ReactNode;
   /** When set, rows become clickable (and keyboard-activatable) and this fires
    * with the row — used to open a detail dialog or navigate to a detail page. */
@@ -62,6 +65,7 @@ export function DataTable<T>({
   filters = [],
   pageSize = 8,
   emptyMessage = "No records to show.",
+  emptyState,
   toolbarActions,
   onRowClick,
 }: DataTableProps<T>) {
@@ -173,10 +177,15 @@ export function DataTable<T>({
           <TableBody>
             {pageRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length}>
-                  <Typography sx={{ py: 3, color: "text.secondary" }} align="center">
-                    {emptyMessage}
-                  </Typography>
+                <TableCell colSpan={columns.length} sx={{ borderBottom: 0 }}>
+                  {emptyState ?? (
+                    <Typography
+                      align="center"
+                      sx={{ py: 3, color: "text.secondary" }}
+                    >
+                      {emptyMessage}
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             ) : (

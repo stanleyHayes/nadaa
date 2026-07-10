@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
-import { Loader2, Megaphone, RefreshCw } from "lucide-react";
+import { Loader2, Megaphone, RefreshCw, ShieldCheck } from "lucide-react";
 import type {
   CitizenAlertFeedItem,
   CitizenAlertFeedResponse,
@@ -11,6 +11,7 @@ import {
   AnimatedCounter,
   DataTable,
   DetailDialog,
+  EmptyState,
   PageHeader,
   Reveal,
   type DataTableColumn,
@@ -321,6 +322,14 @@ function AlertsFeed() {
           searchPlaceholder="Search warnings, area, or hazard"
           filters={alertFilters}
           emptyMessage="No approved alerts match your search."
+          emptyState={
+            <EmptyState
+              icon={ShieldCheck}
+              tone="green"
+              title="No active warnings"
+              description="No approved alerts match your search — that's good news."
+            />
+          }
           onRowClick={setDetailAlert}
         />
 

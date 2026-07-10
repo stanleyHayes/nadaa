@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { HazardType } from "@nadaa/shared-types";
 import {
   DataTable,
+  EmptyState,
   PageHeader,
   type DataTableColumn,
 } from "../../components";
@@ -94,6 +95,14 @@ export function AccountReports() {
         }
         searchPlaceholder="Search by reference or hazard"
         emptyMessage="You haven't filed any reports yet — filing one keeps a copy here."
+        emptyState={
+          <EmptyState
+            icon={FileText}
+            tone="navy"
+            title="No reports yet"
+            description="File a report and a copy is kept here so you can follow its status."
+          />
+        }
         pageSize={8}
       />
     </Stack>

@@ -1871,3 +1871,80 @@ body {
     transform: none;
   }
 }
+
+/* Empty states — a gently animated icon badge over title/description/action. */
+.empty-state__icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  color: var(--nadaa-navy);
+  background: color-mix(in srgb, var(--nadaa-navy) 8%, var(--nadaa-white));
+  animation: empty-float 3.4s ease-in-out infinite;
+}
+
+.empty-state[data-tone="gold"] .empty-state__icon {
+  color: color-mix(in srgb, var(--nadaa-gold) 70%, var(--nadaa-ink));
+  background: color-mix(in srgb, var(--nadaa-gold) 16%, var(--nadaa-white));
+}
+
+.empty-state[data-tone="green"] .empty-state__icon {
+  color: var(--nadaa-green);
+  background: color-mix(in srgb, var(--nadaa-green) 12%, var(--nadaa-white));
+}
+
+.empty-state__icon::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--nadaa-gold) 55%, transparent);
+  animation: empty-halo 2.8s ease-out infinite;
+}
+
+.empty-state[data-tone="green"] .empty-state__icon::before {
+  border-color: color-mix(in srgb, var(--nadaa-green) 45%, transparent);
+}
+
+.empty-state__title {
+  font-weight: 800;
+  color: var(--nadaa-navy);
+}
+
+@keyframes empty-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes empty-halo {
+  0% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  70% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-state__icon,
+  .empty-state__icon::before {
+    animation: none;
+  }
+  .empty-state__icon::before {
+    opacity: 0.4;
+  }
+}
