@@ -18,7 +18,7 @@ import type {
   PublicMissingPersonListResponse,
   PublicMissingPersonRecord,
 } from "@nadaa/shared-types";
-import { MISSING_PERSON_API_BASE } from "../../app/config";
+import { MISSING_PERSON_API_BASE } from "@/app/config";
 
 type LoadState = "loading" | "ready" | "fallback" | "error";
 

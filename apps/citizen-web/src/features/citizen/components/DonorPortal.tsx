@@ -22,7 +22,7 @@ import type {
   CreatePledgeRequest,
   DonorRecord,
 } from "@nadaa/shared-types";
-import { DONATION_API_BASE } from "../../app/config";
+import { DONATION_API_BASE } from "@/app/config";
 
 const fallbackCatalog: AidCatalogRecord[] = [
   {

@@ -23,8 +23,8 @@ import type {
   RoutePlanResponse,
   RouteWaypointType,
 } from "@nadaa/shared-types";
-import { ROUTE_API_BASE } from "../../app/config";
-import { extractAPIError, formatDateTime, formatDistance } from "./utils";
+import { ROUTE_API_BASE } from "@/app/config";
+import { extractAPIError, formatDateTime, formatDistance } from "../utils";
 
 type PlannerStatus =
   | { status: "idle"; message?: string }

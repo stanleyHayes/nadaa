@@ -22,8 +22,8 @@ import type {
   DamageClaimRecord,
   DamageType,
 } from "@nadaa/shared-types";
-import { DAMAGE_CLAIM_API_BASE } from "../../app/config";
-import { extractAPIError } from "./utils";
+import { DAMAGE_CLAIM_API_BASE } from "@/app/config";
+import { extractAPIError } from "../utils";
 
 const damageTypeOptions: { label: string; value: DamageType }[] = [
   { label: "Structural", value: "structural" },
