@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { hasCommandAccess, useDispatcherSession } from "@/app/session";
-import { dispatcherTheme } from "@/app/theme";
+import { createDispatcherTheme } from "@/app/theme";
+import { useThemeMode } from "@/app/theme-mode";
 import { DispatchCommandShell } from "./DispatchCommandShell";
 import { SignInScreen } from "./components/SignInScreen";
 
@@ -14,6 +15,15 @@ import { SignInScreen } from "./components/SignInScreen";
 function DispatcherCommandApp() {
   const { session, preferences } = useDispatcherSession();
   const authorized = hasCommandAccess(session);
+  const mode = useThemeMode();
+
+  // Rebuild the MUI theme whenever the appearance mode or reduced-motion
+  // preference changes, so dialogs/menus/inputs match the CSS token flip.
+  const theme = useMemo(
+    () =>
+      createDispatcherTheme({ mode, reducedMotion: preferences.reducedMotion }),
+    [mode, preferences.reducedMotion],
+  );
 
   // Apply the controller's reduced-motion preference across the whole app.
   useEffect(() => {
@@ -26,7 +36,7 @@ function DispatcherCommandApp() {
   }, [preferences.reducedMotion]);
 
   return (
-    <ThemeProvider theme={dispatcherTheme}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       {authorized && session ? (
         <DispatchCommandShell session={session} />
