@@ -2069,6 +2069,8 @@ Lists all cached CV analysis results.
 
 ## Resource Planning
 
+Served by `ml-service` (default `:8094`). Demand forecasts and staging suggestions are produced by the deterministic `resource-forecast-rules-0.1.0` model over the NADAA-070 flood-risk feature grid (historical reports, rainfall forecast, composite risk, and vulnerable population). All endpoints are read-only decision support; there are no deployment-action endpoints.
+
 ### List Demand Forecasts
 
 `GET /api/v1/forecasts`
@@ -2095,8 +2097,8 @@ Response:
       "factors": [
         {
           "name": "historical_incidents",
-          "label": "Historical incidents (90d)",
-          "value": 36,
+          "label": "Historical flood reports (30d)",
+          "value": 10,
           "weight": 0.35,
           "direction": "increases_demand"
         }

@@ -179,6 +179,17 @@ function riskColor(riskLevel: string): string {
   );
 }
 
+// escapeHtml guards Leaflet popups, which render their string content as HTML,
+// against injection from API-provided labels.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function ResourcePositioningPanel() {
   const [forecasts, setForecasts] =
     useState<DemandForecast[]>(fallbackForecasts);
@@ -602,7 +613,7 @@ function StagingMap({ staging }: { staging: StagingSuggestion[] }) {
         },
       );
       marker.bindPopup(
-        `<strong>${suggestion.locationLabel}</strong><br/>${suggestion.agencyType} · ${suggestion.recommendedUnits} unit(s)<br/>Confidence: ${suggestion.confidence}`,
+        `<strong>${escapeHtml(suggestion.locationLabel)}</strong><br/>${escapeHtml(suggestion.agencyType)} · ${suggestion.recommendedUnits} unit(s)<br/>Confidence: ${escapeHtml(suggestion.confidence)}`,
       );
       marker.addTo(group);
     }
