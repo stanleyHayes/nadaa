@@ -9,10 +9,11 @@ import { useSyncExternalStore } from "react";
  * reactively, and any submission surface can open the sign-in dialog.
  *
  * Signed-in citizens also get a small account area (dashboard, report history,
- * notifications, profile, password, preferences). The editable profile lives on
- * the session itself; preferences and the mock notifications feed are persisted
- * under their own versioned keys. Everything here is local-only — there is no
- * backend auth yet, so `changePassword` is a validation-only mock.
+ * notifications, profile, security, preferences). The editable profile — and the
+ * multi-factor toggle — live on the session itself; preferences and the mock
+ * notifications feed are persisted under their own versioned keys. Everything
+ * here is local-only — there is no backend auth yet, so `changePassword` and
+ * `setMfaEnabled` are mocks that only flip local state.
  */
 
 /** How the citizen prefers to be reached about their reports. */
@@ -27,6 +28,8 @@ export type CitizenSession = {
   /** Optional profile fields the citizen can add from the account area. */
   email?: string;
   contactChannel?: ContactChannel;
+  /** Whether multi-factor authentication is on for this account (default off). */
+  mfaEnabled?: boolean;
 };
 
 /** Editable profile fields (everything on the session except the join date). */
@@ -373,6 +376,23 @@ export function changeCitizenPassword(
   return { ok: true };
 }
 
+/**
+ * Enable or disable multi-factor authentication for the signed-in citizen. The
+ * flag is stored on the session (persisted under SESSION_KEY, like the profile
+ * fields) and every subscriber is notified. This is a mock like
+ * `changeCitizenPassword` — there is no authenticator backend yet, so it only
+ * flips local state so the account UI can reflect it.
+ * // TODO: wire to real MFA API
+ */
+export function setCitizenMfaEnabled(enabled: boolean) {
+  if (!state.session) {
+    return;
+  }
+  const session: CitizenSession = { ...state.session, mfaEnabled: enabled };
+  writeJSON(SESSION_KEY, session);
+  setState({ session });
+}
+
 /** Mark a single notification as read (persists). */
 export function markCitizenNotificationRead(id: string) {
   const notifications = state.notifications.map((item) =>
@@ -404,8 +424,8 @@ export function closeSignIn() {
 /**
  * Subscribe to the shared citizen session. Any component can read `session`,
  * gate a submission on it, and call `requestSignIn()` to open the dialog. The
- * account area additionally reads `preferences` / `notifications` and calls the
- * profile / preferences / password / notification actions.
+ * account area additionally reads `preferences` / `notifications` / `mfaEnabled`
+ * and calls the profile / preferences / password / MFA / notification actions.
  */
 export function useCitizenSession() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -414,6 +434,8 @@ export function useCitizenSession() {
     savedReports: snapshot.savedReports,
     preferences: snapshot.preferences,
     notifications: snapshot.notifications,
+    /** Multi-factor state for the signed-in citizen (false when signed out). */
+    mfaEnabled: snapshot.session?.mfaEnabled ?? false,
     signInOpen: snapshot.signInOpen,
     signIn: signInCitizen,
     signOut: signOutCitizen,
@@ -421,6 +443,7 @@ export function useCitizenSession() {
     updateProfile: updateCitizenProfile,
     updatePreferences: updateCitizenPreferences,
     changePassword: changeCitizenPassword,
+    setMfaEnabled: setCitizenMfaEnabled,
     markNotificationRead: markCitizenNotificationRead,
     markAllRead: markAllCitizenNotificationsRead,
     requestSignIn,

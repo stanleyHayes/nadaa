@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Box, Paper, Stack, Tab, Tabs } from "@mui/material";
-import { KeyRound, SlidersHorizontal, UserCog } from "lucide-react";
+import { ShieldCheck, SlidersHorizontal, UserCog } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
 import { useCitizenSession } from "../../session";
 import {
   AppearanceCard,
+  MfaCard,
   PasswordForm,
   PreferencesForm,
   ProfileForm,
@@ -19,13 +20,14 @@ type SettingsTab = {
 
 const SETTINGS_TABS: SettingsTab[] = [
   { key: "profile", label: "Profile", icon: UserCog },
-  { key: "password", label: "Password", icon: KeyRound },
+  { key: "security", label: "Security", icon: ShieldCheck },
   { key: "preferences", label: "Preferences", icon: SlidersHorizontal },
 ];
 
 /**
  * Settings (route `/account/settings`) with three in-page sections switched by
- * MUI tabs: edit profile, change password, and alert preferences.
+ * MUI tabs: edit profile, security (multi-factor auth + change password), and
+ * alert preferences.
  */
 export function AccountSettings() {
   const { session, preferences } = useCitizenSession();
@@ -41,7 +43,7 @@ export function AccountSettings() {
         <PageHeader
           icon={UserCog}
           title="Settings"
-          subtitle="Keep your details, password and alert preferences up to date."
+          subtitle="Keep your details, account security and alert preferences up to date."
           tone="navy"
           as="h2"
         />
@@ -79,12 +81,17 @@ export function AccountSettings() {
           {active === 0 ? <ProfileForm session={session} /> : null}
         </div>
         <div
-          aria-labelledby="settings-tab-password"
+          aria-labelledby="settings-tab-security"
           hidden={active !== 1}
-          id="settings-panel-password"
+          id="settings-panel-security"
           role="tabpanel"
         >
-          {active === 1 ? <PasswordForm /> : null}
+          {active === 1 ? (
+            <Stack spacing={3}>
+              <MfaCard />
+              <PasswordForm />
+            </Stack>
+          ) : null}
         </div>
         <div
           aria-labelledby="settings-tab-preferences"
