@@ -36,6 +36,7 @@
     "smoke:missing-person": "node scripts/smoke-missing-person.mjs",
     "smoke:damage-claim": "node scripts/smoke-damage-claim.mjs",
     "smoke:flood-simulation": "node scripts/smoke-flood-simulation.mjs",
+    "smoke:predictive-positioning": "node scripts/smoke-predictive-positioning.mjs",
     "smoke:relief": "node scripts/smoke-relief.mjs",
     "smoke:citizen-mobile": "node scripts/smoke-citizen-mobile.mjs",
     "smoke:dispatcher-mobile": "node scripts/smoke-dispatcher-mobile.mjs",
