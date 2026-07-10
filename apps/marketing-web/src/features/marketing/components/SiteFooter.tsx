@@ -1,7 +1,96 @@
-import { HeartHandshake, PhoneCall } from "lucide-react";
+import {
+  FileWarning,
+  HeartHandshake,
+  House,
+  Landmark,
+  LayoutGrid,
+  type LucideIcon,
+  Mail,
+  PhoneCall,
+  Radar,
+  ShieldCheck,
+  UserPlus,
+  Workflow,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { nadaaBrand } from "@nadaa/brand";
 import { marketingLinks } from "@/app/config";
+
+type FooterLink = {
+  label: string;
+  icon: LucideIcon;
+  to?: string;
+  href?: string;
+  external?: boolean;
+};
+
+const footerColumns: { heading: string; links: FooterLink[] }[] = [
+  {
+    heading: "Platform",
+    links: [
+      { label: "Platforms", to: "/platforms", icon: LayoutGrid },
+      { label: "How it works", to: "/how-it-works", icon: Workflow },
+      { label: "Trust & compliance", to: "/trust", icon: ShieldCheck },
+      { label: "Sign up", to: "/signup", icon: UserPlus },
+    ],
+  },
+  {
+    heading: "Get help",
+    links: [
+      { label: "Check my risk", href: marketingLinks.citizenWeb, icon: Radar },
+      { label: "Find a shelter", href: marketingLinks.citizenWeb, icon: House },
+      {
+        label: "Report an incident",
+        href: marketingLinks.citizenWeb,
+        icon: FileWarning,
+      },
+      {
+        label: "Emergency — call 112",
+        href: marketingLinks.emergencyPhone,
+        icon: PhoneCall,
+      },
+    ],
+  },
+  {
+    heading: "Organisation",
+    links: [
+      { label: "Contact", to: "/contact", icon: Mail },
+      {
+        label: "Partnerships & demos",
+        href: marketingLinks.partnerMail,
+        icon: HeartHandshake,
+      },
+      {
+        label: "NADMO",
+        href: "https://www.nadmo.gov.gh/",
+        external: true,
+        icon: Landmark,
+      },
+    ],
+  },
+];
+
+function FooterItem({ link }: { link: FooterLink }) {
+  const Icon = link.icon;
+  const content = (
+    <>
+      <Icon aria-hidden="true" size={16} />
+      {link.label}
+    </>
+  );
+  if (link.to) {
+    return <Link to={link.to}>{content}</Link>;
+  }
+  return (
+    <a
+      href={link.href}
+      rel={link.external ? "noreferrer" : undefined}
+      target={link.external ? "_blank" : undefined}
+    >
+      {content}
+    </a>
+  );
+}
 
 export function SiteFooter() {
   return (
@@ -25,30 +114,18 @@ export function SiteFooter() {
           </a>
         </div>
 
-        <nav aria-label="Platform" className="footer-col">
-          <h3>Platform</h3>
-          <Link to="/platforms">Platforms</Link>
-          <Link to="/how-it-works">How it works</Link>
-          <Link to="/trust">Trust &amp; compliance</Link>
-          <Link to="/signup">Sign up</Link>
-        </nav>
-
-        <nav aria-label="Get help" className="footer-col">
-          <h3>Get help</h3>
-          <a href={marketingLinks.citizenWeb}>Check my risk</a>
-          <a href={marketingLinks.citizenWeb}>Find a shelter</a>
-          <a href={marketingLinks.citizenWeb}>Report an incident</a>
-          <a href={marketingLinks.emergencyPhone}>Emergency — call 112</a>
-        </nav>
-
-        <nav aria-label="Organisation" className="footer-col">
-          <h3>Organisation</h3>
-          <Link to="/contact">Contact</Link>
-          <a href={marketingLinks.partnerMail}>Partnerships &amp; demos</a>
-          <a href="https://www.nadmo.gov.gh/" rel="noreferrer" target="_blank">
-            NADMO
-          </a>
-        </nav>
+        {footerColumns.map((column) => (
+          <nav
+            aria-label={column.heading}
+            className="footer-col"
+            key={column.heading}
+          >
+            <h3>{column.heading}</h3>
+            {column.links.map((link) => (
+              <FooterItem key={link.label} link={link} />
+            ))}
+          </nav>
+        ))}
       </div>
 
       <div className="footer-emergency" role="note">

@@ -2198,3 +2198,20 @@ textarea {
     justify-content: center;
   }
 }
+
+/* Footer link icons */
+.site-footer .footer-col a {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.site-footer .footer-col a svg {
+  flex-shrink: 0;
+  color: var(--nadaa-green);
+  transition: color 150ms ease;
+}
+
+.site-footer .footer-col a:hover svg {
+  color: var(--nadaa-navy);
+}
