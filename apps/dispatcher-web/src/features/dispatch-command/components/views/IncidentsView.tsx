@@ -54,6 +54,7 @@ export function IncidentsView({ data }: { data: DispatchData }) {
     filterOptions,
     updateFilter,
     loadState,
+    loadMessage,
     refreshIncidents,
     selectedIncident,
     setSelectedIncidentId,
@@ -115,7 +116,9 @@ export function IncidentsView({ data }: { data: DispatchData }) {
               ? "Live API"
               : loadState === "empty"
                 ? "No active incidents"
-                : "Fixture mode"}
+                : loadState === "loading"
+                  ? "Connecting"
+                  : "Feed unavailable"}
           </span>
           <Button
             variant="outlined"
@@ -374,6 +377,12 @@ export function IncidentsView({ data }: { data: DispatchData }) {
       {loadState === "empty" ? (
         <Alert severity="info" className="feed-alert">
           No incidents are currently in the command queue.
+        </Alert>
+      ) : null}
+
+      {loadState === "error" ? (
+        <Alert severity="warning" className="feed-alert">
+          {loadMessage}
         </Alert>
       ) : null}
     </Stack>

@@ -90,7 +90,7 @@ export function HospitalCapacityPanel({
                   ? "Loading"
                   : loadState === "empty"
                     ? "No matches"
-                    : "Fixture capacity"
+                    : "Unavailable"
             }
             color={
               loadState === "ready"

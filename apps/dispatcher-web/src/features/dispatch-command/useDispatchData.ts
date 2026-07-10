@@ -35,9 +35,6 @@ import { dispatcherHeaders } from "@/app/session";
 import {
   defaultFilters,
   defaultHospitalCapacityFilters,
-  fallbackAlerts,
-  fallbackHospitalFacilities,
-  fallbackIncidents,
   fallbackMLPredictions,
   fallbackTriageSuggestion,
   predictionReviewPoints,
@@ -86,37 +83,6 @@ import {
   triageSuggestionFromResponse,
 } from "./utils";
 
-function matchesHospitalCapacityFilters(
-  facility: HospitalCapacityRecord,
-  filters: HospitalCapacityFilterState,
-) {
-  if (!filters.includeStale && facility.stale) {
-    return false;
-  }
-  if (
-    filters.emergencyCapacity !== "all" &&
-    facility.emergencyCapacity !== filters.emergencyCapacity
-  ) {
-    return false;
-  }
-  if (
-    filters.service !== "all" &&
-    !facility.services.some((service) => service === filters.service)
-  ) {
-    return false;
-  }
-  const minAvailableBeds = Number.parseInt(filters.minAvailableBeds, 10);
-  if (
-    Number.isFinite(minAvailableBeds) &&
-    !Number.isNaN(minAvailableBeds) &&
-    minAvailableBeds > 0 &&
-    facility.availableBeds < minAvailableBeds
-  ) {
-    return false;
-  }
-  return true;
-}
-
 /**
  * Central dispatch-console state container. Holds every incident, alert, ML
  * prediction, triage suggestion, hospital capacity, road closure, and relief
@@ -124,47 +90,42 @@ function matchesHospitalCapacityFilters(
  * routes between views without losing state or re-fetching.
  */
 export function useDispatchData() {
-  const [incidents, setIncidents] =
-    useState<CommandIncident[]>(fallbackIncidents);
+  const [incidents, setIncidents] = useState<CommandIncident[]>([]);
   const [loadState, setLoadState] = useState<IncidentLoadState>("loading");
   const [loadMessage, setLoadMessage] = useState("Loading incident feed");
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
-  const [selectedIncidentId, setSelectedIncidentId] = useState(
-    fallbackIncidents[0]?.id ?? "",
-  );
+  const [selectedIncidentId, setSelectedIncidentId] = useState("");
   const [statusBusy, setStatusBusy] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState("");
   const [statusForm, setStatusForm] = useState<IncidentStatusFormState>(
-    buildDefaultStatusForm(fallbackIncidents[0]),
+    buildDefaultStatusForm(),
   );
   const [abuseBusy, setAbuseBusy] = useState(false);
   const [abuseFeedback, setAbuseFeedback] = useState("");
   const [abuseForm, setAbuseForm] = useState<AbuseReviewFormState>(
-    buildDefaultAbuseReviewForm(fallbackIncidents[0]),
+    buildDefaultAbuseReviewForm(),
   );
   const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [assignmentFeedback, setAssignmentFeedback] = useState("");
   const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(
-    buildDefaultAssignmentForm(fallbackIncidents[0]),
+    buildDefaultAssignmentForm(),
   );
   const [duplicateReviewCandidates, setDuplicateReviewCandidates] = useState<
     DuplicateReviewCandidate[]
-  >(duplicateReviewCandidatesFor(fallbackIncidents[0], fallbackIncidents));
+  >([]);
   const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<string[]>(
-    duplicateReviewCandidatesFor(fallbackIncidents[0], fallbackIncidents).map(
-      (candidate) => candidate.incident.id,
-    ),
+    [],
   );
   const [mergeBusy, setMergeBusy] = useState(false);
   const [mergeFeedback, setMergeFeedback] = useState("");
-  const [alerts, setAlerts] = useState<AuthorityAlertRecord[]>(fallbackAlerts);
+  const [alerts, setAlerts] = useState<AuthorityAlertRecord[]>([]);
   const [alertLoadState, setAlertLoadState] =
     useState<AlertLoadState>("loading");
   const [alertMessage, setAlertMessage] = useState("Loading alert workflow");
   const [alertBusy, setAlertBusy] = useState(false);
   const [alertFeedback, setAlertFeedback] = useState("");
   const [alertForm, setAlertForm] = useState<AlertFormState>(
-    buildDefaultAlertForm(fallbackIncidents[0]),
+    buildDefaultAlertForm(),
   );
   const [mlPredictions, setMlPredictions] = useState<MLPredictionReview[]>(
     fallbackMLPredictions,
@@ -184,7 +145,7 @@ export function useDispatchData() {
   >({});
   const [triageSuggestion, setTriageSuggestion] = useState<
     TriageSuggestionReview | undefined
-  >(fallbackTriageSuggestion(fallbackIncidents[0]!));
+  >(undefined);
   const [triageLoadState, setTriageLoadState] =
     useState<TriageLoadState>("loading");
   const [triageMessage, setTriageMessage] = useState(
@@ -193,12 +154,12 @@ export function useDispatchData() {
   const [triageBusy, setTriageBusy] = useState(false);
   const [triageFeedback, setTriageFeedback] = useState("");
   const [triageForm, setTriageForm] = useState<TriageSuggestionFormState>(
-    buildDefaultTriageForm(fallbackTriageSuggestion(fallbackIncidents[0]!)),
+    buildDefaultTriageForm(),
   );
   const triageAbortRef = useRef<AbortController | null>(null);
   const [hospitalFacilities, setHospitalFacilities] = useState<
     HospitalCapacityRecord[]
-  >(fallbackHospitalFacilities);
+  >([]);
   const [hospitalLoadState, setHospitalLoadState] =
     useState<CapacityLoadState>("loading");
   const [hospitalMessage, setHospitalMessage] = useState(
@@ -251,10 +212,12 @@ export function useDispatchData() {
         return;
       }
 
-      setIncidents(fallbackIncidents);
-      setSelectedIncidentId(fallbackIncidents[0]?.id ?? "");
-      setLoadState("fallback");
-      setLoadMessage("Incident API unavailable. Showing command fixture data.");
+      setIncidents([]);
+      setSelectedIncidentId("");
+      setLoadState("error");
+      setLoadMessage(
+        "Incident API unavailable. Could not load the incident feed.",
+      );
     }
   };
 
@@ -286,9 +249,11 @@ export function useDispatchData() {
         return;
       }
 
-      setAlerts(fallbackAlerts);
-      setAlertLoadState("fallback");
-      setAlertMessage("Alert API unavailable. Showing approval fixture data.");
+      setAlerts([]);
+      setAlertLoadState("error");
+      setAlertMessage(
+        "Alert API unavailable. Could not load the alert workflow.",
+      );
     }
   };
 
@@ -382,14 +347,20 @@ export function useDispatchData() {
       }
 
       const incident = incidents.find((item) => item.id === incidentId);
-      const fallback = incident
-        ? fallbackTriageSuggestion(incident)
-        : fallbackTriageSuggestion(fallbackIncidents[0]!);
+      if (!incident) {
+        setTriageSuggestion(undefined);
+        setTriageForm(buildDefaultTriageForm());
+        setTriageLoadState("error");
+        setTriageMessage("Incident triage API unavailable.");
+        return;
+      }
+
+      const fallback = fallbackTriageSuggestion(incident);
       setTriageSuggestion(fallback);
       setTriageForm(buildDefaultTriageForm(fallback));
       setTriageLoadState("fallback");
       setTriageMessage(
-        "Incident triage API unavailable. Showing rule-based fixture suggestion.",
+        "Incident triage API unavailable. Showing rule-based suggestion.",
       );
     }
   };
@@ -421,17 +392,8 @@ export function useDispatchData() {
     );
   }, [mlPredictions, selectedPredictionId]);
 
-  const filteredFallbackHospitalFacilities = useMemo(
-    () =>
-      fallbackHospitalFacilities.filter((facility) =>
-        matchesHospitalCapacityFilters(facility, hospitalFilters),
-      ),
-    [hospitalFilters],
-  );
-
   const refreshHospitalCapacity = async (signal?: AbortSignal) => {
-    const anchor = selectedIncident?.location ??
-      fallbackIncidents[0]?.location ?? { lat: 5.56, lng: -0.2 };
+    const anchor = selectedIncident?.location ?? { lat: 5.56, lng: -0.2 };
     const params = new URLSearchParams({
       includeStale: String(hospitalFilters.includeStale),
       lat: String(anchor.lat),
@@ -483,10 +445,10 @@ export function useDispatchData() {
         return;
       }
 
-      setHospitalFacilities(filteredFallbackHospitalFacilities);
+      setHospitalFacilities([]);
       setHospitalLoadState("fallback");
       setHospitalMessage(
-        "Hospital capacity API unavailable. Showing facility capacity fixtures.",
+        "Hospital capacity API unavailable. Could not load facility capacity.",
       );
     }
   };
@@ -524,7 +486,6 @@ export function useDispatchData() {
     void refreshHospitalCapacity(controller.signal);
     return () => controller.abort();
   }, [
-    filteredFallbackHospitalFacilities,
     hospitalFilters.emergencyCapacity,
     hospitalFilters.includeStale,
     hospitalFilters.minAvailableBeds,

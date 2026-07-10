@@ -117,7 +117,13 @@ export function OverviewView({
   ];
 
   const feedLabel =
-    loadState === "ready" ? "Live" : loadState === "empty" ? "Idle" : "Fixture";
+    loadState === "ready"
+      ? "Live"
+      : loadState === "empty"
+        ? "Idle"
+        : loadState === "loading"
+          ? "Loading"
+          : "Offline";
 
   return (
     <Stack spacing={2.5} className="cc-overview">
@@ -289,7 +295,7 @@ export function OverviewView({
             <Stack spacing={1.25}>
               <StatusLine
                 label="Incident feed"
-                value={loadState === "ready" ? "Live" : "Fixture"}
+                value={loadState === "ready" ? "Live" : "Offline"}
                 color={loadState === "ready" ? "success" : "warning"}
               />
               <StatusLine
@@ -303,7 +309,7 @@ export function OverviewView({
             <Stack spacing={1.25}>
               <StatusLine
                 label="Hospital capacity"
-                value={hospitalLoadState === "ready" ? "Live" : "Fixture"}
+                value={hospitalLoadState === "ready" ? "Live" : "Offline"}
                 color={hospitalLoadState === "ready" ? "success" : "warning"}
               />
               <StatusLine

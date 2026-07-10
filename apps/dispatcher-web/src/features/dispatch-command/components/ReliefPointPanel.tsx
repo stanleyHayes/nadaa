@@ -58,7 +58,7 @@ export function ReliefPointPanel({
                   ? "Loading"
                   : loadState === "empty"
                     ? "No matches"
-                    : "Fixture relief points"
+                    : "Unavailable"
             }
             color={
               loadState === "ready"

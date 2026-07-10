@@ -137,12 +137,12 @@ export function DispatchCommandShell({
         tone: "gold",
       });
     }
-    if (data.loadState === "fallback") {
+    if (data.loadState === "error") {
       list.push({
-        id: "feed-fixture",
-        title: "Incident feed on fixtures",
-        detail: "Live incident API is unavailable; showing command fixtures.",
-        tone: "gold",
+        id: "feed-error",
+        title: "Incident feed unavailable",
+        detail: "Live incident API could not be reached.",
+        tone: "red",
       });
     }
     return list;
