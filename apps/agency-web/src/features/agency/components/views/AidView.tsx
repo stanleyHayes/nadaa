@@ -1,5 +1,17 @@
-import { Alert, Button, Grid, Paper, Stack, Typography } from "@mui/material";
-import { Download, HandHeart } from "lucide-react";
+import { useState } from "react";
+import {
+  Alert,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
+import { Download, HandHeart, X } from "lucide-react";
 import type { AgencyData } from "../../useAgencyData";
 import { ViewIntro } from "../primitives";
 import {
@@ -17,6 +29,7 @@ export function AidView({ data }: { data: AgencyData }) {
     selectedAidRequest,
     selectedAidRequestId,
     selectAidRequest,
+    deselectAidRequest,
     aidForm,
     setAidForm,
     aidLoadState,
@@ -28,6 +41,25 @@ export function AidView({ data }: { data: AgencyData }) {
     handleNewAidRequest,
     handleAidExport,
   } = data;
+
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const openReview = (aidRequestId: string) => {
+    selectAidRequest(aidRequestId);
+    setDetailOpen(true);
+  };
+
+  const openCreate = () => {
+    handleNewAidRequest();
+    setDetailOpen(true);
+  };
+
+  const closeDetail = () => {
+    setDetailOpen(false);
+    deselectAidRequest();
+  };
 
   return (
     <Stack spacing={2.5}>
@@ -45,7 +77,7 @@ export function AidView({ data }: { data: AgencyData }) {
               Export CSV
             </Button>
             <Button
-              onClick={handleNewAidRequest}
+              onClick={openCreate}
               startIcon={<HandHeart size={18} />}
               variant="contained"
             >
@@ -67,88 +99,106 @@ export function AidView({ data }: { data: AgencyData }) {
           onRetry={loadAidRequests}
         />
       ) : (
-        <Grid container spacing={2.5} alignItems="flex-start">
-          <Grid size={{ xs: 12, lg: 5 }}>
-            <Stack spacing={2}>
-              {aidRequests.length === 0 ? (
-                <EmptyState message="No donation or aid needs have been created yet." />
-              ) : (
-                aidRequests.map((request) => (
-                  <AidRequestCard
-                    key={request.id}
-                    onSelect={() => selectAidRequest(request.id)}
-                    request={request}
-                    selected={selectedAidRequestId === request.id}
-                  />
-                ))
-              )}
-            </Stack>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 7 }}>
-            <Stack spacing={2.5}>
-              <Paper sx={{ p: 3 }}>
-                <Typography fontWeight={800} gutterBottom variant="h6">
-                  {selectedAidRequest ? "Review aid need" : "Create aid need"}
-                </Typography>
-                <AidRequestForm
-                  form={aidForm}
-                  onChange={setAidForm}
-                  onSubmit={handleCreateAidRequest}
-                  submitLabel={
-                    aidUpdateState === "loading"
-                      ? "Saving..."
-                      : "Create for review"
-                  }
-                />
-                {selectedAidRequest ? (
-                  <Stack direction="row" flexWrap="wrap" gap={1} mt={2}>
-                    <Button
-                      disabled={aidUpdateState === "loading"}
-                      onClick={() => void handleReviewAidRequest("approved")}
-                      size="small"
-                      variant="contained"
-                    >
-                      Approve listing
-                    </Button>
-                    <Button
-                      disabled={aidUpdateState === "loading"}
-                      onClick={() => void handleReviewAidRequest("paused")}
-                      size="small"
-                      variant="outlined"
-                    >
-                      Pause
-                    </Button>
-                    <Button
-                      disabled={aidUpdateState === "loading"}
-                      onClick={() => void handleReviewAidRequest("closed")}
-                      size="small"
-                      variant="outlined"
-                    >
-                      Close
-                    </Button>
-                  </Stack>
-                ) : null}
-                {aidUpdateState === "success" ? (
-                  <Alert severity="success" sx={{ mt: 2 }}>
-                    Aid coordination record saved.
-                  </Alert>
-                ) : null}
-                {aidUpdateState === "error" && aidError ? (
-                  <Alert severity="error" sx={{ mt: 2 }}>
-                    {aidError}
-                  </Alert>
-                ) : null}
-              </Paper>
-              <Paper sx={{ p: 3 }}>
-                <Typography fontWeight={800} gutterBottom variant="h6">
-                  Partner pledges
-                </Typography>
-                <AidPledgeList pledges={selectedAidRequest?.pledges ?? []} />
-              </Paper>
-            </Stack>
-          </Grid>
-        </Grid>
+        <Stack spacing={2}>
+          {aidRequests.length === 0 ? (
+            <EmptyState message="No donation or aid needs have been created yet." />
+          ) : (
+            aidRequests.map((request) => (
+              <AidRequestCard
+                key={request.id}
+                onSelect={() => openReview(request.id)}
+                request={request}
+                selected={selectedAidRequestId === request.id}
+              />
+            ))
+          )}
+        </Stack>
       )}
+
+      <Dialog
+        open={detailOpen}
+        onClose={closeDetail}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+        fullScreen={fullScreen}
+        aria-labelledby="aid-detail-title"
+      >
+        <DialogTitle
+          id="aid-detail-title"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          <span>
+            {selectedAidRequest ? selectedAidRequest.title : "Create aid need"}
+          </span>
+          <IconButton
+            aria-label="Close aid need"
+            onClick={closeDetail}
+            size="small"
+          >
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2.5}>
+            <Stack spacing={2}>
+              <AidRequestForm
+                form={aidForm}
+                onChange={setAidForm}
+                onSubmit={handleCreateAidRequest}
+                submitLabel={
+                  aidUpdateState === "loading" ? "Saving..." : "Create for review"
+                }
+              />
+              {selectedAidRequest ? (
+                <Stack direction="row" flexWrap="wrap" gap={1}>
+                  <Button
+                    disabled={aidUpdateState === "loading"}
+                    onClick={() => void handleReviewAidRequest("approved")}
+                    size="small"
+                    variant="contained"
+                  >
+                    Approve listing
+                  </Button>
+                  <Button
+                    disabled={aidUpdateState === "loading"}
+                    onClick={() => void handleReviewAidRequest("paused")}
+                    size="small"
+                    variant="outlined"
+                  >
+                    Pause
+                  </Button>
+                  <Button
+                    disabled={aidUpdateState === "loading"}
+                    onClick={() => void handleReviewAidRequest("closed")}
+                    size="small"
+                    variant="outlined"
+                  >
+                    Close
+                  </Button>
+                </Stack>
+              ) : null}
+              {aidUpdateState === "success" ? (
+                <Alert severity="success">Aid coordination record saved.</Alert>
+              ) : null}
+              {aidUpdateState === "error" && aidError ? (
+                <Alert severity="error">{aidError}</Alert>
+              ) : null}
+            </Stack>
+            <Stack spacing={1}>
+              <Typography fontWeight={800} variant="h6">
+                Partner pledges
+              </Typography>
+              <AidPledgeList pledges={selectedAidRequest?.pledges ?? []} />
+            </Stack>
+          </Stack>
+        </DialogContent>
+      </Dialog>
     </Stack>
   );
 }

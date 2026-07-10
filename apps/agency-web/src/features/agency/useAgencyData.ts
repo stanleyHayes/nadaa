@@ -532,14 +532,32 @@ export function useAgencyData(session: AgencySession) {
     setStatusUpdateError(null);
   }
 
+  function deselectIncident() {
+    setSelectedIncidentId(null);
+    setStatusUpdateState("idle");
+    setStatusUpdateError(null);
+  }
+
   function selectReliefPoint(reliefPointId: string) {
     setSelectedReliefPointId(reliefPointId);
     setReliefUpdateState("idle");
     setReliefError(null);
   }
 
+  function deselectReliefPoint() {
+    setSelectedReliefPointId(null);
+    setReliefUpdateState("idle");
+    setReliefError(null);
+  }
+
   function selectAidRequest(aidRequestId: string) {
     setSelectedAidRequestId(aidRequestId);
+    setAidUpdateState("idle");
+    setAidError(null);
+  }
+
+  function deselectAidRequest() {
+    setSelectedAidRequestId(null);
     setAidUpdateState("idle");
     setAidError(null);
   }
@@ -784,6 +802,7 @@ export function useAgencyData(session: AgencySession) {
     selectedIncidentId,
     selectedIncident,
     selectIncident,
+    deselectIncident,
     loadIncidents,
     // Status update
     statusForm,
@@ -814,6 +833,7 @@ export function useAgencyData(session: AgencySession) {
     reliefError,
     loadReliefPoints,
     selectReliefPoint,
+    deselectReliefPoint,
     handleSaveReliefPoint,
     handleNewReliefPoint,
     // Aid
@@ -827,6 +847,7 @@ export function useAgencyData(session: AgencySession) {
     aidError,
     loadAidRequests,
     selectAidRequest,
+    deselectAidRequest,
     handleCreateAidRequest,
     handleReviewAidRequest,
     handleNewAidRequest,

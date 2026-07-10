@@ -1,5 +1,17 @@
-import { Alert, Box, Grid, Paper, Stack, Typography } from "@mui/material";
-import { Activity, ClipboardList, ShieldAlert, Truck } from "lucide-react";
+import {
+  Alert,
+  Box,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  IconButton,
+  Stack,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
+import { Activity, ClipboardList, ShieldAlert, Truck, X } from "lucide-react";
 import type { AgencyData } from "../../useAgencyData";
 import { MetricTile, ViewIntro } from "../primitives";
 import {
@@ -23,6 +35,7 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
     selectedIncident,
     selectedIncidentId,
     selectIncident,
+    deselectIncident,
     loadIncidents,
     statusForm,
     setStatusForm,
@@ -31,6 +44,9 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
     handleStatusUpdate,
     metrics,
   } = data;
+
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
 
   return (
     <Stack spacing={2.5}>
@@ -81,40 +97,60 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
         <Alert severity="warning">{incidentError} Showing fallback data.</Alert>
       ) : null}
 
-      <Grid container spacing={2.5} alignItems="flex-start">
-        <Grid size={{ xs: 12, lg: 5 }}>
-          {incidentLoadState === "loading" ? (
-            <LoadingState message="Loading assigned incidents" />
-          ) : incidentLoadState === "error" && !incidents.length ? (
-            <ErrorState
-              message={incidentError ?? "Could not load incidents"}
-              onRetry={loadIncidents}
+      {incidentLoadState === "loading" ? (
+        <LoadingState message="Loading assigned incidents" />
+      ) : incidentLoadState === "error" && !incidents.length ? (
+        <ErrorState
+          message={incidentError ?? "Could not load incidents"}
+          onRetry={loadIncidents}
+        />
+      ) : filteredIncidents.length === 0 ? (
+        <EmptyState message="No incidents match the current filters." />
+      ) : (
+        <Stack spacing={2}>
+          {filteredIncidents.map((incident) => (
+            <IncidentListItem
+              key={incident.id}
+              incident={incident}
+              onClick={() => selectIncident(incident.id)}
+              selected={selectedIncidentId === incident.id}
             />
-          ) : filteredIncidents.length === 0 ? (
-            <EmptyState message="No incidents match the current filters." />
-          ) : (
-            <Stack spacing={2}>
-              {filteredIncidents.map((incident) => (
-                <IncidentListItem
-                  key={incident.id}
-                  incident={incident}
-                  onClick={() => selectIncident(incident.id)}
-                  selected={selectedIncidentId === incident.id}
-                />
-              ))}
-            </Stack>
-          )}
-        </Grid>
+          ))}
+        </Stack>
+      )}
 
-        <Grid size={{ xs: 12, lg: 7 }}>
-          {!selectedIncident ? (
-            <EmptyState message="Select an incident from the list to view details and update status." />
-          ) : (
+      <Dialog
+        open={Boolean(selectedIncident)}
+        onClose={deselectIncident}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+        fullScreen={fullScreen}
+        aria-labelledby="incident-detail-title"
+      >
+        <DialogTitle
+          id="incident-detail-title"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          <span>{selectedIncident?.reference ?? "Incident detail"}</span>
+          <IconButton
+            aria-label="Close incident detail"
+            onClick={deselectIncident}
+            size="small"
+          >
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedIncident ? (
             <Stack spacing={2.5}>
-              <Paper sx={{ p: 3 }}>
-                <IncidentDetail incident={selectedIncident} />
-              </Paper>
-              <Paper sx={{ p: 3 }}>
+              <IncidentDetail incident={selectedIncident} />
+              <Box>
                 <Box mb={2}>
                   <Typography fontWeight={800} variant="h6">
                     Update status
@@ -145,11 +181,11 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
                     {statusUpdateError}
                   </Alert>
                 ) : null}
-              </Paper>
+              </Box>
             </Stack>
-          )}
-        </Grid>
-      </Grid>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Stack>
   );
 }

@@ -1,5 +1,17 @@
-import { Alert, Button, Grid, Paper, Stack, Typography } from "@mui/material";
-import { PackageCheck } from "lucide-react";
+import { useState } from "react";
+import {
+  Alert,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
+import { PackageCheck, X } from "lucide-react";
 import type { AgencyData } from "../../useAgencyData";
 import { ViewIntro } from "../primitives";
 import {
@@ -17,6 +29,7 @@ export function ReliefView({ data }: { data: AgencyData }) {
     selectedReliefPoint,
     selectedReliefPointId,
     selectReliefPoint,
+    deselectReliefPoint,
     reliefForm,
     setReliefForm,
     reliefHistory,
@@ -28,6 +41,25 @@ export function ReliefView({ data }: { data: AgencyData }) {
     handleNewReliefPoint,
   } = data;
 
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const openManage = (reliefPointId: string) => {
+    selectReliefPoint(reliefPointId);
+    setDetailOpen(true);
+  };
+
+  const openCreate = () => {
+    handleNewReliefPoint();
+    setDetailOpen(true);
+  };
+
+  const closeDetail = () => {
+    setDetailOpen(false);
+    deselectReliefPoint();
+  };
+
   return (
     <Stack spacing={2.5}>
       <ViewIntro
@@ -36,7 +68,7 @@ export function ReliefView({ data }: { data: AgencyData }) {
         icon={PackageCheck}
         action={
           <Button
-            onClick={handleNewReliefPoint}
+            onClick={openCreate}
             startIcon={<PackageCheck size={18} />}
             variant="contained"
           >
@@ -59,64 +91,86 @@ export function ReliefView({ data }: { data: AgencyData }) {
           onRetry={loadReliefPoints}
         />
       ) : (
-        <Grid container spacing={2.5} alignItems="flex-start">
-          <Grid size={{ xs: 12, lg: 5 }}>
-            <Stack spacing={2}>
-              {reliefPoints.length === 0 ? (
-                <EmptyState message="No relief distribution points have been published yet." />
-              ) : (
-                reliefPoints.map((point) => (
-                  <ReliefPointCard
-                    key={point.id}
-                    onSelect={() => selectReliefPoint(point.id)}
-                    point={point}
-                    selected={selectedReliefPointId === point.id}
-                  />
-                ))
-              )}
-            </Stack>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 7 }}>
-            <Stack spacing={2.5}>
-              <Paper sx={{ p: 3 }}>
-                <Typography fontWeight={800} gutterBottom variant="h6">
-                  {selectedReliefPoint
-                    ? "Manage distribution point"
-                    : "Create distribution point"}
-                </Typography>
-                <ReliefPointForm
-                  form={reliefForm}
-                  onChange={setReliefForm}
-                  onSubmit={handleSaveReliefPoint}
-                  submitLabel={
-                    reliefUpdateState === "loading"
-                      ? "Saving..."
-                      : selectedReliefPoint
-                        ? "Update point"
-                        : "Create point"
-                  }
-                />
-                {reliefUpdateState === "success" ? (
-                  <Alert severity="success" sx={{ mt: 2 }}>
-                    Relief distribution point saved.
-                  </Alert>
-                ) : null}
-                {reliefUpdateState === "error" && reliefError ? (
-                  <Alert severity="error" sx={{ mt: 2 }}>
-                    {reliefError}
-                  </Alert>
-                ) : null}
-              </Paper>
-              <Paper sx={{ p: 3 }}>
-                <Typography fontWeight={800} gutterBottom variant="h6">
-                  Stock history
-                </Typography>
-                <ReliefStockHistoryList history={reliefHistory} />
-              </Paper>
-            </Stack>
-          </Grid>
-        </Grid>
+        <Stack spacing={2}>
+          {reliefPoints.length === 0 ? (
+            <EmptyState message="No relief distribution points have been published yet." />
+          ) : (
+            reliefPoints.map((point) => (
+              <ReliefPointCard
+                key={point.id}
+                onSelect={() => openManage(point.id)}
+                point={point}
+                selected={selectedReliefPointId === point.id}
+              />
+            ))
+          )}
+        </Stack>
       )}
+
+      <Dialog
+        open={detailOpen}
+        onClose={closeDetail}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+        fullScreen={fullScreen}
+        aria-labelledby="relief-detail-title"
+      >
+        <DialogTitle
+          id="relief-detail-title"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          <span>
+            {selectedReliefPoint
+              ? selectedReliefPoint.name
+              : "Create distribution point"}
+          </span>
+          <IconButton
+            aria-label="Close distribution point"
+            onClick={closeDetail}
+            size="small"
+          >
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2.5}>
+            <Stack spacing={2}>
+              <ReliefPointForm
+                form={reliefForm}
+                onChange={setReliefForm}
+                onSubmit={handleSaveReliefPoint}
+                submitLabel={
+                  reliefUpdateState === "loading"
+                    ? "Saving..."
+                    : selectedReliefPoint
+                      ? "Update point"
+                      : "Create point"
+                }
+              />
+              {reliefUpdateState === "success" ? (
+                <Alert severity="success">
+                  Relief distribution point saved.
+                </Alert>
+              ) : null}
+              {reliefUpdateState === "error" && reliefError ? (
+                <Alert severity="error">{reliefError}</Alert>
+              ) : null}
+            </Stack>
+            <Stack spacing={1}>
+              <Typography fontWeight={800} variant="h6">
+                Stock history
+              </Typography>
+              <ReliefStockHistoryList history={reliefHistory} />
+            </Stack>
+          </Stack>
+        </DialogContent>
+      </Dialog>
     </Stack>
   );
 }
