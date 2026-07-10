@@ -31,14 +31,7 @@ import {
   SHELTER_API_BASE,
 } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
-import {
-  defaultFilters,
-  fallbackAlerts,
-  fallbackIncidents,
-  fallbackReliefPoints,
-  fallbackShelters,
-  assignmentAgencyOptions,
-} from "./data";
+import { defaultFilters, assignmentAgencyOptions } from "./data";
 import type {
   AbuseReviewFormState,
   AlertFormState,
@@ -77,49 +70,44 @@ import {
  * app shell can mount data once and route between views without losing state.
  */
 export function useCommandData() {
-  const [incidents, setIncidents] =
-    useState<CommandIncident[]>(fallbackIncidents);
+  const [incidents, setIncidents] = useState<CommandIncident[]>([]);
   const [loadState, setLoadState] = useState<IncidentLoadState>("loading");
   const [loadMessage, setLoadMessage] = useState("Loading incident feed");
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
-  const [selectedIncidentId, setSelectedIncidentId] = useState(
-    fallbackIncidents[0]?.id ?? "",
-  );
+  const [selectedIncidentId, setSelectedIncidentId] = useState("");
   const [statusBusy, setStatusBusy] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState("");
   const [statusForm, setStatusForm] = useState<IncidentStatusFormState>(
-    buildDefaultStatusForm(fallbackIncidents[0]),
+    buildDefaultStatusForm(),
   );
   const [abuseBusy, setAbuseBusy] = useState(false);
   const [abuseFeedback, setAbuseFeedback] = useState("");
   const [abuseForm, setAbuseForm] = useState<AbuseReviewFormState>(
-    buildDefaultAbuseReviewForm(fallbackIncidents[0]),
+    buildDefaultAbuseReviewForm(),
   );
   const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [assignmentFeedback, setAssignmentFeedback] = useState("");
   const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(
-    buildDefaultAssignmentForm(fallbackIncidents[0]),
+    buildDefaultAssignmentForm(),
   );
   const [duplicateReviewCandidates, setDuplicateReviewCandidates] = useState<
     DuplicateReviewCandidate[]
-  >(duplicateReviewCandidatesFor(fallbackIncidents[0], fallbackIncidents));
+  >([]);
   const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<string[]>(
-    duplicateReviewCandidatesFor(fallbackIncidents[0], fallbackIncidents).map(
-      (candidate) => candidate.incident.id,
-    ),
+    [],
   );
   const [mergeBusy, setMergeBusy] = useState(false);
   const [mergeFeedback, setMergeFeedback] = useState("");
-  const [alerts, setAlerts] = useState<AuthorityAlertRecord[]>(fallbackAlerts);
+  const [alerts, setAlerts] = useState<AuthorityAlertRecord[]>([]);
   const [alertLoadState, setAlertLoadState] =
     useState<AlertLoadState>("loading");
   const [alertMessage, setAlertMessage] = useState("Loading alert workflow");
   const [alertBusy, setAlertBusy] = useState(false);
   const [alertFeedback, setAlertFeedback] = useState("");
   const [alertForm, setAlertForm] = useState<AlertFormState>(
-    buildDefaultAlertForm(fallbackIncidents[0]),
+    buildDefaultAlertForm(),
   );
-  const [shelters, setShelters] = useState<ShelterRecord[]>(fallbackShelters);
+  const [shelters, setShelters] = useState<ShelterRecord[]>([]);
   const [shelterLoadState, setShelterLoadState] =
     useState<IncidentLoadState>("loading");
   const [shelterFeedback, setShelterFeedback] = useState(
@@ -127,16 +115,15 @@ export function useCommandData() {
   );
   const [shelterBusy, setShelterBusy] = useState(false);
   const [shelterForm, setShelterForm] = useState<ShelterFormState>(
-    buildDefaultShelterForm(fallbackShelters[0]),
+    buildDefaultShelterForm(),
   );
-  const [reliefPoints, setReliefPoints] =
-    useState<ReliefPointRecord[]>(fallbackReliefPoints);
+  const [reliefPoints, setReliefPoints] = useState<ReliefPointRecord[]>([]);
   const [reliefLoadState, setReliefLoadState] =
     useState<IncidentLoadState>("loading");
   const [reliefFeedback, setReliefFeedback] = useState("Loading relief points");
   const [reliefBusy, setReliefBusy] = useState(false);
   const [reliefForm, setReliefForm] = useState<ReliefPointFormState>(
-    buildDefaultReliefPointForm(fallbackReliefPoints[0]),
+    buildDefaultReliefPointForm(),
   );
   const [reliefHistory, setReliefHistory] = useState<
     ReliefPointStockHistoryResponse["history"]
@@ -178,10 +165,12 @@ export function useCommandData() {
         return;
       }
 
-      setIncidents(fallbackIncidents);
-      setSelectedIncidentId(fallbackIncidents[0]?.id ?? "");
-      setLoadState("fallback");
-      setLoadMessage("Incident API unavailable. Showing command fixture data.");
+      setIncidents([]);
+      setSelectedIncidentId("");
+      setLoadState("error");
+      setLoadMessage(
+        "Incident feed unavailable. Reconnect the incident-service to load the queue.",
+      );
     }
   };
 
@@ -213,9 +202,11 @@ export function useCommandData() {
         return;
       }
 
-      setAlerts(fallbackAlerts);
-      setAlertLoadState("fallback");
-      setAlertMessage("Alert API unavailable. Showing approval fixture data.");
+      setAlerts([]);
+      setAlertLoadState("error");
+      setAlertMessage(
+        "Alert workflow unavailable. Reconnect the alert-service to load approvals.",
+      );
     }
   };
 
@@ -238,9 +229,7 @@ export function useCommandData() {
       }
 
       const payload = (await response.json()) as ShelterListResponse;
-      const nextShelters = payload.shelters.length
-        ? payload.shelters
-        : fallbackShelters;
+      const nextShelters = payload.shelters;
       setShelters(nextShelters);
       setShelterForm((current) => {
         const selected =
@@ -248,17 +237,23 @@ export function useCommandData() {
           nextShelters[0];
         return buildDefaultShelterForm(selected);
       });
-      setShelterLoadState("ready");
-      setShelterFeedback("Shelter capacity API connected.");
+      setShelterLoadState(nextShelters.length ? "ready" : "empty");
+      setShelterFeedback(
+        nextShelters.length
+          ? "Shelter capacity API connected."
+          : "No shelters are currently registered.",
+      );
     } catch (error) {
       if (signal?.aborted) {
         return;
       }
 
-      setShelters(fallbackShelters);
-      setShelterForm(buildDefaultShelterForm(fallbackShelters[0]));
-      setShelterLoadState("fallback");
-      setShelterFeedback("Shelter API unavailable. Showing fixture capacity.");
+      setShelters([]);
+      setShelterForm(buildDefaultShelterForm());
+      setShelterLoadState("error");
+      setShelterFeedback(
+        "Shelter capacity unavailable. Reconnect the shelter-service.",
+      );
     }
   };
 
@@ -311,9 +306,7 @@ export function useCommandData() {
       }
 
       const payload = (await response.json()) as ReliefPointListResponse;
-      const nextReliefPoints = payload.reliefPoints.length
-        ? payload.reliefPoints
-        : fallbackReliefPoints;
+      const nextReliefPoints = payload.reliefPoints;
       setReliefPoints(nextReliefPoints);
       setReliefForm((current) => {
         const selected =
@@ -322,19 +315,25 @@ export function useCommandData() {
           ) ?? nextReliefPoints[0];
         return buildDefaultReliefPointForm(selected);
       });
-      setReliefLoadState("ready");
-      setReliefFeedback("Relief point API connected.");
+      setReliefLoadState(nextReliefPoints.length ? "ready" : "empty");
+      setReliefFeedback(
+        nextReliefPoints.length
+          ? "Relief point API connected."
+          : "No relief distribution points are currently published.",
+      );
       void refreshReliefHistory(nextReliefPoints[0]?.id, signal);
     } catch (error) {
       if (signal?.aborted) {
         return;
       }
 
-      setReliefPoints(fallbackReliefPoints);
-      setReliefForm(buildDefaultReliefPointForm(fallbackReliefPoints[0]));
+      setReliefPoints([]);
+      setReliefForm(buildDefaultReliefPointForm());
       setReliefHistory([]);
-      setReliefLoadState("fallback");
-      setReliefFeedback("Relief point API unavailable. Showing fixtures.");
+      setReliefLoadState("error");
+      setReliefFeedback(
+        "Relief points unavailable. Reconnect the shelter-service.",
+      );
     }
   };
 

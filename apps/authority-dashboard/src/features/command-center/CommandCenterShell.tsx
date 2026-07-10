@@ -138,11 +138,11 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
         tone: "gold",
       });
     }
-    if (data.loadState === "fallback") {
+    if (data.loadState === "error") {
       list.push({
-        id: "feed-fixture",
-        title: "Incident feed on fixtures",
-        detail: "Live incident API is unavailable; showing command fixtures.",
+        id: "feed-offline",
+        title: "Incident feed unavailable",
+        detail: "Live incident API is unreachable; reconnect the incident-service.",
         tone: "gold",
       });
     }

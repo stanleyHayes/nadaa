@@ -45,75 +45,6 @@ interface CloseFormState {
   reunitedWithFamily: boolean;
 }
 
-const fixtureTime = new Date().toISOString();
-
-const fallbackRecords: MissingPersonRecord[] = [
-  {
-    id: "missing_001",
-    reference: "MP-20260707-001",
-    personName: "Kojo Mensah",
-    age: 12,
-    gender: "male",
-    description:
-      "Last seen wearing a blue school shirt and black shorts near the shelter registration desk.",
-    photoUrl: "https://example.test/photos/kojo-mensah.jpg",
-    lastSeenAt: fixtureTime,
-    lastSeenLocation: {
-      label: "Accra Metro Assembly Shelter",
-      region: "Greater Accra",
-      district: "Accra Metropolitan",
-      lat: 5.56,
-      lng: -0.2,
-    },
-    relatedIncidentId: "inc_accra_flood_0241",
-    status: "active",
-    publicSummary:
-      "Child separated during shelter registration. Contact 112 with credible sightings.",
-    updatedAt: fixtureTime,
-    reporter: {
-      name: "Ama Mensah",
-      phone: "+233200000111",
-      relationship: "mother",
-      consentToContact: true,
-      consentToPublicShare: true,
-    },
-    reviewStatus: "approved",
-    publicVisibility: "public",
-    reviewNotes: "Guardian consent verified.",
-    createdBy: "public",
-    createdAt: fixtureTime,
-    reviewedBy: "usr_seed_reviewer",
-    reviewedAt: fixtureTime,
-  },
-  {
-    id: "missing_002",
-    reference: "MP-20260707-002",
-    personName: "Efua Boateng",
-    age: 68,
-    gender: "female",
-    description: "Older adult reported missing after evacuation.",
-    lastSeenAt: fixtureTime,
-    lastSeenLocation: {
-      label: "Osu Community Hall",
-      region: "Greater Accra",
-      district: "Korle Klottey",
-    },
-    status: "pending_review",
-    updatedAt: fixtureTime,
-    reporter: {
-      name: "Kweku Boateng",
-      phone: "+233200000222",
-      relationship: "son",
-      consentToContact: true,
-      consentToPublicShare: false,
-    },
-    reviewStatus: "pending",
-    publicVisibility: "private",
-    createdBy: "public",
-    createdAt: fixtureTime,
-  },
-];
-
 const reviewDecisions: MissingPersonReviewDecision[] = [
   "approve_public",
   "approve_private",
@@ -144,9 +75,8 @@ function formatDate(value: string) {
 }
 
 export default function MissingPersonsPanel() {
-  const [records, setRecords] =
-    useState<MissingPersonRecord[]>(fallbackRecords);
-  const [selectedId, setSelectedId] = useState(fallbackRecords[0]?.id ?? "");
+  const [records, setRecords] = useState<MissingPersonRecord[]>([]);
+  const [selectedId, setSelectedId] = useState("");
   const [auditEntries, setAuditEntries] = useState<MissingPersonAuditEntry[]>(
     [],
   );
@@ -184,15 +114,21 @@ export default function MissingPersonsPanel() {
         throw new Error(`missing-person API returned ${response.status}`);
       }
       const payload = (await response.json()) as MissingPersonListResponse;
-      setRecords(payload.records.length ? payload.records : []);
+      setRecords(payload.records);
       setSelectedId((current) => current || payload.records[0]?.id || "");
       setLoadState("ready");
-      setFeedback("Missing-person queue is live.");
+      setFeedback(
+        payload.records.length
+          ? "Missing-person queue is live."
+          : "No missing-person cases are currently open.",
+      );
     } catch {
-      setRecords(fallbackRecords);
-      setSelectedId(fallbackRecords[0]?.id ?? "");
-      setLoadState("fallback");
-      setFeedback("Using fixture missing-person cases until the service runs.");
+      setRecords([]);
+      setSelectedId("");
+      setLoadState("error");
+      setFeedback(
+        "Missing-person queue unavailable. Reconnect the missing-person-service.",
+      );
     }
   };
 

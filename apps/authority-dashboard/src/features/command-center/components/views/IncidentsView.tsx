@@ -113,7 +113,9 @@ export function IncidentsView({ data }: { data: CommandData }) {
               ? "Live API"
               : loadState === "empty"
                 ? "No active incidents"
-                : "Fixture mode"}
+                : loadState === "loading"
+                  ? "Connecting"
+                  : "Offline"}
           </span>
           <Button
             variant="outlined"

@@ -47,7 +47,6 @@ import type {
 import { SCHOOL_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
 import { CommandSelect, ScrollableTable, SeverityChip } from "./shared";
-import { fallbackSchools } from "../data";
 import type {
   DrillFormState,
   ReadinessFormState,
@@ -241,7 +240,7 @@ function parseChecklistItems(
 }
 
 export function SchoolPreparednessPanel() {
-  const [schools, setSchools] = useState<SchoolSummary[]>(fallbackSchools);
+  const [schools, setSchools] = useState<SchoolSummary[]>([]);
   const [loadState, setLoadState] = useState<SchoolDetailLoadState>("loading");
   const [feedback, setFeedback] = useState("Loading school preparedness data");
   const [districtFilter, setDistrictFilter] = useState("all");
@@ -297,17 +296,22 @@ export function SchoolPreparednessPanel() {
         throw new Error(`school API returned ${response.status}`);
       }
       const payload = (await response.json()) as SchoolListResponse;
-      const next = payload.schools.length ? payload.schools : fallbackSchools;
-      setSchools(next);
+      setSchools(payload.schools);
       setLoadState("ready");
-      setFeedback("School preparedness API connected.");
+      setFeedback(
+        payload.schools.length
+          ? "School preparedness API connected."
+          : "No schools are currently registered.",
+      );
     } catch (error) {
       if (signal?.aborted) {
         return;
       }
-      setSchools(fallbackSchools);
-      setLoadState("fallback");
-      setFeedback("School API unavailable. Showing fixture data.");
+      setSchools([]);
+      setLoadState("error");
+      setFeedback(
+        "School preparedness unavailable. Reconnect the school-service.",
+      );
     }
   };
 
@@ -381,8 +385,8 @@ export function SchoolPreparednessPanel() {
       if (signal?.aborted) {
         return;
       }
-      setDetailLoadState("fallback");
-      setFeedback("School detail API unavailable. Showing fixture summaries.");
+      setDetailLoadState("error");
+      setFeedback("School detail unavailable. Reconnect the school-service.");
     }
   };
 
@@ -704,11 +708,7 @@ export function SchoolPreparednessPanel() {
 
       {feedback ? (
         <Alert
-          severity={
-            loadState === "ready" || loadState === "fallback"
-              ? "info"
-              : "warning"
-          }
+          severity={loadState === "error" ? "error" : "info"}
           className="feed-alert"
         >
           {feedback}

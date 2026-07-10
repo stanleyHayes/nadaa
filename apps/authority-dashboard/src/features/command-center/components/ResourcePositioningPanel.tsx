@@ -47,121 +47,6 @@ const riskLevelOptions = [
   "emergency",
 ] as const;
 
-// Fixtures mirror the ml-service resource-forecast output so the panel renders
-// meaningful decision support even when the service is unavailable.
-const fallbackForecasts: DemandForecast[] = [
-  {
-    id: "forecast_accra_metropolitan",
-    region: "Greater Accra",
-    district: "Accra Metropolitan",
-    timeWindowStart: "2026-07-10T00:00:00Z",
-    timeWindowEnd: "2026-07-11T00:00:00Z",
-    predictedIncidentCount: 17,
-    hazardType: "flood",
-    confidence: "high",
-    confidenceScore: 0.95,
-    factors: [
-      {
-        name: "historical_incidents",
-        label: "Historical flood reports (30d)",
-        value: 10,
-        weight: 0.35,
-        direction: "increases_demand",
-      },
-      {
-        name: "rainfall_forecast",
-        label: "Rainfall forecast 24h (mm)",
-        value: 61.17,
-        weight: 0.25,
-        direction: "increases_demand",
-      },
-      {
-        name: "risk_score",
-        label: "Composite flood-risk score",
-        value: 0.8026,
-        weight: 0.25,
-        direction: "increases_demand",
-      },
-      {
-        name: "population_exposure",
-        label: "Vulnerable population (%)",
-        value: 19.33,
-        weight: 0.15,
-        direction: "increases_demand",
-      },
-    ],
-    riskLevel: "severe",
-    generatedAt: "2026-07-10T00:00:00Z",
-  },
-  {
-    id: "forecast_tema_metropolitan",
-    region: "Greater Accra",
-    district: "Tema Metropolitan",
-    timeWindowStart: "2026-07-10T00:00:00Z",
-    timeWindowEnd: "2026-07-11T00:00:00Z",
-    predictedIncidentCount: 3,
-    hazardType: "flood",
-    confidence: "medium",
-    confidenceScore: 0.75,
-    factors: [
-      {
-        name: "historical_incidents",
-        label: "Historical flood reports (30d)",
-        value: 1,
-        weight: 0.35,
-        direction: "increases_demand",
-      },
-      {
-        name: "risk_score",
-        label: "Composite flood-risk score",
-        value: 0.4544,
-        weight: 0.25,
-        direction: "increases_demand",
-      },
-    ],
-    riskLevel: "moderate",
-    generatedAt: "2026-07-10T00:00:00Z",
-  },
-];
-
-const fallbackStaging: StagingSuggestion[] = [
-  {
-    id: "staging_accra_central_fire",
-    location: { lat: 5.545, lng: -0.205 },
-    locationLabel: "Accra Central Fire Station",
-    agencyType: "fire",
-    reason:
-      "Elevated predicted flood demand in Accra Metropolitan (~17 incidents in 24h, severe risk)",
-    confidence: "high",
-    confidenceScore: 0.95,
-    operationalConstraints: [
-      "Road congestion can extend response times during peak hours.",
-      "Confirm water tanker and hydrant availability before repositioning.",
-      "Flooded access routes may require alternate approaches; verify with route planning (NADAA-130).",
-    ],
-    recommendedUnits: 2,
-    radiusMeters: 5000,
-    generatedAt: "2026-07-10T00:00:00Z",
-  },
-  {
-    id: "staging_ridge_ambulance",
-    location: { lat: 5.563, lng: -0.19 },
-    locationLabel: "Ridge Ambulance Base",
-    agencyType: "ambulance",
-    reason:
-      "Elevated predicted flood demand in Accra Metropolitan (~17 incidents in 24h, severe risk)",
-    confidence: "high",
-    confidenceScore: 0.95,
-    operationalConstraints: [
-      "Road congestion can extend response times during peak hours.",
-      "Coordinate with hospital emergency capacity before staging (NADAA-121).",
-    ],
-    recommendedUnits: 3,
-    radiusMeters: 5000,
-    generatedAt: "2026-07-10T00:00:00Z",
-  },
-];
-
 function confidenceColor(score: number): string {
   if (score >= 0.8) {
     return nadaaBrand.colors.green;
@@ -191,9 +76,8 @@ function escapeHtml(value: string): string {
 }
 
 export function ResourcePositioningPanel() {
-  const [forecasts, setForecasts] =
-    useState<DemandForecast[]>(fallbackForecasts);
-  const [staging, setStaging] = useState<StagingSuggestion[]>(fallbackStaging);
+  const [forecasts, setForecasts] = useState<DemandForecast[]>([]);
+  const [staging, setStaging] = useState<StagingSuggestion[]>([]);
   const [loadState, setLoadState] = useState<ForecastLoadState>("loading");
   const [feedback, setFeedback] = useState("Loading resource forecasts");
 
@@ -230,23 +114,19 @@ export function ResourcePositioningPanel() {
         if (controller.signal.aborted) {
           return;
         }
-        if (forecastPayload.forecasts.length) {
-          setForecasts(forecastPayload.forecasts);
-        }
-        if (stagingPayload.suggestions.length) {
-          setStaging(stagingPayload.suggestions);
-        }
+        setForecasts(forecastPayload.forecasts);
+        setStaging(stagingPayload.suggestions);
         setLoadState("ready");
         setFeedback("Resource forecast API connected.");
       } catch (error) {
         if (controller.signal.aborted) {
           return;
         }
-        setForecasts(fallbackForecasts);
-        setStaging(fallbackStaging);
+        setForecasts([]);
+        setStaging([]);
         setLoadState("fallback");
         setFeedback(
-          "Resource forecast API unavailable. Showing rule-based fixture forecasts.",
+          "Forecasting / ML service unavailable. Start the ml-service on the configured URL to load demand forecasts and staging suggestions.",
         );
       }
     };
@@ -320,7 +200,7 @@ export function ResourcePositioningPanel() {
         <Chip
           size="small"
           label={
-            live ? "Live" : loadState === "loading" ? "Loading" : "Fixture"
+            live ? "Live" : loadState === "loading" ? "Loading" : "Offline"
           }
           color={live ? "success" : "warning"}
         />

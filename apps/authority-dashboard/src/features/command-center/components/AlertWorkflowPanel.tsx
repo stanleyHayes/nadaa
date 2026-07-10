@@ -292,7 +292,7 @@ export function AlertWorkflowPanel({
                 ? "Live"
                 : loadState === "loading"
                   ? "Loading"
-                  : "Fixture"
+                  : "Offline"
             }
             color={loadState === "ready" ? "success" : "warning"}
           />

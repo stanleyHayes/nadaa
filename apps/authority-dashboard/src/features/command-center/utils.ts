@@ -845,14 +845,14 @@ export function formatIncidentAge(createdAt: string) {
 }
 
 export function buildDefaultShelterForm(
-  shelter: ShelterRecord,
+  shelter?: ShelterRecord,
 ): ShelterFormState {
   return {
-    shelterId: shelter.id,
-    capacity: `${shelter.capacity}`,
-    currentOccupancy: `${shelter.currentOccupancy}`,
-    status: shelter.status,
-    notes: shelter.notes ?? "",
+    shelterId: shelter?.id ?? "",
+    capacity: shelter ? `${shelter.capacity}` : "",
+    currentOccupancy: shelter ? `${shelter.currentOccupancy}` : "",
+    status: shelter?.status ?? "open",
+    notes: shelter?.notes ?? "",
   };
 }
 

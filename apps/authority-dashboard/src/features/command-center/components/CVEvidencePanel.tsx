@@ -60,107 +60,13 @@ function labelSeverityRole(
   return "info";
 }
 
-const fallbackImages: CVImageItem[] = [
-  {
-    id: "media_flood_photo_001",
-    url: "/brand/nadaa-logo.png",
-    name: "flooded-road-accra.jpg",
-    incidentId: "inc_accra_flood_0241",
-    uploadedAt: "2026-07-06T18:42:00Z",
-    status: "analyzed",
-    cvResult: {
-      id: "cv_20260706184200_media_flood_photo_001",
-      imageId: "media_flood_photo_001",
-      labels: [
-        { label: "flood_evidence", confidence: 0.92 },
-        { label: "water_surface", confidence: 0.88 },
-        { label: "submerged_road", confidence: 0.76 },
-      ],
-      modelVersion: "cv-mock-rule-engine-0.1.0",
-      limitations:
-        "This is a deterministic rule-based mock engine. It does not perform real image inference. Results are for contract testing and UI integration only. Always verify with human review before operational decisions.",
-      humanReviewRequired: false,
-      createdAt: "2026-07-06T18:42:00Z",
-      reviewStatus: "pending",
-    },
-  },
-  {
-    id: "media_crash_photo_002",
-    url: "/brand/nadaa-logo.png",
-    name: "crash-scene-tema.jpg",
-    incidentId: "inc_tema_crash_0239",
-    uploadedAt: "2026-07-06T18:25:00Z",
-    status: "analyzed",
-    cvResult: {
-      id: "cv_20260706182500_media_crash_photo_002",
-      imageId: "media_crash_photo_002",
-      labels: [
-        { label: "no_evidence", confidence: 0.71 },
-        { label: "vehicle_damage", confidence: 0.68 },
-      ],
-      modelVersion: "cv-mock-rule-engine-0.1.0",
-      limitations:
-        "This is a deterministic rule-based mock engine. It does not perform real image inference. Results are for contract testing and UI integration only. Always verify with human review before operational decisions.",
-      humanReviewRequired: true,
-      createdAt: "2026-07-06T18:25:00Z",
-      reviewStatus: "pending",
-    },
-  },
-  {
-    id: "media_fire_photo_003",
-    url: "/brand/nadaa-logo.png",
-    name: "fire-market-stall.jpg",
-    incidentId: "inc_korle_fire_0232",
-    uploadedAt: "2026-07-06T17:41:00Z",
-    status: "analyzed",
-    cvResult: {
-      id: "cv_20260706174100_media_fire_photo_003",
-      imageId: "media_fire_photo_003",
-      labels: [
-        { label: "fire_evidence", confidence: 0.89 },
-        { label: "smoke_evidence", confidence: 0.85 },
-      ],
-      modelVersion: "cv-mock-rule-engine-0.1.0",
-      limitations:
-        "This is a deterministic rule-based mock engine. It does not perform real image inference. Results are for contract testing and UI integration only. Always verify with human review before operational decisions.",
-      humanReviewRequired: false,
-      createdAt: "2026-07-06T17:41:00Z",
-      reviewStatus: "pending",
-    },
-  },
-  {
-    id: "media_distress_004",
-    url: "/brand/nadaa-logo.png",
-    name: "injured-person-scene.jpg",
-    incidentId: "inc_accra_flood_0241",
-    uploadedAt: "2026-07-06T18:43:00Z",
-    status: "analyzed",
-    cvResult: {
-      id: "cv_20260706184300_media_distress_004",
-      imageId: "media_distress_004",
-      labels: [
-        { label: "sensitive", confidence: 0.95 },
-        { label: "person_in_distress", confidence: 0.82 },
-      ],
-      modelVersion: "cv-mock-rule-engine-0.1.0",
-      limitations:
-        "This is a deterministic rule-based mock engine. It does not perform real image inference. Results are for contract testing and UI integration only. Always verify with human review before operational decisions.",
-      humanReviewRequired: true,
-      createdAt: "2026-07-06T18:43:00Z",
-      reviewStatus: "pending",
-    },
-  },
-];
-
 export function CVEvidencePanel() {
-  const [images, setImages] = useState<CVImageItem[]>(fallbackImages);
+  const [images, setImages] = useState<CVImageItem[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">(
     "loading",
   );
   const [feedback, setFeedback] = useState("Loading CV results");
-  const [selectedImageId, setSelectedImageId] = useState(
-    fallbackImages[0]?.id ?? "",
-  );
+  const [selectedImageId, setSelectedImageId] = useState("");
   const [reviewNote, setReviewNote] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
 
@@ -179,35 +85,37 @@ export function CVEvidencePanel() {
       const payload = (await response.json()) as {
         results: CVAnalysisResult[];
       };
-      if (payload.results.length) {
-        const nextImages = payload.results.map((result) => {
-          const existing = fallbackImages.find(
-            (img) => img.id === result.imageId,
-          );
-          return {
+      const nextImages = payload.results.map(
+        (result) =>
+          ({
             id: result.imageId,
-            url: existing?.url ?? "/brand/nadaa-logo.png",
-            name: existing?.name ?? result.imageId,
-            incidentId: existing?.incidentId,
+            url: "/brand/nadaa-logo.png",
+            name: result.imageId,
+            incidentId: undefined,
             uploadedAt: result.createdAt,
             status:
               (result.reviewStatus as CVImageItem["status"]) ?? "analyzed",
             cvResult: result,
-          } satisfies CVImageItem;
-        });
-        setImages(nextImages);
-        setSelectedImageId(nextImages[0]?.id ?? "");
-      }
+          }) satisfies CVImageItem,
+      );
+      setImages(nextImages);
+      setSelectedImageId(nextImages[0]?.id ?? "");
       setLoadState("ready");
-      setFeedback("CV API connected.");
+      setFeedback(
+        nextImages.length
+          ? "CV API connected."
+          : "CV API connected. No analyzed evidence yet.",
+      );
     } catch (error) {
       if (signal?.aborted) {
         return;
       }
-      setImages(fallbackImages);
-      setSelectedImageId(fallbackImages[0]?.id ?? "");
+      setImages([]);
+      setSelectedImageId("");
       setLoadState("fallback");
-      setFeedback("CV API unavailable. Showing fixture evidence data.");
+      setFeedback(
+        "CV / ML service unavailable. Start the ml-service on the configured URL to load evidence analysis.",
+      );
     }
   };
 
@@ -260,7 +168,7 @@ export function CVEvidencePanel() {
       setFeedback(`CV analysis completed for ${image.name}.`);
     } catch (error) {
       setFeedback(
-        `CV analysis needs ml-service running on ${CV_API_BASE}. Using fixture data.`,
+        `CV analysis needs the ml-service running on ${CV_API_BASE}.`,
       );
     } finally {
       setReviewBusy(false);
@@ -282,7 +190,7 @@ export function CVEvidencePanel() {
                 cvResult: {
                   ...img.cvResult!,
                   reviewStatus: status,
-                  reviewedBy: "dispatcher_fixture",
+                  reviewedBy: "authority-dashboard",
                   reviewNote: reviewNote.trim() || undefined,
                 },
               }

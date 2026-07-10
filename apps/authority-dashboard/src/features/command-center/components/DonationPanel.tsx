@@ -55,114 +55,6 @@ const donorTypes: DonorType[] = [
   "other",
 ];
 
-const fallbackCatalog: AidCatalogRecord[] = [
-  {
-    id: "catalog_001",
-    code: "food_parcel",
-    name: "Ready-to-eat food parcels",
-    category: "food",
-    defaultUnit: "parcels",
-    priorityScore: 90,
-  },
-  {
-    id: "catalog_002",
-    code: "water_liter",
-    name: "Clean drinking water",
-    category: "water",
-    defaultUnit: "liters",
-    priorityScore: 95,
-  },
-  {
-    id: "catalog_003",
-    code: "medical_kit",
-    name: "Emergency medical kit",
-    category: "medical",
-    defaultUnit: "kits",
-    priorityScore: 100,
-  },
-  {
-    id: "catalog_004",
-    code: "shelter_kit",
-    name: "Family shelter kit",
-    category: "shelter",
-    defaultUnit: "kits",
-    priorityScore: 85,
-  },
-  {
-    id: "catalog_005",
-    code: "hygiene_kit",
-    name: "Hygiene and sanitation kit",
-    category: "sanitation",
-    defaultUnit: "kits",
-    priorityScore: 80,
-  },
-];
-
-const fallbackAidRequests: DonationAidRequestRecord[] = [
-  {
-    id: "request_001",
-    reference: "AR-20260707-001",
-    title: "Flood relief food parcels for Accra Metropolitan",
-    description:
-      "Ready-to-eat food parcels for households displaced by flooding in central Accra.",
-    category: "food",
-    itemCode: "food_parcel",
-    quantityNeeded: 500,
-    quantityFulfilled: 0,
-    unit: "parcels",
-    priority: "high",
-    locationLabel: "Accra Metropolitan Assembly Hall",
-    region: "Greater Accra",
-    district: "Accra Metropolitan",
-    beneficiaryCount: 2500,
-    status: "open",
-    requestedBy: "seed",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "request_002",
-    reference: "AR-20260707-002",
-    title: "Emergency medical supplies for Tema",
-    description:
-      "First-aid and emergency medical kits for flood-affected communities in Tema.",
-    category: "medical",
-    itemCode: "medical_kit",
-    quantityNeeded: 200,
-    quantityFulfilled: 0,
-    unit: "kits",
-    priority: "critical",
-    locationLabel: "Tema General Hospital",
-    region: "Greater Accra",
-    district: "Tema Metropolitan",
-    beneficiaryCount: 800,
-    status: "open",
-    requestedBy: "seed",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const fallbackDonors: DonorRecord[] = [
-  {
-    id: "donor_fixture_001",
-    reference: "DON-20260707-001",
-    name: "Ghana Red Cross Society",
-    type: "ngo",
-    contactName: "Relief Coordinator",
-    contactEmail: "relief@redcross.gh",
-    contactPhone: "0302123456",
-    region: "Greater Accra",
-    district: "Accra Metropolitan",
-    itemsOffered: ["food_parcel", "water_liter", "medical_kit"],
-    status: "active",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const fallbackPledges: PledgeRecord[] = [];
-
 export type DonationLoadState = "loading" | "ready" | "fallback" | "error";
 
 export interface DonationPanelProps {
@@ -286,16 +178,17 @@ function statusLabel(status: string) {
 }
 
 export function DonationPanel({
-  loadState = "fallback",
+  loadState = "loading",
   feedback = "",
   onLoadStateChange,
   onFeedbackChange,
 }: DonationPanelProps) {
-  const [catalog, setCatalog] = useState<AidCatalogRecord[]>(fallbackCatalog);
-  const [aidRequests, setAidRequests] =
-    useState<DonationAidRequestRecord[]>(fallbackAidRequests);
-  const [donors, setDonors] = useState<DonorRecord[]>(fallbackDonors);
-  const [pledges, setPledges] = useState<PledgeRecord[]>(fallbackPledges);
+  const [catalog, setCatalog] = useState<AidCatalogRecord[]>([]);
+  const [aidRequests, setAidRequests] = useState<DonationAidRequestRecord[]>(
+    [],
+  );
+  const [donors, setDonors] = useState<DonorRecord[]>([]);
+  const [pledges, setPledges] = useState<PledgeRecord[]>([]);
   const [busy, setBusy] = useState(false);
   const [localLoadState, setLocalLoadState] =
     useState<DonationLoadState>(loadState);
@@ -346,11 +239,11 @@ export function DonationPanel({
       if (catalogResponse.ok) {
         const payload =
           (await catalogResponse.json()) as AidCatalogListResponse;
-        setCatalog(payload.items.length ? payload.items : fallbackCatalog);
+        setCatalog(payload.items);
         catalogOk = true;
       }
     } catch {
-      setCatalog(fallbackCatalog);
+      setCatalog([]);
     }
 
     try {
@@ -363,13 +256,11 @@ export function DonationPanel({
       if (requestsResponse.ok) {
         const payload =
           (await requestsResponse.json()) as DonationAidRequestListResponse;
-        setAidRequests(
-          payload.requests.length ? payload.requests : fallbackAidRequests,
-        );
+        setAidRequests(payload.requests);
         requestsOk = true;
       }
     } catch {
-      setAidRequests(fallbackAidRequests);
+      setAidRequests([]);
     }
 
     try {
@@ -379,12 +270,12 @@ export function DonationPanel({
       });
       if (donorsResponse.ok) {
         const payload = (await donorsResponse.json()) as DonorListResponse;
-        setDonors(payload.donors.length ? payload.donors : fallbackDonors);
+        setDonors(payload.donors);
       } else if (donorsResponse.status === 401) {
-        setDonors(fallbackDonors);
+        setDonors([]);
       }
     } catch {
-      setDonors(fallbackDonors);
+      setDonors([]);
     }
 
     try {
@@ -396,19 +287,19 @@ export function DonationPanel({
         const payload = (await pledgesResponse.json()) as PledgeListResponse;
         setPledges(payload.pledges);
       } else if (pledgesResponse.status === 401) {
-        setPledges(fallbackPledges);
+        setPledges([]);
       }
     } catch {
-      setPledges(fallbackPledges);
+      setPledges([]);
     }
 
     if (catalogOk && requestsOk) {
       setLoadState("ready");
       setFeedback("Donation coordination API connected.");
     } else {
-      setLoadState("fallback");
+      setLoadState("error");
       setFeedback(
-        "Donation API unavailable. Showing seeded catalog and request fixtures.",
+        "Donation coordination unavailable. Reconnect the donation-service.",
       );
     }
   };
@@ -939,7 +830,7 @@ export function DonationPanel({
           <Typography variant="subtitle2">Aid requests</Typography>
           <Chip
             size="small"
-            label={localLoadState === "ready" ? "Live" : "Fixture"}
+            label={localLoadState === "ready" ? "Live" : "Offline"}
             color={localLoadState === "ready" ? "success" : "warning"}
           />
         </Stack>

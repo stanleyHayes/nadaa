@@ -106,13 +106,17 @@ export function OverviewView({
   ];
 
   const feedLabel =
-    loadState === "ready" ? "Live" : loadState === "empty" ? "Idle" : "Fixture";
+    loadState === "ready"
+      ? "Live"
+      : loadState === "empty"
+        ? "Idle"
+        : loadState === "loading"
+          ? "Loading"
+          : "Offline";
 
   return (
     <Stack spacing={2.5} className="cc-overview">
-      {loadState === "fallback" ||
-      loadState === "error" ||
-      loadState === "empty" ? (
+      {loadState === "error" || loadState === "empty" ? (
         <Alert
           severity={loadState === "empty" ? "info" : "warning"}
           className="feed-alert"
@@ -281,7 +285,7 @@ export function OverviewView({
             <Stack spacing={1.25}>
               <StatusLine
                 label="Incident feed"
-                value={loadState === "ready" ? "Live" : "Fixture"}
+                value={loadState === "ready" ? "Live" : "Offline"}
                 color={loadState === "ready" ? "success" : "warning"}
               />
               <StatusLine
