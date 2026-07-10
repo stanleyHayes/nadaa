@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Drawer } from "@mui/material";
-import { Settings } from "lucide-react";
+import { BookOpen, Settings } from "lucide-react";
 import {
   signOutAuthority,
   useAuthoritySession,
@@ -16,9 +16,11 @@ import {
   type NavItem,
   type ViewId,
 } from "./navigation";
+import { getPageGuide, type GuideKey } from "./pageGuides";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar, type CommandNotification } from "./components/Topbar";
-import { AccountSettings, type SettingsTab } from "./account";
+import { AppTour } from "./components/AppTour";
+import { AccountSettings, UserGuide, type SettingsTab } from "./account";
 import { OverviewView } from "./components/views/OverviewView";
 import { IncidentsView } from "./components/views/IncidentsView";
 import { AlertsView } from "./components/views/AlertsView";
@@ -36,7 +38,15 @@ const SETTINGS_NAV_ITEM: NavItem = {
   icon: Settings,
 };
 
-type ShellView = ViewId | "settings";
+/** Synthetic nav item so the topbar can title the user-guide view. */
+const GUIDE_NAV_ITEM: NavItem = {
+  id: DEFAULT_VIEW,
+  label: "User guide",
+  description: "Step-by-step help for every command-center workspace",
+  icon: BookOpen,
+};
+
+type ShellView = ViewId | "settings" | "guide";
 
 const VIEW_KEY = "nadaa.authority.view";
 const COLLAPSE_KEY = "nadaa.authority.sidebar.collapsed";
@@ -71,7 +81,7 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
-    if (activeView === "settings") {
+    if (activeView === "settings" || activeView === "guide") {
       return;
     }
     try {
@@ -160,14 +170,41 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
     setMobileNavOpen(false);
   };
 
+  const openGuide = () => {
+    setActiveView("guide");
+    setMobileNavOpen(false);
+  };
+
+  /** Jump from a user-guide card to the workspace it documents. */
+  const openGuideTarget = (key: GuideKey) => {
+    if (key === "guide") {
+      return;
+    }
+    if (key === "settings") {
+      openSettings("profile");
+      return;
+    }
+    selectView(key);
+  };
+
   const handleSignOut = () => {
     setMobileNavOpen(false);
     signOutAuthority();
   };
 
   const isSettings = activeView === "settings";
-  const topbarView = isSettings ? SETTINGS_NAV_ITEM : navItemById(activeView);
-  const topbarGroup = isSettings ? "Account" : groupLabelForView(activeView);
+  const isGuide = activeView === "guide";
+  const topbarView = isSettings
+    ? SETTINGS_NAV_ITEM
+    : isGuide
+      ? GUIDE_NAV_ITEM
+      : navItemById(activeView);
+  const topbarGroup = isSettings
+    ? "Account"
+    : isGuide
+      ? "Help"
+      : groupLabelForView(activeView);
+  const activeGuide = getPageGuide(activeView);
 
   const renderView = () => {
     switch (activeView) {
@@ -198,6 +235,8 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
             onChangePassword={changePassword}
           />
         );
+      case "guide":
+        return <UserGuide onOpen={openGuideTarget} />;
       case "overview":
       default:
         return (
@@ -212,7 +251,7 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
         Skip to main content
       </a>
 
-      <aside className="cc-shell__rail">
+      <aside className="cc-shell__rail" data-tour="sidebar">
         <Sidebar
           activeView={activeView}
           onSelect={setActiveView}
@@ -241,16 +280,20 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
         <Topbar
           view={topbarView}
           groupLabel={topbarGroup}
+          guide={activeGuide}
           session={session}
           notifications={notifications}
           onSignOut={handleSignOut}
           onOpenSettings={openSettings}
+          onOpenGuide={openGuide}
           onOpenMobileNav={() => setMobileNavOpen(true)}
         />
         <main id="main-content" className="cc-content" tabIndex={-1}>
           {renderView()}
         </main>
       </div>
+
+      <AppTour />
     </div>
   );
 }
