@@ -356,13 +356,6 @@ func decodeResponse(t *testing.T, response *httptest.ResponseRecorder, target an
 	}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func utilsWriteJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

@@ -88,7 +88,7 @@ func (m *MemoryStore) Create(input models.ImageryUploadInput, fileName, contentT
 	id := fmt.Sprintf("img_%03d", len(m.records)+1)
 	record := models.ImageryRecord{
 		ID:                id,
-		Reference:         fmt.Sprintf("NADAA-IMG-%s", id),
+		Reference:         "NADAA-IMG-" + id,
 		Source:            input.Source,
 		CaptureTime:       input.CaptureTime,
 		Geometry:          input.Geometry,

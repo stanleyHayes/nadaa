@@ -10,10 +10,10 @@ import (
 )
 
 var allowedRequestStatuses = map[string]bool{
-	"open":                 true,
-	"partially_fulfilled":  true,
-	"fulfilled":            true,
-	"closed":               true,
+	"open":                true,
+	"partially_fulfilled": true,
+	"fulfilled":           true,
+	"closed":              true,
 }
 
 var allowedPriorities = map[string]bool{

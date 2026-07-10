@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -67,7 +68,7 @@ func (c *mlClient) predict(ctx context.Context, location models.Coordinates) (mo
 		return models.MLPrediction{}, err
 	}
 	if payload.Prediction.ModelVersion == "" {
-		return models.MLPrediction{}, fmt.Errorf("ml service returned an empty modelVersion")
+		return models.MLPrediction{}, errors.New("ml service returned an empty modelVersion")
 	}
 
 	return models.MLPrediction{

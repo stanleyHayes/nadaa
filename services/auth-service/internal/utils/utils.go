@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -31,8 +32,8 @@ type RandomOTPGenerator struct{}
 
 // Generate returns a random six-digit OTP.
 func (RandomOTPGenerator) Generate() (string, error) {
-	max := big.NewInt(1000000)
-	n, err := rand.Int(rand.Reader, max)
+	upperBound := big.NewInt(1000000)
+	n, err := rand.Int(rand.Reader, upperBound)
 	if err != nil {
 		return "", err
 	}
@@ -118,7 +119,7 @@ func AllowedOriginsFromEnv() map[string]bool {
 	}
 
 	allowed := map[string]bool{}
-	for _, origin := range strings.Split(raw, ",") {
+	for origin := range strings.SplitSeq(raw, ",") {
 		origin = strings.TrimSpace(origin)
 		if origin != "" {
 			allowed[origin] = true
@@ -195,12 +196,7 @@ func ValidAgencyRole(role string) bool {
 
 // RoleIn reports whether role is one of allowedRoles.
 func RoleIn(role string, allowedRoles []string) bool {
-	for _, allowed := range allowedRoles {
-		if role == allowed {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(allowedRoles, role)
 }
 
 // BearerToken extracts the token from an Authorization header.

@@ -18,6 +18,7 @@ coverage/
 .DS_Store
 .idea/
 .vscode/
+.claude/
 
 # Go
 bin/

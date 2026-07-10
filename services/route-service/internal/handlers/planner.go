@@ -267,7 +267,7 @@ func buildRoute(request models.RoutePlanRequest, destination models.Coordinates,
 
 	distance := 0.0
 	segments := make([]models.RouteSegment, 0, len(route)-1)
-	for i := 0; i < len(route)-1; i++ {
+	for i := range len(route) - 1 {
 		segmentDistance := utils.DistanceMeters(route[i], route[i+1])
 		distance += segmentDistance
 		segments = append(segments, models.RouteSegment{

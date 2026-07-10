@@ -49,12 +49,12 @@ type MemoryStore struct {
 // NewMemoryStore creates an in-memory store seeded with fixture data.
 func NewMemoryStore(now time.Time) Store {
 	return &MemoryStore{
-		shelters:           seedShelters(now),
-		recovery:           seedRecovery(now),
-		hospitals:          seedHospitals(now),
-		reliefPoints:       seedReliefPoints(now),
-		aidRequests:        seedAidRequests(now),
-		aidPledges:         seedAidPledges(now),
+		shelters:     seedShelters(now),
+		recovery:     seedRecovery(now),
+		hospitals:    seedHospitals(now),
+		reliefPoints: seedReliefPoints(now),
+		aidRequests:  seedAidRequests(now),
+		aidPledges:   seedAidPledges(now),
 	}
 }
 
@@ -260,6 +260,7 @@ func (m *MemoryStore) CreateReliefPoint(request models.CreateReliefPointRequest,
 }
 
 // UpdateReliefPoint updates an existing relief point.
+//
 //nolint:gocognit // legacy complex function; refactor into validation/execution helpers in a future pass.
 func (m *MemoryStore) UpdateReliefPoint(id string, request models.UpdateReliefPointRequest, ctx models.AuthorityContext, now time.Time) (models.ReliefPoint, string, string) {
 	m.mu.Lock()
@@ -358,6 +359,7 @@ func (m *MemoryStore) ListReliefPointStockHistory(reliefPointID string) []models
 }
 
 // ListAidRequests returns aid requests matching the filter.
+//
 //nolint:gocognit // legacy complex function; refactor into smaller helpers in a future pass.
 func (m *MemoryStore) ListAidRequests(filter models.AidRequestFilter) []models.AidRequest {
 	m.mu.RLock()

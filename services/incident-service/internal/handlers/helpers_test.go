@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -307,12 +308,7 @@ func submitVolunteerObservationForTest(t *testing.T, srv *server, taskID string,
 }
 
 func containsString(values []string, needle string) bool {
-	for _, value := range values {
-		if value == needle {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, needle)
 }
 
 func containsAuditAction(values []models.AuditEvent, needle string) bool {

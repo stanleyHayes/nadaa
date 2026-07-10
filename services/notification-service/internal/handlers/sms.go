@@ -227,7 +227,7 @@ func parseSMSReport(request models.SMSInboundRequest, phoneRef string, linkedPro
 	if description == "" {
 		description = fmt.Sprintf("SMS emergency report: %s with %s urgency", hazard, urgency)
 	} else {
-		description = fmt.Sprintf("SMS emergency report: %s", description)
+		description = "SMS emergency report: " + description
 	}
 
 	location, locationLabel := utils.InclusiveLocation(request.Location, nil)

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -102,7 +103,7 @@ func AllowedOriginsFromEnv() map[string]bool {
 	}
 
 	allowed := map[string]bool{}
-	for _, origin := range strings.Split(raw, ",") {
+	for origin := range strings.SplitSeq(raw, ",") {
 		origin = strings.TrimSpace(origin)
 		if origin != "" {
 			allowed[origin] = true
@@ -132,12 +133,7 @@ func NormalizeLanguage(value string) string {
 
 // ContainsString reports whether values contains expected.
 func ContainsString(values []string, expected string) bool {
-	for _, value := range values {
-		if value == expected {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, expected)
 }
 
 // ProviderName returns a stable provider identifier for logging.
@@ -177,10 +173,8 @@ func RecipientRef(request models.DeliveryRequest, channel string) string {
 
 // PreferredRecipientChannel chooses the preferred channel for logging a recipient.
 func PreferredRecipientChannel(channels []string) string {
-	for _, channel := range channels {
-		if channel == "sms" {
-			return "sms"
-		}
+	if slices.Contains(channels, "sms") {
+		return "sms"
 	}
 	if len(channels) > 0 {
 		return channels[0]

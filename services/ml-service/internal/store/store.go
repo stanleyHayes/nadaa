@@ -171,7 +171,7 @@ func (m *MemoryStore) CreateSimulationJob(req models.CreateSimulationRequest, no
 		req.TimeStepHours = req.DurationHours
 	}
 
-	id := fmt.Sprintf("sim_%s", now.Format("20060102150405"))
+	id := "sim_" + now.Format("20060102150405")
 	reference := fmt.Sprintf("FS-%s-%05d", now.Format("2006"), len(m.simulations)+1)
 
 	scenario := models.SimulationScenario{
@@ -282,10 +282,10 @@ func (m *MemoryStore) scoreCell(row FeatureRow, scenario models.SimulationScenar
 	}
 
 	if scenario.RainfallMmOverride != nil {
-		values["rainfall_forecast_24h_mm"] = values["rainfall_forecast_24h_mm"] + *scenario.RainfallMmOverride*progress
+		values["rainfall_forecast_24h_mm"] += *scenario.RainfallMmOverride * progress
 	}
 	if scenario.WaterLevelTrendCmOverride != nil {
-		values["water_level_trend_cm"] = values["water_level_trend_cm"] + *scenario.WaterLevelTrendCmOverride*progress
+		values["water_level_trend_cm"] += *scenario.WaterLevelTrendCmOverride * progress
 	}
 
 	probability := m.logisticProbability(values)

@@ -158,7 +158,7 @@ func parseListFilter(w http.ResponseWriter, r *http.Request) (models.ListFilter,
 			return filter, false
 		}
 		var floats [4]float64
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			parsed, err := strconv.ParseFloat(strings.TrimSpace(parts[i]), 64)
 			if err != nil {
 				utils.WriteError(w, http.StatusBadRequest, "invalid_bbox", "bbox values must be valid decimal coordinates")
@@ -166,6 +166,7 @@ func parseListFilter(w http.ResponseWriter, r *http.Request) (models.ListFilter,
 			}
 			floats[i] = parsed
 		}
+		//nolint:gosec // G602 false positive: floats is a fixed [4]float64 array, so indices 0-3 are always in range.
 		filter.BBox = &models.BBox{MinLng: floats[0], MinLat: floats[1], MaxLng: floats[2], MaxLat: floats[3]}
 	}
 

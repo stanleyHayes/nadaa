@@ -4,21 +4,48 @@ run:
   timeout: 5m
   modules-download-mode: readonly
 
+# We enable the full golangci-lint set (default: all) and only turn off the
+# handful of linters that are mutually contradictory, pure formatting opinion, or
+# fight idiomatic patterns this stdlib-only, in-memory-store codebase relies on.
+# Each disable carries its reason so the exclusion is auditable, not silent.
 linters:
-  default: none
-  enable:
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - revive
-    - gocognit
-    - misspell
-    - gosec
+  default: all
+  disable:
+    - wsl # opinionated blank-line placement; contradicts nlreturn/gofmt spacing
+    - wsl_v5 # newer variant of wsl with the same churn/low-signal tradeoff
+    - nlreturn # requires a blank line before every return; pure whitespace opinion
+    - exhaustruct # demands every struct field be set; breaks partial/zero-value inits used throughout
+    - mnd # flags every numeric literal; model formulas and thresholds are legitimately numeric
+    - varnamelen # bans short idiomatic names (i, r, w, m, tx)
+    - lll # line-length; long log/audit format strings are intentional
+    - gochecknoglobals # services define package-level role/allowlist maps by design
+    - err113 # dynamic errors.New/fmt.Errorf are used deliberately (no error sentinels layer)
+    - wrapcheck # in-memory stores return unwrapped errors intentionally
+    - ireturn # returning the Store interface from constructors is intentional
+    - depguard # no import allowlist policy defined for this repo
+    - paralleltest # tests are fast and deterministic; t.Parallel() not required
+    - testpackage # internal white-box tests access unexported helpers by design
+    - canonicalheader # X-NADAA-* header names are the platform convention; Get() canonicalizes anyway
+    - noinlineerr # bans idiomatic `if err := f(); err != nil` inline error handling
+    - goconst # repeated role/status/hazard string literals are clearer inline than as constants
+    - funcorder # method/declaration ordering is stylistic
+    - dupl # flags structurally similar handlers/tests that are intentionally parallel
+    - godoclint # doc-comment formatting opinion beyond revive's exported/package checks
+    - interfacebloat # the Store interfaces intentionally expose many domain methods
+    - errchkjson # WriteJSON centralizes and logs the json encode error
+    - unparam # interface-conformance params (e.g. ctx) are intentionally retained
   settings:
     gocognit:
       min-complexity: 30
+    cyclop:
+      max-complexity: 35
+    gocyclo:
+      min-complexity: 35
+    nestif:
+      min-complexity: 10
+    funlen:
+      lines: 200
+      statements: 140
     revive:
       rules:
         - name: package-comments
@@ -27,9 +54,16 @@ linters:
           severity: warning
         - name: blank-imports
           severity: warning
-
-issues:
-  exclude-use-default: false
-  exclude:
-    # Ignore underscore return values for hash.Hash.Write which never fails.
-    - "Error return value of `\\(.*\\)\\.Write` is not checked"
+  exclusions:
+    generated: lax
+    rules:
+      # hash.Hash.Write never returns an error.
+      - text: "Error return value of `\\(.*\\)\\.Write` is not checked"
+        linters:
+          - errcheck
+      # Test files: allow assertion helpers, magic values, and long tables.
+      - path: _test\.go
+        linters:
+          - gosec
+          - contextcheck
+          - forcetypeassert

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -254,11 +255,10 @@ func (m *MemoryStore) SuggestTriage(id string, ctx models.AuthorityContext, now 
 	suggestion.SuggestionID = utils.NewID("trs")
 	timestamp := now.UTC()
 
-	logged := append(m.triageSuggestions[incident.ID], suggestion)
-	if len(logged) > TriageSuggestionLogLimit {
-		logged = logged[len(logged)-TriageSuggestionLogLimit:]
+	m.triageSuggestions[incident.ID] = append(m.triageSuggestions[incident.ID], suggestion)
+	if logged := m.triageSuggestions[incident.ID]; len(logged) > TriageSuggestionLogLimit {
+		m.triageSuggestions[incident.ID] = logged[len(logged)-TriageSuggestionLogLimit:]
 	}
-	m.triageSuggestions[incident.ID] = logged
 
 	after := map[string]any{"triageSuggestion": snapshotTriageSuggestion(suggestion)}
 	m.appendAuditLocked("incident.triage_suggested", ctx, incident.ID, nil, after, timestamp)
@@ -415,8 +415,9 @@ func (m *MemoryStore) TransitionIncident(id string, nextStatus string, ctx model
 		}
 	}
 
+	fromStatus, _ := before["status"].(string)
 	incident.Timeline = append(incident.Timeline, newTimelineEvent(action, timelineMessageForStatus(nextStatus, note, resolutionNotes), ctx, map[string]string{
-		"fromStatus": before["status"].(string),
+		"fromStatus": fromStatus,
 		"toStatus":   nextStatus,
 	}, timestamp))
 	m.incidents[incident.ID] = incident
@@ -479,12 +480,12 @@ func (m *MemoryStore) MergeIncidents(primaryID string, request models.MergeIncid
 		duplicate.MergeReason = request.Note
 		duplicate.Status = "closed"
 		duplicate.StatusUpdatedBy = ctx.ActorUserID
-		duplicate.StatusReason = fmt.Sprintf("Merged into %s", primary.Reference)
+		duplicate.StatusReason = "Merged into " + primary.Reference
 		duplicate.ResolutionNotes = request.Note
 		duplicate.ClosedAt = &timestamp
 		duplicate.UpdatedAt = timestamp
 		duplicate.DuplicateCandidates = filterDuplicateCandidates(duplicate.DuplicateCandidates, map[string]bool{primary.ID: true})
-		duplicate.Timeline = append(duplicate.Timeline, newTimelineEvent("incident.merged_into", fmt.Sprintf("Merged into %s", primary.Reference), ctx, map[string]string{
+		duplicate.Timeline = append(duplicate.Timeline, newTimelineEvent("incident.merged_into", "Merged into "+primary.Reference, ctx, map[string]string{
 			"primaryIncidentId": primary.ID,
 			"primaryReference":  primary.Reference,
 			"note":              request.Note,
@@ -605,9 +606,9 @@ func (m *MemoryStore) AssignIncident(id string, request models.AssignmentRequest
 		incident.Status = "assigned"
 	}
 	incident.StatusUpdatedBy = ctx.ActorUserID
-	incident.StatusReason = fmt.Sprintf("Assigned to %s", assignment.AgencyName)
+	incident.StatusReason = "Assigned to " + assignment.AgencyName
 	incident.UpdatedAt = timestamp
-	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.assigned", fmt.Sprintf("Assigned to %s", assignment.AgencyName), ctx, map[string]string{
+	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.assigned", "Assigned to "+assignment.AgencyName, ctx, map[string]string{
 		"assignmentId": assignment.ID,
 		"agencyId":     assignment.AgencyID,
 		"agencyName":   assignment.AgencyName,
@@ -775,7 +776,7 @@ func (m *MemoryStore) AssignVolunteerTask(incidentID string, request models.Volu
 	}
 	m.volunteerTasks[task.ID] = task
 
-	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_assigned", fmt.Sprintf("Volunteer task assigned to %s", volunteer.Name), ctx, map[string]string{
+	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_assigned", "Volunteer task assigned to "+volunteer.Name, ctx, map[string]string{
 		"taskId":      task.ID,
 		"volunteerId": volunteer.ID,
 		"groupId":     volunteer.GroupID,
@@ -834,7 +835,7 @@ func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.Vo
 	m.volunteerTasks[task.ID] = task
 
 	actor := volunteerActorContextByID(request.VolunteerID)
-	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_status_updated", fmt.Sprintf("Volunteer task %s", request.Status), actor, map[string]string{
+	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_status_updated", "Volunteer task "+request.Status, actor, map[string]string{
 		"taskId":       task.ID,
 		"volunteerId":  request.VolunteerID,
 		"status":       request.Status,
@@ -896,7 +897,7 @@ func (m *MemoryStore) AddVolunteerObservation(taskID string, request models.Volu
 		"taskId":       task.ID,
 		"volunteerId":  request.VolunteerID,
 		"safetyStatus": request.SafetyStatus,
-		"mediaCount":   fmt.Sprintf("%d", len(request.Media)),
+		"mediaCount":   strconv.Itoa(len(request.Media)),
 	}, timestamp))
 	if task.EscalationRequired {
 		incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_escalation", "Volunteer observation requires authority review", actor, map[string]string{
@@ -1541,7 +1542,7 @@ func timelineMessageForStatus(status string, note string, resolutionNotes string
 		if note != "" {
 			return fmt.Sprintf("Status changed to %s: %s", status, note)
 		}
-		return fmt.Sprintf("Status changed to %s", status)
+		return "Status changed to " + status
 	}
 }
 
@@ -1685,12 +1686,9 @@ func triageDuplicateSignal(openCandidates []models.DuplicateCandidate) (float64,
 			maxScore = candidate.Score
 		}
 	}
-	limit := len(openCandidates)
-	if limit > 3 {
-		limit = 3
-	}
+	limit := min(len(openCandidates), 3)
 	ids := make([]string, 0, limit)
-	for index := 0; index < limit; index++ {
+	for index := range limit {
 		ids = append(ids, openCandidates[index].IncidentID)
 	}
 	return maxScore, ids
@@ -1702,10 +1700,10 @@ func triageAffectedPopulation(incident models.IncidentRecord, openCandidates []m
 		base = 1
 	}
 	if incident.Urgency == "life_threatening" {
-		base = base * 2
+		base *= 2
 	}
 	if len(openCandidates) > 0 {
-		base = base + len(openCandidates)*3
+		base += len(openCandidates) * 3
 	}
 	if base > 1000000 {
 		return 1000000

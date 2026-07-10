@@ -61,8 +61,8 @@ func loadFeatureRows(modelDir string) ([]FeatureRow, error) {
 	featurePath := filepath.Join(filepath.Dir(modelDir), "generated", "features.v1.json")
 
 	type featureFile struct {
-		FeatureSetVersion string                   `json:"featureSetVersion"`
-		Limitations       []string                 `json:"limitations"`
+		FeatureSetVersion string                       `json:"featureSetVersion"`
+		Limitations       []string                     `json:"limitations"`
 		Rows              []map[string]json.RawMessage `json:"rows"`
 	}
 

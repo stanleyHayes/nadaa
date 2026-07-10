@@ -575,11 +575,12 @@ func (m *MemoryStore) recalcSingleRequest(req models.AidRequest, now time.Time) 
 	}
 	req.QuantityFulfilled = fulfilled
 	if req.Status != "closed" {
-		if fulfilled >= req.QuantityNeeded {
+		switch {
+		case fulfilled >= req.QuantityNeeded:
 			req.Status = "fulfilled"
-		} else if fulfilled > 0 {
+		case fulfilled > 0:
 			req.Status = "partially_fulfilled"
-		} else {
+		default:
 			req.Status = "open"
 		}
 	}

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -96,7 +97,7 @@ func AllowedOriginsFromEnv() map[string]bool {
 		return nil
 	}
 	allowed := map[string]bool{}
-	for _, origin := range strings.Split(raw, ",") {
+	for origin := range strings.SplitSeq(raw, ",") {
 		origin = strings.TrimSpace(origin)
 		if origin != "" {
 			allowed[origin] = true
@@ -142,7 +143,7 @@ func ParseWKTLineString(value string) (models.LineStringGeometry, error) {
 	prefix := "LINESTRING("
 	suffix := ")"
 	if !strings.HasPrefix(strings.ToUpper(value), prefix) || !strings.HasSuffix(value, suffix) {
-		return models.LineStringGeometry{}, fmt.Errorf("geometry must be a LINESTRING(...)")
+		return models.LineStringGeometry{}, errors.New("geometry must be a LINESTRING(...)")
 	}
 	inner := value[len(prefix) : len(value)-len(suffix)]
 	parts := strings.Split(inner, ",")
@@ -151,12 +152,12 @@ func ParseWKTLineString(value string) (models.LineStringGeometry, error) {
 		part = strings.TrimSpace(part)
 		nums := strings.Fields(part)
 		if len(nums) != 2 {
-			return models.LineStringGeometry{}, fmt.Errorf("each LINESTRING coordinate must have two numbers")
+			return models.LineStringGeometry{}, errors.New("each LINESTRING coordinate must have two numbers")
 		}
 		lng, err1 := strconv.ParseFloat(nums[0], 64)
 		lat, err2 := strconv.ParseFloat(nums[1], 64)
 		if err1 != nil || err2 != nil {
-			return models.LineStringGeometry{}, fmt.Errorf("LINESTRING coordinates must be valid decimal numbers")
+			return models.LineStringGeometry{}, errors.New("LINESTRING coordinates must be valid decimal numbers")
 		}
 		coords = append(coords, []float64{lng, lat})
 	}

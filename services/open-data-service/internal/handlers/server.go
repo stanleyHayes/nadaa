@@ -88,26 +88,29 @@ func (s *Server) checkRateLimit(ip string) (models.RateLimitStatus, bool) {
 	return status, false
 }
 
-func (s *Server) sendAuditEvent(_ *http.Request, event models.AuditEvent) {
+func (s *Server) sendAuditEvent(r *http.Request, event models.AuditEvent) {
 	if s.config.AuditLogServiceURL == "" {
 		return
 	}
-	// Fire-and-forget audit log attempt. Production should queue reliably.
+	// Detach from the request's cancellation so the fire-and-forget attempt can
+	// outlive the handler, while still inheriting request-scoped values.
+	parent := context.WithoutCancel(r.Context())
+	// Production should queue reliably rather than fire-and-forget.
 	go func(evt models.AuditEvent) {
 		body, err := json.Marshal(evt)
 		if err != nil {
 			return
 		}
+		ctx, cancel := context.WithTimeout(parent, 2*time.Second)
+		defer cancel()
 		endpoint := s.config.AuditLogServiceURL + "/api/v1/audit/logs"
-		req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 		if err != nil {
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-NADAA-Actor-Role", evt.ActorRole)
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		resp, err := s.httpClient.Do(req.WithContext(ctx))
+		resp, err := s.httpClient.Do(req)
 		if err != nil {
 			return
 		}

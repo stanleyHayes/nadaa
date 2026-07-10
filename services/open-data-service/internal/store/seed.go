@@ -2,6 +2,7 @@ package store
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -176,13 +177,13 @@ func seedDatasets(now time.Time) map[string]models.Dataset {
 }
 
 func generateID(prefix string, now time.Time) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s-%d", prefix, now.UnixNano())))
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s-%d", prefix, now.UnixNano()))
 	return fmt.Sprintf("%s_%x", prefix, sum[:8])
 }
 
 func generateChecksum(datasetID, format string, now time.Time) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s-%s-%d", datasetID, format, now.UnixNano())))
-	return fmt.Sprintf("%x", sum[:16])
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s-%s-%d", datasetID, format, now.UnixNano()))
+	return hex.EncodeToString(sum[:16])
 }
 
 func estimateSize(datasetID, format string) int64 {

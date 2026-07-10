@@ -172,7 +172,7 @@ func TestDownloadPendingDatasetForbidden(t *testing.T) {
 
 func TestDownloadRateLimit(t *testing.T) {
 	srv := newTestServer()
-	for i := 0; i < 11; i++ {
+	for i := range 11 {
 		response := httptest.NewRecorder()
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/open-data/datasets/dataset_flood_reports_2026/download", nil)
 		srv.Routes().ServeHTTP(response, request)
@@ -355,7 +355,7 @@ func TestCreateRequestAssignsUniqueIDs(t *testing.T) {
 		Purpose:       "Research on flood response patterns in Accra.",
 	}
 	ids := map[string]bool{}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/open-data/requests", jsonBody(body))
 		req.Header.Set("Content-Type", "application/json")

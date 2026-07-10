@@ -135,7 +135,7 @@ type SyncRequest struct {
 	Title           string      `json:"title,omitempty"`
 	Summary         string      `json:"summary,omitempty"`
 	Message         string      `json:"message,omitempty"`
-	Location        Coordinates `json:"location,omitempty"`
+	Location        Coordinates `json:"location,omitzero"`
 	TargetLabel     string      `json:"targetLabel,omitempty"`
 	TargetAgencyIDs []string    `json:"targetAgencyIds"`
 	CorrelationID   string      `json:"correlationId"`

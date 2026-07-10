@@ -272,11 +272,12 @@ func (m *MemoryStore) CloseMissingPerson(id string, request models.CloseMissingP
 		next := m.records[index]
 		next.ClosureType = request.ClosureType
 		next.ClosureNotes = request.ClosureNotes
-		if request.ReunitedWithFamily || request.ClosureType == "reunited" {
+		switch {
+		case request.ReunitedWithFamily || request.ClosureType == "reunited":
 			next.Status = "reunited"
-		} else if request.ClosureType == "located_safe" {
+		case request.ClosureType == "located_safe":
 			next.Status = "located"
-		} else {
+		default:
 			next.Status = "closed"
 		}
 		next.PublicVisibility = "private"

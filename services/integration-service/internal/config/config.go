@@ -9,11 +9,11 @@ import (
 
 // Config holds integration-service configuration loaded from the environment.
 type Config struct {
-	Addr               string
-	RoadClosureAPIURL  string
-	AllowedOrigins     map[string]bool
-	SchedulerEnabled   bool
-	SchedulerInterval  time.Duration
+	Addr              string
+	RoadClosureAPIURL string
+	AllowedOrigins    map[string]bool
+	SchedulerEnabled  bool
+	SchedulerInterval time.Duration
 }
 
 // Load reads configuration from environment variables.

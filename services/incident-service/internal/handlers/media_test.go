@@ -22,7 +22,7 @@ func TestInitiateMediaUpload(t *testing.T) {
 
 	var payload models.MediaUploadResponse
 	decodeResponse(t, response, &payload)
-	if payload.MediaID == "" || payload.Method != "PUT" || payload.Access != "private" {
+	if payload.MediaID == "" || payload.Method != http.MethodPut || payload.Access != "private" {
 		t.Fatalf("expected private media upload response, got %#v", payload)
 	}
 	if payload.MaxSizeBytes != utils.AllowedMediaTypes["image/jpeg"] {

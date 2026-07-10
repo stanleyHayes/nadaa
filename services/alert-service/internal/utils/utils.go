@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -603,7 +604,7 @@ func PolygonAreaSqKm(geometry *models.TargetGeometry) float64 {
 
 	ring := geometry.Coordinates[0]
 	sum := 0.0
-	for index := 0; index < len(ring)-1; index++ {
+	for index := range len(ring) - 1 {
 		if len(ring[index]) != 2 || len(ring[index+1]) != 2 {
 			return 0
 		}
@@ -678,12 +679,7 @@ func RoundProbability(value float64) float64 {
 
 // ContainsString reports whether values contains needle.
 func ContainsString(values []string, needle string) bool {
-	for _, value := range values {
-		if value == needle {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, needle)
 }
 
 // CompactStrings trims and removes empty strings from values.

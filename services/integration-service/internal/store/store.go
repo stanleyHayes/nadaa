@@ -238,10 +238,10 @@ func (m *MemoryStore) RetryObservationImportJob(jobID string, now time.Time) (mo
 	}
 
 	request := models.ObservationImportRequest{
-		AdapterID:     previous.AdapterID,
-		Metric:        previous.Metric,
-		RequestedBy:   previous.RequestedBy,
-		CorrelationID: previous.CorrelationID,
+		AdapterID:      previous.AdapterID,
+		Metric:         previous.Metric,
+		RequestedBy:    previous.RequestedBy,
+		CorrelationID:  previous.CorrelationID,
 		FailureMessage: previous.Error,
 	}
 	job := m.createObservationImportJobLocked(request, "retry", now, previous.Attempts+1)

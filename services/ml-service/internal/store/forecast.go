@@ -230,10 +230,7 @@ func (m *MemoryStore) computeDistrictForecasts(opts forecastOptions, now time.Ti
 		exposureFactor := 1.0 + (avgVuln/100.0)*0.75
 		predictedFloat := (g.histTotal*opts.historicalWeight + avgComposite*4.0) *
 			(0.7 + avgRainfall/150.0) * exposureFactor * windowFactor
-		predicted := int(math.Round(predictedFloat))
-		if predicted < 0 {
-			predicted = 0
-		}
+		predicted := max(int(math.Round(predictedFloat)), 0)
 
 		riskLevel := riskLevelForDistrict(g.worstRank, avgComposite)
 		// riskLevel is a minimum-severity threshold: keep districts at or above it.
@@ -285,13 +282,7 @@ func buildStagingSuggestion(base stagingBase, nearest districtForecast, generate
 	if perUnit <= 0 {
 		perUnit = 8
 	}
-	units := int(math.Ceil(float64(nearest.forecast.PredictedIncidentCount) / perUnit))
-	if units < 1 {
-		units = 1
-	}
-	if units > 5 {
-		units = 5
-	}
+	units := min(max(int(math.Ceil(float64(nearest.forecast.PredictedIncidentCount)/perUnit)), 1), 5)
 
 	reason := fmt.Sprintf("Elevated predicted flood demand in %s (~%d incidents in 24h, %s risk)",
 		nearest.forecast.District, nearest.forecast.PredictedIncidentCount, nearest.forecast.RiskLevel)
@@ -424,12 +415,12 @@ func containsFold(values []string, target string) bool {
 	return false
 }
 
-func clampFloat(value, min, max float64) float64 {
-	if value < min {
-		return min
+func clampFloat(value, lower, upper float64) float64 {
+	if value < lower {
+		return lower
 	}
-	if value > max {
-		return max
+	if value > upper {
+		return upper
 	}
 	return value
 }

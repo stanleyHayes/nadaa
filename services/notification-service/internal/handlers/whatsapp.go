@@ -51,6 +51,10 @@ func (s *Server) whatsappWebhookHandler(w http.ResponseWriter, r *http.Request) 
 	utils.WriteJSON(w, http.StatusAccepted, response)
 }
 
+// handleWhatsAppInbound is a flat command dispatcher: its length is driven by the
+// number of independently-simple WhatsApp commands it routes, not by nested logic.
+//
+//nolint:funlen,maintidx // linear per-command dispatch; splitting would fragment one readable state machine.
 func (s *Server) handleWhatsAppInbound(ctx context.Context, request models.WhatsAppInboundRequest) models.WhatsAppInboundResponse {
 	now := s.now()
 	phoneRef := utils.PhoneRef(request.From)

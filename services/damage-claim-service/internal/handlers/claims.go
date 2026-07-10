@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -53,7 +54,7 @@ func (s *Server) createClaimHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	incidentRef, incidentLocation := s.enrichIncident(normalized.IncidentID)
+	incidentRef, incidentLocation := s.enrichIncident(r.Context(), normalized.IncidentID)
 	claim := s.store.Create(normalized, incidentRef, incidentLocation, s.now().UTC())
 	log.Printf("INFO damage-claim-service claim_create completed id=%s reference=%s incidentId=%s", claim.ID, claim.Reference, claim.IncidentID)
 	utils.WriteJSON(w, http.StatusCreated, claim)
@@ -185,14 +186,19 @@ func (s *Server) closeClaimHandler(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, claim)
 }
 
-func (s *Server) enrichIncident(incidentID string) (string, string) {
+func (s *Server) enrichIncident(ctx context.Context, incidentID string) (string, string) {
 	incidentID = strings.TrimSpace(incidentID)
 	if incidentID == "" {
 		return "", ""
 	}
 
 	endpoint := fmt.Sprintf("%s/incidents/%s", s.incidentServiceURL, url.PathEscape(incidentID))
-	resp, err := s.httpClient.Get(endpoint)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		log.Printf("WARN damage-claim-service incident_lookup_failed incidentId=%s error=%v", incidentID, err)
+		return "", ""
+	}
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		log.Printf("WARN damage-claim-service incident_lookup_failed incidentId=%s error=%v", incidentID, err)
 		return "", ""

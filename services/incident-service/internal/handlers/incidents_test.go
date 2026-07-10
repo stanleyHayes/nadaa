@@ -147,7 +147,7 @@ func TestCreateIncidentFlagsSuspiciousReportSignalsWithoutBlocking(t *testing.T)
 	srv := newTestServer()
 	body := validIncidentRequest()
 	body.Urgency = "life_threatening"
-	body.Description = "Free money promo click here https://example.test emergency emergency emergency"
+	body.Description = "Free money promo click here https://example.test emergency "
 
 	payload := createIncidentForTest(t, srv, body)
 

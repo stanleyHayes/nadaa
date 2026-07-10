@@ -64,7 +64,7 @@ type ImageryLifecycleResponse struct {
 
 // GeoJSONFeatureCollection is a minimal GeoJSON FeatureCollection wrapper.
 type GeoJSONFeatureCollection struct {
-	Type     string          `json:"type"`
+	Type     string           `json:"type"`
 	Features []GeoJSONFeature `json:"features"`
 }
 

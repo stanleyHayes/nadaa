@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/stanleyHayes/nadaa/services/route-service/internal/models"
@@ -97,7 +98,7 @@ func AllowedOriginsFromEnv() map[string]bool {
 		return nil
 	}
 	allowed := map[string]bool{}
-	for _, origin := range strings.Split(raw, ",") {
+	for origin := range strings.SplitSeq(raw, ",") {
 		origin = strings.TrimSpace(origin)
 		if origin != "" {
 			allowed[origin] = true
@@ -191,7 +192,7 @@ func Interpolate(a, b models.Coordinates, t float64) models.Coordinates {
 func PointInPolygon(point models.Coordinates, polygon []models.Coordinates) bool {
 	inside := false
 	j := len(polygon) - 1
-	for i := 0; i < len(polygon); i++ {
+	for i := range polygon {
 		pi := polygon[i]
 		pj := polygon[j]
 		if ((pi.Lng > point.Lng) != (pj.Lng > point.Lng)) &&
@@ -233,10 +234,5 @@ func NormalizeRiskLevels(levels []string) []string {
 // ShouldAvoidRisk reports whether a risk level should be avoided.
 func ShouldAvoidRisk(level string, avoid []string) bool {
 	level = NormalizeString(level)
-	for _, a := range avoid {
-		if level == a {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(avoid, level)
 }

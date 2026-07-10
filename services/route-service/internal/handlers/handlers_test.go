@@ -96,8 +96,8 @@ func TestPlanRouteValidReturnsRoute(t *testing.T) {
 	srv := newTestServer(responses)
 
 	body := models.RoutePlanRequest{
-		Origin: models.Coordinates{Lat: 5.6037, Lng: -0.1870},
-		Destination: &models.Coordinates{Lat: 5.6100, Lng: -0.1800},
+		Origin:       models.Coordinates{Lat: 5.6037, Lng: -0.1870},
+		Destination:  &models.Coordinates{Lat: 5.6100, Lng: -0.1800},
 		WaypointType: "manual",
 	}
 

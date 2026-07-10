@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -136,7 +135,7 @@ func TestRiskHandlerIncludesMLPredictionWhenConfigured(t *testing.T) {
 	defer mlServer.Close()
 
 	srv := newTestServer()
-	srv.mlClient = newMLClient(fmt.Sprintf("%s/api/v1", mlServer.URL), mlServer.Client())
+	srv.mlClient = newMLClient(mlServer.URL+"/api/v1", mlServer.Client())
 
 	payload := requestRiskFromServer(t, srv, "/api/v1/risk?lat=5.5600&lng=-0.2000")
 	if payload.MLPrediction == nil {

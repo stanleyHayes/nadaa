@@ -308,8 +308,8 @@ func TestCreateReliefPointRequiresAuthority(t *testing.T) {
 func TestCreateReliefPoint(t *testing.T) {
 	srv := newTestServer()
 	body := models.CreateReliefPointRequest{
-		Name: "Test Food Point",
-		Type: "food",
+		Name:     "Test Food Point",
+		Type:     "food",
 		Location: models.Coordinates{Lat: 5.55, Lng: -0.19},
 		StockCategories: []models.ReliefStockCategory{
 			{Category: "rice_kg", Quantity: 100, Unit: "kg"},

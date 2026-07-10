@@ -83,7 +83,7 @@ func AllowedOriginsFromEnv() map[string]bool {
 		return nil
 	}
 	allowed := map[string]bool{}
-	for _, origin := range strings.Split(raw, ",") {
+	for origin := range strings.SplitSeq(raw, ",") {
 		origin = strings.TrimSpace(origin)
 		if origin != "" {
 			allowed[origin] = true

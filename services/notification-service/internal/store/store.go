@@ -315,13 +315,14 @@ func (m *MemoryStore) CreateVoiceDeliveryAttempts(ctx context.Context, asset mod
 	for _, recipient := range request.Recipients {
 		variant, variantFound := voiceVariantForLanguage(asset, recipient.Language)
 		result := models.ProviderResult{}
-		if !variantFound {
+		switch {
+		case !variantFound:
 			result = models.ProviderResult{Provider: "voice_asset", Status: "skipped", Reason: "approved language variant is missing"}
 			utils.LogWarn("voice delivery skipped missing variant", "voiceAssetId", asset.ID, "alertId", asset.AlertID, "language", recipient.Language, "recipientRef", utils.VoiceRecipientRef(recipient))
-		} else if variant.ReviewStatus != "approved" {
+		case variant.ReviewStatus != "approved":
 			result = models.ProviderResult{Provider: "voice_asset", Status: "skipped", Reason: "language variant is not approved"}
 			utils.LogWarn("voice delivery skipped unapproved variant", "voiceAssetId", asset.ID, "alertId", asset.AlertID, "language", recipient.Language, "variantStatus", variant.ReviewStatus, "recipientRef", utils.VoiceRecipientRef(recipient))
-		} else {
+		default:
 			deliveryReq := models.DeliveryRequest{
 				AlertID:     asset.AlertID,
 				RecipientID: recipient.RecipientID,

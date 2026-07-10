@@ -257,7 +257,7 @@ func generateMockMetrics(campaignID string, now time.Time) []models.CampaignMetr
 	base := int(h.Sum32()%5000) + 1000
 
 	metrics := make([]models.CampaignMetric, 7)
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		day := now.Add(-time.Duration(6-i) * 24 * time.Hour).Truncate(24 * time.Hour)
 		reach := base + i*120 + int(h.Sum32())%(i*50+100)
 		engagement := reach / 10

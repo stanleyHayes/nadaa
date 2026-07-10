@@ -52,11 +52,11 @@ type RoadClosureListResponse struct {
 
 // RiskArea is a minimal risk zone representation.
 type RiskArea struct {
-	ID           string       `json:"id"`
-	RiskLevel    string       `json:"riskLevel"`
+	ID           string        `json:"id"`
+	RiskLevel    string        `json:"riskLevel"`
 	Polygon      []Coordinates `json:"polygon,omitempty"`
-	Center       Coordinates  `json:"center,omitempty"`
-	RadiusMeters float64      `json:"radiusMeters,omitempty"`
+	Center       Coordinates   `json:"center,omitzero"`
+	RadiusMeters float64       `json:"radiusMeters,omitempty"`
 }
 
 // RiskAreaListResponse is the payload returned by the risk-service.
@@ -76,16 +76,16 @@ type RoutePlanRequest struct {
 
 // RoutePlanResponse is the payload returned for a planned route.
 type RoutePlanResponse struct {
-	Route                    []Coordinates `json:"route"`
+	Route                    []Coordinates  `json:"route"`
 	Segments                 []RouteSegment `json:"segments"`
-	DistanceMeters           int           `json:"distanceMeters"`
-	EstimatedDurationMinutes int           `json:"estimatedDurationMinutes"`
-	TargetShelter            *Shelter      `json:"targetShelter,omitempty"`
-	AvoidedClosures          []string      `json:"avoidedClosures"`
-	AvoidedRiskZones         []string      `json:"avoidedRiskZones"`
-	Disclaimer               string        `json:"disclaimer"`
-	GeneratedAt              time.Time     `json:"generatedAt"`
-	DecisionSupport          bool          `json:"decisionSupport"`
+	DistanceMeters           int            `json:"distanceMeters"`
+	EstimatedDurationMinutes int            `json:"estimatedDurationMinutes"`
+	TargetShelter            *Shelter       `json:"targetShelter,omitempty"`
+	AvoidedClosures          []string       `json:"avoidedClosures"`
+	AvoidedRiskZones         []string       `json:"avoidedRiskZones"`
+	Disclaimer               string         `json:"disclaimer"`
+	GeneratedAt              time.Time      `json:"generatedAt"`
+	DecisionSupport          bool           `json:"decisionSupport"`
 }
 
 // OptionsResponse returns supported enum values.

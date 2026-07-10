@@ -128,7 +128,7 @@ type ProviderResult struct {
 
 // NotificationProvider abstracts a push/sms/voice backend.
 type NotificationProvider interface {
-	Send(context.Context, ProviderMessage) ProviderResult
+	Send(ctx context.Context, message ProviderMessage) ProviderResult
 }
 
 // MockProvider simulates a successful delivery for a channel.

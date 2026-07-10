@@ -73,11 +73,11 @@ type Pledge struct {
 
 // AuthorityContext holds authenticated authority metadata from request headers.
 type AuthorityContext struct {
-	ActorUserID  string
+	ActorUserID   string
 	ActorAgencyID string
-	ActorRole    string
-	MFACompleted bool
-	RequestID    string
+	ActorRole     string
+	MFACompleted  bool
+	RequestID     string
 }
 
 // APIError is the standard error response envelope.
