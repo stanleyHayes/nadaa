@@ -68,6 +68,7 @@ jobs:
           - services/ml-service
           - services/notification-service
           - services/risk-service
+          - services/damage-claim-service
           - services/road-closure-service
           - services/route-service
           - services/donation-service
@@ -134,6 +135,8 @@ jobs:
             dockerfile: services/donation-service/Dockerfile
           - name: missing-person-service
             dockerfile: services/missing-person-service/Dockerfile
+          - name: damage-claim-service
+            dockerfile: services/damage-claim-service/Dockerfile
           - name: shelter-service
             dockerfile: services/shelter-service/Dockerfile
     steps:

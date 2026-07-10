@@ -132,6 +132,7 @@ import {
 import RoutePlanner from "./RoutePlanner";
 import DonorPortal from "./DonorPortal";
 import MissingPersonsPanel from "./MissingPersonsPanel";
+import DamageClaim from "./DamageClaim";
 
 function CitizenApp() {
   const [area, setArea] = useState("Accra Central");
@@ -1204,6 +1205,7 @@ function CitizenApp() {
 
                 <Grid size={{ xs: 12, md: 6 }}>
                   <DonorPortal />
+                  <DamageClaim />
                 </Grid>
 
                 <Grid size={{ xs: 12 }}>

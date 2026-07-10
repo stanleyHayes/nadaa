@@ -2108,3 +2108,79 @@ export interface MissingPersonAuditResponse {
   entries: MissingPersonAuditEntry[];
   generatedAt: string;
 }
+
+// NADAA-133 — Insurance and property damage claim export
+
+export type DamageType = "structural" | "flood" | "fire" | "vehicle" | "other";
+
+export type DamageClaimStatus = "draft" | "submitted" | "closed";
+
+export type DamageClaimVerificationStatus = "pending" | "verified" | "rejected";
+
+export type DamageClaimExportFormat = "csv" | "pdf";
+
+export interface DamageClaimReporter {
+  name: string;
+  phone: string;
+  email?: string;
+  userId?: string;
+}
+
+export interface DamageClaimLocation {
+  lat: number;
+  lng: number;
+  address?: string;
+}
+
+export interface DamageClaimRecord {
+  id: string;
+  reference: string;
+  incidentId?: string;
+  incidentReference?: string;
+  incidentLocation?: string;
+  reporter: DamageClaimReporter;
+  damageType: DamageType;
+  damageDescription: string;
+  estimatedLossAmount: string;
+  damagePhotos: string[];
+  location: DamageClaimLocation;
+  verificationStatus: DamageClaimVerificationStatus;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  verificationNotes?: string;
+  status: DamageClaimStatus;
+  privacyConsent: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDamageClaimRequest {
+  incidentId?: string;
+  reporter: DamageClaimReporter;
+  damageType: DamageType;
+  damageDescription: string;
+  estimatedLossAmount: string;
+  damagePhotos?: string[];
+  location: DamageClaimLocation;
+  privacyConsent: boolean;
+}
+
+export interface DamageClaimListResponse {
+  claims: DamageClaimRecord[];
+  generatedAt: string;
+}
+
+export interface UpdateDamageClaimRequest {
+  damageDescription?: string;
+  estimatedLossAmount?: string;
+  damagePhotos?: string[];
+}
+
+export interface VerifyDamageClaimRequest {
+  verificationStatus: Exclude<DamageClaimVerificationStatus, "pending">;
+  notes?: string;
+}
+
+export interface CloseDamageClaimRequest {
+  reason: string;
+}

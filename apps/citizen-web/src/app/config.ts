@@ -16,4 +16,6 @@ export const DONATION_API_BASE =
   import.meta.env.VITE_DONATION_API_URL ?? "http://localhost:8100/api/v1";
 export const MISSING_PERSON_API_BASE =
   import.meta.env.VITE_MISSING_PERSON_API_URL ?? "http://localhost:8101/api/v1";
+export const DAMAGE_CLAIM_API_BASE =
+  import.meta.env.VITE_DAMAGE_CLAIM_SERVICE_URL ?? "http://localhost:8098";
 export const GUIDE_CACHE_KEY = "nadaa.citizen.guides.v1";

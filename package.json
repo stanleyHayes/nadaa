@@ -34,6 +34,7 @@
     "smoke:route": "node scripts/smoke-route.mjs",
     "smoke:donation": "node scripts/smoke-donation.mjs",
     "smoke:missing-person": "node scripts/smoke-missing-person.mjs",
+    "smoke:damage-claim": "node scripts/smoke-damage-claim.mjs",
     "smoke:relief": "node scripts/smoke-relief.mjs",
     "smoke:citizen-mobile": "node scripts/smoke-citizen-mobile.mjs",
     "smoke:dispatcher-mobile": "node scripts/smoke-dispatcher-mobile.mjs",

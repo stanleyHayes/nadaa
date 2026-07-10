@@ -1,0 +1,28 @@
+{
+  "client": "NADAA Ghana",
+  "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+  "phase": "Phase 2",
+  "sprint": "Sprint 11",
+  "epic": "EPIC 10: Recovery And Logistics",
+  "story": "Insurance And Property Damage Claim Export",
+  "jiraKey": "NADAA-133",
+  "branchName": "feature/NADAA-133-insurance-damage-claim-export",
+  "pullRequestUrl": "",
+  "status": "Done",
+  "assignedTeamMember": "Codex",
+  "estimatedEffortPoints": 8,
+  "actualEffortHours": 2.5,
+  "progressPercentage": 100,
+  "lastUpdated": "2026-07-07",
+  "dependencies": ["NADAA-030", "NADAA-041"],
+  "blockers": [],
+  "verification": [
+    "services/damage-claim-service go test ./...",
+    "services/damage-claim-service go build ./cmd/server",
+    "docker build -f services/damage-claim-service/Dockerfile -t nadaa/damage-claim-service:local .",
+    "pnpm validate:dashboard",
+    "pnpm go:test",
+    "git diff --check"
+  ],
+  "notes": "Damage Claim Service completed with modular Go API for citizen claim intake, authority list/detail/update/verify/close, CSV/PDF single-claim export, incident-service enrichment, RBAC/MFA gates, graceful shutdown, structured INFO/WARN/ERROR logs, in-memory fixture store, Dockerfile, CI matrix entries, docs, dashboard record, and verification."
+}
