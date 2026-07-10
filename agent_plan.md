@@ -98,11 +98,15 @@ Use this table when deciding where a feature belongs. Do not add dispatcher, age
 
 ## Frontend Modularity Rules
 
-- Keep each web app root `src/App.tsx` as a thin entrypoint that delegates to a feature-level app component.
+See `docs/frontend-structure.md` for the full standard.
+
+- Keep each web app root `src/App.tsx` as a thin entrypoint that re-exports the feature root through `src/features/<feature>/index.ts`.
 - Put app-wide configuration, theme, and session helpers under `src/app/`.
-- Put domain-specific data, types, utilities, and components under `src/features/<feature>/`.
+- Put domain-specific data, types, utilities, api clients, and components under `src/features/<feature>/`; keep presentational components in `src/features/<feature>/components/` behind an `index.ts` barrel.
+- Use the `@/*` -> `src/*` path alias (tsconfig `paths` + vite `resolve.alias`) for cross-layer imports such as `@/app/*`; keep intra-feature imports relative.
+- Keep the global stylesheet at `src/styles/global.css`.
 - Do not add new screens, API orchestration, fixtures, or large JSX surfaces directly to root app files.
-- If a feature grows beyond one focused concern, split it into `data.ts`, `types.ts`, `utils.ts`, and focused `*.tsx` components before adding more behavior.
+- If a feature grows beyond one focused concern, split it into `data.ts`, `types.ts`, `utils.ts`, and focused `*.tsx` components (a leaf `components/shared.tsx` plus one file per panel) before adding more behavior.
 
 ## Status Workflow
 
