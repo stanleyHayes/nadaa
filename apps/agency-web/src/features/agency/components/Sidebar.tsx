@@ -11,7 +11,8 @@ import {
 } from "../navigation";
 
 type SidebarProps = {
-  activeView: ViewId;
+  /** The active section; "settings" leaves every nav item unhighlighted. */
+  activeView: ViewId | "settings";
   onSelect: (id: ViewId) => void;
   badges: Record<BadgeKey, number>;
   variant?: "rail" | "drawer";
@@ -100,7 +101,7 @@ function NavGroupSection({
   onSelect,
 }: {
   group: NavGroup;
-  activeView: ViewId;
+  activeView: ViewId | "settings";
   badges: Record<BadgeKey, number>;
   open: boolean;
   onToggle: () => void;
@@ -154,8 +155,12 @@ export function Sidebar({
   const [openGroups, setOpenGroups] =
     useState<Record<string, boolean>>(readOpenGroups);
 
-  // The group containing the active route always auto-opens.
+  // The group containing the active route always auto-opens. The settings view
+  // sits outside the nav tree, so it leaves the open groups untouched.
   useEffect(() => {
+    if (activeView === "settings") {
+      return;
+    }
     const activeGroup = groupIdForView(activeView);
     setOpenGroups((current) =>
       current[activeGroup] ? current : { ...current, [activeGroup]: true },

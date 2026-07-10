@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Drawer } from "@mui/material";
-import { signOutAgency, type AgencySession } from "@/app/session";
+import { Settings } from "lucide-react";
+import {
+  signOutAgency,
+  useAgencySession,
+  type AgencySession,
+} from "@/app/session";
 import { useAgencyData } from "./useAgencyData";
 import {
   DEFAULT_VIEW,
@@ -8,15 +13,27 @@ import {
   isViewId,
   navItemById,
   type BadgeKey,
+  type NavItem,
   type ViewId,
 } from "./navigation";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar, type AgencyNotification } from "./components/Topbar";
+import { AccountSettings, type SettingsTab } from "./account";
 import { OverviewView } from "./components/views/OverviewView";
 import { AssignedIncidentsView } from "./components/views/AssignedIncidentsView";
 import { CapacityView } from "./components/views/CapacityView";
 import { ReliefView } from "./components/views/ReliefView";
 import { AidView } from "./components/views/AidView";
+
+/** Synthetic nav item so the topbar can title the settings view. */
+const SETTINGS_NAV_ITEM: NavItem = {
+  id: DEFAULT_VIEW,
+  label: "Settings",
+  description: "Manage your profile, security, notifications and preferences",
+  icon: Settings,
+};
+
+type ShellView = ViewId | "settings";
 
 const VIEW_KEY = "nadaa.agency.view";
 const COLLAPSE_KEY = "nadaa.agency.sidebar.collapsed";
@@ -38,11 +55,22 @@ function readInitialCollapsed(): boolean {
 
 export function AgencyShell({ session }: { session: AgencySession }) {
   const data = useAgencyData(session);
-  const [activeView, setActiveView] = useState<ViewId>(readInitialView);
+  const {
+    preferences,
+    updateProfile,
+    updatePreferences,
+    setMfaEnabled,
+    changePassword,
+  } = useAgencySession();
+  const [activeView, setActiveView] = useState<ShellView>(readInitialView);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [collapsed, setCollapsed] = useState<boolean>(readInitialCollapsed);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
+    if (activeView === "settings") {
+      return;
+    }
     try {
       window.localStorage.setItem(VIEW_KEY, activeView);
     } catch {
@@ -124,10 +152,20 @@ export function AgencyShell({ session }: { session: AgencySession }) {
     setMobileNavOpen(false);
   };
 
+  const openSettings = (tab: SettingsTab) => {
+    setSettingsTab(tab);
+    setActiveView("settings");
+    setMobileNavOpen(false);
+  };
+
   const handleSignOut = () => {
     setMobileNavOpen(false);
     signOutAgency();
   };
+
+  const isSettings = activeView === "settings";
+  const topbarView = isSettings ? SETTINGS_NAV_ITEM : navItemById(activeView);
+  const topbarGroup = isSettings ? "Account" : groupLabelForView(activeView);
 
   const renderView = () => {
     switch (activeView) {
@@ -139,6 +177,19 @@ export function AgencyShell({ session }: { session: AgencySession }) {
         return <ReliefView data={data} />;
       case "aid":
         return <AidView data={data} />;
+      case "settings":
+        return (
+          <AccountSettings
+            tab={settingsTab}
+            onTabChange={setSettingsTab}
+            user={session}
+            preferences={preferences}
+            onUpdateProfile={updateProfile}
+            onUpdatePreferences={updatePreferences}
+            onSetMfaEnabled={setMfaEnabled}
+            onChangePassword={changePassword}
+          />
+        );
       case "overview":
       default:
         return <OverviewView data={data} onNavigate={selectView} />;
@@ -178,11 +229,12 @@ export function AgencyShell({ session }: { session: AgencySession }) {
 
       <div className="cc-main">
         <Topbar
-          view={navItemById(activeView)}
-          groupLabel={groupLabelForView(activeView)}
+          view={topbarView}
+          groupLabel={topbarGroup}
           session={session}
           notifications={notifications}
           onSignOut={handleSignOut}
+          onOpenSettings={openSettings}
           onOpenMobileNav={() => setMobileNavOpen(true)}
         />
         <main id="main-content" className="cc-content" tabIndex={-1}>
