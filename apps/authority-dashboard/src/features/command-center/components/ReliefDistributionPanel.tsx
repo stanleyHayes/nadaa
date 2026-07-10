@@ -12,12 +12,6 @@ import {
   IconButton,
   MenuItem,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -44,6 +38,7 @@ import type { IncidentLoadState, ReliefPointFormState } from "../types";
 import { formatShortDate } from "../utils";
 import { CommandSelect, EmptyState, Fact } from "./shared";
 import { SectionCard } from "./primitives";
+import { DataTable } from "./DataTable";
 
 type FieldChange = (
   key: keyof ReliefPointFormState,
@@ -196,84 +191,106 @@ export function ReliefDistributionPanel({
         </Alert>
       ) : null}
 
-      {reliefPoints.length ? (
-        <TableContainer component={Box} sx={{ overflowX: "auto" }}>
-          <Table size="small" aria-label="Relief distribution points">
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Area</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Stock lines</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {reliefPoints.map((point) => (
-                <TableRow key={point.id} hover>
-                  <TableCell>{point.name}</TableCell>
-                  <TableCell>{toTitle(point.type)}</TableCell>
-                  <TableCell>{point.district || point.region}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={toTitle(point.status)}
-                      color={reliefStatusColor(point.status)}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {point.stockCategories.length}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      justifyContent="flex-end"
-                    >
-                      <Tooltip title="View detail">
-                        <IconButton
-                          size="small"
-                          aria-label={`View ${point.name}`}
-                          onClick={() => setViewPoint(point)}
-                        >
-                          <Eye size={16} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit">
-                        <IconButton
-                          size="small"
-                          aria-label={`Edit ${point.name}`}
-                          onClick={() => openEdit(point)}
-                        >
-                          <Pencil size={16} />
-                        </IconButton>
-                      </Tooltip>
-                      {canDelete ? (
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            aria-label={`Delete ${point.name}`}
-                            onClick={() => openDelete(point)}
-                          >
-                            <Trash2 size={16} />
-                          </IconButton>
-                        </Tooltip>
-                      ) : null}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      ) : loadState === "loading" ? null : (
-        <EmptyState
-          title="No relief points"
-          detail="Publish a relief distribution point to make it visible to citizens."
-        />
-      )}
+      <DataTable
+        rows={reliefPoints}
+        getRowKey={(point) => point.id}
+        searchOf={(point) =>
+          `${point.name} ${point.district} ${point.region} ${point.type}`
+        }
+        searchPlaceholder="Search relief points"
+        filters={[
+          {
+            key: "status",
+            label: "Status",
+            options: Array.from(
+              new Set(reliefPoints.map((point) => toTitle(point.status))),
+            ),
+            valueOf: (point) => toTitle(point.status),
+          },
+          {
+            key: "type",
+            label: "Type",
+            options: Array.from(
+              new Set(reliefPoints.map((point) => toTitle(point.type))),
+            ),
+            valueOf: (point) => toTitle(point.type),
+          },
+        ]}
+        columns={[
+          { key: "name", label: "Name", render: (point) => point.name },
+          {
+            key: "type",
+            label: "Type",
+            render: (point) => toTitle(point.type),
+          },
+          {
+            key: "area",
+            label: "Area",
+            render: (point) => point.district || point.region,
+          },
+          {
+            key: "status",
+            label: "Status",
+            render: (point) => (
+              <Chip
+                size="small"
+                label={toTitle(point.status)}
+                color={reliefStatusColor(point.status)}
+              />
+            ),
+          },
+          {
+            key: "stock",
+            label: "Stock lines",
+            align: "right",
+            render: (point) => point.stockCategories.length,
+          },
+        ]}
+        rowActions={(point) => (
+          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+            <Tooltip title="View detail">
+              <IconButton
+                size="small"
+                aria-label={`View ${point.name}`}
+                onClick={() => setViewPoint(point)}
+              >
+                <Eye size={16} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit">
+              <IconButton
+                size="small"
+                aria-label={`Edit ${point.name}`}
+                onClick={() => openEdit(point)}
+              >
+                <Pencil size={16} />
+              </IconButton>
+            </Tooltip>
+            {canDelete ? (
+              <Tooltip title="Delete">
+                <IconButton
+                  size="small"
+                  color="error"
+                  aria-label={`Delete ${point.name}`}
+                  onClick={() => openDelete(point)}
+                >
+                  <Trash2 size={16} />
+                </IconButton>
+              </Tooltip>
+            ) : null}
+          </Stack>
+        )}
+        emptyState={
+          loadState === "loading" ? (
+            <Box sx={{ py: 3 }} />
+          ) : (
+            <EmptyState
+              title="No relief points"
+              detail="Publish a relief distribution point to make it visible to citizens."
+            />
+          )
+        }
+      />
 
       {/* View detail dialog (read-only) */}
       <Dialog

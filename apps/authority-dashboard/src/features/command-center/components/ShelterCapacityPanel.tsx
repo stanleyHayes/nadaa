@@ -12,12 +12,6 @@ import {
   IconButton,
   MenuItem,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -38,6 +32,7 @@ import type { ShelterRecord, ShelterStatus } from "@nadaa/shared-types";
 import type { IncidentLoadState, ShelterFormState } from "../types";
 import { CommandSelect, EmptyState, Fact } from "./shared";
 import { CapacityMeter, SectionCard } from "./primitives";
+import { DataTable } from "./DataTable";
 
 type FieldChange = (
   key: keyof ShelterFormState,
@@ -170,82 +165,93 @@ export function ShelterCapacityPanel({
         </Alert>
       ) : null}
 
-      {shelters.length ? (
-        <TableContainer component={Box} sx={{ overflowX: "auto" }}>
-          <Table size="small" aria-label="Shelter capacity register">
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Area</TableCell>
-                <TableCell>Occupancy</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {shelters.map((shelter) => (
-                <TableRow key={shelter.id} hover>
-                  <TableCell>{shelter.name}</TableCell>
-                  <TableCell>{shelter.district || shelter.region}</TableCell>
-                  <TableCell>
-                    {shelter.currentOccupancy}/{shelter.capacity}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={toTitle(shelter.status)}
-                      color={shelterStatusColor(shelter.status)}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      justifyContent="flex-end"
-                    >
-                      <Tooltip title="View detail">
-                        <IconButton
-                          size="small"
-                          aria-label={`View ${shelter.name}`}
-                          onClick={() => setViewShelter(shelter)}
-                        >
-                          <Eye size={16} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit capacity">
-                        <IconButton
-                          size="small"
-                          aria-label={`Edit ${shelter.name}`}
-                          onClick={() => openEdit(shelter)}
-                        >
-                          <Pencil size={16} />
-                        </IconButton>
-                      </Tooltip>
-                      {canDelete ? (
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            aria-label={`Delete ${shelter.name}`}
-                            onClick={() => openDelete(shelter)}
-                          >
-                            <Trash2 size={16} />
-                          </IconButton>
-                        </Tooltip>
-                      ) : null}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      ) : loadState === "loading" ? null : (
-        <EmptyState
-          title="No shelters"
-          detail="No shelters are currently registered for this area."
-        />
-      )}
+      <DataTable
+        rows={shelters}
+        getRowKey={(shelter) => shelter.id}
+        searchOf={(shelter) =>
+          `${shelter.name} ${shelter.district} ${shelter.region}`
+        }
+        searchPlaceholder="Search shelters"
+        filters={[
+          {
+            key: "status",
+            label: "Status",
+            options: Array.from(
+              new Set(shelters.map((shelter) => toTitle(shelter.status))),
+            ),
+            valueOf: (shelter) => toTitle(shelter.status),
+          },
+        ]}
+        columns={[
+          { key: "name", label: "Name", render: (shelter) => shelter.name },
+          {
+            key: "area",
+            label: "Area",
+            render: (shelter) => shelter.district || shelter.region,
+          },
+          {
+            key: "occupancy",
+            label: "Occupancy",
+            render: (shelter) =>
+              `${shelter.currentOccupancy}/${shelter.capacity}`,
+          },
+          {
+            key: "status",
+            label: "Status",
+            render: (shelter) => (
+              <Chip
+                size="small"
+                label={toTitle(shelter.status)}
+                color={shelterStatusColor(shelter.status)}
+              />
+            ),
+          },
+        ]}
+        rowActions={(shelter) => (
+          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+            <Tooltip title="View detail">
+              <IconButton
+                size="small"
+                aria-label={`View ${shelter.name}`}
+                onClick={() => setViewShelter(shelter)}
+              >
+                <Eye size={16} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit capacity">
+              <IconButton
+                size="small"
+                aria-label={`Edit ${shelter.name}`}
+                onClick={() => openEdit(shelter)}
+              >
+                <Pencil size={16} />
+              </IconButton>
+            </Tooltip>
+            {canDelete ? (
+              <Tooltip title="Delete">
+                <IconButton
+                  size="small"
+                  color="error"
+                  aria-label={`Delete ${shelter.name}`}
+                  onClick={() => openDelete(shelter)}
+                >
+                  <Trash2 size={16} />
+                </IconButton>
+              </Tooltip>
+            ) : null}
+          </Stack>
+        )}
+        emptyState={
+          loadState === "loading" ? (
+            <Box sx={{ py: 3 }} />
+          ) : (
+            <EmptyState
+              title="No shelters"
+              detail="No shelters are currently registered for this area."
+            />
+          )
+        }
+      />
 
       {/* View detail dialog (read-only) */}
       <Dialog
