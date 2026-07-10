@@ -12,8 +12,10 @@ import {
 } from "@mui/material";
 import {
   Bell,
+  BookOpen,
   ChevronDown,
   LogOut,
+  Map,
   Menu as MenuIcon,
   Moon,
   Settings,
@@ -24,9 +26,12 @@ import {
 import { roleLabels, type DispatcherSession } from "@/app/session";
 import { toggleThemeMode, useThemeMode } from "@/app/theme-mode";
 import type { NavItem } from "../navigation";
+import type { PageGuide } from "../pageGuides";
 import type { SettingsTab } from "../account";
 import { initials } from "../account/primitives";
 import { Eyebrow } from "./primitives";
+import { PageHelp } from "./PageHelp";
+import { dispatchReplayTour } from "./AppTour";
 
 export type CommandNotification = {
   id: string;
@@ -60,18 +65,22 @@ function MenuRow({
 export function Topbar({
   view,
   groupLabel,
+  guide,
   session,
   notifications,
   onSignOut,
   onOpenSettings,
+  onOpenGuide,
   onOpenMobileNav,
 }: {
   view: NavItem;
   groupLabel: string;
+  guide: PageGuide;
   session: DispatcherSession;
   notifications: CommandNotification[];
   onSignOut: () => void;
   onOpenSettings: (tab: SettingsTab) => void;
+  onOpenGuide: () => void;
   onOpenMobileNav: () => void;
 }) {
   const [userAnchor, setUserAnchor] = useState<null | HTMLElement>(null);
@@ -96,11 +105,18 @@ export function Topbar({
         >
           <MenuIcon size={20} />
         </IconButton>
-        <Box minWidth={0}>
+        <Box minWidth={0} data-tour="page-header">
           <Eyebrow>{groupLabel}</Eyebrow>
-          <Typography variant="h5" className="cc-topbar__title" noWrap>
-            {view.label}
-          </Typography>
+          <div className="cc-topbar__title-row">
+            <Typography variant="h5" className="cc-topbar__title" noWrap>
+              {view.label}
+            </Typography>
+            <PageHelp
+              title={guide.title}
+              description={guide.description}
+              steps={guide.steps}
+            />
+          </div>
           <Typography variant="caption" className="cc-topbar__desc" noWrap>
             {view.description}
           </Typography>
@@ -119,6 +135,7 @@ export function Topbar({
           aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
           aria-pressed={isDark}
           className="cc-topbar__theme"
+          data-tour="topbar-theme"
         >
           {isDark ? <Sun size={19} /> : <Moon size={19} />}
         </IconButton>
@@ -133,6 +150,7 @@ export function Topbar({
           aria-haspopup="true"
           aria-expanded={bellOpen}
           className="cc-topbar__bell"
+          data-tour="topbar-notifications"
         >
           <Badge
             color="error"
@@ -150,6 +168,7 @@ export function Topbar({
           onClick={openUser}
           aria-haspopup="true"
           aria-expanded={userOpen}
+          data-tour="user-menu"
         >
           <Avatar className="cc-user__avatar">{initials(session.name)}</Avatar>
           <span className="cc-user__meta">
@@ -230,6 +249,32 @@ export function Topbar({
             icon={Settings}
             title="Settings"
             description="Security, notifications, and preferences"
+          />
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setUserAnchor(null);
+            onOpenGuide();
+          }}
+          sx={{ alignItems: "flex-start", gap: 1.5, px: 2, py: 1.25 }}
+        >
+          <MenuRow
+            icon={BookOpen}
+            title="User guide"
+            description="Open the full dispatch-console guide"
+          />
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setUserAnchor(null);
+            dispatchReplayTour();
+          }}
+          sx={{ alignItems: "flex-start", gap: 1.5, px: 2, py: 1.25 }}
+        >
+          <MenuRow
+            icon={Map}
+            title="Replay tour"
+            description="Play the first-login dispatch tour"
           />
         </MenuItem>
         <Divider component="li" />
