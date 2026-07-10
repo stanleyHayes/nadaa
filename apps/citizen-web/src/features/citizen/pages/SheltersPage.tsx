@@ -236,8 +236,8 @@ function ShelterResources() {
 
         <RoutePlanner />
 
-        <Grid container spacing={2.5} className="citizen-subsection">
-          <Grid size={{ xs: 12, md: 6 }}>
+        <Grid container spacing={2.5} className="citizen-subsection" direction="column">
+          <Grid size={{ xs: 12 }}>
             <Paper className="surface">
               <PageHeader
                 icon={Cross}
@@ -310,7 +310,7 @@ function ShelterResources() {
             </Paper>
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12 }}>
             <Paper className="surface">
               <PageHeader
                 icon={LifeBuoy}
@@ -379,7 +379,7 @@ function ShelterResources() {
             </Paper>
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12 }}>
             <Paper className="surface">
               <PageHeader
                 icon={LifeBuoy}
@@ -435,7 +435,7 @@ function ShelterResources() {
             </Paper>
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12 }}>
             <Paper className="surface">
               <PageHeader
                 icon={LifeBuoy}

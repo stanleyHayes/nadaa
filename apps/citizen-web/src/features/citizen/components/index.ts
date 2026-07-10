@@ -6,6 +6,12 @@ export { default as PublicCampaignsPanel } from "./PublicCampaignsPanel";
 export { OpenDataPortal } from "./OpenDataPortal";
 
 // Public redesign primitives ("Navy Command" / gold public accent).
+export {
+  DataTable,
+  type DataTableColumn,
+  type DataTableFilter,
+} from "./DataTable";
+export { FormDialogButton } from "./FormDialogButton";
 export { AnimatedCounter } from "./AnimatedCounter";
 export { CitizenHeader } from "./CitizenHeader";
 export { EmergencyBand } from "./EmergencyBand";

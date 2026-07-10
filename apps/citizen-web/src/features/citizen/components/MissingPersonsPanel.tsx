@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -11,15 +11,18 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { HeartHandshake, Loader2, RefreshCw, Search } from "lucide-react";
+import { HeartHandshake, Loader2, Search, UserPlus } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   CreateMissingPersonRequest,
+  MissingPersonStatus,
   PublicMissingPersonListResponse,
   PublicMissingPersonRecord,
 } from "@nadaa/shared-types";
 import { MISSING_PERSON_API_BASE } from "@/app/config";
 import { useCitizenSession } from "../session";
+import { DataTable, type DataTableColumn } from "./DataTable";
+import { FormDialogButton } from "./FormDialogButton";
 
 type LoadState = "loading" | "ready" | "fallback" | "error";
 
@@ -100,12 +103,83 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+// Human-friendly label + Chip colour per public case status.
+const STATUS_META: Record<
+  MissingPersonStatus,
+  { label: string; color: "default" | "warning" | "error" | "info" | "success" }
+> = {
+  pending_review: { label: "Pending review", color: "warning" },
+  active: { label: "Active", color: "error" },
+  located: { label: "Located", color: "info" },
+  reunited: { label: "Reunited", color: "success" },
+  closed: { label: "Closed", color: "default" },
+  rejected: { label: "Rejected", color: "default" },
+};
+
+const statusLabel = (status: MissingPersonStatus) => STATUS_META[status].label;
+
+// Public browse columns. Reporting stays behind the auth-gated button below.
+const columns: DataTableColumn<PublicMissingPersonRecord>[] = [
+  {
+    key: "personName",
+    label: "Name",
+    render: (record) => (
+      <Box>
+        <Typography variant="body2" fontWeight={700}>
+          {record.personName}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {record.reference}
+        </Typography>
+      </Box>
+    ),
+  },
+  {
+    key: "ageGender",
+    label: "Age / gender",
+    render: (record) =>
+      `${record.age ?? "—"} / ${record.gender ?? "unknown"}`,
+  },
+  {
+    key: "location",
+    label: "Last seen location",
+    render: (record) => (
+      <Box>
+        <Typography variant="body2">{record.lastSeenLocation.label}</Typography>
+        <Typography variant="caption" color="text.secondary">
+          {record.lastSeenLocation.district}, {record.lastSeenLocation.region}
+        </Typography>
+      </Box>
+    ),
+  },
+  {
+    key: "lastSeenAt",
+    label: "Last seen",
+    render: (record) => formatDate(record.lastSeenAt),
+  },
+  {
+    key: "status",
+    label: "Status",
+    render: (record) => (
+      <Chip
+        label={statusLabel(record.status)}
+        color={STATUS_META[record.status].color}
+        size="small"
+      />
+    ),
+  },
+  {
+    key: "updatedAt",
+    label: "Reported",
+    render: (record) => formatDate(record.updatedAt),
+  },
+];
+
 export default function MissingPersonsPanel() {
   const { session, requestSignIn } = useCitizenSession();
   const [records, setRecords] = useState<PublicMissingPersonRecord[]>(
     fallbackMissingPersons,
   );
-  const [query, setQuery] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [feedback, setFeedback] = useState("Loading approved public cases");
   const [form, setForm] = useState<MissingPersonForm>(buildDefaultForm());
@@ -115,11 +189,8 @@ export default function MissingPersonsPanel() {
     setLoadState("loading");
     setFeedback("Loading approved public cases");
     try {
-      const search = query.trim()
-        ? `?q=${encodeURIComponent(query.trim())}`
-        : "";
       const response = await fetch(
-        `${MISSING_PERSON_API_BASE}/missing-persons${search}`,
+        `${MISSING_PERSON_API_BASE}/missing-persons`,
         { signal },
       );
       if (!response.ok) {
@@ -132,7 +203,7 @@ export default function MissingPersonsPanel() {
       setFeedback(
         payload.records.length
           ? "Showing authority-approved public cases."
-          : "No approved public cases match this search.",
+          : "No approved public cases are published yet.",
       );
     } catch {
       setRecords(fallbackMissingPersons);
@@ -147,6 +218,20 @@ export default function MissingPersonsPanel() {
     return () => controller.abort();
   }, []);
 
+  // Filter options derived from the currently loaded cases.
+  const statusFilterOptions = useMemo(
+    () =>
+      Array.from(new Set(records.map((record) => statusLabel(record.status)))),
+    [records],
+  );
+  const regionFilterOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(records.map((record) => record.lastSeenLocation.region)),
+      ),
+    [records],
+  );
+
   const updateForm =
     (key: keyof MissingPersonForm) =>
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -157,7 +242,7 @@ export default function MissingPersonsPanel() {
       setForm((current) => ({ ...current, [key]: value }));
     };
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>, close: () => void) => {
     event.preventDefault();
     if (!session) {
       requestSignIn();
@@ -225,6 +310,7 @@ export default function MissingPersonsPanel() {
       setFeedback(
         "Report received privately. Authorities will review before any public visibility.",
       );
+      close();
     } catch {
       setLoadState("error");
       setFeedback(
@@ -255,197 +341,202 @@ export default function MissingPersonsPanel() {
           {feedback}
         </Alert>
 
-        <Box component="form" onSubmit={(event) => void submit(event)}>
-          <Grid container spacing={1.5}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                label="Missing person name"
-                value={form.personName}
-                onChange={updateForm("personName")}
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 6, md: 3 }}>
-              <TextField
-                label="Age"
-                type="number"
-                value={form.age}
-                onChange={updateForm("age")}
-                fullWidth
-              />
-            </Grid>
-            <Grid size={{ xs: 6, md: 3 }}>
-              <TextField
-                label="Gender"
-                value={form.gender}
-                onChange={updateForm("gender")}
-                select
-                fullWidth
-              >
-                <option value="unknown">Unknown</option>
-                <option value="female">Female</option>
-                <option value="male">Male</option>
-                <option value="non_binary">Non-binary</option>
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                label="Description"
-                value={form.description}
-                onChange={updateForm("description")}
-                minRows={3}
-                multiline
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                label="Last seen place"
-                value={form.locationLabel}
-                onChange={updateForm("locationLabel")}
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                label="District"
-                value={form.district}
-                onChange={updateForm("district")}
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                label="Last seen time"
-                type="datetime-local"
-                value={form.lastSeenAt}
-                onChange={updateForm("lastSeenAt")}
-                fullWidth
-              />
-            </Grid>
-            <Grid size={{ xs: 6, md: 3 }}>
-              <TextField
-                label="Latitude"
-                value={form.latitude}
-                onChange={updateForm("latitude")}
-                fullWidth
-              />
-            </Grid>
-            <Grid size={{ xs: 6, md: 3 }}>
-              <TextField
-                label="Longitude"
-                value={form.longitude}
-                onChange={updateForm("longitude")}
-                fullWidth
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                label="Photo URL"
-                value={form.photoUrl}
-                onChange={updateForm("photoUrl")}
-                fullWidth
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Reporter name"
-                value={form.reporterName}
-                onChange={updateForm("reporterName")}
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Reporter phone"
-                value={form.reporterPhone}
-                onChange={updateForm("reporterPhone")}
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Relationship"
-                value={form.reporterRelationship}
-                onChange={updateForm("reporterRelationship")}
-                fullWidth
-                required
-              />
-            </Grid>
-          </Grid>
-          <Stack spacing={1.25} sx={{ mt: 1.5 }}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Switch
-                checked={form.consentToContact}
-                onChange={updateForm("consentToContact")}
-              />
-              <Typography variant="body2">
-                I consent to authority follow-up using reporter contact details.
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Switch
-                checked={form.consentToPublicShare}
-                onChange={updateForm("consentToPublicShare")}
-              />
-              <Typography variant="body2">
-                I consent to safe public sharing after authority review.
-              </Typography>
-            </Stack>
-            <Button
-              type="submit"
-              variant="contained"
-              startIcon={busy ? <Loader2 className="spin-icon" /> : <Search />}
-              disabled={busy}
+        <DataTable
+          rows={records}
+          columns={columns}
+          getRowKey={(record) => record.id}
+          searchOf={(record) =>
+            `${record.personName} ${record.lastSeenLocation.label}`
+          }
+          searchPlaceholder="Search by name or last-seen place"
+          filters={[
+            {
+              key: "status",
+              label: "Status",
+              options: statusFilterOptions,
+              valueOf: (record) => statusLabel(record.status),
+            },
+            {
+              key: "region",
+              label: "Region / area",
+              options: regionFilterOptions,
+              valueOf: (record) => record.lastSeenLocation.region,
+            },
+          ]}
+          emptyMessage="No approved public cases match this search."
+          toolbarActions={
+            <FormDialogButton
+              label="Report a missing person"
+              dialogTitle="Report a missing person"
+              icon={UserPlus}
+              color="secondary"
             >
-              {busy ? "Submitting" : "Submit private report"}
-            </Button>
-          </Stack>
-        </Box>
-
-        <Stack direction="row" spacing={1}>
-          <TextField
-            label="Search approved cases"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            fullWidth
-          />
-          <Button
-            variant="outlined"
-            startIcon={<RefreshCw size={17} />}
-            onClick={() => void refresh()}
-          >
-            Search
-          </Button>
-        </Stack>
-
-        <Stack spacing={1.25}>
-          {records.map((record) => (
-            <Box className="support-card" key={record.id}>
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <Typography variant="subtitle1">{record.personName}</Typography>
-                <Chip label={record.reference} size="small" />
-              </Stack>
-              <Typography variant="body2" color="text.secondary">
-                Last seen {formatDate(record.lastSeenAt)} at{" "}
-                {record.lastSeenLocation.label},{" "}
-                {record.lastSeenLocation.district}
-              </Typography>
-              <Typography variant="body2">{record.publicSummary}</Typography>
-            </Box>
-          ))}
-        </Stack>
+              {(close) => (
+                <Box component="form" onSubmit={(event) => void submit(event, close)}>
+                  {loadState === "error" ? (
+                    <Alert severity="error" sx={{ mb: 1.5 }}>
+                      {feedback}
+                    </Alert>
+                  ) : null}
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <TextField
+                        label="Missing person name"
+                        value={form.personName}
+                        onChange={updateForm("personName")}
+                        fullWidth
+                        required
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6, md: 3 }}>
+                      <TextField
+                        label="Age"
+                        type="number"
+                        value={form.age}
+                        onChange={updateForm("age")}
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6, md: 3 }}>
+                      <TextField
+                        label="Gender"
+                        value={form.gender}
+                        onChange={updateForm("gender")}
+                        select
+                        fullWidth
+                      >
+                        <option value="unknown">Unknown</option>
+                        <option value="female">Female</option>
+                        <option value="male">Male</option>
+                        <option value="non_binary">Non-binary</option>
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <TextField
+                        label="Description"
+                        value={form.description}
+                        onChange={updateForm("description")}
+                        minRows={3}
+                        multiline
+                        fullWidth
+                        required
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <TextField
+                        label="Last seen place"
+                        value={form.locationLabel}
+                        onChange={updateForm("locationLabel")}
+                        fullWidth
+                        required
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <TextField
+                        label="District"
+                        value={form.district}
+                        onChange={updateForm("district")}
+                        fullWidth
+                        required
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <TextField
+                        label="Last seen time"
+                        type="datetime-local"
+                        value={form.lastSeenAt}
+                        onChange={updateForm("lastSeenAt")}
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6, md: 3 }}>
+                      <TextField
+                        label="Latitude"
+                        value={form.latitude}
+                        onChange={updateForm("latitude")}
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6, md: 3 }}>
+                      <TextField
+                        label="Longitude"
+                        value={form.longitude}
+                        onChange={updateForm("longitude")}
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <TextField
+                        label="Photo URL"
+                        value={form.photoUrl}
+                        onChange={updateForm("photoUrl")}
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <TextField
+                        label="Reporter name"
+                        value={form.reporterName}
+                        onChange={updateForm("reporterName")}
+                        fullWidth
+                        required
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <TextField
+                        label="Reporter phone"
+                        value={form.reporterPhone}
+                        onChange={updateForm("reporterPhone")}
+                        fullWidth
+                        required
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <TextField
+                        label="Relationship"
+                        value={form.reporterRelationship}
+                        onChange={updateForm("reporterRelationship")}
+                        fullWidth
+                        required
+                      />
+                    </Grid>
+                  </Grid>
+                  <Stack spacing={1.25} sx={{ mt: 1.5 }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Switch
+                        checked={form.consentToContact}
+                        onChange={updateForm("consentToContact")}
+                      />
+                      <Typography variant="body2">
+                        I consent to authority follow-up using reporter contact
+                        details.
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Switch
+                        checked={form.consentToPublicShare}
+                        onChange={updateForm("consentToPublicShare")}
+                      />
+                      <Typography variant="body2">
+                        I consent to safe public sharing after authority review.
+                      </Typography>
+                    </Stack>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      startIcon={
+                        busy ? <Loader2 className="spin-icon" /> : <Search />
+                      }
+                      disabled={busy}
+                    >
+                      {busy ? "Submitting" : "Submit private report"}
+                    </Button>
+                  </Stack>
+                </Box>
+              )}
+            </FormDialogButton>
+          }
+        />
       </Stack>
     </Paper>
   );

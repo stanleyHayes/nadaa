@@ -1,17 +1,17 @@
-import { type ChangeEvent, useEffect, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
   Button,
   Chip,
-  Divider,
   Grid,
+  MenuItem,
   Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import { HeartHandshake, Loader2, RefreshCw } from "lucide-react";
+import { HandHeart, HeartHandshake, Loader2, RefreshCw } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   AidCatalogListResponse,
@@ -24,6 +24,8 @@ import type {
 } from "@nadaa/shared-types";
 import { DONATION_API_BASE } from "@/app/config";
 import { useCitizenSession } from "../session";
+import { DataTable, type DataTableColumn, type DataTableFilter } from "./DataTable";
+import { FormDialogButton } from "./FormDialogButton";
 
 const fallbackCatalog: AidCatalogRecord[] = [
   {
@@ -180,6 +182,7 @@ export function DonorPortal() {
   const [pledgeForms, setPledgeForms] = useState<Record<string, PledgeForm>>(
     {},
   );
+  const [selectedRequestId, setSelectedRequestId] = useState("");
   const [busy, setBusy] = useState(false);
   const [registeredDonor, setRegisteredDonor] = useState<DonorRecord | null>(
     null,
@@ -248,14 +251,28 @@ export function DonorPortal() {
       setDonorForm((current) => ({ ...current, [key]: event.target.value }));
     };
 
-  const registerDonor = async () => {
+  const updatePledgeField = (
+    requestId: string,
+    key: keyof PledgeForm,
+    value: string,
+  ) => {
+    setPledgeForms((current) => ({
+      ...current,
+      [requestId]: {
+        ...(current[requestId] ?? buildDefaultPledgeForm()),
+        [key]: value,
+      },
+    }));
+  };
+
+  const registerDonor = async (): Promise<boolean> => {
     if (!session) {
       requestSignIn();
-      return;
+      return false;
     }
     if (!donorForm.name.trim()) {
       setFeedback("Please enter your name or organization to register.");
-      return;
+      return false;
     }
 
     const payload: CreateDonorRequest = {
@@ -285,19 +302,23 @@ export function DonorPortal() {
       setFeedback(
         `Thank you, ${donor.name}. Your donor reference is ${donor.reference}.`,
       );
+      return true;
     } catch {
       setFeedback(
         "Donor registration could not reach the donation service. Try again later.",
       );
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const submitPledge = async (aidRequest: DonationAidRequestRecord) => {
+  const submitPledge = async (
+    aidRequest: DonationAidRequestRecord,
+  ): Promise<boolean> => {
     if (!session) {
       requestSignIn();
-      return;
+      return false;
     }
     const form = pledgeForms[aidRequest.id] ?? buildDefaultPledgeForm();
     const quantityPledged = Number(form.quantityPledged);
@@ -307,7 +328,7 @@ export function DonorPortal() {
       quantityPledged <= 0
     ) {
       setFeedback("Enter your name and a positive quantity to pledge.");
-      return;
+      return false;
     }
 
     const payload: CreatePledgeRequest = {
@@ -360,10 +381,12 @@ export function DonorPortal() {
       setFeedback(
         `Thank you ${pledge.donorName}. Pledge ${pledge.reference} recorded for ${quantityPledged} ${aidRequest.unit}.`,
       );
+      return true;
     } catch {
       setFeedback(
         "Pledge could not be submitted. The donation service may be offline.",
       );
+      return false;
     } finally {
       setBusy(false);
     }
@@ -371,6 +394,325 @@ export function DonorPortal() {
 
   const openRequests = aidRequests.filter(
     (request) => request.status !== "closed" && request.status !== "fulfilled",
+  );
+
+  // Keep a valid pledge target even after a request is fulfilled/removed.
+  const activeRequestId =
+    openRequests.find((request) => request.id === selectedRequestId)?.id ??
+    openRequests[0]?.id ??
+    "";
+  const activeRequest = aidRequests.find(
+    (request) => request.id === activeRequestId,
+  );
+
+  const priorityOptions = useMemo(
+    () => Array.from(new Set(aidRequests.map((request) => request.priority))),
+    [aidRequests],
+  );
+  const regionOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          aidRequests
+            .map((request) => request.region)
+            .filter((region): region is string => Boolean(region)),
+        ),
+      ).sort(),
+    [aidRequests],
+  );
+  const statusOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(aidRequests.map((request) => statusLabel(request.status))),
+      ),
+    [aidRequests],
+  );
+  const catalogCategoryOptions = useMemo(
+    () => Array.from(new Set(catalog.map((item) => item.category))).sort(),
+    [catalog],
+  );
+
+  const requestColumns: DataTableColumn<DonationAidRequestRecord>[] = [
+    {
+      key: "title",
+      label: "Item / need",
+      render: (request) => (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {request.title}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {request.category}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      key: "region",
+      label: "Region / area",
+      render: (request) => (
+        <Box>
+          <Typography variant="body2">{request.region ?? "—"}</Typography>
+          {request.district ? (
+            <Typography variant="caption" color="text.secondary">
+              {request.district}
+            </Typography>
+          ) : null}
+        </Box>
+      ),
+    },
+    {
+      key: "quantityNeeded",
+      label: "Quantity needed",
+      align: "right",
+      render: (request) =>
+        `${request.quantityFulfilled}/${request.quantityNeeded} ${request.unit}`,
+    },
+    {
+      key: "priority",
+      label: "Urgency",
+      render: (request) => (
+        <Chip
+          size="small"
+          label={request.priority}
+          color={priorityColor(request.priority)}
+        />
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (request) => (
+        <Chip
+          size="small"
+          variant="outlined"
+          label={statusLabel(request.status)}
+        />
+      ),
+    },
+  ];
+
+  const requestFilters: DataTableFilter<DonationAidRequestRecord>[] = [
+    {
+      key: "priority",
+      label: "Urgency",
+      options: priorityOptions,
+      valueOf: (request) => request.priority,
+    },
+    {
+      key: "region",
+      label: "Region",
+      options: regionOptions,
+      valueOf: (request) => request.region ?? "",
+    },
+    {
+      key: "status",
+      label: "Status",
+      options: statusOptions,
+      valueOf: (request) => statusLabel(request.status),
+    },
+  ];
+
+  const catalogColumns: DataTableColumn<AidCatalogRecord>[] = [
+    {
+      key: "name",
+      label: "Item",
+      render: (item) => (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {item.name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {item.code}
+          </Typography>
+        </Box>
+      ),
+    },
+    { key: "category", label: "Category" },
+    { key: "defaultUnit", label: "Unit" },
+    { key: "priorityScore", label: "Priority", align: "right" },
+  ];
+
+  const catalogFilters: DataTableFilter<AidCatalogRecord>[] = [
+    {
+      key: "category",
+      label: "Category",
+      options: catalogCategoryOptions,
+      valueOf: (item) => item.category,
+    },
+  ];
+
+  const donorFormFields = (close: () => void) => (
+    <Stack spacing={1.5} sx={{ pt: 1 }}>
+      <Grid container spacing={1}>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Name or organization"
+            size="small"
+            fullWidth
+            value={donorForm.name}
+            onChange={updateDonorForm("name")}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Contact name"
+            size="small"
+            fullWidth
+            value={donorForm.contactName}
+            onChange={updateDonorForm("contactName")}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Email"
+            size="small"
+            fullWidth
+            value={donorForm.contactEmail}
+            onChange={updateDonorForm("contactEmail")}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Phone"
+            size="small"
+            fullWidth
+            value={donorForm.contactPhone}
+            onChange={updateDonorForm("contactPhone")}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Region"
+            size="small"
+            fullWidth
+            value={donorForm.region}
+            onChange={updateDonorForm("region")}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="District"
+            size="small"
+            fullWidth
+            value={donorForm.district}
+            onChange={updateDonorForm("district")}
+          />
+        </Grid>
+      </Grid>
+      <Button
+        type="button"
+        variant="contained"
+        disabled={busy}
+        onClick={async () => {
+          const ok = await registerDonor();
+          if (ok) {
+            close();
+          }
+        }}
+      >
+        Register as donor
+      </Button>
+    </Stack>
+  );
+
+  const pledgeFormFields = (close: () => void) => (
+    <Stack spacing={1.5} sx={{ pt: 1 }}>
+      <TextField
+        select
+        label="Aid request"
+        size="small"
+        fullWidth
+        value={activeRequestId}
+        onChange={(event) => setSelectedRequestId(event.target.value)}
+        helperText={
+          openRequests.length
+            ? "Choose the aid request you want to support."
+            : "No open aid requests are available right now."
+        }
+      >
+        {openRequests.map((request) => (
+          <MenuItem key={request.id} value={request.id}>
+            {request.title}
+          </MenuItem>
+        ))}
+      </TextField>
+      <Grid container spacing={1}>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Your name"
+            size="small"
+            fullWidth
+            value={pledgeForms[activeRequestId]?.donorName ?? ""}
+            onChange={(event) =>
+              updatePledgeField(activeRequestId, "donorName", event.target.value)
+            }
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label={`Quantity (${activeRequest?.unit ?? "units"})`}
+            size="small"
+            fullWidth
+            value={pledgeForms[activeRequestId]?.quantityPledged ?? ""}
+            onChange={(event) =>
+              updatePledgeField(
+                activeRequestId,
+                "quantityPledged",
+                event.target.value,
+              )
+            }
+            inputProps={{ inputMode: "numeric" }}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Email"
+            size="small"
+            fullWidth
+            value={pledgeForms[activeRequestId]?.contactEmail ?? ""}
+            onChange={(event) =>
+              updatePledgeField(
+                activeRequestId,
+                "contactEmail",
+                event.target.value,
+              )
+            }
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Phone"
+            size="small"
+            fullWidth
+            value={pledgeForms[activeRequestId]?.contactPhone ?? ""}
+            onChange={(event) =>
+              updatePledgeField(
+                activeRequestId,
+                "contactPhone",
+                event.target.value,
+              )
+            }
+          />
+        </Grid>
+      </Grid>
+      <Button
+        type="button"
+        variant="contained"
+        disabled={busy || !activeRequest}
+        onClick={async () => {
+          if (!activeRequest) {
+            return;
+          }
+          const ok = await submitPledge(activeRequest);
+          if (ok) {
+            close();
+          }
+        }}
+      >
+        Pledge now
+      </Button>
+    </Stack>
   );
 
   return (
@@ -387,7 +729,7 @@ export function DonorPortal() {
           <Box>
             <Typography variant="h6">Donor portal</Typography>
             <Typography variant="caption" color="text.secondary">
-              Pledge aid and register as a donor
+              Browse aid requests, pledge support, and register as a donor
             </Typography>
           </Box>
         </Stack>
@@ -424,216 +766,59 @@ export function DonorPortal() {
         </Alert>
       ) : null}
 
-      <Stack spacing={1.5}>
-        <Typography variant="subtitle2">Open aid requests</Typography>
-        {openRequests.length ? (
-          openRequests.map((request) => (
-            <Paper
-              variant="outlined"
-              className="aid-request-card"
-              key={request.id}
-              sx={{ p: 1.5 }}
-            >
-              <Stack spacing={1.25}>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="flex-start"
-                  gap={1}
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="subtitle2" gutterBottom>
+            Aid requests
+          </Typography>
+          <DataTable
+            rows={aidRequests}
+            columns={requestColumns}
+            getRowKey={(request) => request.id}
+            searchOf={(request) =>
+              `${request.title} ${request.itemCode} ${request.region ?? ""}`
+            }
+            searchPlaceholder="Search aid requests"
+            filters={requestFilters}
+            emptyMessage="No aid requests match your filters."
+            toolbarActions={
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <FormDialogButton
+                  label="Register as donor"
+                  dialogTitle="Register as a donor"
+                  icon={HeartHandshake}
+                  color="secondary"
                 >
-                  <Box>
-                    <Typography variant="subtitle2">{request.title}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {request.district} · {request.locationLabel}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    size="small"
-                    label={request.priority}
-                    color={priorityColor(request.priority)}
-                  />
-                </Stack>
-                <Typography variant="body2">{request.description}</Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={`${request.quantityFulfilled}/${request.quantityNeeded} ${request.unit}`}
-                  />
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={`${request.beneficiaryCount ?? 0} beneficiaries`}
-                  />
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={statusLabel(request.status)}
-                  />
-                </Stack>
-
-                <Divider />
-
-                <Stack spacing={1}>
-                  <Typography variant="subtitle2">Make a pledge</Typography>
-                  <Grid container spacing={1}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        label="Your name"
-                        size="small"
-                        fullWidth
-                        value={pledgeForms[request.id]?.donorName ?? ""}
-                        onChange={(event) =>
-                          setPledgeForms((current) => ({
-                            ...current,
-                            [request.id]: {
-                              ...(current[request.id] ??
-                                buildDefaultPledgeForm()),
-                              donorName: event.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        label={`Quantity (${request.unit})`}
-                        size="small"
-                        fullWidth
-                        value={pledgeForms[request.id]?.quantityPledged ?? ""}
-                        onChange={(event) =>
-                          setPledgeForms((current) => ({
-                            ...current,
-                            [request.id]: {
-                              ...(current[request.id] ??
-                                buildDefaultPledgeForm()),
-                              quantityPledged: event.target.value,
-                            },
-                          }))
-                        }
-                        inputProps={{ inputMode: "numeric" }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        label="Email"
-                        size="small"
-                        fullWidth
-                        value={pledgeForms[request.id]?.contactEmail ?? ""}
-                        onChange={(event) =>
-                          setPledgeForms((current) => ({
-                            ...current,
-                            [request.id]: {
-                              ...(current[request.id] ??
-                                buildDefaultPledgeForm()),
-                              contactEmail: event.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        label="Phone"
-                        size="small"
-                        fullWidth
-                        value={pledgeForms[request.id]?.contactPhone ?? ""}
-                        onChange={(event) =>
-                          setPledgeForms((current) => ({
-                            ...current,
-                            [request.id]: {
-                              ...(current[request.id] ??
-                                buildDefaultPledgeForm()),
-                              contactPhone: event.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </Grid>
-                  </Grid>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    disabled={busy}
-                    onClick={() => void submitPledge(request)}
-                  >
-                    Pledge now
-                  </Button>
-                </Stack>
+                  {(close) => donorFormFields(close)}
+                </FormDialogButton>
+                <FormDialogButton
+                  label="Pledge support"
+                  dialogTitle="Pledge support"
+                  icon={HandHeart}
+                  color="primary"
+                >
+                  {(close) => pledgeFormFields(close)}
+                </FormDialogButton>
               </Stack>
-            </Paper>
-          ))
-        ) : (
-          <Alert severity="info">No open aid requests at the moment.</Alert>
-        )}
-      </Stack>
+            }
+          />
+        </Box>
 
-      <Stack spacing={1.5}>
-        <Typography variant="subtitle2">Become a donor</Typography>
-        <Grid container spacing={1}>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Name or organization"
-              size="small"
-              fullWidth
-              value={donorForm.name}
-              onChange={updateDonorForm("name")}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Contact name"
-              size="small"
-              fullWidth
-              value={donorForm.contactName}
-              onChange={updateDonorForm("contactName")}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Email"
-              size="small"
-              fullWidth
-              value={donorForm.contactEmail}
-              onChange={updateDonorForm("contactEmail")}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Phone"
-              size="small"
-              fullWidth
-              value={donorForm.contactPhone}
-              onChange={updateDonorForm("contactPhone")}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Region"
-              size="small"
-              fullWidth
-              value={donorForm.region}
-              onChange={updateDonorForm("region")}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="District"
-              size="small"
-              fullWidth
-              value={donorForm.district}
-              onChange={updateDonorForm("district")}
-            />
-          </Grid>
-        </Grid>
-        <Button
-          type="button"
-          variant="outlined"
-          disabled={busy}
-          onClick={() => void registerDonor()}
-        >
-          Register as donor
-        </Button>
+        <Box>
+          <Typography variant="subtitle2" gutterBottom>
+            Aid catalog
+          </Typography>
+          <DataTable
+            rows={catalog}
+            columns={catalogColumns}
+            getRowKey={(item) => item.id}
+            searchOf={(item) => `${item.name} ${item.category}`}
+            searchPlaceholder="Search catalog"
+            filters={catalogFilters}
+            pageSize={5}
+            emptyMessage="No catalog items match your filters."
+          />
+        </Box>
       </Stack>
     </Paper>
   );

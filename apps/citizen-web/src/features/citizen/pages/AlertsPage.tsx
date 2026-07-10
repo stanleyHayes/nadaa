@@ -1,73 +1,193 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  ButtonGroup,
-  Chip,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
-import {
-  AlertOctagon,
-  Clock3,
-  Loader2,
-  Megaphone,
-  RefreshCw,
-} from "lucide-react";
+import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Loader2, Megaphone, RefreshCw } from "lucide-react";
 import type {
   CitizenAlertFeedItem,
   CitizenAlertFeedResponse,
+  CitizenAlertFeedStatus,
 } from "@nadaa/shared-types";
 import { NOTIFICATION_API_BASE } from "@/app/config";
-import { AnimatedCounter, PageHeader, Reveal } from "../components";
+import {
+  AnimatedCounter,
+  DataTable,
+  PageHeader,
+  Reveal,
+  type DataTableColumn,
+  type DataTableFilter,
+} from "../components";
 import { PageBanner } from "../components/PageBanner";
 import { buildFallbackAlerts } from "../data";
-import type { AlertFeedState, AlertFeedView } from "../types";
+import type { AlertFeedState } from "../types";
 import {
   alertSeverityLabel,
-  alertSeverityTone,
-  alertStatusLabel,
   extractAPIError,
   formatDateTime,
   hazardLabel,
   hazardRoleFor,
   hazardRoles,
+  severityRoleFor,
+  severityRoles,
 } from "../utils";
+
+/** Public-facing status label for each feed status (current reads as "Active"). */
+const ALERT_STATUS_DISPLAY: Record<CitizenAlertFeedStatus, string> = {
+  current: "Active",
+  expired: "Expired",
+  upcoming: "Upcoming",
+};
+
+/** Chip tone per feed status: active warnings are urgent, past ones muted. */
+const ALERT_STATUS_COLOR: Record<
+  CitizenAlertFeedStatus,
+  "error" | "default" | "warning"
+> = {
+  current: "error",
+  expired: "default",
+  upcoming: "warning",
+};
+
+/**
+ * Column definitions for the public alert table. Kept at module scope since they
+ * only depend on shared helpers, not component state. Severity and hazard reuse
+ * the brand colour roles so the chips match the rest of the "Navy Command" set.
+ */
+const alertColumns: DataTableColumn<CitizenAlertFeedItem>[] = [
+  {
+    key: "title",
+    label: "Warning",
+    render: (alert) => (
+      <Stack spacing={0.25}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {alert.title}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {alert.recommendedAction}
+        </Typography>
+      </Stack>
+    ),
+  },
+  {
+    key: "hazardType",
+    label: "Hazard",
+    render: (alert) => {
+      const role = hazardRoleFor(alert.hazardType);
+      return (
+        <Chip
+          size="small"
+          variant="outlined"
+          label={hazardLabel(alert.hazardType)}
+          sx={{
+            borderColor: hazardRoles[role].border,
+            color: hazardRoles[role].foreground,
+            backgroundColor: hazardRoles[role].background,
+          }}
+        />
+      );
+    },
+  },
+  {
+    key: "targetLabel",
+    label: "Area",
+    render: (alert) => alert.targetLabel,
+  },
+  {
+    key: "severity",
+    label: "Severity",
+    render: (alert) => {
+      const role = severityRoleFor(alert.severity);
+      return (
+        <Chip
+          size="small"
+          variant="outlined"
+          label={alertSeverityLabel(alert.severity)}
+          sx={{
+            borderColor: severityRoles[role].border,
+            color: severityRoles[role].foreground,
+            backgroundColor: severityRoles[role].background,
+          }}
+        />
+      );
+    },
+  },
+  {
+    key: "startsAt",
+    label: "Effective",
+    render: (alert) => (
+      <Stack spacing={0.25}>
+        <Typography variant="body2">
+          {formatDateTime(alert.startsAt)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Until {formatDateTime(alert.expiresAt)}
+        </Typography>
+      </Stack>
+    ),
+  },
+  {
+    key: "status",
+    label: "Status",
+    render: (alert) => (
+      <Chip
+        size="small"
+        label={ALERT_STATUS_DISPLAY[alert.status]}
+        color={ALERT_STATUS_COLOR[alert.status]}
+      />
+    ),
+  },
+];
 
 /**
  * Self-contained approved-warnings feed migrated from the legacy `#alerts`
- * section: loads the notification alert feed (with an offline fallback),
- * filters current/expired/all, and renders each warning as a severity-toned
- * card. Owns its own state, effect and refresh handler.
+ * section: loads the notification alert feed (with an offline fallback) and
+ * presents current, upcoming and expired warnings in one public, searchable and
+ * filterable `DataTable`. Owns its own state, effect and refresh handler.
  */
 function AlertsFeed() {
   const [alertFeed, setAlertFeed] = useState<CitizenAlertFeedItem[]>(() =>
     buildFallbackAlerts(),
   );
-  const [alertFeedView, setAlertFeedView] = useState<AlertFeedView>("current");
   const [alertFeedState, setAlertFeedState] = useState<AlertFeedState>({
     status: "idle",
     message: "Showing saved warnings until the feed refreshes.",
   });
 
-  const visibleAlerts = useMemo(
-    () =>
-      alertFeed.filter((alert) => {
-        if (alertFeedView === "all") {
-          return true;
-        }
-        return alert.status === alertFeedView;
-      }),
-    [alertFeed, alertFeedView],
-  );
   const currentAlertCount = useMemo(
     () => alertFeed.filter((alert) => alert.status === "current").length,
     [alertFeed],
   );
   const expiredAlertCount = useMemo(
     () => alertFeed.filter((alert) => alert.status === "expired").length,
+    [alertFeed],
+  );
+
+  // Filter options are derived from the distinct values actually in the feed.
+  const alertFilters = useMemo<DataTableFilter<CitizenAlertFeedItem>[]>(
+    () => [
+      {
+        key: "severity",
+        label: "Severity",
+        options: [
+          ...new Set(alertFeed.map((alert) => alertSeverityLabel(alert.severity))),
+        ].sort(),
+        valueOf: (alert) => alertSeverityLabel(alert.severity),
+      },
+      {
+        key: "hazardType",
+        label: "Hazard",
+        options: [
+          ...new Set(alertFeed.map((alert) => hazardLabel(alert.hazardType))),
+        ].sort(),
+        valueOf: (alert) => hazardLabel(alert.hazardType),
+      },
+      {
+        key: "status",
+        label: "Status",
+        options: [
+          ...new Set(alertFeed.map((alert) => ALERT_STATUS_DISPLAY[alert.status])),
+        ].sort(),
+        valueOf: (alert) => ALERT_STATUS_DISPLAY[alert.status],
+      },
+    ],
     [alertFeed],
   );
 
@@ -116,159 +236,66 @@ function AlertsFeed() {
 
   return (
     <Reveal className="citizen-section">
-      <Paper className="surface" id="alerts" component="section">
-        <PageHeader
-          icon={Megaphone}
-          title="Live warnings"
-          subtitle={
-            <>
-              <AnimatedCounter value={currentAlertCount} /> current ·{" "}
-              <AnimatedCounter value={expiredAlertCount} /> expired
-            </>
-          }
-          tone="red"
-          action={
-            <Button
-              type="button"
-              variant="outlined"
-              size="small"
-              startIcon={
-                alertFeedState.status === "loading" ? (
-                  <Loader2 size={16} className="spin-icon" />
-                ) : (
-                  <RefreshCw size={16} />
-                )
-              }
-              onClick={() => void fetchAlertFeed()}
-              disabled={alertFeedState.status === "loading"}
-            >
-              Refresh
-            </Button>
-          }
-        />
-        <ButtonGroup
-          variant="outlined"
-          size="small"
-          className="alert-filter-group"
-          aria-label="alert feed filter"
-        >
-          <Button
-            variant={alertFeedView === "current" ? "contained" : "outlined"}
-            onClick={() => setAlertFeedView("current")}
-          >
-            Current
-          </Button>
-          <Button
-            variant={alertFeedView === "expired" ? "contained" : "outlined"}
-            onClick={() => setAlertFeedView("expired")}
-          >
-            Expired
-          </Button>
-          <Button
-            variant={alertFeedView === "all" ? "contained" : "outlined"}
-            onClick={() => setAlertFeedView("all")}
-          >
-            All
-          </Button>
-        </ButtonGroup>
-
-        {alertFeedState.status === "error" ? (
-          <Alert severity="warning" className="warning-alert">
-            {alertFeedState.message}
-          </Alert>
-        ) : null}
-        {alertFeedState.status === "idle" && alertFeedState.message ? (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            className="alert-feed-note"
-          >
-            {alertFeedState.message}
-          </Typography>
-        ) : null}
-
-        <Stack spacing={1.5}>
-          {visibleAlerts.length > 0 ? (
-            visibleAlerts.map((alert) => (
-              <Alert
-                key={alert.id}
-                severity={alertSeverityTone(alert.severity, alert.status)}
-                className="warning-alert citizen-alert-card"
-                icon={
-                  alert.status === "expired" ? <Clock3 size={20} /> : undefined
+      <Stack spacing={2.5}>
+        <Paper className="surface" id="alerts" component="section">
+          <PageHeader
+            icon={Megaphone}
+            title="Live warnings"
+            subtitle={
+              <>
+                <AnimatedCounter value={currentAlertCount} /> current ·{" "}
+                <AnimatedCounter value={expiredAlertCount} /> expired
+              </>
+            }
+            tone="red"
+            action={
+              <Button
+                type="button"
+                variant="outlined"
+                size="small"
+                startIcon={
+                  alertFeedState.status === "loading" ? (
+                    <Loader2 size={16} className="spin-icon" />
+                  ) : (
+                    <RefreshCw size={16} />
+                  )
                 }
+                onClick={() => void fetchAlertFeed()}
+                disabled={alertFeedState.status === "loading"}
               >
-                <Stack spacing={0.75}>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    justifyContent="space-between"
-                    alignItems="flex-start"
-                  >
-                    <Box>
-                      <Typography variant="subtitle2">{alert.title}</Typography>
-                      <Typography variant="body2">
-                        {alert.targetLabel} ·{" "}
-                        {alertSeverityLabel(alert.severity)}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      size="small"
-                      icon={
-                        alert.status === "current" ? (
-                          <AlertOctagon size={16} />
-                        ) : (
-                          <Clock3 size={16} />
-                        )
-                      }
-                      label={alertStatusLabel(alert.status)}
-                      color={alert.status === "current" ? "error" : "default"}
-                    />
-                  </Stack>
-                  <Typography variant="body2">{alert.message}</Typography>
-                  <Typography variant="body2">
-                    {alert.recommendedAction}
-                  </Typography>
-                  <Stack direction="row" spacing={0.75} flexWrap="wrap">
-                    {(() => {
-                      const hRole = hazardRoleFor(alert.hazardType);
-                      return (
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          label={hazardLabel(alert.hazardType)}
-                          sx={{
-                            borderColor: hazardRoles[hRole].border,
-                            color: hazardRoles[hRole].foreground,
-                            backgroundColor: hazardRoles[hRole].background,
-                          }}
-                        />
-                      );
-                    })()}
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={`Until ${formatDateTime(alert.expiresAt)}`}
-                    />
-                    {alert.evacuationRequired ? (
-                      <Chip
-                        size="small"
-                        color="error"
-                        label="Evacuation possible"
-                      />
-                    ) : null}
-                  </Stack>
-                </Stack>
-              </Alert>
-            ))
-          ) : (
-            <Alert severity="info" className="warning-alert">
-              No {alertFeedView === "all" ? "" : alertFeedView} alerts are
-              available.
+                Refresh
+              </Button>
+            }
+          />
+
+          {alertFeedState.status === "error" ? (
+            <Alert severity="warning" className="warning-alert">
+              {alertFeedState.message}
             </Alert>
-          )}
-        </Stack>
-      </Paper>
+          ) : null}
+          {alertFeedState.status === "idle" && alertFeedState.message ? (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              className="alert-feed-note"
+            >
+              {alertFeedState.message}
+            </Typography>
+          ) : null}
+        </Paper>
+
+        <DataTable
+          rows={alertFeed}
+          columns={alertColumns}
+          getRowKey={(alert) => alert.id}
+          searchOf={(alert) =>
+            `${alert.title} ${alert.targetLabel} ${hazardLabel(alert.hazardType)}`
+          }
+          searchPlaceholder="Search warnings, area, or hazard"
+          filters={alertFilters}
+          emptyMessage="No approved alerts match your search."
+        />
+      </Stack>
     </Reveal>
   );
 }
