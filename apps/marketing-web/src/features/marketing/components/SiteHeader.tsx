@@ -1,8 +1,10 @@
 import {
   Languages,
   Menu,
+  Moon,
   PhoneCall,
   ShieldCheck,
+  Sun,
   UserPlus,
   X,
 } from "lucide-react";
@@ -10,6 +12,7 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { nadaaBrand } from "@nadaa/brand";
 import { marketingLinks } from "@/app/config";
+import { toggleThemeMode, useThemeMode } from "@/app/theme-mode";
 
 const pages = [
   { to: "/", label: "Home", end: true },
@@ -21,6 +24,8 @@ const pages = [
 
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const mode = useThemeMode();
+  const isDark = mode === "dark";
   const navClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? "is-active" : undefined;
 
@@ -74,6 +79,27 @@ export function SiteHeader() {
         </nav>
 
         <div className="header-actions">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              toggleThemeMode({
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2,
+              });
+            }}
+            aria-label={
+              isDark ? "Switch to light theme" : "Switch to dark theme"
+            }
+            aria-pressed={isDark}
+          >
+            {isDark ? (
+              <Sun aria-hidden="true" size={18} />
+            ) : (
+              <Moon aria-hidden="true" size={18} />
+            )}
+          </button>
           <NavLink className="cta-button" to="/signup">
             <UserPlus aria-hidden="true" size={16} />
             Sign up

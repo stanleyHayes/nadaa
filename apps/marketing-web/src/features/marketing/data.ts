@@ -21,7 +21,8 @@ export const coreFeatures = [
     title: "Command Operations",
     description:
       "Dispatchers, agencies, and admins coordinate incidents from role-specific consoles.",
-    accent: nadaaBrand.colors.navy,
+    // CSS token (not a fixed hex) so navy flips to a legible indigo in dark mode.
+    accent: "var(--nadaa-navy)",
   },
   {
     title: "Recovery Logistics",
@@ -271,7 +272,8 @@ export const roleSurfaces = [
   {
     role: "Command center",
     icon: "authority",
-    accent: nadaaBrand.colors.navy,
+    // CSS token (not a fixed hex) so navy flips to a legible indigo in dark mode.
+    accent: "var(--nadaa-navy)",
     tagline: "Command Ghana's disaster response.",
     audience: "NADMO authority and command-center staff",
     oneLiner:
@@ -385,7 +387,8 @@ export const roleSurfaces = [
   {
     role: "Administrators",
     icon: "admin",
-    accent: nadaaBrand.colors.slate,
+    // CSS token (not a fixed hex) so slate lightens for legibility in dark mode.
+    accent: "var(--nadaa-slate)",
     tagline: "Accountable control for disaster response.",
     audience: "Platform administrators and governance leads",
     oneLiner:

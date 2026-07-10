@@ -2547,3 +2547,75 @@ textarea {
     white-space: normal;
   }
 }
+
+/* ==================================================================
+ * Light/dark theme toggle button (header pill row).
+ * Auto-adapts in dark: --nadaa-navy -> indigo icon, --nadaa-white -> dark
+ * surface, so no dark override is needed for the control itself.
+ * ================================================================== */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 14%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  color: var(--nadaa-navy);
+  background: color-mix(in srgb, var(--nadaa-white) 70%, transparent);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--nadaa-navy) 26%, transparent);
+  background: color-mix(in srgb, var(--nadaa-navy) 7%, var(--nadaa-white));
+}
+
+.theme-toggle:focus-visible {
+  outline: var(--nadaa-focus-outline);
+  outline-offset: 2px;
+}
+
+/* ==================================================================
+ * Dark mode chrome overrides.
+ *
+ * Brand's dark.css (imported via @nadaa/brand/brand.css) re-points the
+ * --nadaa-* token VALUES under :root[data-theme="dark"], so most of this
+ * light-built marketing site flips automatically: white-role card surfaces
+ * darken, ink text lightens, navy-as-accent becomes a legible indigo, and the
+ * derived tokens in this file (hero shade, card bg, emergency tints, subtle
+ * borders) re-resolve from the dark base because var() substitution is lazy.
+ *
+ * The one thing brand cannot know is which navy is an ACCENT (icon/heading —
+ * correctly lightened to indigo) versus a solid FILL. For the permanently-navy
+ * CHROME surfaces (utility bar, hero scrim, trust/research/CTA bands, page
+ * banners, and the navy buttons) we re-pin --nadaa-navy back to a deep navy
+ * that stays distinct on the dark canvas, and keep --nadaa-white as true white
+ * so their inverse text and glass overlays read light.
+ * ================================================================== */
+
+:root[data-theme="dark"] .utility-bar,
+:root[data-theme="dark"] .hero-section,
+:root[data-theme="dark"] .research-section,
+:root[data-theme="dark"] .trust-section,
+:root[data-theme="dark"] .cta-card,
+:root[data-theme="dark"] .page-banner,
+:root[data-theme="dark"] .cta-button,
+:root[data-theme="dark"] .primary-action,
+:root[data-theme="dark"] .signup-submit,
+:root[data-theme="dark"] .sources-dock__toggle,
+:root[data-theme="dark"] .skip-link,
+:root[data-theme="dark"] .footer-emergency-badge,
+:root[data-theme="dark"] .footer-emergency-call {
+  /* Deep navy that stays clearly above the dark page canvas (#0b1120/#111a30). */
+  --nadaa-navy: #12224a;
+  /* Keep white-as-inverse-text + white-glass overlays actually light. */
+  --nadaa-white: #ffffff;
+}
