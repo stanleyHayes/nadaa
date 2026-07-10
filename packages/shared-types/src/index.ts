@@ -2381,6 +2381,8 @@ export interface CVImageItem {
   cvResult?: CVAnalysisResult;
 }
 
+// NADAA-153 — Predictive ambulance and fire station positioning
+
 export type ForecastConfidence = "low" | "medium" | "high";
 export type ForecastRiskLevel =
   "low" | "moderate" | "high" | "severe" | "emergency";

@@ -22,6 +22,9 @@ type Store interface {
 	CreateSimulationJob(req models.CreateSimulationRequest, now time.Time) (models.SimulationRun, error)
 	GetSimulationJob(id string) (models.SimulationRun, bool)
 	ListSimulationJobs() []models.SimulationRun
+	ListForecasts(region string, now time.Time) []models.DemandForecast
+	StagingSuggestions(agencyType string, now time.Time) []models.StagingSuggestion
+	CompareScenarios(req models.CompareScenarioRequest, now time.Time) []models.ScenarioResult
 }
 
 // MemoryStore is an in-memory implementation of Store seeded from fixture files.

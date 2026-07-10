@@ -14,5 +14,9 @@ func (s *server) routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/v1/cv/analyze", s.createCVAnalysisHandler)
 	mux.HandleFunc("GET /api/v1/cv/results/{imageId}", s.getCVResultHandler)
 	mux.HandleFunc("GET /api/v1/cv/results", s.listCVResultsHandler)
+	mux.HandleFunc("GET /api/v1/forecasts", s.listForecastsHandler)
+	mux.HandleFunc("POST /api/v1/forecasts/compare", s.compareScenariosHandler)
+	mux.HandleFunc("GET /api/v1/forecasts/{region}", s.getForecastByRegionHandler)
+	mux.HandleFunc("GET /api/v1/staging-suggestions", s.listStagingSuggestionsHandler)
 	return mux
 }
