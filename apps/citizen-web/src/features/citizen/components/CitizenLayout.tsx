@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Divider,
   Drawer,
@@ -8,19 +8,28 @@ import {
   MenuItem,
 } from "@mui/material";
 import {
+  Bell,
   Languages,
+  LayoutDashboard,
   LogOut,
   MapPinned,
   Menu as MenuIcon,
   PhoneCall,
   ShieldCheck,
   UserPlus,
-  UserRound,
   X,
 } from "lucide-react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { nadaaBrand } from "@nadaa/brand";
 import { useCitizenSession } from "../session";
+import { accountNavItems } from "../pages/account/data";
+import { initialsOf } from "../pages/account/components/shared";
 import { EmergencyBand } from "./EmergencyBand";
 import { SignInDialog } from "./SignInDialog";
 
@@ -47,10 +56,23 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
  */
 export function CitizenLayout() {
   const { pathname } = useLocation();
-  const { session, signIn, signOut, signInOpen, requestSignIn, closeSignIn } =
-    useCitizenSession();
+  const navigate = useNavigate();
+  const {
+    session,
+    notifications,
+    signIn,
+    signOut,
+    signInOpen,
+    requestSignIn,
+    closeSignIn,
+  } = useCitizenSession();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userAnchor, setUserAnchor] = useState<null | HTMLElement>(null);
+
+  const unread = useMemo(
+    () => notifications.filter((item) => !item.read).length,
+    [notifications],
+  );
 
   // Reset scroll and close the mobile drawer whenever the route changes.
   useEffect(() => {
@@ -123,12 +145,20 @@ export function CitizenLayout() {
               <button
                 aria-expanded={Boolean(userAnchor)}
                 aria-haspopup="true"
+                aria-label={`Account menu for ${session.name}${unread > 0 ? `, ${unread} unread notifications` : ""}`}
                 className="citizen-user"
                 onClick={(event) => setUserAnchor(event.currentTarget)}
                 type="button"
               >
-                <UserRound aria-hidden="true" size={16} />
+                <span className="citizen-user__avatar" aria-hidden="true">
+                  {initialsOf(session.name)}
+                </span>
                 <span>{session.name.split(" ")[0]}</span>
+                {unread > 0 ? (
+                  <span className="citizen-user__badge" aria-hidden="true">
+                    {unread}
+                  </span>
+                ) : null}
               </button>
               <Menu
                 anchorEl={userAnchor}
@@ -139,6 +169,29 @@ export function CitizenLayout() {
               >
                 <MenuItem disabled>
                   {session.name} · {session.region}
+                </MenuItem>
+                <Divider />
+                <MenuItem
+                  onClick={() => {
+                    setUserAnchor(null);
+                    navigate("/account");
+                  }}
+                >
+                  <ListItemIcon>
+                    <LayoutDashboard size={18} />
+                  </ListItemIcon>
+                  My account
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setUserAnchor(null);
+                    navigate("/account/notifications");
+                  }}
+                >
+                  <ListItemIcon>
+                    <Bell size={18} />
+                  </ListItemIcon>
+                  Notifications{unread > 0 ? ` (${unread})` : ""}
                 </MenuItem>
                 <Divider />
                 <MenuItem
@@ -213,12 +266,61 @@ export function CitizenLayout() {
             ))}
           </nav>
 
+          {session ? (
+            <>
+              <Divider />
+              <p className="citizen-drawer__label">Your account</p>
+              <nav aria-label="Account sections" className="citizen-drawer__nav">
+                {accountNavItems.map((item) => (
+                  <NavLink
+                    className={navClass}
+                    end={item.end}
+                    key={item.to}
+                    onClick={closeDrawer}
+                    to={item.to}
+                  >
+                    <item.icon aria-hidden="true" size={17} />
+                    {item.label}
+                    {item.to === "/account/notifications" && unread > 0
+                      ? ` (${unread})`
+                      : ""}
+                  </NavLink>
+                ))}
+              </nav>
+            </>
+          ) : null}
+
           <Divider />
 
           <Link className="citizen-cta" onClick={closeDrawer} to="/">
             <MapPinned aria-hidden="true" size={16} />
             Check my risk
           </Link>
+          {session ? (
+            <button
+              className="citizen-signin"
+              onClick={() => {
+                closeDrawer();
+                signOut();
+              }}
+              type="button"
+            >
+              <LogOut aria-hidden="true" size={16} />
+              Sign out · {session.name.split(" ")[0]}
+            </button>
+          ) : (
+            <button
+              className="citizen-signin"
+              onClick={() => {
+                closeDrawer();
+                requestSignIn();
+              }}
+              type="button"
+            >
+              <UserPlus aria-hidden="true" size={16} />
+              Sign in
+            </button>
+          )}
           <a
             className="citizen-emergency-link"
             href={EMERGENCY_TEL}

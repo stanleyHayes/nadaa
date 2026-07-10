@@ -2,6 +2,13 @@ import { CssBaseline, ThemeProvider } from "@mui/material";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { citizenTheme } from "@/app/theme";
 import { CitizenLayout } from "./components/CitizenLayout";
+import {
+  AccountLayout,
+  AccountNotifications,
+  AccountOverview,
+  AccountReports,
+  AccountSettings,
+} from "./pages/account";
 import { AlertsPage } from "./pages/AlertsPage";
 import { CommunityPage } from "./pages/CommunityPage";
 import { GuidesPage } from "./pages/GuidesPage";
@@ -27,6 +34,12 @@ export default function CitizenApp() {
             <Route element={<SheltersPage />} path="shelters" />
             <Route element={<GuidesPage />} path="guides" />
             <Route element={<CommunityPage />} path="community" />
+            <Route element={<AccountLayout />} path="account">
+              <Route index element={<AccountOverview />} />
+              <Route element={<AccountReports />} path="reports" />
+              <Route element={<AccountNotifications />} path="notifications" />
+              <Route element={<AccountSettings />} path="settings" />
+            </Route>
             <Route element={<HomePage />} path="*" />
           </Route>
         </Routes>
