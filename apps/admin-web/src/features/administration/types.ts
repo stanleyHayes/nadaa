@@ -14,9 +14,6 @@ import type {
 
 export type AdminLoadState = "loading" | "ready" | "fallback" | "empty";
 
-export type AdminView =
-  "overview" | "access" | "audit" | "integrations" | "alertRules";
-
 export type AgencyOperationalStatus = "active" | "pilot" | "review";
 
 export interface ManagedAgency extends AgencySummary {
