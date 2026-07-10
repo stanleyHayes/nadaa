@@ -833,9 +833,33 @@ export function DonorPortal() {
 
       <Stack spacing={2}>
         <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            Aid requests
-          </Typography>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1.5}
+            justifyContent="space-between"
+            alignItems={{ xs: "stretch", sm: "center" }}
+            sx={{ mb: 1.5 }}
+          >
+            <Typography variant="subtitle2">Aid requests</Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <FormDialogButton
+                label="Register as donor"
+                dialogTitle="Register as a donor"
+                icon={HeartHandshake}
+                color="secondary"
+              >
+                {(close) => donorFormFields(close)}
+              </FormDialogButton>
+              <FormDialogButton
+                label="Pledge support"
+                dialogTitle="Pledge support"
+                icon={HandHeart}
+                color="primary"
+              >
+                {(close) => pledgeFormFields(close)}
+              </FormDialogButton>
+            </Stack>
+          </Stack>
           <DataTable
             rows={aidRequests}
             columns={requestColumns}
@@ -847,26 +871,6 @@ export function DonorPortal() {
             filters={requestFilters}
             emptyMessage="No aid requests match your filters."
             onRowClick={setDetailRequest}
-            toolbarActions={
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                <FormDialogButton
-                  label="Register as donor"
-                  dialogTitle="Register as a donor"
-                  icon={HeartHandshake}
-                  color="secondary"
-                >
-                  {(close) => donorFormFields(close)}
-                </FormDialogButton>
-                <FormDialogButton
-                  label="Pledge support"
-                  dialogTitle="Pledge support"
-                  icon={HandHeart}
-                  color="primary"
-                >
-                  {(close) => pledgeFormFields(close)}
-                </FormDialogButton>
-              </Stack>
-            }
           />
         </Box>
 
