@@ -1,7 +1,13 @@
+import { useState } from "react";
 import {
   Alert,
+  Box,
   Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Grid,
+  IconButton,
   LinearProgress,
   MenuItem,
   Stack,
@@ -11,8 +17,17 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
-import { Eye, Filter, LocateFixed, MapPinned, RefreshCw } from "lucide-react";
+import {
+  Eye,
+  Filter,
+  LocateFixed,
+  MapPinned,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import type { DispatchData } from "../../useDispatchData";
 import {
   CommandSelect,
@@ -69,6 +84,17 @@ export function IncidentsView({ data }: { data: DispatchData }) {
     mergeFeedback,
     mergeSelectedDuplicates,
   } = data;
+
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const openIncident = (incidentId: string) => {
+    setSelectedIncidentId(incidentId);
+    setDetailOpen(true);
+  };
+
+  const closeDetail = () => setDetailOpen(false);
 
   return (
     <Stack spacing={2.5}>
@@ -180,108 +206,143 @@ export function IncidentsView({ data }: { data: DispatchData }) {
         </Grid>
       </SectionCard>
 
-      <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Stack spacing={2.5}>
-            <SectionCard
-              title="Incident map"
-              eyebrow={`${filteredIncidents.length} visible of ${incidents.length}`}
-              icon={MapPinned}
-              action={
-                <Stack direction="row" spacing={0.75} flexWrap="wrap">
-                  {filterOptions.hazards.slice(0, 4).map((hazard) => (
-                    <HazardChip key={hazard} hazard={hazard} />
+      <Stack spacing={2.5}>
+        <SectionCard
+          title="Incident map"
+          eyebrow={`${filteredIncidents.length} visible of ${incidents.length}`}
+          icon={MapPinned}
+          action={
+            <Stack direction="row" spacing={0.75} flexWrap="wrap">
+              {filterOptions.hazards.slice(0, 4).map((hazard) => (
+                <HazardChip key={hazard} hazard={hazard} />
+              ))}
+            </Stack>
+          }
+        >
+          <IncidentMap
+            incidents={filteredIncidents}
+            selectedIncidentId={selectedIncident?.id}
+            onSelect={openIncident}
+            closures={roadClosures}
+            reliefPoints={reliefPoints}
+          />
+          {roadClosureLoadState === "fallback" ? (
+            <Alert severity="warning" className="feed-alert cc-map-note">
+              {roadClosureMessage}
+            </Alert>
+          ) : null}
+        </SectionCard>
+
+        <SectionCard
+          title="Incident queue"
+          eyebrow="Click a row to open details"
+          icon={LocateFixed}
+        >
+          {filteredIncidents.length ? (
+            <div
+              className="incident-table"
+              tabIndex={0}
+              role="region"
+              aria-label="Incident queue table, scroll horizontally on small screens"
+            >
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Reference</TableCell>
+                    <TableCell>Hazard</TableCell>
+                    <TableCell>District</TableCell>
+                    <TableCell>Severity</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Privacy</TableCell>
+                    <TableCell>Assigned</TableCell>
+                    <TableCell>Age</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredIncidents.map((incident) => (
+                    <TableRow
+                      key={incident.id}
+                      hover
+                      selected={incident.id === selectedIncident?.id}
+                      onClick={() => openIncident(incident.id)}
+                      className="incident-row"
+                    >
+                      <TableCell>
+                        <Typography variant="subtitle2">
+                          {incident.reference}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {incident.locality}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <HazardChip hazard={incident.type} />
+                      </TableCell>
+                      <TableCell>{incident.district}</TableCell>
+                      <TableCell>
+                        <SeverityChip severity={incident.severity} />
+                      </TableCell>
+                      <TableCell>{statusLabel(incident.status)}</TableCell>
+                      <TableCell>
+                        <PrivacyChip incident={incident} />
+                      </TableCell>
+                      <TableCell>{incident.assignedAgency}</TableCell>
+                      <TableCell>
+                        {formatIncidentAge(incident.createdAt)}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </Stack>
-              }
-            >
-              <IncidentMap
-                incidents={filteredIncidents}
-                selectedIncidentId={selectedIncident?.id}
-                onSelect={setSelectedIncidentId}
-                closures={roadClosures}
-                reliefPoints={reliefPoints}
-              />
-              {roadClosureLoadState === "fallback" ? (
-                <Alert severity="warning" className="feed-alert cc-map-note">
-                  {roadClosureMessage}
-                </Alert>
-              ) : null}
-            </SectionCard>
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <EmptyState
+              title="No incidents match these filters"
+              detail="Adjust filters or refresh the feed."
+            />
+          )}
+        </SectionCard>
+      </Stack>
 
-            <SectionCard
-              title="Incident queue"
-              eyebrow="Click a row to focus"
-              icon={LocateFixed}
-            >
-              {filteredIncidents.length ? (
-                <div
-                  className="incident-table"
-                  tabIndex={0}
-                  role="region"
-                  aria-label="Incident queue table, scroll horizontally on small screens"
-                >
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Reference</TableCell>
-                        <TableCell>Hazard</TableCell>
-                        <TableCell>District</TableCell>
-                        <TableCell>Severity</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Privacy</TableCell>
-                        <TableCell>Assigned</TableCell>
-                        <TableCell>Age</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {filteredIncidents.map((incident) => (
-                        <TableRow
-                          key={incident.id}
-                          hover
-                          selected={incident.id === selectedIncident?.id}
-                          onClick={() => setSelectedIncidentId(incident.id)}
-                          className="incident-row"
-                        >
-                          <TableCell>
-                            <Typography variant="subtitle2">
-                              {incident.reference}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {incident.locality}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <HazardChip hazard={incident.type} />
-                          </TableCell>
-                          <TableCell>{incident.district}</TableCell>
-                          <TableCell>
-                            <SeverityChip severity={incident.severity} />
-                          </TableCell>
-                          <TableCell>{statusLabel(incident.status)}</TableCell>
-                          <TableCell>
-                            <PrivacyChip incident={incident} />
-                          </TableCell>
-                          <TableCell>{incident.assignedAgency}</TableCell>
-                          <TableCell>
-                            {formatIncidentAge(incident.createdAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <EmptyState
-                  title="No incidents match these filters"
-                  detail="Adjust filters or refresh the feed."
-                />
-              )}
-            </SectionCard>
-          </Stack>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 4 }}>
+      <Dialog
+        open={detailOpen && Boolean(selectedIncident)}
+        onClose={closeDetail}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+        fullScreen={fullScreen}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 2,
+          }}
+        >
+          <Box>
+            <Typography component="span" sx={{ display: "block", fontWeight: 800 }}>
+              {selectedIncident?.reference ?? "Incident"}
+            </Typography>
+            {selectedIncident ? (
+              <Typography
+                component="span"
+                sx={{
+                  display: "block",
+                  color: "text.secondary",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                }}
+              >
+                {selectedIncident.locality} · {selectedIncident.district}
+              </Typography>
+            ) : null}
+          </Box>
+          <IconButton aria-label="Close" onClick={closeDetail} size="small">
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
           <IncidentDetailPanel
             abuseBusy={abuseBusy}
             abuseFeedback={abuseFeedback}
@@ -307,8 +368,8 @@ export function IncidentsView({ data }: { data: DispatchData }) {
             onVerify={verifySelectedIncident}
             selectedDuplicateIds={selectedDuplicateIds}
           />
-        </Grid>
-      </Grid>
+        </DialogContent>
+      </Dialog>
 
       {loadState === "empty" ? (
         <Alert severity="info" className="feed-alert">

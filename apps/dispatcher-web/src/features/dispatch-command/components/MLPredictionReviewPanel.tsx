@@ -1,19 +1,31 @@
-import { type ChangeEvent } from "react";
+import { type ChangeEvent, useState } from "react";
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Grid,
+  IconButton,
   LinearProgress,
   Paper,
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 import "leaflet/dist/leaflet.css";
-import { BrainCircuit, FileText, ListChecks, ShieldAlert } from "lucide-react";
+import {
+  BrainCircuit,
+  FileText,
+  ListChecks,
+  ShieldAlert,
+  X,
+} from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 
 import type { MLPredictionReview, MLReviewLoadState } from "../types";
@@ -26,7 +38,7 @@ import {
   severityLabel,
 } from "../utils";
 
-import { EmptyState, Fact, PredictionReviewMap, SeverityChip } from "./shared";
+import { Fact, PredictionReviewMap, SeverityChip } from "./shared";
 
 export function MLPredictionReviewPanel({
   busy,
@@ -58,6 +70,17 @@ export function MLPredictionReviewPanel({
   selectedPredictionId: string;
 }) {
   const live = loadState === "ready";
+
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const openPrediction = (predictionId: string) => {
+    onSelectPrediction(predictionId);
+    setDetailOpen(true);
+  };
+
+  const closeDetail = () => setDetailOpen(false);
 
   return (
     <Paper className="surface ml-review-panel">
@@ -106,62 +129,100 @@ export function MLPredictionReviewPanel({
         <LinearProgress className="feed-progress" />
       ) : null}
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <PredictionReviewMap
-            predictions={predictions}
-            selectedPredictionId={selectedPredictionId}
-            onSelect={onSelectPrediction}
-          />
+      <PredictionReviewMap
+        predictions={predictions}
+        selectedPredictionId={selectedPredictionId}
+        onSelect={openPrediction}
+      />
 
-          <Stack className="prediction-list" spacing={1}>
-            {predictions.map((prediction) => (
-              <Box
-                key={prediction.id}
-                className={`prediction-row${
-                  prediction.id === selectedPredictionId ? " selected" : ""
-                }`}
-                onClick={() => onSelectPrediction(prediction.id)}
-              >
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  gap={1}
-                  alignItems="flex-start"
-                >
-                  <Box>
-                    <Typography variant="subtitle2">
-                      {prediction.community}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {prediction.district} · {prediction.cellId}
-                    </Typography>
-                  </Box>
-                  <SeverityChip severity={prediction.severity} />
-                </Stack>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <Chip
-                    size="small"
-                    label={probabilityLabel(prediction.probability)}
-                  />
-                  <Chip
-                    size="small"
-                    label={confidenceLabel(prediction.confidence)}
-                  />
-                  <Chip
-                    size="small"
-                    label={expectedOnsetLabel(prediction.expectedOnset)}
-                  />
-                  {prediction.reviewStatus === "draft_created" ? (
-                    <Chip size="small" color="success" label="Draft created" />
-                  ) : null}
-                </Stack>
+      <Stack className="prediction-list" spacing={1}>
+        {predictions.map((prediction) => (
+          <Box
+            key={prediction.id}
+            className={`prediction-row${
+              prediction.id === selectedPredictionId ? " selected" : ""
+            }`}
+            onClick={() => openPrediction(prediction.id)}
+          >
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              gap={1}
+              alignItems="flex-start"
+            >
+              <Box>
+                <Typography variant="subtitle2">
+                  {prediction.community}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {prediction.district} · {prediction.cellId}
+                </Typography>
               </Box>
-            ))}
-          </Stack>
-        </Grid>
+              <SeverityChip severity={prediction.severity} />
+            </Stack>
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Chip
+                size="small"
+                label={probabilityLabel(prediction.probability)}
+              />
+              <Chip
+                size="small"
+                label={confidenceLabel(prediction.confidence)}
+              />
+              <Chip
+                size="small"
+                label={expectedOnsetLabel(prediction.expectedOnset)}
+              />
+              {prediction.reviewStatus === "draft_created" ? (
+                <Chip size="small" color="success" label="Draft created" />
+              ) : null}
+            </Stack>
+          </Box>
+        ))}
+      </Stack>
 
-        <Grid size={{ xs: 12, lg: 5 }}>
+      <Dialog
+        open={detailOpen && Boolean(selectedPrediction)}
+        onClose={closeDetail}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+        fullScreen={fullScreen}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 2,
+          }}
+        >
+          <Box>
+            <Typography
+              component="span"
+              sx={{ display: "block", fontWeight: 800 }}
+            >
+              {selectedPrediction?.community ?? "Prediction"}
+            </Typography>
+            {selectedPrediction ? (
+              <Typography
+                component="span"
+                sx={{
+                  display: "block",
+                  color: "text.secondary",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                }}
+              >
+                {selectedPrediction.district} · {selectedPrediction.cellId}
+              </Typography>
+            ) : null}
+          </Box>
+          <IconButton aria-label="Close" onClick={closeDetail} size="small">
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
           {selectedPrediction ? (
             <Stack spacing={1.25} className="prediction-detail">
               <Stack direction="row" justifyContent="space-between" gap={1}>
@@ -291,14 +352,9 @@ export function MLPredictionReviewPanel({
                 Create reviewed draft
               </Button>
             </Stack>
-          ) : (
-            <EmptyState
-              title="No prediction selected"
-              detail="Choose a prediction cell from the map or list."
-            />
-          )}
-        </Grid>
-      </Grid>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Paper>
   );
 }
