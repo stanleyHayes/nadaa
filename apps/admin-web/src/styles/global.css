@@ -839,7 +839,7 @@ body {
   min-width: 0;
 }
 
-.cc-metric__value {
+.cc-metric .cc-metric__value {
   margin-top: 4px;
   font-size: clamp(2.9rem, 5.5vw, 4.25rem);
   font-weight: 800;
@@ -849,7 +849,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.cc-metric__caption {
+.cc-metric .cc-metric__caption {
   margin-top: 2px;
   font-size: 0.78rem;
   color: var(--nadaa-text-secondary);
