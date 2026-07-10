@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Drawer } from "@mui/material";
-import { Settings } from "lucide-react";
+import { BookOpen, Settings } from "lucide-react";
 import {
   signOutAgency,
   useAgencySession,
@@ -16,9 +16,11 @@ import {
   type NavItem,
   type ViewId,
 } from "./navigation";
+import { getPageGuide, type GuideKey } from "./pageGuides";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar, type AgencyNotification } from "./components/Topbar";
-import { AccountSettings, type SettingsTab } from "./account";
+import { AppTour } from "./components/AppTour";
+import { AccountSettings, UserGuide, type SettingsTab } from "./account";
 import { OverviewView } from "./components/views/OverviewView";
 import { AssignedIncidentsView } from "./components/views/AssignedIncidentsView";
 import { CapacityView } from "./components/views/CapacityView";
@@ -33,7 +35,15 @@ const SETTINGS_NAV_ITEM: NavItem = {
   icon: Settings,
 };
 
-type ShellView = ViewId | "settings";
+/** Synthetic nav item so the topbar can title the user-guide view. */
+const GUIDE_NAV_ITEM: NavItem = {
+  id: DEFAULT_VIEW,
+  label: "User guide",
+  description: "Step-by-step help for every agency workspace",
+  icon: BookOpen,
+};
+
+type ShellView = ViewId | "settings" | "guide";
 
 const VIEW_KEY = "nadaa.agency.view";
 const COLLAPSE_KEY = "nadaa.agency.sidebar.collapsed";
@@ -68,7 +78,7 @@ export function AgencyShell({ session }: { session: AgencySession }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
-    if (activeView === "settings") {
+    if (activeView === "settings" || activeView === "guide") {
       return;
     }
     try {
@@ -158,14 +168,41 @@ export function AgencyShell({ session }: { session: AgencySession }) {
     setMobileNavOpen(false);
   };
 
+  const openGuide = () => {
+    setActiveView("guide");
+    setMobileNavOpen(false);
+  };
+
+  /** Jump from a user-guide card to the workspace it documents. */
+  const openGuideTarget = (key: GuideKey) => {
+    if (key === "guide") {
+      return;
+    }
+    if (key === "settings") {
+      openSettings("profile");
+      return;
+    }
+    selectView(key);
+  };
+
   const handleSignOut = () => {
     setMobileNavOpen(false);
     signOutAgency();
   };
 
   const isSettings = activeView === "settings";
-  const topbarView = isSettings ? SETTINGS_NAV_ITEM : navItemById(activeView);
-  const topbarGroup = isSettings ? "Account" : groupLabelForView(activeView);
+  const isGuide = activeView === "guide";
+  const topbarView = isSettings
+    ? SETTINGS_NAV_ITEM
+    : isGuide
+      ? GUIDE_NAV_ITEM
+      : navItemById(activeView);
+  const topbarGroup = isSettings
+    ? "Account"
+    : isGuide
+      ? "Help"
+      : groupLabelForView(activeView);
+  const activeGuide = getPageGuide(activeView);
 
   const renderView = () => {
     switch (activeView) {
@@ -190,6 +227,8 @@ export function AgencyShell({ session }: { session: AgencySession }) {
             onChangePassword={changePassword}
           />
         );
+      case "guide":
+        return <UserGuide onOpen={openGuideTarget} />;
       case "overview":
       default:
         return <OverviewView data={data} onNavigate={selectView} />;
@@ -202,7 +241,7 @@ export function AgencyShell({ session }: { session: AgencySession }) {
         Skip to main content
       </a>
 
-      <aside className="cc-shell__rail">
+      <aside className="cc-shell__rail" data-tour="sidebar">
         <Sidebar
           activeView={activeView}
           onSelect={setActiveView}
@@ -231,16 +270,20 @@ export function AgencyShell({ session }: { session: AgencySession }) {
         <Topbar
           view={topbarView}
           groupLabel={topbarGroup}
+          guide={activeGuide}
           session={session}
           notifications={notifications}
           onSignOut={handleSignOut}
           onOpenSettings={openSettings}
+          onOpenGuide={openGuide}
           onOpenMobileNav={() => setMobileNavOpen(true)}
         />
         <main id="main-content" className="cc-content" tabIndex={-1}>
           {renderView()}
         </main>
       </div>
+
+      <AppTour />
     </div>
   );
 }
