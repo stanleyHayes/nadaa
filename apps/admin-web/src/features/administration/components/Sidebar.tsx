@@ -10,8 +10,8 @@ import {
 } from "../navigation";
 
 type SidebarProps = {
-  /** The active section; "settings" leaves every rail item unhighlighted. */
-  activeView: ViewId | "settings";
+  /** Active section; "settings"/"guide" leave every rail item unhighlighted. */
+  activeView: ViewId | "settings" | "guide";
   onSelect: (id: ViewId) => void;
   badges: Record<BadgeKey, number>;
   variant?: "rail" | "drawer";
@@ -93,7 +93,7 @@ function NavGroupSection({
   onSelect,
 }: {
   group: NavGroup;
-  activeView: ViewId | "settings";
+  activeView: ViewId | "settings" | "guide";
   badges: Record<BadgeKey, number>;
   compact: boolean;
   open: boolean;
