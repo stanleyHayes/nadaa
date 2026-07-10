@@ -470,3 +470,210 @@ type APIErrorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+// --- Cell Broadcast (NADAA-163) ---------------------------------------------
+//
+// Cell Broadcast (3GPP CBS / CMAS / WEA) pushes an approved emergency alert to
+// every handset in a geographic scope on a reserved message-identifier channel,
+// independent of a subscriber list. It is deliberately isolated behind a
+// CellBroadcastAdapter so official telecom paths, a sandbox simulator, or a
+// disabled no-op can be swapped without touching approval or audit logic.
+
+// CellBroadcastRequest requests generation of a review-gated cell broadcast set
+// from an already human-approved citizen alert.
+type CellBroadcastRequest struct {
+	AlertID             string   `json:"alertId"`
+	Languages           []string `json:"languages,omitempty"`
+	Areas               []string `json:"areas,omitempty"`
+	WorkflowRequestedBy string   `json:"workflowRequestedBy,omitempty"`
+}
+
+// CellBroadcastResponse returns a single cell broadcast message set.
+type CellBroadcastResponse struct {
+	Message CellBroadcastMessage `json:"message"`
+}
+
+// CellBroadcastListResponse returns all cell broadcast message sets.
+type CellBroadcastListResponse struct {
+	Messages []CellBroadcastMessage `json:"messages"`
+}
+
+// CellBroadcastPreviewResponse returns a handset-accurate preview of every
+// language segment without persisting or broadcasting anything.
+type CellBroadcastPreviewResponse struct {
+	Message  CellBroadcastMessage          `json:"message"`
+	Previews []CellBroadcastSegmentPreview `json:"previews"`
+}
+
+// CellBroadcastSegmentPreview is how one language segment renders on a handset.
+type CellBroadcastSegmentPreview struct {
+	Language         string `json:"language"`
+	Locale           string `json:"locale"`
+	Channel          string `json:"channel"`
+	HandsetCategory  string `json:"handsetCategory"`
+	DataCodingScheme string `json:"dataCodingScheme"`
+	MessageText      string `json:"messageText"`
+	CharacterCount   int    `json:"characterCount"`
+	Pages            int    `json:"pages"`
+	Truncated        bool   `json:"truncated"`
+}
+
+// CellBroadcastReviewRequest requests approve/reject of a cell broadcast set.
+type CellBroadcastReviewRequest struct {
+	Action    string   `json:"action"`
+	Reviewer  string   `json:"reviewer"`
+	Note      string   `json:"note,omitempty"`
+	Languages []string `json:"languages,omitempty"`
+}
+
+// CellBroadcastDeliveryRequest requests dispatch of an approved cell broadcast.
+type CellBroadcastDeliveryRequest struct {
+	Areas  []string `json:"areas,omitempty"`
+	DryRun bool     `json:"dryRun,omitempty"`
+}
+
+// CellBroadcastDeliveryResponse returns the dispatch outcomes per language.
+type CellBroadcastDeliveryResponse struct {
+	Dispatches []CellBroadcastDispatch `json:"dispatches"`
+}
+
+// CellBroadcastMessage is a generated, review-gated cell broadcast message set.
+type CellBroadcastMessage struct {
+	ID                  string                 `json:"id"`
+	AlertID             string                 `json:"alertId"`
+	AlertTitle          string                 `json:"alertTitle"`
+	HazardType          string                 `json:"hazardType"`
+	Severity            string                 `json:"severity"`
+	TargetLabel         string                 `json:"targetLabel"`
+	Areas               []string               `json:"areas"`
+	Channel             CellBroadcastChannel   `json:"channel"`
+	Protocol            CellBroadcastProtocol  `json:"protocol"`
+	Status              string                 `json:"status"`
+	ReviewStatus        string                 `json:"reviewStatus"`
+	EmergencyOverride   bool                   `json:"emergencyOverride"`
+	WorkflowRequestedBy string                 `json:"workflowRequestedBy,omitempty"`
+	Reviewer            string                 `json:"reviewer,omitempty"`
+	ReviewNote          string                 `json:"reviewNote,omitempty"`
+	Segments            []CellBroadcastSegment `json:"segments"`
+	CreatedAt           time.Time              `json:"createdAt"`
+	UpdatedAt           time.Time              `json:"updatedAt"`
+	ReviewedAt          *time.Time             `json:"reviewedAt,omitempty"`
+}
+
+// CellBroadcastChannel identifies the CMAS/WEA message-identifier channel.
+type CellBroadcastChannel struct {
+	MessageIdentifier int    `json:"messageIdentifier"`
+	Label             string `json:"label"`
+	HandsetCategory   string `json:"handsetCategory"`
+}
+
+// CellBroadcastProtocol carries the CAP-aligned classification metadata that
+// telecom operators require alongside a broadcast.
+type CellBroadcastProtocol struct {
+	Standard    string `json:"standard"`
+	Category    string `json:"category"`
+	Urgency     string `json:"urgency"`
+	CAPSeverity string `json:"capSeverity"`
+	Certainty   string `json:"certainty"`
+}
+
+// CellBroadcastSegment is a single-language rendering constrained to the cell
+// broadcast page encoding limits.
+type CellBroadcastSegment struct {
+	ID               string    `json:"id"`
+	Language         string    `json:"language"`
+	Locale           string    `json:"locale"`
+	DataCodingScheme string    `json:"dataCodingScheme"`
+	MessageText      string    `json:"messageText"`
+	CharacterCount   int       `json:"characterCount"`
+	Pages            int       `json:"pages"`
+	Truncated        bool      `json:"truncated"`
+	Status           string    `json:"status"`
+	ReviewStatus     string    `json:"reviewStatus"`
+	ComplianceChecks []string  `json:"complianceChecks"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
+}
+
+// CellBroadcastDispatch is the recorded outcome of broadcasting one language
+// segment to the telecom network for a geographic scope.
+type CellBroadcastDispatch struct {
+	ID                string    `json:"id"`
+	MessageID         string    `json:"messageId"`
+	AlertID           string    `json:"alertId"`
+	Language          string    `json:"language"`
+	MessageIdentifier int       `json:"messageIdentifier"`
+	SerialNumber      int       `json:"serialNumber"`
+	Areas             []string  `json:"areas"`
+	Adapter           string    `json:"adapter"`
+	Status            string    `json:"status"`
+	Reason            string    `json:"reason,omitempty"`
+	Pages             int       `json:"pages"`
+	DataCodingScheme  string    `json:"dataCodingScheme"`
+	DryRun            bool      `json:"dryRun"`
+	BroadcastAt       time.Time `json:"broadcastAt"`
+}
+
+// CellBroadcastDispatchRequest is handed to a CellBroadcastAdapter for a single
+// language segment. It carries only what the telecom entity needs.
+type CellBroadcastDispatchRequest struct {
+	MessageID         string
+	AlertID           string
+	Language          string
+	MessageIdentifier int
+	SerialNumber      int
+	Areas             []string
+	DataCodingScheme  string
+	Pages             int
+	MessageText       string
+	EmergencyOverride bool
+	DryRun            bool
+}
+
+// CellBroadcastAdapterResult is the outcome returned by a CellBroadcastAdapter.
+type CellBroadcastAdapterResult struct {
+	Status string
+	Reason string
+}
+
+// CellBroadcastAdapter abstracts a telecom Cell Broadcast Entity (CBE/CBC).
+// Implementations must not be reachable except through the notification
+// service's approval-gated delivery path.
+type CellBroadcastAdapter interface {
+	Name() string
+	Broadcast(ctx context.Context, request CellBroadcastDispatchRequest) CellBroadcastAdapterResult
+}
+
+// SandboxCellBroadcastAdapter simulates a compliant Cell Broadcast Entity so
+// end-to-end flows can run without an official telecom agreement.
+type SandboxCellBroadcastAdapter struct{}
+
+// Name identifies the adapter in dispatch records and logs.
+func (SandboxCellBroadcastAdapter) Name() string { return "sandbox_cbc" }
+
+// Broadcast simulates a successful broadcast. Dry runs are reported as
+// simulated; live sandbox sends are reported as broadcast.
+func (SandboxCellBroadcastAdapter) Broadcast(_ context.Context, request CellBroadcastDispatchRequest) CellBroadcastAdapterResult {
+	if request.DryRun {
+		return CellBroadcastAdapterResult{Status: "simulated", Reason: "sandbox dry run; no live broadcast emitted"}
+	}
+	return CellBroadcastAdapterResult{Status: "broadcast"}
+}
+
+// DisabledCellBroadcastAdapter is the safe default when no official telecom cell
+// broadcast path is configured; it never emits a broadcast.
+type DisabledCellBroadcastAdapter struct {
+	Reason string
+}
+
+// Name identifies the disabled adapter in dispatch records and logs.
+func (DisabledCellBroadcastAdapter) Name() string { return "disabled_cbc" }
+
+// Broadcast always skips: the telecom path is not available.
+func (a DisabledCellBroadcastAdapter) Broadcast(_ context.Context, _ CellBroadcastDispatchRequest) CellBroadcastAdapterResult {
+	reason := a.Reason
+	if reason == "" {
+		reason = "telecom cell broadcast path is not configured"
+	}
+	return CellBroadcastAdapterResult{Status: "skipped", Reason: reason}
+}

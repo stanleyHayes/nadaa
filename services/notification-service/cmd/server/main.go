@@ -26,7 +26,8 @@ func main() {
 	alertClient := client.NewAlertServiceClient(utils.EnvOrDefault("NADAA_ALERT_SERVICE_URL", "http://localhost:8089/api/v1"))
 	incidentClient := client.NewIncidentServiceClient(os.Getenv("NADAA_INCIDENT_SERVICE_URL"))
 	providers := handlers.ProvidersFromEnv()
-	srv := handlers.NewServer(s, alertClient, incidentClient, providers, func() time.Time { return time.Now().UTC() }, cfg)
+	cellBroadcast := handlers.CellBroadcastAdapterFromMode(cfg.CellBroadcastMode)
+	srv := handlers.NewServer(s, alertClient, incidentClient, providers, cellBroadcast, func() time.Time { return time.Now().UTC() }, cfg)
 
 	httpServer := &http.Server{
 		Addr:         cfg.Addr,
@@ -45,6 +46,7 @@ func main() {
 			"pushProvider", utils.ProviderName(providers["push"]),
 			"smsProvider", utils.ProviderName(providers["sms"]),
 			"voiceProvider", utils.ProviderName(providers["voice"]),
+			"cellBroadcastAdapter", cellBroadcast.Name(),
 		)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			utils.LogError(serviceName+" stopped", "addr", cfg.Addr, "error", err)

@@ -22,6 +22,11 @@ type Store interface {
 	GetVoiceAlertAsset(id string) (models.VoiceAlertAsset, bool)
 	ReviewVoiceAlertAsset(id string, action string, reviewer string, note string, languages []string, now time.Time) (models.VoiceAlertAsset, bool)
 	CreateVoiceDeliveryAttempts(ctx context.Context, asset models.VoiceAlertAsset, request models.VoiceDeliveryRequest, providers map[string]models.NotificationProvider, now time.Time) []models.DeliveryAttempt
+	CreateCellBroadcastMessage(alert models.CitizenAlert, languages []string, areas []string, requestedBy string, now time.Time) models.CellBroadcastMessage
+	ListCellBroadcastMessages() []models.CellBroadcastMessage
+	GetCellBroadcastMessage(id string) (models.CellBroadcastMessage, bool)
+	ReviewCellBroadcastMessage(id string, action string, reviewer string, note string, languages []string, now time.Time) (models.CellBroadcastMessage, bool)
+	CreateCellBroadcastDispatches(ctx context.Context, message models.CellBroadcastMessage, request models.CellBroadcastDeliveryRequest, adapter models.CellBroadcastAdapter, now time.Time) []models.CellBroadcastDispatch
 	CreateAccessLog(log models.InclusiveAccessLog) models.InclusiveAccessLog
 	ListAccessLogs(filters models.AccessLogFilters) []models.InclusiveAccessLog
 	CreateAccessReport(report models.InclusiveAccessReport) models.InclusiveAccessReport
@@ -40,6 +45,7 @@ type MemoryStore struct {
 	accessLogs                 []models.InclusiveAccessLog
 	accessReports              []models.InclusiveAccessReport
 	voiceAlerts                []models.VoiceAlertAsset
+	cellBroadcasts             []models.CellBroadcastMessage
 	whatsappConversations      map[string]models.WhatsAppConversation
 	whatsappTranscripts        []models.WhatsAppTranscript
 	nextLogID                  int
@@ -47,6 +53,9 @@ type MemoryStore struct {
 	nextAccessReportID         int
 	nextVoiceAlertID           int
 	nextVoiceVariantID         int
+	nextCellBroadcastID        int
+	nextCellBroadcastSegmentID int
+	nextCellBroadcastSerial    int
 	nextWhatsAppConversationID int
 	nextWhatsAppTranscriptID   int
 }
@@ -61,6 +70,9 @@ func NewMemoryStore(now time.Time) Store {
 		nextAccessReportID:         1,
 		nextVoiceAlertID:           1,
 		nextVoiceVariantID:         1,
+		nextCellBroadcastID:        1,
+		nextCellBroadcastSegmentID: 1,
+		nextCellBroadcastSerial:    1,
 		nextWhatsAppConversationID: 1,
 		nextWhatsAppTranscriptID:   1,
 	}

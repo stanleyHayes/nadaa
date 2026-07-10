@@ -15,17 +15,19 @@ type Server struct {
 	alertClient    *client.AlertServiceClient
 	incidentClient *client.IncidentServiceClient
 	providers      map[string]models.NotificationProvider
+	cellBroadcast  models.CellBroadcastAdapter
 	now            func() time.Time
 	config         *config.Config
 }
 
 // NewServer creates a new Server with the given dependencies.
-func NewServer(s store.Store, alertClient *client.AlertServiceClient, incidentClient *client.IncidentServiceClient, providers map[string]models.NotificationProvider, now func() time.Time, cfg *config.Config) *Server {
+func NewServer(s store.Store, alertClient *client.AlertServiceClient, incidentClient *client.IncidentServiceClient, providers map[string]models.NotificationProvider, cellBroadcast models.CellBroadcastAdapter, now func() time.Time, cfg *config.Config) *Server {
 	return &Server{
 		store:          s,
 		alertClient:    alertClient,
 		incidentClient: incidentClient,
 		providers:      providers,
+		cellBroadcast:  cellBroadcast,
 		now:            now,
 		config:         cfg,
 	}

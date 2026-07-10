@@ -20,6 +20,7 @@ NADAA integrations are contract-first. Official APIs may arrive gradually, so MV
 | `sms-ussd-inclusive-access`  | SMS/USSD provider               | Citizen access    | Inbound       | NADAA platform operator               | Near real time for citizen requests and reports         | Signed webhook or API key      | Queue report locally, log provider error, and advise caller to use 112 |
 | `whatsapp-emergency-chatbot` | WhatsApp Business API provider  | Citizen access    | Inbound       | NADAA platform operator               | Near real time for citizen requests, media, and reports | Signed webhook or API key      | Keep conversation state locally, queue report locally, and advise 112  |
 | `voice-alert-provider`       | Voice call/TTS provider         | Citizen access    | Outbound      | NADAA platform operator               | Near real time after voice asset approval               | API key + signed callbacks     | Skip unapproved variants, log delivery status, and fall back to SMS    |
+| `telecom-cell-broadcast`     | Mobile network operator (CBC)   | Emergency alert   | Outbound      | NADAA platform operator               | On demand after human approval of a severe+ alert       | Operator agreement + CBC creds | Isolate behind adapter; default disabled no-op; skip unless approved; fall back to voice/SMS/push |
 
 ## Common Rules
 
@@ -32,6 +33,7 @@ NADAA integrations are contract-first. Official APIs may arrive gradually, so MV
 - SMS/USSD/WhatsApp provider adapters should normalize provider-specific payloads into notification-service webhooks, log `providerError` when signature validation or provider delivery fails, and avoid storing raw phone numbers, full message bodies, or media captions in runtime logs.
 - WhatsApp adapters should preserve provider message IDs, location pins, and media IDs/URLs while allowing notification-service to store only privacy-safe transcript summaries with a 90-day retention timestamp.
 - Voice alert adapters should send only approved `voiceAlertAsset` variants, retain provider message IDs in delivery logs, and avoid sending voice for expired or unreviewed alerts.
+- Cell broadcast adapters must stay isolated behind the `CellBroadcastAdapter` interface, default to a disabled no-op until an official operator agreement is active, broadcast only human-approved segments on the severity-mapped CMAS/WEA channel, and record every dispatch (including skips) to the delivery-log audit stream. See [runbooks/cell-broadcast-compliance.md](runbooks/cell-broadcast-compliance.md).
 
 ## Payload Examples
 

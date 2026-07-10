@@ -35,8 +35,8 @@ func parseLogFilters(r *http.Request) (models.LogFilters, string, string) {
 		Channel: utils.NormalizeQueryValue(query.Get("channel")),
 		Status:  utils.NormalizeQueryValue(query.Get("status")),
 	}
-	if filters.Channel != "" && !allowedChannels[filters.Channel] {
-		return models.LogFilters{}, "invalid_channel", "channel must be push, sms, or voice"
+	if filters.Channel != "" && !allowedLogChannels[filters.Channel] {
+		return models.LogFilters{}, "invalid_channel", "channel must be push, sms, voice, or cell_broadcast"
 	}
 	if filters.Status != "" && !allowedDeliveryStatuses[filters.Status] {
 		return models.LogFilters{}, "invalid_status", "status must be queued, delivered, failed, or skipped"

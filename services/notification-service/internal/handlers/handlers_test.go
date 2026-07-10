@@ -505,6 +505,7 @@ func newTestServer() *Server {
 			"sms":   models.MockProvider{Channel: "sms"},
 			"voice": models.MockProvider{Channel: "voice"},
 		},
+		models.SandboxCellBroadcastAdapter{},
 		func() time.Time { return now },
 		cfg,
 	)

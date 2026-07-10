@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strings"
+
 	"github.com/stanleyHayes/nadaa/services/notification-service/internal/models"
 	"github.com/stanleyHayes/nadaa/services/notification-service/internal/utils"
 )
@@ -28,4 +30,17 @@ func ProvidersFromEnv() map[string]models.NotificationProvider {
 	}
 
 	return providers
+}
+
+// CellBroadcastAdapterFromMode selects the cell broadcast adapter for the given
+// mode. It defaults to a disabled no-op so an unconfigured or unknown mode can
+// never emit a live broadcast; "sandbox" enables the simulator for end-to-end
+// testing. A real telecom integration would register its adapter here.
+func CellBroadcastAdapterFromMode(mode string) models.CellBroadcastAdapter {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "sandbox":
+		return models.SandboxCellBroadcastAdapter{}
+	default:
+		return models.DisabledCellBroadcastAdapter{Reason: "telecom cell broadcast path is not configured"}
+	}
 }

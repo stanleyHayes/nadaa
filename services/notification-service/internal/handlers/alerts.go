@@ -51,6 +51,17 @@ var allowedChannels = map[string]bool{
 	"voice": true,
 }
 
+// allowedLogChannels is the set of channels that may appear in the unified
+// delivery-log audit stream. It is broader than allowedChannels because cell
+// broadcasts are audited here but must never be deliverable through the generic
+// (non-approval-gated) delivery endpoint.
+var allowedLogChannels = map[string]bool{
+	"push":           true,
+	"sms":            true,
+	"voice":          true,
+	"cell_broadcast": true,
+}
+
 var allowedFeedStatuses = map[string]bool{
 	"current":  true,
 	"expired":  true,
