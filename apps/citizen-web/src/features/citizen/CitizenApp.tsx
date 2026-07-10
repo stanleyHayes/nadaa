@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { citizenTheme } from "@/app/theme";
+import { createCitizenTheme } from "@/app/theme";
+import { useThemeMode } from "@/app/theme-mode";
 import { CitizenLayout } from "./components/CitizenLayout";
 import {
   AccountLayout,
@@ -22,8 +24,11 @@ import { SheltersPage } from "./pages/SheltersPage";
  * persistent emergency 112 band, scroll-to-top).
  */
 export default function CitizenApp() {
+  const mode = useThemeMode();
+  const theme = useMemo(() => createCitizenTheme({ mode }), [mode]);
+
   return (
-    <ThemeProvider theme={citizenTheme}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
         <Routes>

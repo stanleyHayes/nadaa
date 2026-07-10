@@ -14,8 +14,10 @@ import {
   LogOut,
   MapPinned,
   Menu as MenuIcon,
+  Moon,
   PhoneCall,
   ShieldCheck,
+  Sun,
   UserPlus,
   X,
 } from "lucide-react";
@@ -27,6 +29,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { nadaaBrand } from "@nadaa/brand";
+import { toggleThemeMode, useThemeMode } from "@/app/theme-mode";
 import { useCitizenSession } from "../session";
 import { accountNavItems } from "../pages/account/data";
 import { initialsOf } from "../pages/account/components/shared";
@@ -68,6 +71,8 @@ export function CitizenLayout() {
   } = useCitizenSession();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userAnchor, setUserAnchor] = useState<null | HTMLElement>(null);
+  const mode = useThemeMode();
+  const isDark = mode === "dark";
 
   const unread = useMemo(
     () => notifications.filter((item) => !item.read).length,
@@ -139,6 +144,28 @@ export function CitizenLayout() {
             <PhoneCall aria-hidden="true" size={17} />
             112
           </a>
+
+          <button
+            aria-label={
+              isDark ? "Switch to light theme" : "Switch to dark theme"
+            }
+            aria-pressed={isDark}
+            className="citizen-theme-toggle"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              toggleThemeMode({
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2,
+              });
+            }}
+            type="button"
+          >
+            {isDark ? (
+              <Sun aria-hidden="true" size={18} />
+            ) : (
+              <Moon aria-hidden="true" size={18} />
+            )}
+          </button>
 
           {session ? (
             <>

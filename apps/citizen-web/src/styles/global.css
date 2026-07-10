@@ -2,6 +2,11 @@
 
 :root {
   --nadaa-topbar-accent: var(--nadaa-gold);
+  /* Chrome navy: navy used as a permanent dark BACKGROUND (utility bar, hero,
+     sign-in brand panel, page banner, map). In dark mode `--nadaa-navy` becomes
+     a light accent indigo, so these chrome surfaces pin this variable to a fixed
+     deep navy instead (see the dark-mode block at the foot of this file). */
+  --citizen-navy: var(--nadaa-navy);
   --nadaa-border-subtle: color-mix(in srgb, var(--nadaa-navy) 10%, transparent);
   --nadaa-border-gold: color-mix(in srgb, var(--nadaa-gold) 40%, transparent);
   --nadaa-border-red: color-mix(in srgb, var(--nadaa-red) 26%, transparent);
@@ -55,7 +60,7 @@ body {
   z-index: 10000;
   padding: var(--nadaa-space-2) var(--nadaa-space-3);
   color: var(--nadaa-text-inverse);
-  background: var(--nadaa-navy);
+  background: var(--citizen-navy);
   border-radius: var(--nadaa-radius-md);
   text-decoration: none;
   font-weight: 600;
@@ -79,8 +84,8 @@ body {
   gap: var(--nadaa-space-4);
   min-height: 36px;
   padding: 0 clamp(16px, 4vw, 48px);
-  background: var(--nadaa-navy);
-  color: color-mix(in srgb, var(--nadaa-white) 82%, transparent);
+  background: var(--citizen-navy);
+  color: color-mix(in srgb, var(--nadaa-text-inverse) 82%, transparent);
   font-size: 0.78rem;
   font-weight: 600;
 }
@@ -109,14 +114,14 @@ body {
 .citizen-utility__lang {
   gap: 6px;
   padding: 3px 9px;
-  border: 1px solid color-mix(in srgb, var(--nadaa-white) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nadaa-text-inverse) 22%, transparent);
   border-radius: var(--nadaa-radius-full, 999px);
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
 .citizen-utility__emergency {
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   font-weight: 800;
 }
 
@@ -287,7 +292,7 @@ body {
 }
 
 .citizen-cta {
-  color: var(--nadaa-navy);
+  color: var(--citizen-navy);
   border: 0;
   background: linear-gradient(
     135deg,
@@ -329,6 +334,38 @@ body {
 .citizen-signin:hover,
 .citizen-user:hover {
   border-color: color-mix(in srgb, var(--nadaa-navy) 30%, transparent);
+}
+
+/* Light/dark theme toggle — icon-only header button (Sun/Moon). Mirrors the
+   dashboards; the circular-reveal animation lives in @nadaa/brand. */
+.citizen-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 16%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  color: var(--nadaa-navy);
+  background: var(--nadaa-white);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.citizen-theme-toggle:hover {
+  border-color: color-mix(in srgb, var(--nadaa-navy) 30%, transparent);
+  color: var(--nadaa-gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .citizen-theme-toggle {
+    transition: none;
+  }
 }
 
 .citizen-menu-toggle {
@@ -433,8 +470,8 @@ body {
     ),
     linear-gradient(
       135deg,
-      var(--nadaa-navy) 0%,
-      color-mix(in srgb, var(--nadaa-navy) 88%, var(--nadaa-green)) 100%
+      var(--citizen-navy) 0%,
+      color-mix(in srgb, var(--citizen-navy) 88%, var(--nadaa-green)) 100%
     );
 }
 
@@ -478,17 +515,17 @@ body {
 
 .risk-hero__copy h1 {
   margin: 0;
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   font-size: clamp(2.4rem, 5.5vw, 4rem);
   line-height: 1.02;
   letter-spacing: -0.01em;
-  text-shadow: 0 2px 30px color-mix(in srgb, var(--nadaa-navy) 60%, transparent);
+  text-shadow: 0 2px 30px color-mix(in srgb, var(--citizen-navy) 60%, transparent);
 }
 
 .risk-hero__sub {
   max-width: 560px;
   margin: var(--nadaa-space-4) 0 0;
-  color: color-mix(in srgb, var(--nadaa-white) 90%, transparent);
+  color: color-mix(in srgb, var(--nadaa-text-inverse) 90%, transparent);
   font-size: clamp(1.02rem, 1.8vw, 1.2rem);
   line-height: 1.6;
   font-weight: 500;
@@ -503,15 +540,15 @@ body {
 
 .risk-hero__stats div {
   padding: var(--nadaa-space-3) var(--nadaa-space-4);
-  border: 1px solid color-mix(in srgb, var(--nadaa-white) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nadaa-text-inverse) 20%, transparent);
   border-left: 3px solid color-mix(in srgb, var(--nadaa-gold) 78%, transparent);
   border-radius: var(--nadaa-radius-md);
-  background: color-mix(in srgb, var(--nadaa-white) 8%, transparent);
+  background: color-mix(in srgb, var(--nadaa-text-inverse) 8%, transparent);
   backdrop-filter: blur(6px);
 }
 
 .risk-hero__stats dt {
-  color: color-mix(in srgb, var(--nadaa-white) 78%, transparent);
+  color: color-mix(in srgb, var(--nadaa-text-inverse) 78%, transparent);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -564,7 +601,7 @@ body {
   border-radius: var(--nadaa-radius-md);
   overflow: hidden;
   border: 1px solid var(--nadaa-border-subtle);
-  background: var(--nadaa-navy);
+  background: var(--citizen-navy);
 }
 
 .risk-map-frame__coords {
@@ -574,8 +611,8 @@ body {
   z-index: 600;
   padding: 4px 10px;
   border-radius: var(--nadaa-radius-full, 999px);
-  background: color-mix(in srgb, var(--nadaa-navy) 88%, transparent);
-  color: var(--nadaa-white);
+  background: color-mix(in srgb, var(--citizen-navy) 88%, transparent);
+  color: var(--nadaa-text-inverse);
   font-size: 0.74rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -637,7 +674,7 @@ body {
   padding: 0 var(--nadaa-space-4);
   flex-shrink: 0;
   border-radius: var(--nadaa-radius-md);
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   font-weight: 800;
   text-decoration: none;
   background: var(--nadaa-red);
@@ -863,7 +900,7 @@ body {
   top: 8px;
   right: 8px;
   z-index: 2;
-  color: var(--nadaa-white) !important;
+  color: var(--nadaa-text-inverse) !important;
 }
 
 .signin-split {
@@ -877,7 +914,7 @@ body {
   flex-direction: column;
   gap: var(--nadaa-space-2);
   padding: clamp(22px, 4vw, 40px);
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   overflow: hidden;
   background:
     radial-gradient(
@@ -885,7 +922,7 @@ body {
       color-mix(in srgb, var(--nadaa-green) 40%, transparent),
       transparent 60%
     ),
-    var(--nadaa-navy);
+    var(--citizen-navy);
 }
 
 .signin-brand::before {
@@ -918,7 +955,7 @@ body {
 }
 
 .signin-brand__mark strong {
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   font-size: 1.05rem;
 }
 
@@ -930,7 +967,7 @@ body {
 
 .signin-brand p {
   margin: 0;
-  color: color-mix(in srgb, var(--nadaa-white) 82%, transparent);
+  color: color-mix(in srgb, var(--nadaa-text-inverse) 82%, transparent);
   line-height: 1.6;
 }
 
@@ -946,7 +983,7 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  color: color-mix(in srgb, var(--nadaa-white) 88%, transparent);
+  color: color-mix(in srgb, var(--nadaa-text-inverse) 88%, transparent);
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -962,7 +999,7 @@ body {
 }
 
 .signin-submit {
-  color: var(--nadaa-navy) !important;
+  color: var(--citizen-navy) !important;
   font-weight: 800 !important;
 }
 
@@ -988,12 +1025,12 @@ body {
   position: absolute;
   inset: 0;
   min-height: 260px;
-  background: var(--nadaa-navy);
+  background: var(--citizen-navy);
 }
 
 .citizen-map .leaflet-container {
   font: inherit;
-  background: var(--nadaa-navy);
+  background: var(--citizen-navy);
 }
 
 .citizen-map .leaflet-tile {
@@ -1003,8 +1040,8 @@ body {
 .citizen-map .leaflet-control-attribution {
   padding: 2px 8px;
   border-radius: var(--nadaa-radius-md) 0 0 0;
-  background: color-mix(in srgb, var(--nadaa-navy) 90%, transparent);
-  color: color-mix(in srgb, var(--nadaa-white) 82%, transparent);
+  background: color-mix(in srgb, var(--citizen-navy) 90%, transparent);
+  color: color-mix(in srgb, var(--nadaa-text-inverse) 82%, transparent);
   font-size: 0.68rem;
 }
 
@@ -1013,13 +1050,13 @@ body {
 }
 
 .citizen-map .leaflet-bar a {
-  color: var(--nadaa-white);
-  background: color-mix(in srgb, var(--nadaa-navy) 92%, transparent);
-  border-bottom-color: color-mix(in srgb, var(--nadaa-white) 18%, transparent);
+  color: var(--nadaa-text-inverse);
+  background: color-mix(in srgb, var(--citizen-navy) 92%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--nadaa-text-inverse) 18%, transparent);
 }
 
 .citizen-map .leaflet-bar a:hover {
-  background: var(--nadaa-navy);
+  background: var(--citizen-navy);
 }
 
 .citizen-map .leaflet-popup-content-wrapper,
@@ -1038,9 +1075,9 @@ body {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 3px solid var(--nadaa-white);
+  border: 3px solid var(--nadaa-text-inverse);
   background: var(--marker, var(--nadaa-green));
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   font-size: 0.72rem;
   font-weight: 800;
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--marker, var(--nadaa-green)) 24%, transparent);
@@ -1325,11 +1362,11 @@ body {
       clamp(320px, 40vw, 520px),
     linear-gradient(
       118deg,
-      var(--nadaa-navy),
-      color-mix(in srgb, var(--nadaa-navy) 80%, var(--nadaa-green))
+      var(--citizen-navy),
+      color-mix(in srgb, var(--citizen-navy) 80%, var(--nadaa-green))
     );
   border-bottom: 1px solid
-    color-mix(in srgb, var(--nadaa-navy) 40%, transparent);
+    color-mix(in srgb, var(--citizen-navy) 40%, transparent);
 }
 
 .page-banner::before {
@@ -1365,7 +1402,7 @@ body {
 
 .page-banner h1 {
   margin: var(--nadaa-space-2) 0 0;
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   font-size: clamp(2.4rem, 6vw, 4rem);
   line-height: 1.03;
   letter-spacing: 0;
@@ -1374,7 +1411,7 @@ body {
 .page-banner-sub {
   max-width: 720px;
   margin: var(--nadaa-space-4) 0 0;
-  color: color-mix(in srgb, var(--nadaa-white) 86%, transparent);
+  color: color-mix(in srgb, var(--nadaa-text-inverse) 86%, transparent);
   font-size: 1.1rem;
   line-height: 1.7;
 }
@@ -1497,7 +1534,7 @@ body {
   padding: 0 6px;
   border-radius: var(--nadaa-radius-full, 999px);
   background: var(--nadaa-red);
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   font-size: 0.72rem;
   font-weight: 800;
   line-height: 1;
@@ -1794,9 +1831,9 @@ body {
   margin-top: var(--nadaa-space-4);
   padding: 6px 16px 6px 6px;
   border-radius: var(--nadaa-radius-full, 999px);
-  background: color-mix(in srgb, var(--nadaa-white) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--nadaa-white) 26%, transparent);
-  color: var(--nadaa-white);
+  background: color-mix(in srgb, var(--nadaa-text-inverse) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nadaa-text-inverse) 26%, transparent);
+  color: var(--nadaa-text-inverse);
   font-weight: 700;
   font-size: 0.9rem;
 }
@@ -1809,7 +1846,7 @@ body {
   height: 30px;
   border-radius: 50%;
   background: var(--nadaa-gold);
-  color: var(--nadaa-navy);
+  color: var(--citizen-navy);
   font-size: 0.8rem;
   font-weight: 800;
 }
@@ -1845,7 +1882,7 @@ body {
   border-radius: var(--nadaa-radius-full, 999px);
   border: 2px solid var(--nadaa-white);
   background: var(--nadaa-red);
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   font-size: 0.68rem;
   font-weight: 800;
   line-height: 1;
@@ -2044,3 +2081,25 @@ body {
     transition: none;
   }
 }
+
+/* ================================================================== *
+ * Dark-mode app overrides.
+ *
+ * The shared `--nadaa-*` dark tokens (packages/brand/dark.css) flip almost
+ * every citizen surface automatically — cards, the glass header, the DataTable,
+ * dialogs, empty states — because they style through those tokens. Inverse text
+ * on coloured chrome already uses `--nadaa-text-inverse` (white in both modes),
+ * so it stays legible on the navy/red surfaces.
+ *
+ * This block handles the one thing the token flip cannot: navy used as a
+ * permanent dark BACKGROUND (the utility bar, hero, sign-in brand panel, page
+ * banner, and Leaflet map chrome). Those rules reference `--citizen-navy`, which
+ * we pin to a fixed deep navy here so they stay dark instead of turning into the
+ * light accent indigo that `--nadaa-navy` becomes on dark. Everything is gated
+ * by [data-theme="dark"], so light mode is untouched.
+ * ================================================================== */
+
+:root[data-theme="dark"] {
+  --citizen-navy: #0d1b3d;
+}
+

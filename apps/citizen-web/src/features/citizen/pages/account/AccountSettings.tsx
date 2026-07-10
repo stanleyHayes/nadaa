@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { Box, Paper, Tab, Tabs } from "@mui/material";
+import { Box, Paper, Stack, Tab, Tabs } from "@mui/material";
 import { KeyRound, SlidersHorizontal, UserCog } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
 import { useCitizenSession } from "../../session";
-import { PasswordForm, PreferencesForm, ProfileForm } from "./components";
+import {
+  AppearanceCard,
+  PasswordForm,
+  PreferencesForm,
+  ProfileForm,
+} from "./components";
 
 type SettingsTab = {
   key: string;
@@ -87,7 +92,12 @@ export function AccountSettings() {
           id="settings-panel-preferences"
           role="tabpanel"
         >
-          {active === 2 ? <PreferencesForm preferences={preferences} /> : null}
+          {active === 2 ? (
+            <Stack spacing={3}>
+              <AppearanceCard />
+              <PreferencesForm preferences={preferences} />
+            </Stack>
+          ) : null}
         </div>
       </Paper>
     </div>
