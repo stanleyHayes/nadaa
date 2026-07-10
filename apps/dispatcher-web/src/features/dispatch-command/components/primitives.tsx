@@ -33,6 +33,9 @@ export function MetricTile({
 }) {
   return (
     <Paper className={`cc-metric cc-metric--${accent}`} elevation={0}>
+      <span className="cc-metric__watermark" aria-hidden>
+        <Icon size={120} strokeWidth={1.5} />
+      </span>
       <Box className="cc-metric__body">
         <Eyebrow>{label}</Eyebrow>
         <Typography className="cc-metric__value">{value}</Typography>

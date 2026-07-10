@@ -689,14 +689,17 @@ body {
 }
 
 .cc-metric__body {
+  position: relative;
+  z-index: 1;
   min-width: 0;
 }
 
 .cc-metric__value {
   margin-top: 4px;
-  font-size: 2rem;
+  font-size: clamp(2.2rem, 4vw, 3rem);
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
   color: var(--nadaa-ink);
   font-variant-numeric: tabular-nums;
 }
@@ -708,6 +711,8 @@ body {
 }
 
 .cc-metric__icon {
+  position: relative;
+  z-index: 1;
   flex: 0 0 auto;
   width: 40px;
   height: 40px;
@@ -728,6 +733,38 @@ body {
   color: var(--nadaa-green);
 }
 .cc-metric--info .cc-metric__icon {
+  color: var(--nadaa-info);
+}
+
+/* ---- Oversized tone-tinted icon watermark (clipped by card overflow) ---- */
+.cc-metric__watermark {
+  position: absolute;
+  right: -12px;
+  bottom: -20px;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+  pointer-events: none;
+  color: var(--nadaa-navy);
+  opacity: 0.08;
+}
+
+.cc-metric__watermark svg {
+  width: 128px;
+  height: 128px;
+}
+
+.cc-metric--red .cc-metric__watermark {
+  color: var(--nadaa-red);
+}
+.cc-metric--gold .cc-metric__watermark {
+  color: var(--nadaa-gold);
+}
+.cc-metric--green .cc-metric__watermark {
+  color: var(--nadaa-green);
+}
+.cc-metric--info .cc-metric__watermark {
   color: var(--nadaa-info);
 }
 
