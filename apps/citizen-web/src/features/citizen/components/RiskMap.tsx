@@ -23,15 +23,27 @@ type RiskMapProps = {
   ariaLabel?: string;
 };
 
+/** Escape untrusted values before they reach Leaflet's HTML-parsing APIs
+ * (divIcon.html, bindPopup) to prevent stored/reflected XSS from area or
+ * shelter names. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function markerIcon(marker: RiskMapMarker) {
   const isRisk = marker.kind !== "shelter";
   const className = isRisk ? "citizen-map-pin citizen-map-pin--risk" : "citizen-map-pin";
   const size = isRisk ? 30 : 26;
   return L.divIcon({
     className: "citizen-map-icon",
-    html: `<span class="${className}" style="--marker:${marker.color}">${
-      marker.glyph ?? ""
-    }</span>`,
+    html: `<span class="${className}" style="--marker:${escapeHtml(
+      marker.color,
+    )}">${escapeHtml(marker.glyph ?? "")}</span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -113,7 +125,7 @@ export function RiskMap({
         title: marker.title,
         keyboard: false,
       })
-        .bindPopup(marker.title)
+        .bindPopup(escapeHtml(marker.title))
         .addTo(layer);
     });
   }, [lat, lng, riskColor, markers]);
