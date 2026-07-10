@@ -1,8 +1,12 @@
+import { useState } from "react";
 import {
   Alert,
-  Box,
   Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Grid,
+  IconButton,
   LinearProgress,
   MenuItem,
   Stack,
@@ -12,8 +16,17 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
-import { Eye, Filter, LocateFixed, MapPinned, RefreshCw } from "lucide-react";
+import {
+  Eye,
+  Filter,
+  LocateFixed,
+  MapPinned,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import type { CommandData } from "../../useCommandData";
 import {
   CommandSelect,
@@ -69,6 +82,17 @@ export function IncidentsView({ data }: { data: CommandData }) {
     mergeFeedback,
     mergeSelectedDuplicates,
   } = data;
+
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const openIncident = (incidentId: string) => {
+    setSelectedIncidentId(incidentId);
+    setDetailOpen(true);
+  };
+
+  const closeDetail = () => setDetailOpen(false);
 
   return (
     <Stack spacing={2.5}>
@@ -180,97 +204,125 @@ export function IncidentsView({ data }: { data: CommandData }) {
         </Grid>
       </SectionCard>
 
-      <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Stack spacing={2.5}>
-            <SectionCard
-              title="Incident map"
-              eyebrow={`${filteredIncidents.length} visible of ${incidents.length}`}
-              icon={MapPinned}
-              action={
-                <Stack direction="row" spacing={0.75} flexWrap="wrap">
-                  {filterOptions.hazards.slice(0, 4).map((hazard) => (
-                    <HazardChip key={hazard} hazard={hazard} />
-                  ))}
-                </Stack>
-              }
-            >
-              <IncidentMap
-                incidents={filteredIncidents}
-                imageryFeatures={imageryFeatures}
-                selectedIncidentId={selectedIncident?.id}
-                onSelect={setSelectedIncidentId}
-              />
-            </SectionCard>
-
-            <SectionCard
-              title="Incident queue"
-              eyebrow="Click a row to focus"
-              icon={LocateFixed}
-            >
-              {filteredIncidents.length ? (
-                <ScrollableTable label="Incident queue table">
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Reference</TableCell>
-                        <TableCell>Hazard</TableCell>
-                        <TableCell>District</TableCell>
-                        <TableCell>Severity</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Privacy</TableCell>
-                        <TableCell>Assigned</TableCell>
-                        <TableCell>Age</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {filteredIncidents.map((incident) => (
-                        <TableRow
-                          key={incident.id}
-                          hover
-                          selected={incident.id === selectedIncident?.id}
-                          onClick={() => setSelectedIncidentId(incident.id)}
-                          className="incident-row"
-                        >
-                          <TableCell>
-                            <Typography variant="subtitle2">
-                              {incident.reference}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {incident.locality}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <HazardChip hazard={incident.type} />
-                          </TableCell>
-                          <TableCell>{incident.district}</TableCell>
-                          <TableCell>
-                            <SeverityChip severity={incident.severity} />
-                          </TableCell>
-                          <TableCell>{statusLabel(incident.status)}</TableCell>
-                          <TableCell>
-                            <PrivacyChip incident={incident} />
-                          </TableCell>
-                          <TableCell>{incident.assignedAgency}</TableCell>
-                          <TableCell>
-                            {formatIncidentAge(incident.createdAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollableTable>
-              ) : (
-                <EmptyState
-                  title="No incidents match these filters"
-                  detail="Adjust filters or refresh the feed."
-                />
-              )}
-            </SectionCard>
+      <SectionCard
+        title="Incident map"
+        eyebrow={`${filteredIncidents.length} visible of ${incidents.length}`}
+        icon={MapPinned}
+        action={
+          <Stack direction="row" spacing={0.75} flexWrap="wrap">
+            {filterOptions.hazards.slice(0, 4).map((hazard) => (
+              <HazardChip key={hazard} hazard={hazard} />
+            ))}
           </Stack>
-        </Grid>
+        }
+      >
+        <IncidentMap
+          incidents={filteredIncidents}
+          imageryFeatures={imageryFeatures}
+          selectedIncidentId={selectedIncident?.id}
+          onSelect={openIncident}
+        />
+      </SectionCard>
 
-        <Grid size={{ xs: 12, lg: 4 }}>
+      <SectionCard
+        title="Incident queue"
+        eyebrow="Click a row to open details"
+        icon={LocateFixed}
+      >
+        {filteredIncidents.length ? (
+          <ScrollableTable label="Incident queue table">
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Reference</TableCell>
+                  <TableCell>Hazard</TableCell>
+                  <TableCell>District</TableCell>
+                  <TableCell>Severity</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Privacy</TableCell>
+                  <TableCell>Assigned</TableCell>
+                  <TableCell>Age</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredIncidents.map((incident) => (
+                  <TableRow
+                    key={incident.id}
+                    hover
+                    selected={incident.id === selectedIncident?.id}
+                    onClick={() => openIncident(incident.id)}
+                    className="incident-row"
+                  >
+                    <TableCell>
+                      <Typography variant="subtitle2">
+                        {incident.reference}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {incident.locality}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <HazardChip hazard={incident.type} />
+                    </TableCell>
+                    <TableCell>{incident.district}</TableCell>
+                    <TableCell>
+                      <SeverityChip severity={incident.severity} />
+                    </TableCell>
+                    <TableCell>{statusLabel(incident.status)}</TableCell>
+                    <TableCell>
+                      <PrivacyChip incident={incident} />
+                    </TableCell>
+                    <TableCell>{incident.assignedAgency}</TableCell>
+                    <TableCell>
+                      {formatIncidentAge(incident.createdAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollableTable>
+        ) : (
+          <EmptyState
+            title="No incidents match these filters"
+            detail="Adjust filters or refresh the feed."
+          />
+        )}
+      </SectionCard>
+
+      {loadState === "empty" ? (
+        <Alert severity="info" className="feed-alert">
+          No incidents are currently in the command queue.
+        </Alert>
+      ) : null}
+
+      <Dialog
+        open={detailOpen}
+        onClose={closeDetail}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+        fullScreen={fullScreen}
+        aria-labelledby="incident-detail-title"
+      >
+        <DialogTitle
+          id="incident-detail-title"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          <span>{selectedIncident?.reference ?? "Incident detail"}</span>
+          <IconButton
+            aria-label="Close incident detail"
+            onClick={closeDetail}
+            size="small"
+          >
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
           <Stack spacing={2.5}>
             <IncidentDetailPanel
               abuseBusy={abuseBusy}
@@ -300,14 +352,8 @@ export function IncidentsView({ data }: { data: CommandData }) {
 
             <RoutePlannerPanel selectedIncident={selectedIncident} />
           </Stack>
-        </Grid>
-      </Grid>
-
-      {loadState === "empty" ? (
-        <Alert severity="info" className="feed-alert">
-          No incidents are currently in the command queue.
-        </Alert>
-      ) : null}
+        </DialogContent>
+      </Dialog>
     </Stack>
   );
 }

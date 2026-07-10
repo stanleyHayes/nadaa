@@ -4,8 +4,12 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   Grid,
+  IconButton,
   LinearProgress,
   MenuItem,
   Paper,
@@ -18,6 +22,8 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
@@ -27,6 +33,7 @@ import {
   Loader2,
   RefreshCw,
   ShieldAlert,
+  X,
 } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import { DAMAGE_CLAIM_API_BASE } from "@/app/config";
@@ -106,10 +113,21 @@ export default function DamageClaimsPanel() {
   const [verifyNotes, setVerifyNotes] = useState("");
   const [closeReason, setCloseReason] = useState("");
 
+  const [detailOpen, setDetailOpen] = useState(false);
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+
   const selectedClaim = useMemo(
     () => claims.find((claim) => claim.id === selectedId),
     [claims, selectedId],
   );
+
+  const openClaim = (claimId: string) => {
+    setSelectedId(claimId);
+    setDetailOpen(true);
+  };
+
+  const closeDetail = () => setDetailOpen(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -424,316 +442,337 @@ export default function DamageClaimsPanel() {
       ) : null}
 
       {claims.length ? (
-        <Grid container spacing={2.5}>
-          <Grid size={{ xs: 12, lg: 5 }}>
-            <TableContainer sx={{ overflowX: "auto" }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Reference</TableCell>
-                    <TableCell>Reporter</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Verification</TableCell>
-                    <TableCell>Status</TableCell>
+        <>
+          <TableContainer sx={{ overflowX: "auto" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Reference</TableCell>
+                  <TableCell>Reporter</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Verification</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {claims.map((claim) => (
+                  <TableRow
+                    key={claim.id}
+                    hover
+                    selected={claim.id === selectedId}
+                    onClick={() => openClaim(claim.id)}
+                    className="incident-row"
+                  >
+                    <TableCell>
+                      <Typography variant="subtitle2">
+                        {claim.reference}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {claim.incidentReference || "No incident"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{claim.reporter.name}</TableCell>
+                    <TableCell>{claim.damageType}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={claim.verificationStatus}
+                        color={
+                          claim.verificationStatus === "pending"
+                            ? "warning"
+                            : claim.verificationStatus === "verified"
+                              ? "success"
+                              : "error"
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={claim.status}
+                        variant="outlined"
+                        color={
+                          claim.status === "closed" ? "default" : "primary"
+                        }
+                      />
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {claims.map((claim) => (
-                    <TableRow
-                      key={claim.id}
-                      hover
-                      selected={claim.id === selectedId}
-                      onClick={() => setSelectedId(claim.id)}
-                      className="incident-row"
-                    >
-                      <TableCell>
-                        <Typography variant="subtitle2">
-                          {claim.reference}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {claim.incidentReference || "No incident"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{claim.reporter.name}</TableCell>
-                      <TableCell>{claim.damageType}</TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={claim.verificationStatus}
-                          color={
-                            claim.verificationStatus === "pending"
-                              ? "warning"
-                              : claim.verificationStatus === "verified"
-                                ? "success"
-                                : "error"
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={claim.status}
-                          variant="outlined"
-                          color={
-                            claim.status === "closed" ? "default" : "primary"
-                          }
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Grid>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-          <Grid size={{ xs: 12, lg: 7 }}>
-            {selectedClaim ? (
-              <Stack spacing={2}>
-                <Stack
-                  direction={{ xs: "column", sm: "row" }}
-                  justifyContent="space-between"
-                  alignItems={{ xs: "flex-start", sm: "center" }}
-                  gap={1}
-                >
-                  <Box>
-                    <Typography variant="overline" color="secondary">
-                      Selected claim
-                    </Typography>
-                    <Typography variant="h6">
-                      {selectedClaim.reference}
-                    </Typography>
-                  </Box>
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
-                    <Chip
-                      size="small"
-                      label={selectedClaim.verificationStatus}
-                      color={
-                        selectedClaim.verificationStatus === "pending"
-                          ? "warning"
-                          : selectedClaim.verificationStatus === "verified"
-                            ? "success"
-                            : "error"
-                      }
-                    />
-                    <Chip
-                      size="small"
-                      label={selectedClaim.status}
-                      variant="outlined"
-                      color={
-                        selectedClaim.status === "closed"
-                          ? "default"
-                          : "primary"
-                      }
-                    />
+          <Dialog
+            open={detailOpen}
+            onClose={closeDetail}
+            maxWidth="md"
+            fullWidth
+            scroll="paper"
+            fullScreen={fullScreen}
+            aria-labelledby="damage-claim-detail-title"
+          >
+            <DialogTitle
+              id="damage-claim-detail-title"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+              }}
+            >
+              <span>{selectedClaim?.reference ?? "Damage claim"}</span>
+              <IconButton
+                aria-label="Close claim detail"
+                onClick={closeDetail}
+                size="small"
+              >
+                <X size={18} />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent dividers>
+              {selectedClaim ? (
+                <Stack spacing={2}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    justifyContent="space-between"
+                    alignItems={{ xs: "flex-start", sm: "center" }}
+                    gap={1}
+                  >
+                    <Box>
+                      <Typography variant="overline" color="secondary">
+                        Selected claim
+                      </Typography>
+                      <Typography variant="h6">
+                        {selectedClaim.reference}
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      <Chip
+                        size="small"
+                        label={selectedClaim.verificationStatus}
+                        color={
+                          selectedClaim.verificationStatus === "pending"
+                            ? "warning"
+                            : selectedClaim.verificationStatus === "verified"
+                              ? "success"
+                              : "error"
+                        }
+                      />
+                      <Chip
+                        size="small"
+                        label={selectedClaim.status}
+                        variant="outlined"
+                        color={
+                          selectedClaim.status === "closed"
+                            ? "default"
+                            : "primary"
+                        }
+                      />
+                    </Stack>
                   </Stack>
-                </Stack>
 
-                <Typography variant="body2" color="text.secondary">
-                  {selectedClaim.damageDescription}
-                </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedClaim.damageDescription}
+                  </Typography>
 
-                <Grid container spacing={1.5}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Fact
-                      label="Reporter"
-                      value={selectedClaim.reporter.name}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Fact
-                      label="Phone"
-                      value={selectedClaim.reporter.phone || "Not provided"}
-                    />
-                  </Grid>
-                  {selectedClaim.reporter.email ? (
+                  <Grid container spacing={1.5}>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <Fact
-                        label="Email"
-                        value={selectedClaim.reporter.email}
+                        label="Reporter"
+                        value={selectedClaim.reporter.name}
                       />
                     </Grid>
-                  ) : null}
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Fact
-                      label="Estimated loss"
-                      value={selectedClaim.estimatedLossAmount}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Fact
-                      label="Damage type"
-                      value={selectedClaim.damageType}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <Fact
-                      label="Location"
-                      value={
-                        selectedClaim.location.address
-                          ? `${selectedClaim.location.address} (${selectedClaim.location.lat.toFixed(5)}, ${selectedClaim.location.lng.toFixed(5)})`
-                          : `${selectedClaim.location.lat.toFixed(5)}, ${selectedClaim.location.lng.toFixed(5)}`
-                      }
-                    />
-                  </Grid>
-                  {selectedClaim.incidentReference ? (
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Fact
+                        label="Phone"
+                        value={selectedClaim.reporter.phone || "Not provided"}
+                      />
+                    </Grid>
+                    {selectedClaim.reporter.email ? (
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Fact
+                          label="Email"
+                          value={selectedClaim.reporter.email}
+                        />
+                      </Grid>
+                    ) : null}
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Fact
+                        label="Estimated loss"
+                        value={selectedClaim.estimatedLossAmount}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Fact
+                        label="Damage type"
+                        value={selectedClaim.damageType}
+                      />
+                    </Grid>
                     <Grid size={{ xs: 12 }}>
                       <Fact
-                        label="Incident"
-                        value={selectedClaim.incidentReference}
+                        label="Location"
+                        value={
+                          selectedClaim.location.address
+                            ? `${selectedClaim.location.address} (${selectedClaim.location.lat.toFixed(5)}, ${selectedClaim.location.lng.toFixed(5)})`
+                            : `${selectedClaim.location.lat.toFixed(5)}, ${selectedClaim.location.lng.toFixed(5)}`
+                        }
                       />
                     </Grid>
-                  ) : null}
-                </Grid>
-
-                {selectedClaim.damagePhotos.length ? (
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Photos
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      {selectedClaim.damagePhotos.map((photo, index) => (
-                        <Box
-                          key={index}
-                          component="img"
-                          src={photo}
-                          alt={`Damage photo ${index + 1} for ${selectedClaim.reference}`}
-                          sx={{
-                            width: 96,
-                            height: 96,
-                            objectFit: "cover",
-                            borderRadius: 1,
-                            border: "1px solid rgba(13, 27, 61, 0.08)",
-                          }}
+                    {selectedClaim.incidentReference ? (
+                      <Grid size={{ xs: 12 }}>
+                        <Fact
+                          label="Incident"
+                          value={selectedClaim.incidentReference}
                         />
-                      ))}
-                    </Stack>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    No photos attached.
-                  </Typography>
-                )}
+                      </Grid>
+                    ) : null}
+                  </Grid>
 
-                <Divider />
+                  {selectedClaim.damagePhotos.length ? (
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Photos
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap">
+                        {selectedClaim.damagePhotos.map((photo, index) => (
+                          <Box
+                            key={index}
+                            component="img"
+                            src={photo}
+                            alt={`Damage photo ${index + 1} for ${selectedClaim.reference}`}
+                            sx={{
+                              width: 96,
+                              height: 96,
+                              objectFit: "cover",
+                              borderRadius: 1,
+                              border: "1px solid rgba(13, 27, 61, 0.08)",
+                            }}
+                          />
+                        ))}
+                      </Stack>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No photos attached.
+                    </Typography>
+                  )}
 
-                {feedback ? (
-                  <Alert
-                    severity={
-                      feedback.includes("failed") ||
-                      feedback.includes("needs") ||
-                      feedback.includes("Unavailable") ||
-                      feedback.includes("valid")
-                        ? "warning"
-                        : "success"
-                    }
-                  >
-                    {feedback}
-                  </Alert>
-                ) : null}
+                  <Divider />
 
-                {selectedClaim.verificationStatus === "pending" ? (
-                  <Stack spacing={1.5}>
-                    <Typography variant="subtitle2">Verify claim</Typography>
-                    <CommandSelect
-                      label="Decision"
-                      value={verifyStatus}
-                      onChange={(event) =>
-                        setVerifyStatus(
-                          event.target.value as DamageClaimVerificationStatus,
-                        )
+                  {feedback ? (
+                    <Alert
+                      severity={
+                        feedback.includes("failed") ||
+                        feedback.includes("needs") ||
+                        feedback.includes("Unavailable") ||
+                        feedback.includes("valid")
+                          ? "warning"
+                          : "success"
                       }
                     >
-                      <MenuItem value="verified">Approve (verified)</MenuItem>
-                      <MenuItem value="rejected">Reject</MenuItem>
-                    </CommandSelect>
-                    <TextField
-                      label="Verification notes"
-                      size="small"
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      value={verifyNotes}
-                      onChange={(event) => setVerifyNotes(event.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="contained"
-                      color="success"
-                      disabled={busy || !verifyNotes.trim()}
-                      onClick={() => void verifySelectedClaim()}
-                      startIcon={<CheckCheck size={17} />}
-                      aria-label="Save verification decision"
-                    >
-                      {busy ? "Saving" : "Save verification"}
-                    </Button>
-                  </Stack>
-                ) : (
-                  <Alert severity="info">
-                    This claim has been {selectedClaim.verificationStatus}.
-                  </Alert>
-                )}
+                      {feedback}
+                    </Alert>
+                  ) : null}
 
-                {selectedClaim.status !== "closed" ? (
-                  <Stack spacing={1.5}>
-                    <Typography variant="subtitle2">Close claim</Typography>
-                    <TextField
-                      label="Close reason"
-                      size="small"
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      value={closeReason}
-                      onChange={(event) => setCloseReason(event.target.value)}
-                    />
+                  {selectedClaim.verificationStatus === "pending" ? (
+                    <Stack spacing={1.5}>
+                      <Typography variant="subtitle2">Verify claim</Typography>
+                      <CommandSelect
+                        label="Decision"
+                        value={verifyStatus}
+                        onChange={(event) =>
+                          setVerifyStatus(
+                            event.target.value as DamageClaimVerificationStatus,
+                          )
+                        }
+                      >
+                        <MenuItem value="verified">Approve (verified)</MenuItem>
+                        <MenuItem value="rejected">Reject</MenuItem>
+                      </CommandSelect>
+                      <TextField
+                        label="Verification notes"
+                        size="small"
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        value={verifyNotes}
+                        onChange={(event) => setVerifyNotes(event.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="contained"
+                        color="success"
+                        disabled={busy || !verifyNotes.trim()}
+                        onClick={() => void verifySelectedClaim()}
+                        startIcon={<CheckCheck size={17} />}
+                        aria-label="Save verification decision"
+                      >
+                        {busy ? "Saving" : "Save verification"}
+                      </Button>
+                    </Stack>
+                  ) : (
+                    <Alert severity="info">
+                      This claim has been {selectedClaim.verificationStatus}.
+                    </Alert>
+                  )}
+
+                  {selectedClaim.status !== "closed" ? (
+                    <Stack spacing={1.5}>
+                      <Typography variant="subtitle2">Close claim</Typography>
+                      <TextField
+                        label="Close reason"
+                        size="small"
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        value={closeReason}
+                        onChange={(event) => setCloseReason(event.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        color="error"
+                        disabled={busy || !closeReason.trim()}
+                        onClick={() => void closeSelectedClaim()}
+                        startIcon={<ShieldAlert size={17} />}
+                        aria-label="Close claim with reason"
+                      >
+                        {busy ? "Closing" : "Close claim"}
+                      </Button>
+                    </Stack>
+                  ) : (
+                    <Alert severity="info">This claim is closed.</Alert>
+                  )}
+
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
                     <Button
                       type="button"
                       variant="outlined"
-                      color="error"
-                      disabled={busy || !closeReason.trim()}
-                      onClick={() => void closeSelectedClaim()}
-                      startIcon={<ShieldAlert size={17} />}
-                      aria-label="Close claim with reason"
+                      size="small"
+                      disabled={Boolean(exportBusy)}
+                      onClick={() => void exportSelectedClaim("csv")}
+                      startIcon={<FileDown size={17} />}
+                      aria-label="Export claim as CSV"
                     >
-                      {busy ? "Closing" : "Close claim"}
+                      {exportBusy === "csv" ? "Exporting…" : "Export CSV"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      disabled={Boolean(exportBusy)}
+                      onClick={() => void exportSelectedClaim("pdf")}
+                      startIcon={<FileText size={17} />}
+                      aria-label="Export claim as PDF"
+                    >
+                      {exportBusy === "pdf" ? "Exporting…" : "Export PDF"}
                     </Button>
                   </Stack>
-                ) : (
-                  <Alert severity="info">This claim is closed.</Alert>
-                )}
-
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <Button
-                    type="button"
-                    variant="outlined"
-                    size="small"
-                    disabled={Boolean(exportBusy)}
-                    onClick={() => void exportSelectedClaim("csv")}
-                    startIcon={<FileDown size={17} />}
-                    aria-label="Export claim as CSV"
-                  >
-                    {exportBusy === "csv" ? "Exporting…" : "Export CSV"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outlined"
-                    size="small"
-                    disabled={Boolean(exportBusy)}
-                    onClick={() => void exportSelectedClaim("pdf")}
-                    startIcon={<FileText size={17} />}
-                    aria-label="Export claim as PDF"
-                  >
-                    {exportBusy === "pdf" ? "Exporting…" : "Export PDF"}
-                  </Button>
                 </Stack>
-              </Stack>
-            ) : (
-              <EmptyState
-                title="No claim selected"
-                detail="Select a claim from the list to review details and actions."
-              />
-            )}
-          </Grid>
-        </Grid>
+              ) : null}
+            </DialogContent>
+          </Dialog>
+        </>
       ) : loadState !== "loading" ? (
         <EmptyState
           title={loadState === "error" ? "Claims unavailable" : "No claims"}
