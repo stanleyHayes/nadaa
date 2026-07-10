@@ -188,7 +188,7 @@ body {
   font-weight: 800;
   letter-spacing: 0.14em;
   line-height: 1;
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
 }
 
 .cc-rail__brand-sub {
@@ -262,7 +262,7 @@ body {
 
 .cc-nav__item:hover {
   background: var(--cc-navy-hover);
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
 }
 
 .cc-nav__item:focus-visible {
@@ -276,7 +276,7 @@ body {
     rgba(244, 194, 13, 0.18),
     rgba(20, 38, 80, 0.7)
   );
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
 }
 
 .cc-nav__marker {
@@ -336,12 +336,12 @@ body {
 
 .cc-nav__badge--red {
   background: var(--nadaa-red);
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
 }
 
 .cc-nav__badge--green {
   background: var(--nadaa-green);
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
 }
 
 .cc-nav__badge--dot {
@@ -409,7 +409,7 @@ body {
 
 .cc-rail__collapse:hover {
   background: var(--cc-navy-hover);
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
 }
 
 .cc-rail__collapse:focus-visible {
@@ -495,7 +495,7 @@ body {
   font-size: 0.8rem !important;
   font-weight: 800;
   background: var(--nadaa-navy) !important;
-  color: var(--nadaa-white) !important;
+  color: var(--nadaa-text-inverse) !important;
 }
 
 .cc-user__avatar--lg {
@@ -1067,7 +1067,7 @@ body {
   gap: 36px;
   padding: 48px;
   overflow: hidden;
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
   background:
     radial-gradient(
       1200px 520px at 12% -12%,
@@ -1226,7 +1226,7 @@ body {
 .cc-auth__step.is-active {
   background: var(--nadaa-navy);
   border-color: var(--nadaa-navy);
-  color: var(--nadaa-white);
+  color: var(--nadaa-text-inverse);
 }
 
 .cc-auth__step.is-done {
@@ -1678,5 +1678,75 @@ body {
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
+}
+
+/* Theme toggle matches the notification bell. */
+.cc-topbar__theme {
+  color: var(--nadaa-slate);
+}
+
+/* ============================================================
+   Dark-mode app overrides.
+
+   The shared `--nadaa-*` dark tokens (packages/brand/dark.css) flip almost every
+   `cc-*` surface automatically. This block handles only what the token flip
+   cannot reach for THIS app:
+   - the permanently-navy command rail / avatar / sign-in hero, which must stay
+     navy while the navy token is lightened to an accent indigo;
+   - a handful of hardcoded-light surfaces (meter tracks, feed chips, auth step
+     chips) that never referenced a token.
+
+   The glass topbar already resolves through `--nadaa-white`, so it flips to a
+   translucent dark wash on its own. Everything is gated by [data-theme="dark"],
+   so light mode is untouched.
+   ============================================================ */
+
+:root[data-theme="dark"] {
+  /* Shell canvas follows the selected screen tint. */
+  --cc-canvas: var(--nadaa-surface);
+  /* Keep the rail navy (the navy token is now an accent indigo). */
+  --cc-navy: #0d1b3d;
+  --cc-navy-deep: #070f24;
+  --cc-navy-hover: #17274d;
+  /* Gold chip text lightens for contrast on dark. */
+  --cc-gold-ink: #f6ca3d;
+}
+
+/* User pill hover border (was a hardcoded light blue). */
+:root[data-theme="dark"] .cc-user:hover {
+  border-color: color-mix(in srgb, var(--nadaa-navy) 55%, transparent);
+}
+
+/* Avatar keeps a solid navy fill with white text. */
+:root[data-theme="dark"] .cc-user__avatar {
+  background: #26365f !important;
+}
+
+/* Meter tracks: the navy wash is invisible on dark — use a light wash. */
+:root[data-theme="dark"] .cc-triage__track,
+:root[data-theme="dark"] .cc-capacity {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Feed status chips: swap light pastels for translucent tinted fills. */
+:root[data-theme="dark"] .cc-feed-chip--ready {
+  background: color-mix(in srgb, var(--nadaa-green) 20%, transparent);
+  border-color: color-mix(in srgb, var(--nadaa-green) 42%, transparent);
+}
+:root[data-theme="dark"] .cc-feed-chip--fallback,
+:root[data-theme="dark"] .cc-feed-chip--error,
+:root[data-theme="dark"] .cc-feed-chip--loading {
+  background: color-mix(in srgb, var(--nadaa-gold) 18%, transparent);
+  border-color: color-mix(in srgb, var(--nadaa-gold) 40%, transparent);
+}
+
+/* Sign-in step chips keep readable fills in dark. */
+:root[data-theme="dark"] .cc-auth__step.is-active {
+  background: #26365f;
+  border-color: #26365f;
+}
+:root[data-theme="dark"] .cc-auth__step.is-done {
+  background: color-mix(in srgb, var(--nadaa-green) 20%, transparent);
+  border-color: color-mix(in srgb, var(--nadaa-green) 42%, transparent);
 }
 
