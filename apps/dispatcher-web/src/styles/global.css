@@ -631,6 +631,150 @@ body {
   background: var(--cc-navy-line);
 }
 
+/* ---- Icon-chip motif ---- */
+.cc-chip {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--nadaa-navy) 8%, var(--nadaa-white));
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 14%, transparent);
+  color: var(--nadaa-navy);
+}
+
+.cc-rail__brand-chip {
+  width: 42px;
+  height: 42px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--nadaa-white);
+  border: 1px solid color-mix(in srgb, var(--nadaa-gold) 46%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nadaa-gold) 12%, transparent);
+}
+
+.cc-rail__brand-chip .cc-rail__logo {
+  width: 100%;
+  height: 100%;
+  padding: 2px;
+  background: var(--nadaa-white);
+}
+
+/* ---- Collapsible file-tree nav groups ---- */
+.cc-nav__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cc-nav__group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cc-nav__group-head:hover {
+  background: var(--cc-navy-hover);
+}
+
+.cc-nav__group-head:focus-visible {
+  outline: 2px solid var(--nadaa-gold);
+  outline-offset: 2px;
+}
+
+.cc-nav__group-chip {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--nadaa-white) 9%, transparent);
+  border: 1px solid var(--cc-navy-line);
+  color: #a9bce0;
+}
+
+.cc-nav__group--red .cc-nav__group-chip {
+  color: #ff8f8c;
+  border-color: color-mix(in srgb, var(--nadaa-red) 44%, transparent);
+}
+
+.cc-nav__group--gold .cc-nav__group-chip {
+  color: var(--nadaa-gold);
+  border-color: color-mix(in srgb, var(--nadaa-gold) 40%, transparent);
+}
+
+.cc-nav__group--green .cc-nav__group-chip {
+  color: #4ecb8b;
+  border-color: color-mix(in srgb, var(--nadaa-green) 44%, transparent);
+}
+
+.cc-nav__group-head .cc-nav__group-label {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cc-rail-muted);
+}
+
+.cc-nav__group-chevron {
+  flex: 0 0 auto;
+  color: var(--cc-rail-muted);
+  transition: transform 0.2s ease;
+}
+
+.cc-nav__group.is-open .cc-nav__group-chevron {
+  transform: rotate(180deg);
+}
+
+.cc-nav__list[hidden] {
+  display: none;
+}
+
+/* File-tree trunk + rounded elbows (expanded rail only) */
+.cc-nav__group:not(.is-compact) .cc-nav__list {
+  position: relative;
+  margin: 2px 0 0 20px;
+  padding-left: 16px;
+  border-left: 1.5px solid var(--cc-navy-line);
+}
+
+.cc-nav__group:not(.is-compact):has(.cc-nav__item.is-active) .cc-nav__list {
+  border-left-color: color-mix(in srgb, var(--nadaa-gold) 55%, var(--cc-navy-line));
+}
+
+.cc-nav__group:not(.is-compact) .cc-nav__list > li {
+  position: relative;
+}
+
+.cc-nav__group:not(.is-compact) .cc-nav__list > li::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--cc-navy-line);
+}
+
+.cc-nav__group:not(.is-compact) .cc-nav__list > li:has(.cc-nav__item.is-active)::before {
+  height: 2px;
+  background: var(--nadaa-gold);
+}
+
 .cc-nav__list {
   list-style: none;
   margin: 0;

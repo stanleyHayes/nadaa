@@ -2,6 +2,7 @@ import {
   CloudRain,
   HeartPulse,
   LayoutDashboard,
+  Radar,
   RadioTower,
   Siren,
   Sparkles,
@@ -29,9 +30,15 @@ export type NavItem = {
   badgeTone?: "gold" | "green" | "red";
 };
 
+export type GroupAccent = "navy" | "red" | "gold" | "green";
+
 export type NavGroup = {
   id: string;
   label: string;
+  /** Leading icon rendered inside the group-heading chip. */
+  icon: LucideIcon;
+  /** Accent used for the group chip and the active connector branch. */
+  accent: GroupAccent;
   items: NavItem[];
 };
 
@@ -39,6 +46,8 @@ export const navGroups: NavGroup[] = [
   {
     id: "command",
     label: "Command",
+    icon: LayoutDashboard,
+    accent: "navy",
     items: [
       {
         id: "overview",
@@ -51,6 +60,8 @@ export const navGroups: NavGroup[] = [
   {
     id: "response",
     label: "Response",
+    icon: Siren,
+    accent: "red",
     items: [
       {
         id: "incidents",
@@ -73,6 +84,8 @@ export const navGroups: NavGroup[] = [
   {
     id: "intelligence",
     label: "Intelligence",
+    icon: Radar,
+    accent: "gold",
     items: [
       {
         id: "triage",
@@ -93,6 +106,8 @@ export const navGroups: NavGroup[] = [
   {
     id: "resources",
     label: "Resources",
+    icon: HeartPulse,
+    accent: "green",
     items: [
       {
         id: "capacity",
@@ -110,11 +125,18 @@ export function navItemById(id: ViewId): NavItem {
   return navItems.find((item) => item.id === id) ?? navItems[0];
 }
 
-export function groupLabelForView(id: ViewId): string {
-  const group = navGroups.find((candidate) =>
+export function groupForView(id: ViewId): NavGroup | undefined {
+  return navGroups.find((candidate) =>
     candidate.items.some((item) => item.id === id),
   );
-  return group?.label ?? "Command";
+}
+
+export function groupLabelForView(id: ViewId): string {
+  return groupForView(id)?.label ?? "Command";
+}
+
+export function groupIdForView(id: ViewId): string {
+  return groupForView(id)?.id ?? navGroups[0].id;
 }
 
 export const DEFAULT_VIEW: ViewId = "overview";
