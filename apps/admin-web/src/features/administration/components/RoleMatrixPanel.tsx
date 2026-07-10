@@ -12,8 +12,8 @@ import {
 } from "@mui/material";
 import { LockKeyhole } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
-import { roleLabel, roleOptions } from "../../lib/utils";
-import { SectionHeader } from "../shared";
+import { roleLabel, roleOptions } from "../utils";
+import { SectionHeader } from "./shared";
 
 export function RoleMatrixPanel() {
   const adminRoles = new Set(["system_admin", "agency_admin"]);

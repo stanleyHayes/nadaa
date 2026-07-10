@@ -6,7 +6,7 @@ import {
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
-import type { AdminView } from "./data/types";
+import type { AdminView } from "./types";
 
 export const viewTabs: Array<{
   id: AdminView;

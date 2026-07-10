@@ -3,12 +3,13 @@ import type {
   AuditLogListResponse,
   IntegrationContractListResponse,
 } from "@nadaa/shared-types";
-import { adminHeaders } from "../auth/session";
+import { adminHeaders } from "@/app/session";
+import { buildAlertRulesFromAlerts, dataSourceFromContract } from "./utils";
 import {
-  buildAlertRulesFromAlerts,
-  dataSourceFromContract,
-} from "../lib/utils";
-import { ALERT_API_BASE, AUTH_API_BASE, INTEGRATION_API_BASE } from "./config";
+  ALERT_API_BASE,
+  AUTH_API_BASE,
+  INTEGRATION_API_BASE,
+} from "@/app/config";
 
 export async function fetchAuditLogs(signal?: AbortSignal) {
   const response = await fetch(`${AUTH_API_BASE}/audit/logs?limit=25`, {

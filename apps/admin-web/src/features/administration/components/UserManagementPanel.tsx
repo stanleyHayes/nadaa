@@ -23,9 +23,9 @@ import type {
   AdminUserFormState,
   ManagedAgency,
   ManagedAgencyUser,
-} from "../../data/types";
-import { formatDateTime, roleLabel, roleOptions } from "../../lib/utils";
-import { SectionHeader } from "../shared";
+} from "../types";
+import { formatDateTime, roleLabel, roleOptions } from "../utils";
+import { SectionHeader } from "./shared";
 
 export function UserManagementPanel({
   actionResult,

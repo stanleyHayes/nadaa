@@ -10,8 +10,8 @@ import {
 } from "@mui/material";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
-import type { AdminLoadState, AdminMetric } from "../data/types";
-import { toneColors } from "../lib/utils";
+import type { AdminLoadState, AdminMetric } from "../types";
+import { toneColors } from "../utils";
 
 export function StatusLine({
   loadState,

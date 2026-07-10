@@ -16,8 +16,8 @@ import {
   auditSnapshotSummary,
   auditTargetSummary,
   formatDateTime,
-} from "../../lib/utils";
-import { EmptyState, SectionHeader } from "../shared";
+} from "../utils";
+import { EmptyState, SectionHeader } from "./shared";
 
 export function AuditLogPanel({ logs }: { logs: AuditLogRecord[] }) {
   return (

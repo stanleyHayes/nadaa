@@ -1,8 +1,8 @@
 import { Box, Chip, Grid, Paper, Stack, Typography } from "@mui/material";
 import { DatabaseZap } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
-import type { DataSourceSummary } from "../../data/types";
-import { statusColor } from "../../lib/utils";
+import type { DataSourceSummary } from "../types";
+import { statusColor } from "../utils";
 
 type ChipColor =
   | "default"

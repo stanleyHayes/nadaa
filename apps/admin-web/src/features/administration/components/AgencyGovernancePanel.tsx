@@ -14,14 +14,14 @@ import {
 } from "@mui/material";
 import { UsersRound } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
-import type { ManagedAgency } from "../../data/types";
+import type { ManagedAgency } from "../types";
 import {
   agencyTypeLabel,
   formatDateTime,
   formatPercent,
   statusColor,
-} from "../../lib/utils";
-import { SectionHeader } from "../shared";
+} from "../utils";
+import { SectionHeader } from "./shared";
 
 type ChipColor =
   | "default"

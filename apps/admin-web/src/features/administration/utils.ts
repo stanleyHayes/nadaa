@@ -8,7 +8,7 @@ import type {
   CreateAgencyUserResponse,
   IntegrationContract,
 } from "@nadaa/shared-types";
-import { fallbackAlertRules } from "../data/fixtures";
+import { fallbackAlertRules } from "./data";
 import type {
   AdminMetric,
   AdminUserFormState,
@@ -16,7 +16,7 @@ import type {
   DataSourceSummary,
   ManagedAgency,
   ManagedAgencyUser,
-} from "../data/types";
+} from "./types";
 
 export const roleOptions: AgencyUserRole[] = [
   "system_admin",

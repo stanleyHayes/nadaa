@@ -37,13 +37,9 @@ import type {
   AuditLogRecord,
   CreateAgencyUserResponse,
 } from "@nadaa/shared-types";
-import {
-  fetchAlertRules,
-  fetchAuditLogs,
-  fetchDataSources,
-} from "../api/admin";
-import { AUTH_API_BASE } from "../api/config";
-import { adminHeaders, adminSession } from "../auth/session";
+import { fetchAlertRules, fetchAuditLogs, fetchDataSources } from "./api";
+import { AUTH_API_BASE } from "@/app/config";
+import { adminHeaders, adminSession } from "@/app/session";
 import {
   AgencyGovernancePanel,
   AlertRulePanel,
@@ -56,7 +52,7 @@ import {
   SectionHeader,
   StatusLine,
   UserManagementPanel,
-} from "../components";
+} from "./components";
 import {
   defaultUserForm,
   fallbackAgencies,
@@ -64,7 +60,7 @@ import {
   fallbackAuditLogs,
   fallbackDataSources,
   fallbackUsers,
-} from "../data/fixtures";
+} from "./data";
 import type {
   AdminActionResult,
   AdminLoadState,
@@ -74,18 +70,18 @@ import type {
   DataSourceSummary,
   ManagedAgency,
   ManagedAgencyUser,
-} from "../data/types";
-import { adminTheme } from "../lib/theme";
+} from "./types";
+import { adminTheme } from "@/app/theme";
 import {
   buildAdminMetrics,
   managedUserFromCreateResponse,
   roleLabel,
   validateUserForm,
-} from "../lib/utils";
-import { viewTabs } from "../nav";
-import { hasAdminAccess } from "../rbac";
+} from "./utils";
+import { viewTabs } from "./nav";
+import { hasAdminAccess } from "./rbac";
 
-function AdminConsolePage() {
+function AdminConsoleApp() {
   const hasAccess = hasAdminAccess(adminSession.role, adminSession.mfaEnabled);
   const [view, setView] = useState<AdminView>("overview");
   const [loadState, setLoadState] = useState<AdminLoadState>("loading");
@@ -423,4 +419,4 @@ function AdminConsolePage() {
   );
 }
 
-export default AdminConsolePage;
+export default AdminConsoleApp;

@@ -1,13 +1,13 @@
 import { Chip, Grid, Paper, Stack, Typography } from "@mui/material";
 import { AlertOctagon, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import type { AlertSeverity } from "@nadaa/shared-types";
-import type { AlertRuleSummary } from "../../data/types";
+import type { AlertRuleSummary } from "../types";
 import {
   alertSeverityRole,
   formatDateTime,
   roleLabel,
   statusColor,
-} from "../../lib/utils";
+} from "../utils";
 
 type ChipColor =
   | "default"

@@ -1,9 +1,9 @@
 import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
 import { CheckCircle2 } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
-import type { ManagedAgencyUser } from "../../data/types";
-import { roleLabel } from "../../lib/utils";
-import { EmptyState, SectionHeader } from "../shared";
+import type { ManagedAgencyUser } from "../types";
+import { roleLabel } from "../utils";
+import { EmptyState, SectionHeader } from "./shared";
 
 export function MfaSupportPanel({ users }: { users: ManagedAgencyUser[] }) {
   const pendingUsers = users.filter((user) => !user.mfaEnabled);
