@@ -183,23 +183,13 @@ export function OpenDataPortal() {
         (await response.json()) as OpenDataDatasetDownloadResponse;
       setDownloadResult(payload);
     } catch (error) {
-      setDownloadResult({
-        download: {
-          id: "",
-          datasetId: dataset.id,
-          format,
-          url: "",
-          size: 0,
-          checksum: "",
-          createdAt: new Date().toISOString(),
-        },
-        rateLimit: {
-          limit: 0,
-          remaining: 0,
-          resetAt: new Date().toISOString(),
-        },
-        auditLogged: false,
-      });
+      // Surface the real failure instead of fabricating a "ready" result.
+      setDownloadResult(null);
+      setFeedback(
+        error instanceof Error && error.message
+          ? `Download failed: ${error.message}`
+          : "Download failed. Please try again.",
+      );
     } finally {
       setDownloadBusy(false);
     }

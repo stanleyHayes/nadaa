@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stanleyHayes/nadaa/services/campaign-service/internal/models"
+	"github.com/stanleyHayes/nadaa/services/campaign-service/internal/store"
 	"github.com/stanleyHayes/nadaa/services/campaign-service/internal/utils"
 )
 
@@ -29,11 +30,23 @@ func (s *Server) listCampaignsHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getCampaignHandler(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.PathValue("id"))
 	campaign, ok := s.store.GetCampaign(r.Context(), id)
-	if !ok {
+	if !ok || !s.campaignVisible(r, campaign) {
 		utils.WriteError(w, http.StatusNotFound, "not_found", "campaign was not found")
 		return
 	}
 	utils.WriteJSON(w, http.StatusOK, models.CampaignResponse{Campaign: campaign})
+}
+
+// campaignVisible reports whether the caller may see this campaign: an authorized,
+// MFA-completed authority sees any campaign; everyone else sees only published,
+// in-window campaigns (matching the list endpoint), so drafts and archived
+// campaigns are not leaked by enumerating sequential ids.
+func (s *Server) campaignVisible(r *http.Request, campaign models.Campaign) bool {
+	authority, ok := parseAuthority(r)
+	if ok && authority.MFACompleted && allowedCampaignUpdateRoles[authority.ActorRole] {
+		return true
+	}
+	return store.CampaignPubliclyVisible(campaign, s.now().UTC())
 }
 
 func (s *Server) createCampaignHandler(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +106,8 @@ func (s *Server) updateCampaignHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getCampaignMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.PathValue("id"))
-	if _, ok := s.store.GetCampaign(r.Context(), id); !ok {
+	campaign, ok := s.store.GetCampaign(r.Context(), id)
+	if !ok || !s.campaignVisible(r, campaign) {
 		utils.WriteError(w, http.StatusNotFound, "not_found", "campaign was not found")
 		return
 	}
@@ -196,11 +210,11 @@ func normalizeUpdate(request models.UpdateCampaignRequest, now time.Time) (model
 		}
 	}
 	if request.PublishWindow != nil {
-		status := request.Status
-		if status == "" {
-			status = "published"
-		}
-		if code, message := validatePublishWindow(*request.PublishWindow, status, now); code != "" {
+		// Validate window shape against the requested status only; the store applies
+		// the authoritative not-premature/not-stale checks against the merged
+		// effective status so a status-only publish and a future-dated draft window
+		// are both handled correctly.
+		if code, message := validatePublishWindow(*request.PublishWindow, request.Status, now); code != "" {
 			return request, code, message
 		}
 	}

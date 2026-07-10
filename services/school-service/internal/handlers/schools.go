@@ -330,7 +330,7 @@ func normalizeCreateReadiness(request models.CreateReadinessRequest) (models.Cre
 	if request.OverallStatus == "" || !allowedReadinessStatuses[request.OverallStatus] {
 		return request, "invalid_overall_status", "overallStatus must be ready, needs_improvement, not_ready, or not_assessed"
 	}
-	if request.RiskLevel != "" && !allowedRiskLevels[request.RiskLevel] {
+	if !allowedRiskLevels[request.RiskLevel] {
 		return request, "invalid_risk_level", "riskLevel must be low, moderate, high, severe, or emergency"
 	}
 	if len(request.Notes) > 1000 || utils.UnsafeText(request.Notes) {

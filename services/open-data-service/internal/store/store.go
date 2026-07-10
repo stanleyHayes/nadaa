@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -23,11 +24,12 @@ type Store interface {
 
 // MemoryStore is an in-memory implementation of Store.
 type MemoryStore struct {
-	mu        sync.RWMutex
-	createdAt time.Time
-	datasets  map[string]models.Dataset
-	downloads map[string]models.DatasetDownload
-	requests  map[string]models.OpenDataRequest
+	mu             sync.RWMutex
+	createdAt      time.Time
+	datasets       map[string]models.Dataset
+	downloads      map[string]models.DatasetDownload
+	requests       map[string]models.OpenDataRequest
+	requestCounter int
 }
 
 // NewMemoryStore creates an in-memory store seeded with sample datasets.
@@ -90,6 +92,10 @@ func (m *MemoryStore) GetDatasetDownloads(datasetID string) []models.DatasetDown
 func (m *MemoryStore) CreateRequest(req models.OpenDataRequest) models.OpenDataRequest {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.requestCounter++
+	// Assign a unique id under the lock so concurrent or same-timestamp requests
+	// never collide and silently overwrite one another in the map.
+	req.ID = fmt.Sprintf("odr_%06d", m.requestCounter)
 	m.requests[req.ID] = req
 	return req
 }

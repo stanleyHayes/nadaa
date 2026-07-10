@@ -213,6 +213,14 @@ func (m *MemoryStore) GetLatestReadiness(schoolID string) (*models.ReadinessChec
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	latest := m.latestReadinessLocked(schoolID)
+	return latest, latest != nil
+}
+
+// latestReadinessLocked computes the most recent readiness check for a school.
+// The caller must already hold m.mu; it never locks, so lock-holding methods can
+// call it without recursively read-locking (which sync.RWMutex forbids).
+func (m *MemoryStore) latestReadinessLocked(schoolID string) *models.ReadinessCheck {
 	schoolID = strings.TrimSpace(schoolID)
 	var latest *models.ReadinessCheck
 	for i := range m.readinessChecks {
@@ -224,7 +232,7 @@ func (m *MemoryStore) GetLatestReadiness(schoolID string) (*models.ReadinessChec
 			latest = &check
 		}
 	}
-	return latest, latest != nil
+	return latest
 }
 
 // CreateReadinessCheck submits a readiness check for a school.
@@ -277,7 +285,7 @@ func (m *MemoryStore) latestDrillDateLocked(schoolID string) *time.Time {
 }
 
 func (m *MemoryStore) latestReadinessStatusLocked(schoolID string) string {
-	latest, _ := m.GetLatestReadiness(schoolID)
+	latest := m.latestReadinessLocked(schoolID)
 	if latest == nil {
 		return "not_assessed"
 	}

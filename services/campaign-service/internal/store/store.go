@@ -160,12 +160,47 @@ func (m *MemoryStore) UpdateCampaign(ctx context.Context, id string, request mod
 		if request.LinkedAlertIDs != nil {
 			next.LinkedAlertIDs = request.LinkedAlertIDs
 		}
+		// Validate the effective (merged) status + window, so a status-only publish
+		// re-checks the window and a future-dated draft window is not treated as
+		// published.
+		if code, message := validatePublishedWindow(next, now); code != "" {
+			return models.Campaign{}, code, message
+		}
 		next.UpdatedBy = authority.ActorUserID
 		next.UpdatedAt = now
 		m.campaigns[index] = next
 		return next, "", ""
 	}
 	return models.Campaign{}, "not_found", "campaign was not found"
+}
+
+// validatePublishedWindow enforces publish-window coherence for the effective
+// campaign status. Only published campaigns are held to the not-premature and
+// not-expired rules; drafts and archived campaigns may hold future or past windows.
+func validatePublishedWindow(campaign models.Campaign, now time.Time) (string, string) {
+	if campaign.Status != "published" {
+		return "", ""
+	}
+	window := campaign.PublishWindow
+	if window.StartsAt.IsZero() || window.EndsAt.IsZero() {
+		return "invalid_publish_window", "published campaigns require publishWindow.startsAt and publishWindow.endsAt"
+	}
+	if window.EndsAt.Before(window.StartsAt) {
+		return "invalid_publish_window", "publishWindow.endsAt must be after startsAt"
+	}
+	if now.After(window.EndsAt) {
+		return "stale_campaign", "published campaigns cannot have an ended publish window"
+	}
+	if now.Before(window.StartsAt) {
+		return "premature_campaign", "published campaigns cannot start in the future"
+	}
+	return "", ""
+}
+
+// CampaignPubliclyVisible reports whether a campaign may be shown to
+// unauthenticated callers: it must be published and within its publish window.
+func CampaignPubliclyVisible(campaign models.Campaign, now time.Time) bool {
+	return campaign.Status == "published" && isWithinWindow(campaign.PublishWindow, now)
 }
 
 // ListMetrics returns mocked metrics for a campaign.

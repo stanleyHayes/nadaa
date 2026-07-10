@@ -3,7 +3,7 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"time"
+	"strconv"
 
 	"github.com/stanleyHayes/nadaa/services/open-data-service/internal/models"
 	"github.com/stanleyHayes/nadaa/services/open-data-service/internal/utils"
@@ -80,7 +80,7 @@ func (s *Server) downloadDatasetHandler(w http.ResponseWriter, r *http.Request) 
 		Metadata: map[string]string{
 			"downloadId": download.ID,
 			"format":     format,
-			"size":       "",
+			"size":       strconv.FormatInt(download.Size, 10),
 		},
 		CreatedAt: now,
 	})
@@ -119,7 +119,7 @@ func (s *Server) createRequestHandler(w http.ResponseWriter, r *http.Request) {
 	req.RequesterInfo.Email = utils.SanitizeEmail(req.RequesterInfo.Email)
 	now := s.now().UTC()
 	record := models.OpenDataRequest{
-		ID:            generateRequestID(now),
+		// ID is assigned by the store under its lock to guarantee uniqueness.
 		DatasetID:     req.DatasetID,
 		RequesterInfo: req.RequesterInfo,
 		Purpose:       req.Purpose,
@@ -191,8 +191,4 @@ func validateRequesterInfo(info models.RequesterInfo) string {
 		return "input contains unsafe text"
 	}
 	return ""
-}
-
-func generateRequestID(now time.Time) string {
-	return "odr_" + now.Format("20060102150405") + "_" + "0001"
 }

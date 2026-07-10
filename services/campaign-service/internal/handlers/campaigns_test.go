@@ -304,3 +304,95 @@ func TestListCampaignTemplates(t *testing.T) {
 		t.Fatalf("expected templates, got %#v", payload)
 	}
 }
+
+func createDraftForTest(t *testing.T, srv *Server, window models.CampaignPublishWindow) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := authorityRequest(http.MethodPost, "/api/v1/campaigns", jsonBody(models.CreateCampaignRequest{
+		Title:         "Draft campaign",
+		HazardType:    "flood",
+		TargetRegions: []string{"Greater Accra"},
+		Languages:     []string{"en"},
+		ContentBlocks: []models.CampaignContentBlock{{Type: "article", Title: "T", Body: "Body content for the draft."}},
+		PublishWindow: window,
+		Status:        "draft",
+	}))
+	srv.createCampaignHandler(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("draft create expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var created models.CampaignResponse
+	decodeResponse(t, rec, &created)
+	return created.Campaign.ID
+}
+
+func TestGetCampaignHidesDraftFromPublic(t *testing.T) {
+	srv := newTestServer()
+	id := createDraftForTest(t, srv, models.CampaignPublishWindow{
+		StartsAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+		EndsAt:   time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+	})
+
+	pub := httptest.NewRecorder()
+	pubReq := httptest.NewRequest(http.MethodGet, "/api/v1/campaigns/"+id, nil)
+	pubReq.SetPathValue("id", id)
+	srv.getCampaignHandler(pub, pubReq)
+	if pub.Code != http.StatusNotFound {
+		t.Fatalf("public draft access must 404, got %d", pub.Code)
+	}
+
+	pubMetrics := httptest.NewRecorder()
+	pubMetricsReq := httptest.NewRequest(http.MethodGet, "/api/v1/campaigns/"+id+"/metrics", nil)
+	pubMetricsReq.SetPathValue("id", id)
+	srv.getCampaignMetricsHandler(pubMetrics, pubMetricsReq)
+	if pubMetrics.Code != http.StatusNotFound {
+		t.Fatalf("public draft metrics must 404, got %d", pubMetrics.Code)
+	}
+
+	auth := httptest.NewRecorder()
+	authReq := authorityRequest(http.MethodGet, "/api/v1/campaigns/"+id, nil)
+	authReq.SetPathValue("id", id)
+	srv.getCampaignHandler(auth, authReq)
+	if auth.Code != http.StatusOK {
+		t.Fatalf("authority draft access must 200, got %d: %s", auth.Code, auth.Body.String())
+	}
+}
+
+func TestStatusOnlyPublishRevalidatesWindow(t *testing.T) {
+	srv := newTestServer()
+	// Draft whose window already ended before the test clock (2026-07-06).
+	id := createDraftForTest(t, srv, models.CampaignPublishWindow{
+		StartsAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		EndsAt:   time.Date(2020, 2, 1, 0, 0, 0, 0, time.UTC),
+	})
+
+	upd := httptest.NewRecorder()
+	updReq := authorityRequest(http.MethodPut, "/api/v1/campaigns/"+id, jsonBody(models.UpdateCampaignRequest{Status: "published"}))
+	updReq.SetPathValue("id", id)
+	srv.updateCampaignHandler(upd, updReq)
+	if upd.Code != http.StatusBadRequest {
+		t.Fatalf("publishing a stale-window campaign must 400, got %d: %s", upd.Code, upd.Body.String())
+	}
+}
+
+func TestUpdateDraftFutureWindowAllowed(t *testing.T) {
+	srv := newTestServer()
+	id := createDraftForTest(t, srv, models.CampaignPublishWindow{
+		StartsAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+		EndsAt:   time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+	})
+
+	// Moving a DRAFT's window to future dates must not be rejected as premature.
+	upd := httptest.NewRecorder()
+	updReq := authorityRequest(http.MethodPut, "/api/v1/campaigns/"+id, jsonBody(models.UpdateCampaignRequest{
+		PublishWindow: &models.CampaignPublishWindow{
+			StartsAt: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+			EndsAt:   time.Date(2027, 2, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}))
+	updReq.SetPathValue("id", id)
+	srv.updateCampaignHandler(upd, updReq)
+	if upd.Code != http.StatusOK {
+		t.Fatalf("updating a draft's future window must 200, got %d: %s", upd.Code, upd.Body.String())
+	}
+}

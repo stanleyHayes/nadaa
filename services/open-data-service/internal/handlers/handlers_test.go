@@ -346,3 +346,25 @@ func TestApproveRequest(t *testing.T) {
 		t.Fatalf("expected approved status, got %s", approved.Request.Status)
 	}
 }
+
+func TestCreateRequestAssignsUniqueIDs(t *testing.T) {
+	srv := newTestServer()
+	body := models.CreateOpenDataRequest{
+		DatasetID:     "dataset_raw_incident_feed",
+		RequesterInfo: models.RequesterInfo{Name: "Ama Kwame", Email: "ama@example.edu.gh", UseCase: "research"},
+		Purpose:       "Research on flood response patterns in Accra.",
+	}
+	ids := map[string]bool{}
+	for i := 0; i < 3; i++ {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/open-data/requests", jsonBody(body))
+		req.Header.Set("Content-Type", "application/json")
+		srv.Routes().ServeHTTP(rec, req)
+		var payload models.OpenDataRequestResponse
+		decodeResponse(t, rec, &payload)
+		if payload.Request.ID == "" || ids[payload.Request.ID] {
+			t.Fatalf("expected unique non-empty request id, got %q (seen=%v)", payload.Request.ID, ids)
+		}
+		ids[payload.Request.ID] = true
+	}
+}
