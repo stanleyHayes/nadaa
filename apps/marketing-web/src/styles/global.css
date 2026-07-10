@@ -958,11 +958,15 @@ textarea {
   .site-header {
     min-height: 70px;
     gap: var(--nadaa-space-3);
+    /* The backdrop-filter makes this header the containing block for the fixed
+       dropdown; overflow:hidden was clipping the open menu. Let it escape. */
+    overflow: visible;
   }
 
   .site-nav {
     position: fixed;
     inset: 70px 12px auto;
+    z-index: 40;
     display: none;
     grid-template-columns: 1fr;
     gap: 0;
@@ -1594,30 +1598,172 @@ textarea {
   text-underline-offset: 4px;
 }
 
-/* Role teaser cards (home) */
-.role-teaser-grid {
+/* Role lanes (home) — audience surfaces with tone-tinted chips + watermark glyphs.
+ * Each card drives its whole palette from a single --role-accent custom property. */
+.role-lane-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--nadaa-space-3);
 }
 
-.role-teaser {
+.role-lane {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: var(--nadaa-space-5) var(--nadaa-space-4) var(--nadaa-space-4);
   border: 1px solid var(--nadaa-border-subtle);
-  border-radius: var(--nadaa-radius-md);
-  padding: 20px;
+  border-radius: var(--nadaa-radius-lg);
   background: var(--nadaa-white);
+  transition:
+    opacity 0.6s ease,
+    transform 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
 }
 
-.role-teaser h3 {
+/* Top tone hairline — brightens on hover. */
+.role-lane::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--role-accent, var(--nadaa-gold)),
+    color-mix(in srgb, var(--role-accent, var(--nadaa-gold)) 20%, transparent)
+  );
+  opacity: 0.85;
+  transition: opacity 200ms ease;
+}
+
+.role-lane:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(
+    in srgb,
+    var(--role-accent, var(--nadaa-navy)) 40%,
+    transparent
+  );
+  box-shadow: 0 16px 34px
+    color-mix(in srgb, var(--nadaa-navy) 14%, transparent);
+}
+
+.role-lane:hover::before {
+  opacity: 1;
+}
+
+/* Oversized faint glyph anchored bottom-right, clipped by card overflow. */
+.role-lane__watermark {
+  position: absolute;
+  right: -26px;
+  bottom: -30px;
+  z-index: -1;
+  color: var(--role-accent, var(--nadaa-navy));
+  opacity: 0.06;
+  pointer-events: none;
+  transition:
+    transform 240ms ease,
+    opacity 240ms ease;
+}
+
+.role-lane:hover .role-lane__watermark {
+  transform: scale(1.08) rotate(-4deg);
+  opacity: 0.1;
+}
+
+/* Tone-tinted icon chip. */
+.role-lane__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--nadaa-space-3);
+  border-radius: var(--nadaa-radius-md);
+  color: var(--role-accent, var(--nadaa-navy));
+  background: color-mix(
+    in srgb,
+    var(--role-accent, var(--nadaa-navy)) 12%,
+    var(--nadaa-white)
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--role-accent, var(--nadaa-navy)) 24%, transparent);
+}
+
+.role-lane__kicker {
+  margin: 0 0 6px;
+  color: var(--nadaa-text-secondary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+/* Accent-tinted title, mixed toward navy so lighter tones stay legible. */
+.role-lane__title {
   margin: 0 0 var(--nadaa-space-2);
-  font-size: 1.12rem;
+  color: color-mix(
+    in srgb,
+    var(--role-accent, var(--nadaa-navy)) 78%,
+    var(--nadaa-navy)
+  );
+  font-size: 1.14rem;
+  line-height: 1.15;
 }
 
-.role-teaser p {
+.role-lane__copy {
   margin: 0;
   color: var(--nadaa-text-secondary);
   font-size: 0.9rem;
   line-height: 1.55;
+}
+
+/* Explore affordance — reserves its space, reveals on hover/focus. */
+.role-lane__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: var(--nadaa-space-3);
+  color: var(--role-accent, var(--nadaa-navy));
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+
+.role-lane:hover .role-lane__more,
+.role-lane:focus-within .role-lane__more {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-lane,
+  .role-lane::before,
+  .role-lane__watermark,
+  .role-lane__more {
+    transition: none;
+  }
+
+  .role-lane:hover {
+    transform: none;
+  }
+
+  .role-lane:hover .role-lane__watermark {
+    transform: none;
+  }
+
+  .role-lane__more {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* CTA band */
@@ -1951,7 +2097,7 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .role-teaser-grid {
+  .role-lane-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1967,7 +2113,7 @@ textarea {
 
 @media (max-width: 640px) {
   .loop-grid--full,
-  .role-teaser-grid {
+  .role-lane-grid {
     grid-template-columns: 1fr;
   }
 

@@ -1,4 +1,14 @@
-import { ArrowRight, ChevronRight, PhoneCall } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronRight,
+  PhoneCall,
+  Radar,
+  Radio,
+  ShieldCheck,
+  Truck,
+  UsersRound,
+} from "lucide-react";
+import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { nadaaBrand } from "@nadaa/brand";
 import { marketingLinks } from "@/app/config";
@@ -11,6 +21,14 @@ import {
   roleSurfaces,
 } from "../data";
 import { useParallax } from "../hooks";
+
+const roleIcons = {
+  citizen: UsersRound,
+  authority: Radar,
+  dispatcher: Radio,
+  agency: Truck,
+  admin: ShieldCheck,
+} as const;
 
 export function HomePage() {
   const parallaxRef = useParallax<HTMLDivElement>(0.12);
@@ -98,18 +116,36 @@ export function HomePage() {
             each with its own job, on one shared platform.
           </p>
         </div>
-        <div className="role-teaser-grid">
-          {roleSurfaces.map((surface, index) => (
-            <Reveal
-              className="role-teaser"
-              delay={index * 70}
-              key={surface.role}
-              variant="3d"
-            >
-              <h3 style={{ color: surface.accent }}>{surface.role}</h3>
-              <p>{surface.oneLiner}</p>
-            </Reveal>
-          ))}
+        <div className="role-lane-grid">
+          {roleSurfaces.map((surface, index) => {
+            const Icon = roleIcons[surface.icon];
+            return (
+              <Reveal
+                className="role-lane"
+                delay={index * 70}
+                key={surface.role}
+                style={{ "--role-accent": surface.accent } as CSSProperties}
+                variant="3d"
+              >
+                <Icon
+                  aria-hidden="true"
+                  className="role-lane__watermark"
+                  size={132}
+                  strokeWidth={1.25}
+                />
+                <span aria-hidden="true" className="role-lane__chip">
+                  <Icon size={20} strokeWidth={2} />
+                </span>
+                <p className="role-lane__kicker">{surface.audience}</p>
+                <h3 className="role-lane__title">{surface.role}</h3>
+                <p className="role-lane__copy">{surface.oneLiner}</p>
+                <span aria-hidden="true" className="role-lane__more">
+                  Explore
+                  <ArrowRight size={14} />
+                </span>
+              </Reveal>
+            );
+          })}
         </div>
         <Link className="section-link" to="/platforms">
           Explore every platform

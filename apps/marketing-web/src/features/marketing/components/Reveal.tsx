@@ -8,6 +8,7 @@ type RevealProps = {
   variant?: RevealVariant;
   delay?: number;
   className?: string;
+  style?: CSSProperties;
 };
 
 /** Wraps content and reveals it (fade + move, 3D tilt, or scale) on scroll. */
@@ -16,10 +17,13 @@ export function Reveal({
   variant = "up",
   delay = 0,
   className,
+  style: styleProp,
 }: RevealProps) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const style: CSSProperties | undefined =
-    delay > 0 ? { transitionDelay: `${delay}ms` } : undefined;
+    delay > 0 || styleProp
+      ? { ...styleProp, ...(delay > 0 ? { transitionDelay: `${delay}ms` } : {}) }
+      : undefined;
   const classes = [
     "reveal",
     `reveal--${variant}`,
