@@ -63,13 +63,13 @@ import {
   ML_API_BASE,
   ROAD_CLOSURE_API_BASE,
   SHELTER_API_BASE,
-} from "../../app/config";
+} from "@/app/config";
 import {
   dispatcherHeaders,
   dispatcherSession,
   commandRoles,
-} from "../../app/session";
-import { dispatcherTheme } from "../../app/theme";
+} from "@/app/session";
+import { dispatcherTheme } from "@/app/theme";
 import {
   AITriageSuggestionPanel,
   AlertWorkflowPanel,

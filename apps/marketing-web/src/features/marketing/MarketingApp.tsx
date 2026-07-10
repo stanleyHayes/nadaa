@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { nadaaBrand } from "@nadaa/brand";
-import { marketingLinks } from "../../app/config";
+import { marketingLinks } from "@/app/config";
 import {
   benefits,
   contactCards,

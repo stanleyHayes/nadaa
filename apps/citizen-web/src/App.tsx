@@ -1,1 +1,1 @@
-export { default } from "./features/citizen/CitizenApp";
+export { default } from "./features/citizen";

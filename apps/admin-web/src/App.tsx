@@ -1,1 +1,1 @@
-export { default } from "./pages/AdminConsolePage";
+export { default } from "./features/administration";

@@ -71,8 +71,8 @@ import {
   RISK_API_BASE,
   ROAD_CLOSURE_API_BASE,
   SHELTER_API_BASE,
-} from "../../app/config";
-import { citizenTheme } from "../../app/theme";
+} from "@/app/config";
+import { citizenTheme } from "@/app/theme";
 import {
   areaPresets,
   buildFallbackAlerts,
@@ -129,12 +129,14 @@ import {
   severityRoles,
   writeGuideCache,
 } from "./utils";
-import RoutePlanner from "./RoutePlanner";
-import DonorPortal from "./DonorPortal";
-import MissingPersonsPanel from "./MissingPersonsPanel";
-import DamageClaim from "./DamageClaim";
-import PublicCampaignsPanel from "./PublicCampaignsPanel";
-import { OpenDataPortal } from "./OpenDataPortal";
+import {
+  DamageClaim,
+  DonorPortal,
+  MissingPersonsPanel,
+  OpenDataPortal,
+  PublicCampaignsPanel,
+  RoutePlanner,
+} from "./components";
 
 function CitizenApp() {
   const [area, setArea] = useState("Accra Central");

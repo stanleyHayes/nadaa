@@ -1,1 +1,1 @@
-export { default } from "./features/dispatch-command/DispatcherCommandApp";
+export { default } from "./features/dispatch-command";

@@ -4,7 +4,7 @@ import { ThemeProvider } from "@mui/material";
 import { CssBaseline } from "@mui/material";
 import App from "./App";
 import { agencyTheme } from "./app/theme";
-import "./styles.css";
+import "./styles/global.css";
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <StrictMode>

@@ -1,1 +1,1 @@
-export { default } from "./features/marketing/MarketingApp";
+export { default } from "./features/marketing";
