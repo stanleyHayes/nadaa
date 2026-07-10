@@ -93,10 +93,6 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
 
       <IncidentFilters filters={filters} onChange={setFilters} />
 
-      {incidentError && incidents.length > 0 ? (
-        <Alert severity="warning">{incidentError} Showing fallback data.</Alert>
-      ) : null}
-
       {incidentLoadState === "loading" ? (
         <LoadingState message="Loading assigned incidents" />
       ) : incidentLoadState === "error" && !incidents.length ? (

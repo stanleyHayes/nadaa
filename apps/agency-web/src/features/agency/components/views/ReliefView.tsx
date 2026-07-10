@@ -77,12 +77,6 @@ export function ReliefView({ data }: { data: AgencyData }) {
         }
       />
 
-      {reliefError && reliefLoadState === "fallback" ? (
-        <Alert severity="warning">
-          {reliefError} Showing fixture relief distribution points.
-        </Alert>
-      ) : null}
-
       {reliefLoadState === "loading" ? (
         <LoadingState message="Loading relief distribution points" />
       ) : reliefLoadState === "error" && !reliefPoints.length ? (

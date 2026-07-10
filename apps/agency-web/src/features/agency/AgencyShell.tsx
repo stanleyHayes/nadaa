@@ -130,12 +130,12 @@ export function AgencyShell({ session }: { session: AgencySession }) {
         tone: "gold",
       });
     }
-    if (data.incidentLoadState === "fallback") {
+    if (data.incidentLoadState === "error") {
       list.push({
-        id: "feed-fixture",
-        title: "Incident feed on fixtures",
-        detail: "Live incident API is unavailable; showing agency fixtures.",
-        tone: "gold",
+        id: "feed-error",
+        title: "Incident feed unavailable",
+        detail: "Live incident API could not be reached. Retry from the incidents queue.",
+        tone: "red",
       });
     }
     return list;

@@ -27,11 +27,6 @@ import {
   SHELTER_API_BASE,
 } from "@/app/config";
 import {
-  fallbackAidRequests,
-  fallbackHospitals,
-  fallbackIncidents,
-  fallbackReliefPoints,
-  fallbackShelters,
   initialAidRequestForm,
   initialHospitalCapacityForm,
   initialReliefPointForm,
@@ -121,7 +116,7 @@ async function fetchShelters(
     const payload = (await response.json()) as { shelters: ShelterRecord[] };
     return payload.shelters;
   } catch {
-    return fallbackShelters;
+    return [];
   }
 }
 
@@ -145,7 +140,7 @@ async function fetchHospitalCapacity(
     const payload = (await response.json()) as HospitalCapacityResponse;
     return payload.facilities;
   } catch {
-    return fallbackHospitals;
+    return [];
   }
 }
 
@@ -191,7 +186,7 @@ async function fetchNearbyReliefPoints(
     const payload = (await response.json()) as ReliefPointNearbyResponse;
     return payload.reliefPoints;
   } catch {
-    return fallbackReliefPoints;
+    return [];
   }
 }
 
@@ -296,7 +291,8 @@ async function reviewAidRequest(
 /**
  * Central agency-operations state container. Holds every incident, capacity,
  * relief, and aid workflow so the shell can mount data once and route between
- * views without losing state. All live calls fall back to fixtures.
+ * views without losing state. Collections start empty and are populated from
+ * the live services; failures surface a loading/error state per view.
  */
 export function useAgencyData(session: AgencySession) {
   const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
@@ -364,16 +360,16 @@ export function useAgencyData(session: AgencySession) {
     setIncidentError(null);
     try {
       const data = await fetchAssignedIncidents();
-      setIncidents(data.length > 0 ? data : fallbackIncidents);
-      setIncidentLoadState(data.length > 0 ? "ready" : "fallback");
+      setIncidents(data);
+      setIncidentLoadState(data.length > 0 ? "ready" : "empty");
     } catch (error) {
-      setIncidents(fallbackIncidents);
+      setIncidents([]);
       setIncidentError(
         error instanceof Error
           ? error.message
           : "Could not load assigned incidents.",
       );
-      setIncidentLoadState("fallback");
+      setIncidentLoadState("error");
     }
   }
 
@@ -382,23 +378,17 @@ export function useAgencyData(session: AgencySession) {
     setReliefError(null);
     try {
       const data = await fetchReliefPoints();
-      const nextPoints = data.length > 0 ? data : fallbackReliefPoints;
-      setReliefPoints(nextPoints);
-      setReliefLoadState(data.length > 0 ? "ready" : "fallback");
-      setSelectedReliefPointId(
-        (current) => current ?? nextPoints[0]?.id ?? null,
-      );
+      setReliefPoints(data);
+      setReliefLoadState(data.length > 0 ? "ready" : "empty");
+      setSelectedReliefPointId((current) => current ?? data[0]?.id ?? null);
     } catch (error) {
-      setReliefPoints(fallbackReliefPoints);
-      setSelectedReliefPointId(
-        (current) => current ?? fallbackReliefPoints[0]?.id ?? null,
-      );
+      setReliefPoints([]);
       setReliefError(
         error instanceof Error
           ? error.message
           : "Could not load relief distribution points.",
       );
-      setReliefLoadState("fallback");
+      setReliefLoadState("error");
     }
   }
 
@@ -421,21 +411,15 @@ export function useAgencyData(session: AgencySession) {
     setAidError(null);
     try {
       const data = await fetchAidRequests();
-      const nextRequests = data.length > 0 ? data : fallbackAidRequests;
-      setAidRequests(nextRequests);
-      setAidLoadState(data.length > 0 ? "ready" : "fallback");
-      setSelectedAidRequestId(
-        (current) => current ?? nextRequests[0]?.id ?? null,
-      );
+      setAidRequests(data);
+      setAidLoadState(data.length > 0 ? "ready" : "empty");
+      setSelectedAidRequestId((current) => current ?? data[0]?.id ?? null);
     } catch (error) {
-      setAidRequests(fallbackAidRequests);
-      setSelectedAidRequestId(
-        (current) => current ?? fallbackAidRequests[0]?.id ?? null,
-      );
+      setAidRequests([]);
       setAidError(
         error instanceof Error ? error.message : "Could not load aid requests.",
       );
-      setAidLoadState("fallback");
+      setAidLoadState("error");
     }
   }
 

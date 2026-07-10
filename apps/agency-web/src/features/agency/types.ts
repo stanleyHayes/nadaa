@@ -2,23 +2,19 @@ import type {
   AidRequestCategory,
   AidRequestPriority,
   HazardType,
-  HospitalCapacityRecord,
   HospitalCapacityStatus,
   IncidentRecord,
   IncidentStatus,
   ReliefPointStatus,
   ReliefPointType,
   RiskLevel,
-  ShelterRecord,
 } from "@nadaa/shared-types";
 
 export type AgencyTab =
   "dashboard" | "incident" | "capacity" | "relief" | "aid";
 
-export type IncidentLoadState =
-  "loading" | "ready" | "fallback" | "empty" | "error";
-export type CapacityLoadState =
-  "loading" | "ready" | "fallback" | "empty" | "error";
+export type IncidentLoadState = "loading" | "ready" | "empty" | "error";
+export type CapacityLoadState = "loading" | "ready" | "empty" | "error";
 export type UpdateLoadState = "idle" | "loading" | "success" | "error";
 
 export type IncidentFilterState = {

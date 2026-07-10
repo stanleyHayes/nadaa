@@ -87,10 +87,6 @@ export function AidView({ data }: { data: AgencyData }) {
         }
       />
 
-      {aidError && aidLoadState === "fallback" ? (
-        <Alert severity="warning">{aidError} Showing fixture aid requests.</Alert>
-      ) : null}
-
       {aidLoadState === "loading" ? (
         <LoadingState message="Loading donation and aid requests" />
       ) : aidLoadState === "error" && !aidRequests.length ? (

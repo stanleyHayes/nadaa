@@ -75,27 +75,20 @@ export function OverviewView({
     0,
   );
 
-  const onFixtures =
-    incidentLoadState === "fallback" ||
-    incidentLoadState === "error" ||
-    incidentLoadState === "empty";
-
   const feedLabel =
     incidentLoadState === "ready"
       ? "Live"
-      : incidentLoadState === "empty"
-        ? "Idle"
-        : "Fixture";
+      : incidentLoadState === "loading"
+        ? "Loading"
+        : incidentLoadState === "error"
+          ? "Offline"
+          : "Idle";
 
   return (
     <Stack spacing={2.5} className="cc-overview">
-      {onFixtures ? (
-        <Alert
-          severity={incidentLoadState === "empty" ? "info" : "warning"}
-          className="feed-alert"
-        >
-          {data.incidentError ??
-            "Incident API unavailable. Showing assigned-incident fixtures."}
+      {incidentLoadState === "error" ? (
+        <Alert severity="error" className="feed-alert">
+          {data.incidentError ?? "Incident API unavailable."}
         </Alert>
       ) : null}
 
@@ -276,7 +269,7 @@ export function OverviewView({
             <Stack spacing={1.25}>
               <StatusLine
                 label="Incident feed"
-                value={incidentLoadState === "ready" ? "Live" : "Fixture"}
+                value={feedLabel}
                 color={incidentLoadState === "ready" ? "success" : "warning"}
               />
               <StatusLine
