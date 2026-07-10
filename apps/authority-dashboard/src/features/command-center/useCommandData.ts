@@ -30,7 +30,7 @@ import {
   INCIDENT_API_BASE,
   SHELTER_API_BASE,
 } from "@/app/config";
-import { authorityHeaders } from "@/app/session";
+import { authorityHeaders, useAuthoritySession } from "@/app/session";
 import { defaultFilters, assignmentAgencyOptions } from "./data";
 import type {
   AbuseReviewFormState,
@@ -70,6 +70,13 @@ import {
  * app shell can mount data once and route between views without losing state.
  */
 export function useCommandData() {
+  const { session } = useAuthoritySession();
+  // Destructive delete actions are limited to admin roles. The backend also
+  // enforces this (DELETE returns 403 otherwise); this is the matching UI gate.
+  const canDelete = Boolean(
+    session && ["system_admin", "agency_admin"].includes(session.role),
+  );
+
   const [incidents, setIncidents] = useState<CommandIncident[]>([]);
   const [loadState, setLoadState] = useState<IncidentLoadState>("loading");
   const [loadMessage, setLoadMessage] = useState("Loading incident feed");
@@ -499,14 +506,15 @@ export function useCommandData() {
         | SelectChangeEvent,
     ) => {
       const value = event.target.value;
-      setShelterForm((current) => {
-        if (key === "shelterId") {
-          const shelter = shelters.find((item) => item.id === value);
-          return shelter ? buildDefaultShelterForm(shelter) : current;
-        }
-        return { ...current, [key]: value };
-      });
+      setShelterForm((current) => ({ ...current, [key]: value }));
     };
+
+  // Prime the shelter form with an existing record so the edit dialog opens
+  // pre-filled. Shelters have no create endpoint, so there is no draft helper.
+  const editShelter = (shelter: ShelterRecord) => {
+    setShelterFeedback("");
+    setShelterForm(buildDefaultShelterForm(shelter));
+  };
 
   const updateReliefForm =
     (key: keyof ReliefPointFormState) =>
@@ -516,22 +524,24 @@ export function useCommandData() {
         | SelectChangeEvent,
     ) => {
       const value = event.target.value;
-      setReliefForm((current) => {
-        if (key === "reliefPointId") {
-          if (value === "__new__") {
-            setReliefHistory([]);
-            return buildDefaultReliefPointForm();
-          }
-          const reliefPoint = reliefPoints.find((item) => item.id === value);
-          if (reliefPoint) {
-            void refreshReliefHistory(reliefPoint.id);
-            return buildDefaultReliefPointForm(reliefPoint);
-          }
-          return current;
-        }
-        return { ...current, [key]: value };
-      });
+      setReliefForm((current) => ({ ...current, [key]: value }));
     };
+
+  // Reset the relief form to an empty draft (`reliefPointId === "__new__"`)
+  // so `saveReliefPoint` performs a POST for the add dialog.
+  const startReliefPointDraft = () => {
+    setReliefFeedback("");
+    setReliefHistory([]);
+    setReliefForm(buildDefaultReliefPointForm());
+  };
+
+  // Prime the relief form + stock history for an existing point so the edit
+  // dialog opens pre-filled and `saveReliefPoint` performs a PATCH.
+  const editReliefPoint = (point: ReliefPointRecord) => {
+    setReliefFeedback("");
+    setReliefForm(buildDefaultReliefPointForm(point));
+    void refreshReliefHistory(point.id);
+  };
 
   const refreshDuplicateReview = async (
     incidentId: string,
@@ -796,9 +806,9 @@ export function useCommandData() {
       .filter(Boolean),
   });
 
-  const updateShelterCapacity = async () => {
+  const updateShelterCapacity = async (): Promise<boolean> => {
     if (!selectedShelter) {
-      return;
+      return false;
     }
 
     const capacity = Number(shelterForm.capacity);
@@ -813,7 +823,7 @@ export function useCommandData() {
       setShelterFeedback(
         "Capacity and occupancy must be valid numbers, and occupancy cannot exceed capacity.",
       );
-      return;
+      return false;
     }
 
     const request: ShelterOccupancyUpdateRequest = {
@@ -847,16 +857,53 @@ export function useCommandData() {
       setShelterForm(buildDefaultShelterForm(payload.shelter));
       setShelterLoadState("ready");
       setShelterFeedback(`${payload.shelter.name} capacity updated.`);
+      return true;
     } catch (error) {
       setShelterFeedback(
         "Shelter update needs a live shelter-service API and authority session.",
       );
+      return false;
     } finally {
       setShelterBusy(false);
     }
   };
 
-  const saveReliefPoint = async () => {
+  const deleteShelter = async (shelter: ShelterRecord): Promise<boolean> => {
+    setShelterBusy(true);
+    setShelterFeedback("");
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/shelters/${shelter.id}`,
+        {
+          method: "DELETE",
+          headers: authorityHeaders(),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`shelter API returned ${response.status}`);
+      }
+
+      setShelters((current) =>
+        current.filter((item) => item.id !== shelter.id),
+      );
+      setShelterForm((current) =>
+        current.shelterId === shelter.id
+          ? buildDefaultShelterForm()
+          : current,
+      );
+      setShelterFeedback(`${shelter.name} removed from the shelter register.`);
+      return true;
+    } catch (error) {
+      setShelterFeedback(
+        "Shelter delete needs a live shelter-service API and an admin session.",
+      );
+      return false;
+    } finally {
+      setShelterBusy(false);
+    }
+  };
+
+  const saveReliefPoint = async (): Promise<boolean> => {
     const latitude = Number(reliefForm.latitude);
     const longitude = Number(reliefForm.longitude);
     if (
@@ -871,7 +918,7 @@ export function useCommandData() {
       setReliefFeedback(
         "Relief point name and valid latitude/longitude are required.",
       );
-      return;
+      return false;
     }
 
     let stockCategories: ReliefStockCategory[];
@@ -883,7 +930,7 @@ export function useCommandData() {
           ? error.message
           : "Stock categories must be valid.",
       );
-      return;
+      return false;
     }
 
     const payload = {
@@ -942,10 +989,50 @@ export function useCommandData() {
         `${reliefPoint.name} ${creating ? "published" : "updated"}.`,
       );
       void refreshReliefHistory(reliefPoint.id);
+      return true;
     } catch (error) {
       setReliefFeedback(
         "Relief point save needs a live shelter-service API and authority session.",
       );
+      return false;
+    } finally {
+      setReliefBusy(false);
+    }
+  };
+
+  const deleteReliefPoint = async (
+    point: ReliefPointRecord,
+  ): Promise<boolean> => {
+    setReliefBusy(true);
+    setReliefFeedback("");
+    try {
+      const response = await fetch(
+        `${SHELTER_API_BASE}/relief-points/${point.id}`,
+        {
+          method: "DELETE",
+          headers: authorityHeaders(),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`relief point API returned ${response.status}`);
+      }
+
+      setReliefPoints((current) =>
+        current.filter((item) => item.id !== point.id),
+      );
+      setReliefForm((current) =>
+        current.reliefPointId === point.id
+          ? buildDefaultReliefPointForm()
+          : current,
+      );
+      setReliefHistory([]);
+      setReliefFeedback(`${point.name} removed from relief distribution.`);
+      return true;
+    } catch (error) {
+      setReliefFeedback(
+        "Relief point delete needs a live shelter-service API and an admin session.",
+      );
+      return false;
     } finally {
       setReliefBusy(false);
     }
@@ -1020,6 +1107,8 @@ export function useCommandData() {
   };
 
   return {
+    // Session-derived permissions
+    canDelete,
     // Incident feed
     incidents,
     filteredIncidents,
@@ -1076,6 +1165,8 @@ export function useCommandData() {
     selectedShelter,
     refreshShelters,
     updateShelterCapacity,
+    editShelter,
+    deleteShelter,
     // Relief
     reliefPoints,
     reliefLoadState,
@@ -1087,6 +1178,9 @@ export function useCommandData() {
     reliefHistory,
     refreshReliefPoints,
     saveReliefPoint,
+    startReliefPointDraft,
+    editReliefPoint,
+    deleteReliefPoint,
     // Imagery overlay bridge
     showImageryOverlay,
     setShowImageryOverlay,

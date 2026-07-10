@@ -247,9 +247,6 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
 
   return (
     <div className={`cc-shell${collapsed ? " is-collapsed" : ""}`}>
-      <a href="#main-content" className="skip-link">
-        Skip to main content
-      </a>
 
       <aside className="cc-shell__rail" data-tour="sidebar">
         <Sidebar

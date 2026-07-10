@@ -42,9 +42,6 @@ function CommandCenterApp() {
         <CommandCenterShell session={session} />
       ) : (
         <>
-          <a href="#main-content" className="skip-link">
-            Skip to main content
-          </a>
           <SignInScreen />
         </>
       )}
