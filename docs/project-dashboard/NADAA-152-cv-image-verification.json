@@ -1,0 +1,26 @@
+{
+  "id": "NADAA-152",
+  "title": "Computer Vision For Flood And Fire Image Verification",
+  "phase": "Phase 3 Sprint 13/14",
+  "status": "Done",
+  "owner": "Kimi",
+  "branch": "feature/NADAA-152-cv-image-verification",
+  "dependencies": ["NADAA-031", "NADAA-040", "NADAA-140"],
+  "verification": {
+    "goTests": "Pass",
+    "goLint": "Pass",
+    "goVet": "Pass",
+    "typecheck": "Pass",
+    "build": "Pass",
+    "smoke": "Pass"
+  },
+  "notes": [
+    "Extended ml-service with POST /api/v1/cv/analyze, GET /api/v1/cv/results/{imageId}, GET /api/v1/cv/results",
+    "Deterministic rule-based mock CV engine with flood/fire/smoke/sensitive/unclear/no_evidence labels",
+    "Human review required for confidence < 0.7 or sensitive labels",
+    "CV results cached in-memory with safety policy (autoPublishAllowed=false)",
+    "Added CVEvidencePanel to authority-dashboard with confidence bars, review actions, and fixture fallback",
+    "Added shared TypeScript contracts for CV analysis in @nadaa/shared-types",
+    "Added smoke-cv-verification.mjs and package.json script"
+  ]
+}

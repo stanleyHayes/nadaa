@@ -1,12 +1,32 @@
 package models
 
+// NumericStandardization holds mean/std used to standardize a feature.
+type NumericStandardization struct {
+	Mean float64 `json:"mean"`
+	Std  float64 `json:"std"`
+}
+
+// Preprocessing describes how raw feature values are transformed before scoring.
+type Preprocessing struct {
+	NumericStandardization map[string]NumericStandardization `json:"numericStandardization"`
+}
+
+// Hyperparameters holds model thresholds and tuning values.
+type Hyperparameters struct {
+	SeverityThresholds map[string]float64 `json:"severityThresholds"`
+}
+
 // ModelArtifact describes a trained ML model used to produce predictions.
 type ModelArtifact struct {
-	ModelVersion              string   `json:"modelVersion"`
-	ModelFamily               string   `json:"modelFamily"`
-	HazardType                string   `json:"hazardType"`
-	TrainingFeatureSetVersion string   `json:"trainingFeatureSetVersion"`
-	Limitations               []string `json:"limitations"`
+	ModelVersion              string            `json:"modelVersion"`
+	ModelFamily               string            `json:"modelFamily"`
+	HazardType                string            `json:"hazardType"`
+	TrainingFeatureSetVersion string            `json:"trainingFeatureSetVersion"`
+	FeatureColumns            []string          `json:"featureColumns"`
+	Limitations               []string          `json:"limitations"`
+	Preprocessing             Preprocessing     `json:"preprocessing"`
+	Coefficients              map[string]float64 `json:"coefficients"`
+	Hyperparameters           Hyperparameters   `json:"hyperparameters"`
 }
 
 // PredictionArtifact is the top-level container for a batch of predictions.
@@ -167,4 +187,69 @@ func (g PolygonGeometry) Centroid() (Coordinates, bool) {
 
 func samePoint(a []float64, b []float64) bool {
 	return len(a) >= 2 && len(b) >= 2 && a[0] == b[0] && a[1] == b[1]
+}
+
+// SimulationScenario describes the user-supplied overrides for a simulation run.
+type SimulationScenario struct {
+	RainfallMmOverride       *float64 `json:"rainfallMmOverride,omitempty"`
+	WaterLevelTrendCmOverride *float64 `json:"waterLevelTrendCmOverride,omitempty"`
+	DurationHours            int      `json:"durationHours"`
+	TimeStepHours            int      `json:"timeStepHours"`
+}
+
+// CreateSimulationRequest is the body of a flood simulation creation request.
+type CreateSimulationRequest struct {
+	Name                      string  `json:"name"`
+	RainfallMmOverride        float64 `json:"rainfallMmOverride,omitempty"`
+	WaterLevelTrendCmOverride float64 `json:"waterLevelTrendCmOverride,omitempty"`
+	DurationHours             int     `json:"durationHours,omitempty"`
+	TimeStepHours             int     `json:"timeStepHours,omitempty"`
+}
+
+// SimulationCell is one grid cell inside a simulation frame.
+type SimulationCell struct {
+	CellID             string            `json:"cellId"`
+	Region             string            `json:"region"`
+	District           string            `json:"district"`
+	Community          string            `json:"community"`
+	Geometry           PolygonGeometry   `json:"geometry"`
+	Probability        float64           `json:"probability"`
+	Severity           string            `json:"severity"`
+	DepthBand          string            `json:"depthBand"`
+	Confidence         string            `json:"confidence"`
+	ExplanationFactors []ExplanationFactor `json:"explanationFactors"`
+}
+
+// SimulationFrame represents the simulated state at a single target time.
+type SimulationFrame struct {
+	TargetTime string           `json:"targetTime"`
+	Cells      []SimulationCell `json:"cells"`
+}
+
+// SimulationRun is the persisted result of a flood simulation job.
+type SimulationRun struct {
+	ID                 string             `json:"id"`
+	Reference          string             `json:"reference"`
+	Name               string             `json:"name"`
+	Status             string             `json:"status"`
+	Scenario           SimulationScenario `json:"scenario"`
+	Frames             []SimulationFrame  `json:"frames"`
+	Assumptions        []string           `json:"assumptions"`
+	Limitations        []string           `json:"limitations"`
+	ModelVersion       string             `json:"modelVersion"`
+	FeatureSetVersion  string             `json:"featureSetVersion"`
+	CreatedAt          string             `json:"createdAt"`
+	UpdatedAt          string             `json:"updatedAt"`
+	Safety             SafetyPolicy       `json:"safety"`
+}
+
+// SimulationListResponse is returned when listing simulation jobs.
+type SimulationListResponse struct {
+	Simulations []SimulationRun `json:"simulations"`
+	GeneratedAt string          `json:"generatedAt"`
+}
+
+// SimulationDetailResponse is returned when fetching a single simulation job.
+type SimulationDetailResponse struct {
+	Simulation SimulationRun `json:"simulation"`
 }

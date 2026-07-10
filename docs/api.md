@@ -1847,6 +1847,94 @@ Response:
 
 Returns in-memory MVP prediction log records. Each record is aligned to the `ml_predictions` storage target and includes model version and input feature set version.
 
+### Flood Simulations
+
+`POST /api/v1/ml/flood/simulations`
+
+Runs a deterministic flood simulation using the baseline logistic model and the NADAA-070 feature grid. Rainfall and water-level overrides are applied linearly across the requested duration.
+
+```json
+{
+  "name": "Accra +50 mm rainfall scenario",
+  "rainfallMmOverride": 50,
+  "waterLevelTrendCmOverride": 10,
+  "durationHours": 6,
+  "timeStepHours": 1
+}
+```
+
+Response:
+
+```json
+{
+  "simulation": {
+    "id": "sim_20260709100000",
+    "reference": "FS-2026-00001",
+    "name": "Accra +50 mm rainfall scenario",
+    "status": "completed",
+    "scenario": {
+      "rainfallMmOverride": 50,
+      "waterLevelTrendCmOverride": 10,
+      "durationHours": 6,
+      "timeStepHours": 1
+    },
+    "frames": [
+      {
+        "targetTime": "2026-07-09T11:00:00Z",
+        "cells": [
+          {
+            "cellId": "grid-accra-central-001",
+            "region": "Greater Accra",
+            "district": "Accra Metropolitan",
+            "community": "Accra Central",
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [-0.21, 5.55],
+                  [-0.19, 5.55],
+                  [-0.19, 5.57],
+                  [-0.21, 5.57],
+                  [-0.21, 5.55]
+                ]
+              ]
+            },
+            "probability": 0.94,
+            "severity": "severe",
+            "depthBand": "> 1.2 m",
+            "confidence": "medium",
+            "explanationFactors": []
+          }
+        ]
+      }
+    ],
+    "assumptions": [
+      "Simulation applies user rainfall and water-level overrides linearly across the requested time window."
+    ],
+    "limitations": [
+      "The fixture training set has only five seed-aligned rows and is suitable for product/API integration, not production accuracy claims."
+    ],
+    "modelVersion": "flood-logistic-baseline-0.1.0",
+    "featureSetVersion": "flood-risk-features.v1",
+    "createdAt": "2026-07-09T10:00:00Z",
+    "updatedAt": "2026-07-09T10:00:01Z",
+    "safety": {
+      "humanReviewRequired": true,
+      "autoPublishAllowed": false,
+      "message": "Simulation output is decision support only and cannot publish alerts without authority review and approval."
+    }
+  }
+}
+```
+
+`GET /api/v1/ml/flood/simulations`
+
+Returns the list of simulation jobs sorted newest first.
+
+`GET /api/v1/ml/flood/simulations/{id}`
+
+Returns a single simulation job including all frames.
+
 ### ML-Reviewed Alert Drafts
 
 `POST /api/v1/alerts`
@@ -1923,3 +2011,197 @@ NADAA-073 uses the standard alert creation endpoint for reviewed ML predictions.
 - Campaign publishing.
 - Open data catalog and exports.
 - Cell broadcast adapter and simulator.
+
+### Computer Vision Image Verification
+
+`POST /api/v1/cv/analyze`
+
+Accepts an image ID/name/URL and returns computer vision evidence labels with confidence scores.
+
+```json
+{
+  "imageId": "media_flood_photo_001",
+  "imageName": "flooded-road.jpg"
+}
+```
+
+Response:
+
+```json
+{
+  "result": {
+    "id": "cv_20260706184200_media_flood_photo_001",
+    "imageId": "media_flood_photo_001",
+    "labels": [
+      { "label": "flood_evidence", "confidence": 0.92 },
+      { "label": "water_surface", "confidence": 0.88 },
+      { "label": "submerged_road", "confidence": 0.76 }
+    ],
+    "modelVersion": "cv-mock-rule-engine-0.1.0",
+    "limitations": "This is a deterministic rule-based mock engine...",
+    "humanReviewRequired": false,
+    "createdAt": "2026-07-06T18:42:00Z",
+    "reviewStatus": "pending"
+  },
+  "safety": {
+    "humanReviewRequired": false,
+    "autoPublishAllowed": false,
+    "message": "CV output is decision support only..."
+  }
+}
+```
+
+Rules:
+
+- `imageId` is required.
+- The mock engine uses filename hints: "flood" → flood_evidence, "fire" → fire_evidence, "injured" → sensitive, etc.
+- `humanReviewRequired` is true when any confidence < 0.7 or the label is `sensitive`.
+- Results are cached by `imageId`; repeated analyzes return the cached result.
+- CV output is decision-support only and cannot trigger alerts or public actions without authority review.
+
+`GET /api/v1/cv/results/{imageId}`
+
+Retrieves a cached CV analysis result by image ID. Returns 404 if not found.
+
+`GET /api/v1/cv/results`
+
+Lists all cached CV analysis results.
+
+## Resource Planning
+
+### List Demand Forecasts
+
+`GET /api/v1/forecasts`
+
+Query parameters:
+- `region` (optional) — filter by region name
+
+Response:
+
+```json
+{
+  "forecasts": [
+    {
+      "id": "forecast_001",
+      "region": "Greater Accra",
+      "district": "Accra Metropolitan",
+      "timeWindowStart": "2026-07-09T00:00:00Z",
+      "timeWindowEnd": "2026-07-10T00:00:00Z",
+      "predictedIncidentCount": 12,
+      "hazardType": "flood",
+      "confidence": "medium",
+      "confidenceScore": 0.72,
+      "factors": [
+        {
+          "name": "historical_incidents",
+          "label": "Historical incidents (90d)",
+          "value": 36,
+          "weight": 0.35,
+          "direction": "increases_demand"
+        }
+      ],
+      "riskLevel": "high",
+      "generatedAt": "2026-07-09T12:00:00Z"
+    }
+  ],
+  "generatedAt": "2026-07-09T12:00:00Z"
+}
+```
+
+### Forecast by Region
+
+`GET /api/v1/forecasts/{region}`
+
+Returns forecasts for a specific region.
+
+Response:
+
+```json
+{
+  "forecast": { ... },
+  "forecasts": [ ... ],
+  "generatedAt": "2026-07-09T12:00:00Z"
+}
+```
+
+### List Staging Suggestions
+
+`GET /api/v1/staging-suggestions`
+
+Query parameters:
+- `agencyType` (optional) — filter by agency type (e.g., `fire`, `ambulance`, `nadmo`)
+
+Response:
+
+```json
+{
+  "suggestions": [
+    {
+      "id": "staging_001",
+      "location": { "lat": 5.6037, "lng": -0.187 },
+      "locationLabel": "Accra Central Fire Station",
+      "agencyType": "fire",
+      "reason": "High predicted fire incidents in Accra Metropolitan",
+      "confidence": "medium",
+      "confidenceScore": 0.65,
+      "operationalConstraints": [
+        "Road congestion during rush hours",
+        "Limited water tanker availability after 22:00"
+      ],
+      "recommendedUnits": 3,
+      "radiusMeters": 5000,
+      "generatedAt": "2026-07-09T12:00:00Z"
+    }
+  ],
+  "generatedAt": "2026-07-09T12:00:00Z"
+}
+```
+
+### Compare Scenarios
+
+`POST /api/v1/forecasts/compare`
+
+Request body:
+
+```json
+{
+  "region": "Greater Accra",
+  "riskLevel": "severe",
+  "historicalWeight": 1.5,
+  "capacityFactor": 0.8,
+  "timeWindowHours": 12
+}
+```
+
+Response:
+
+```json
+{
+  "scenarios": [
+    {
+      "name": "Current conditions",
+      "parameters": {},
+      "forecasts": [ ... ],
+      "summary": {
+        "totalPredictedIncidents": 12,
+        "averageConfidenceScore": 0.72,
+        "highestRiskRegion": "Greater Accra",
+        "highestRiskHazard": "flood"
+      }
+    },
+    {
+      "name": "Adjusted scenario",
+      "parameters": { ... },
+      "forecasts": [ ... ],
+      "summary": { ... }
+    }
+  ],
+  "generatedAt": "2026-07-09T12:00:00Z"
+}
+```
+
+Rules:
+
+- All forecasts include confidence levels and operational constraints.
+- Predictions are decision-support only; no automatic deployment orders are generated.
+- Agency leadership retains final deployment authority.

@@ -15,3 +15,7 @@ export const DAMAGE_CLAIM_API_BASE =
 
 export const IMAGERY_API_BASE =
   import.meta.env.VITE_IMAGERY_API_URL ?? "http://localhost:8099/api/v1";
+export const SIMULATION_API_BASE =
+  import.meta.env.VITE_SIMULATION_API_URL ?? "http://localhost:8094/api/v1";
+export const CV_API_BASE =
+  import.meta.env.VITE_CV_API_URL ?? "http://localhost:8094/api/v1";

@@ -90,6 +90,8 @@ import DonationPanel from "./DonationPanel";
 import MissingPersonsPanel from "./MissingPersonsPanel";
 import DamageClaimsPanel from "./DamageClaimsPanel";
 import { ImageryPanel } from "./ImageryPanel";
+import { FloodSimulationPanel } from "./FloodSimulationPanel";
+import { CVEvidencePanel } from "./CVEvidencePanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -1919,6 +1921,9 @@ function CommandCenterApp() {
               <DamageClaimsPanel />
 
               <MissingPersonsPanel />
+              <FloodSimulationPanel />
+
+              <CVEvidencePanel />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">
