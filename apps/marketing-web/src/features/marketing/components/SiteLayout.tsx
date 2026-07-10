@@ -18,7 +18,11 @@ export function SiteLayout() {
       </a>
       <SiteHeader />
       <main id="main-content">
-        <Outlet />
+        {/* Keyed on the path so each navigation remounts and replays the
+            fade-and-lift enter animation — pages ease in instead of hard-cutting. */}
+        <div className="route-view" key={pathname}>
+          <Outlet />
+        </div>
       </main>
       <SiteFooter />
     </div>

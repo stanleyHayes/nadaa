@@ -1,14 +1,14 @@
 import {
   Accessibility,
-  AlertTriangle,
   Landmark,
   Lock,
   ShieldCheck,
 } from "lucide-react";
 import { PageBanner } from "../components/PageBanner";
 import { Reveal } from "../components/Reveal";
+import { SourcesDock } from "../components/SourcesDock";
 import { StatBand } from "../components/StatBand";
-import { complianceItems, researchNotes, trustPoints } from "../data";
+import { complianceItems, trustPoints } from "../data";
 
 const complianceIcons = [Lock, Landmark, ShieldCheck, Accessibility] as const;
 
@@ -56,21 +56,7 @@ export function TrustPage() {
           <p className="eyebrow">Research context</p>
           <h2 id="trust-research">Grounded in Ghana's emergency reality.</h2>
         </div>
-        <div className="research-grid research-grid--light">
-          {researchNotes.map((note) => (
-            <article
-              className="research-card research-card--light"
-              key={note.title}
-            >
-              <AlertTriangle size={22} />
-              <h3>{note.title}</h3>
-              <p>{note.body}</p>
-              <a href={note.href} rel="noreferrer" target="_blank">
-                {note.source}
-              </a>
-            </article>
-          ))}
-        </div>
+        <SourcesDock />
       </section>
     </>
   );

@@ -2215,3 +2215,189 @@ textarea {
 .site-footer .footer-col a:hover svg {
   color: var(--nadaa-navy);
 }
+
+/* Route transitions — the routed view fades and lifts in on each navigation
+   so pages ease in instead of hard-cutting when the path changes. */
+@keyframes nadaa-route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.route-view {
+  animation: nadaa-route-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-view {
+    animation: none;
+  }
+}
+
+/* Evidence & sources dock — collapsed disclosure at the foot of the Trust
+   page. A single action button reveals a compact source list on demand. */
+.sources-dock {
+  width: min(1120px, calc(100% - var(--nadaa-space-8)));
+  margin: 0 auto clamp(48px, 7vw, 88px);
+  border: 1px solid var(--nadaa-border-subtle);
+  border-top: 3px solid var(--nadaa-gold);
+  border-radius: 16px;
+  background: var(--nadaa-white);
+  box-shadow: 0 24px 48px -34px
+    color-mix(in srgb, var(--nadaa-navy) 45%, transparent);
+  overflow: hidden;
+}
+
+.sources-dock__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--nadaa-space-4);
+  flex-wrap: wrap;
+  padding: clamp(20px, 3vw, 28px) clamp(20px, 4vw, 36px);
+}
+
+.sources-dock__intro {
+  display: flex;
+  align-items: center;
+  gap: var(--nadaa-space-3);
+}
+
+.sources-dock__intro > svg {
+  flex-shrink: 0;
+  color: var(--nadaa-gold);
+}
+
+.sources-dock__intro .eyebrow {
+  margin: 0;
+}
+
+.sources-dock__lead {
+  margin: 3px 0 0;
+  color: var(--nadaa-text-secondary);
+  font-size: 0.95rem;
+}
+
+.sources-dock__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--nadaa-navy);
+  color: var(--nadaa-white);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 200ms ease,
+    transform 200ms ease;
+}
+
+.sources-dock__toggle:hover {
+  background: color-mix(in srgb, var(--nadaa-navy) 86%, var(--nadaa-green));
+  transform: translateY(-1px);
+}
+
+.sources-dock__toggle:focus-visible {
+  outline: 3px solid var(--nadaa-gold);
+  outline-offset: 2px;
+}
+
+.sources-dock__toggle svg {
+  transition: transform 300ms ease;
+}
+
+.sources-dock__toggle svg.is-open {
+  transform: rotate(180deg);
+}
+
+/* 0fr -> 1fr animates height smoothly without measuring the content. */
+.sources-dock__panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sources-dock__panel.is-open {
+  grid-template-rows: 1fr;
+}
+
+.sources-dock__panel-inner {
+  overflow: hidden;
+}
+
+.sources-dock__list {
+  margin: 0;
+  padding: 0 clamp(20px, 4vw, 36px) clamp(16px, 3vw, 28px);
+  list-style: none;
+}
+
+.sources-dock__list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--nadaa-space-4);
+  flex-wrap: wrap;
+  padding: 16px 0;
+  border-top: 1px solid var(--nadaa-border-subtle);
+}
+
+.sources-dock__list h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--nadaa-navy);
+}
+
+.sources-dock__list p {
+  margin: 4px 0 0;
+  max-width: 62ch;
+  color: var(--nadaa-text-secondary);
+  font-size: 0.9rem;
+}
+
+.sources-dock__list a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--nadaa-green);
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.sources-dock__list a svg {
+  flex-shrink: 0;
+}
+
+.sources-dock__list a:hover {
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sources-dock__panel {
+    transition: none;
+  }
+  .sources-dock__toggle,
+  .sources-dock__toggle svg {
+    transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .sources-dock__toggle {
+    width: 100%;
+    justify-content: center;
+  }
+  .sources-dock__list a {
+    white-space: normal;
+  }
+}

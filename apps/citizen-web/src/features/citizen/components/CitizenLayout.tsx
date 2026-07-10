@@ -231,7 +231,12 @@ export function CitizenLayout() {
       </Drawer>
 
       <main className="citizen-main" id="main-content">
-        <Outlet />
+        {/* Keyed on the path so each navigation remounts and replays the
+            fade-and-lift enter animation — pages ease in instead of hard-cutting.
+            The persistent emergency band sits outside so it never re-animates. */}
+        <div className="route-view" key={pathname}>
+          <Outlet />
+        </div>
         <EmergencyBand />
       </main>
     </div>
