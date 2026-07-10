@@ -16,7 +16,10 @@ import type {
   IncidentRecord,
   IncidentStatus,
   IncidentTimelineEvent,
+  ReliefPointRecord,
+  ReliefStockCategory,
   RiskLevel,
+  ShelterRecord,
 } from "@nadaa/shared-types";
 import {
   alertTargetCatalog,
@@ -32,6 +35,8 @@ import type {
   CommandIncident,
   FilterState,
   IncidentStatusFormState,
+  ReliefPointFormState,
+  ShelterFormState,
 } from "./types";
 
 export function buildQueueMetrics(incidents: CommandIncident[]) {
@@ -837,4 +842,91 @@ export function formatIncidentAge(createdAt: string) {
   }
   const hours = Math.floor(minutes / 60);
   return `${hours} hr ${minutes % 60} min`;
+}
+
+export function buildDefaultShelterForm(
+  shelter: ShelterRecord,
+): ShelterFormState {
+  return {
+    shelterId: shelter.id,
+    capacity: `${shelter.capacity}`,
+    currentOccupancy: `${shelter.currentOccupancy}`,
+    status: shelter.status,
+    notes: shelter.notes ?? "",
+  };
+}
+
+export function buildDefaultReliefPointForm(
+  point?: ReliefPointRecord,
+): ReliefPointFormState {
+  return {
+    reliefPointId: point?.id ?? "__new__",
+    name: point?.name ?? "",
+    type: point?.type ?? "food",
+    status: point?.status ?? "open",
+    region: point?.region ?? "Greater Accra",
+    district: point?.district ?? "",
+    address: point?.address ?? "",
+    latitude: point ? `${point.location.lat}` : "5.5600",
+    longitude: point ? `${point.location.lng}` : "-0.2000",
+    contact: point?.contact ?? "112",
+    operatingHours: point?.operatingHours ?? "08:00-18:00",
+    eligibility: point?.eligibility ?? "",
+    schedule: point?.schedule ?? "Daily",
+    stockCategories: formatReliefStockLines(point?.stockCategories ?? []),
+    sourceRef: point?.sourceRef ?? "authority-dashboard",
+  };
+}
+
+export function formatReliefStockLines(categories: ReliefStockCategory[]) {
+  return categories
+    .map((category) =>
+      [category.category, category.quantity, category.unit].join(", "),
+    )
+    .join("\n");
+}
+
+export function parseReliefStockCategories(
+  value: string,
+): ReliefStockCategory[] {
+  const now = new Date().toISOString();
+  const categories = value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [category, quantityText, unit = "units"] = line
+        .split(",")
+        .map((part) => part.trim());
+      const quantity = Number(quantityText);
+      if (!category || !Number.isFinite(quantity) || quantity < 0) {
+        throw new Error(
+          "Stock lines must use category, quantity, unit per line.",
+        );
+      }
+      return {
+        category,
+        quantity,
+        unit: unit || "units",
+        lastUpdated: now,
+      };
+    });
+
+  if (!categories.length) {
+    throw new Error("At least one stock line is required.");
+  }
+  return categories;
+}
+
+export function formatShortDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("en-GH", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
