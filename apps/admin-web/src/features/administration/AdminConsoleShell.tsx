@@ -1,0 +1,183 @@
+import { useEffect, useMemo, useState } from "react";
+import { Drawer } from "@mui/material";
+import { signOutAdmin, type AdminSession } from "@/app/session";
+import { useAdminData } from "./useAdminData";
+import {
+  DEFAULT_VIEW,
+  groupLabelForView,
+  isViewId,
+  navItemById,
+  type BadgeKey,
+  type ViewId,
+} from "./navigation";
+import { Sidebar } from "./components/Sidebar";
+import { Topbar, type AdminNotification } from "./components/Topbar";
+import { OverviewView } from "./components/views/OverviewView";
+import { AgenciesView } from "./components/views/AgenciesView";
+import { UsersView } from "./components/views/UsersView";
+import { RolesView } from "./components/views/RolesView";
+import { MfaView } from "./components/views/MfaView";
+import { AuditView } from "./components/views/AuditView";
+import { IntegrationsView } from "./components/views/IntegrationsView";
+import { AlertRulesView } from "./components/views/AlertRulesView";
+
+const VIEW_KEY = "nadaa.admin.view";
+const COLLAPSE_KEY = "nadaa.admin.sidebar.collapsed";
+
+function readInitialView(): ViewId {
+  if (typeof window === "undefined") {
+    return DEFAULT_VIEW;
+  }
+  const stored = window.localStorage.getItem(VIEW_KEY);
+  return isViewId(stored) ? stored : DEFAULT_VIEW;
+}
+
+function readInitialCollapsed(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.localStorage.getItem(COLLAPSE_KEY) === "true";
+}
+
+export function AdminConsoleShell({ session }: { session: AdminSession }) {
+  const data = useAdminData();
+  const [activeView, setActiveView] = useState<ViewId>(readInitialView);
+  const [collapsed, setCollapsed] = useState<boolean>(readInitialCollapsed);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(VIEW_KEY, activeView);
+    } catch {
+      /* storage unavailable */
+    }
+  }, [activeView]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLLAPSE_KEY, collapsed ? "true" : "false");
+    } catch {
+      /* storage unavailable */
+    }
+  }, [collapsed]);
+
+  const badges: Record<BadgeKey, number> = useMemo(() => {
+    const usersAwaitingMfa = data.users.filter(
+      (user) => !user.mfaEnabled,
+    ).length;
+    return { agencies: data.agencies.length, usersAwaitingMfa };
+  }, [data.agencies, data.users]);
+
+  const notifications: AdminNotification[] = useMemo(() => {
+    const list: AdminNotification[] = [];
+    if (badges.usersAwaitingMfa > 0) {
+      list.push({
+        id: "awaiting-mfa",
+        title: `${badges.usersAwaitingMfa} user${badges.usersAwaitingMfa === 1 ? "" : "s"} awaiting MFA`,
+        detail: "Setup must complete before these users can sign in.",
+        tone: "gold",
+      });
+    }
+    const pendingRules = data.alertRules.filter(
+      (rule) => rule.status === "draft" || rule.status === "submitted",
+    ).length;
+    if (pendingRules > 0) {
+      list.push({
+        id: "pending-rules",
+        title: `${pendingRules} alert rule${pendingRules === 1 ? "" : "s"} in review`,
+        detail: "Governance rules are still draft or submitted.",
+        tone: "gold",
+      });
+    }
+    if (data.loadState === "fallback") {
+      list.push({
+        id: "governance-fixture",
+        title: "Governance APIs on fixtures",
+        detail: "One or more admin APIs are unavailable; showing fixtures.",
+        tone: "gold",
+      });
+    }
+    return list;
+  }, [badges.usersAwaitingMfa, data.alertRules, data.loadState]);
+
+  const selectView = (view: ViewId) => {
+    setActiveView(view);
+    setMobileNavOpen(false);
+  };
+
+  const handleSignOut = () => {
+    setMobileNavOpen(false);
+    signOutAdmin();
+  };
+
+  const renderView = () => {
+    switch (activeView) {
+      case "agencies":
+        return <AgenciesView data={data} />;
+      case "users":
+        return <UsersView data={data} />;
+      case "roles":
+        return <RolesView />;
+      case "mfa":
+        return <MfaView data={data} />;
+      case "audit":
+        return <AuditView data={data} />;
+      case "integrations":
+        return <IntegrationsView data={data} />;
+      case "alertRules":
+        return <AlertRulesView data={data} />;
+      case "overview":
+      default:
+        return (
+          <OverviewView data={data} session={session} onNavigate={selectView} />
+        );
+    }
+  };
+
+  return (
+    <div className={`cc-shell${collapsed ? " is-collapsed" : ""}`}>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
+      <aside className="cc-shell__rail">
+        <Sidebar
+          activeView={activeView}
+          onSelect={setActiveView}
+          badges={badges}
+          variant="rail"
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed((value) => !value)}
+        />
+      </aside>
+
+      <Drawer
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        className="cc-shell__drawer"
+        slotProps={{ paper: { className: "cc-shell__drawer-paper" } }}
+      >
+        <Sidebar
+          activeView={activeView}
+          onSelect={selectView}
+          badges={badges}
+          variant="drawer"
+        />
+      </Drawer>
+
+      <div className="cc-main">
+        <Topbar
+          view={navItemById(activeView)}
+          groupLabel={groupLabelForView(activeView)}
+          session={session}
+          notifications={notifications}
+          onSignOut={handleSignOut}
+          onOpenMobileNav={() => setMobileNavOpen(true)}
+        />
+        <main id="main-content" className="cc-content" tabIndex={-1}>
+          {renderView()}
+        </main>
+      </div>
+    </div>
+  );
+}
