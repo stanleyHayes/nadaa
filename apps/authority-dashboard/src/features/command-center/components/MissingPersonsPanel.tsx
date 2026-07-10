@@ -28,8 +28,8 @@ import type {
   MissingPersonReviewDecision,
   ReviewMissingPersonRequest,
 } from "@nadaa/shared-types";
-import { MISSING_PERSON_API_BASE } from "../../app/config";
-import { authorityHeaders } from "../../app/session";
+import { MISSING_PERSON_API_BASE } from "@/app/config";
+import { authorityHeaders } from "@/app/session";
 
 type LoadState = "loading" | "ready" | "fallback" | "error";
 

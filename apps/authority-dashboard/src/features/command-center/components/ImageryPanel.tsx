@@ -45,9 +45,9 @@ import type {
   ImagerySource,
   ImageryStatus,
 } from "@nadaa/shared-types";
-import { IMAGERY_API_BASE } from "../../app/config";
-import { authorityHeaders } from "../../app/session";
-import { CommandSelect } from "./components";
+import { IMAGERY_API_BASE } from "@/app/config";
+import { authorityHeaders } from "@/app/session";
+import { CommandSelect } from "./shared";
 
 type LoadState = "loading" | "ready" | "fallback" | "error";
 

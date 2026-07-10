@@ -26,9 +26,9 @@ import type {
   StagingSuggestion,
   StagingSuggestionListResponse,
 } from "@nadaa/shared-types";
-import { FORECAST_API_BASE } from "../../app/config";
-import { EmptyState } from "./components";
-import { severityColors } from "./data";
+import { FORECAST_API_BASE } from "@/app/config";
+import { EmptyState } from "./shared";
+import { severityColors } from "../data";
 
 type ForecastLoadState = "loading" | "ready" | "fallback";
 

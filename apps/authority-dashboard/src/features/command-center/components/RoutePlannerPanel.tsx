@@ -21,9 +21,9 @@ import "leaflet/dist/leaflet.css";
 import { MapPinned, Navigation, Route } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type { RoutePlanResponse, RouteWaypointType } from "@nadaa/shared-types";
-import { ROUTE_API_BASE } from "../../app/config";
-import { CommandSelect, EmptyState } from "./components";
-import type { RoutePlanFormWaypointType } from "./types";
+import { ROUTE_API_BASE } from "@/app/config";
+import { CommandSelect, EmptyState } from "./shared";
+import type { RoutePlanFormWaypointType } from "../types";
 
 const waypointTypeOptions: RoutePlanFormWaypointType[] = [
   "shelter",

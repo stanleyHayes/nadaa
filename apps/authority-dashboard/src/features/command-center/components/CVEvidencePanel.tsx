@@ -27,8 +27,8 @@ import type {
   CVImageItem,
   CVReviewStatus,
 } from "@nadaa/shared-types";
-import { CV_API_BASE } from "../../app/config";
-import { EmptyState } from "./components";
+import { CV_API_BASE } from "@/app/config";
+import { EmptyState } from "./shared";
 
 const cvConfidenceThreshold = 0.7;
 

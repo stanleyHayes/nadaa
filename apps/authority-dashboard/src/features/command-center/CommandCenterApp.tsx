@@ -66,33 +66,33 @@ import {
   ALERT_API_BASE,
   INCIDENT_API_BASE,
   SHELTER_API_BASE,
-} from "../../app/config";
+} from "@/app/config";
 import {
   authorityHeaders,
   authoritySession,
   commandRoles,
-} from "../../app/session";
-import { authorityTheme } from "../../app/theme";
+} from "@/app/session";
+import { authorityTheme } from "@/app/theme";
 import {
   AlertWorkflowPanel,
   CommandSelect,
+  CVEvidencePanel,
+  DamageClaimsPanel,
+  DonationPanel,
   EmptyState,
+  FloodSimulationPanel,
   HazardChip,
+  ImageryPanel,
   IncidentDetailPanel,
   IncidentMap,
+  MissingPersonsPanel,
   PrivacyChip,
+  ResourcePositioningPanel,
+  RoutePlannerPanel,
   ScrollableTable,
   SeverityChip,
   StatusLine,
 } from "./components";
-import { RoutePlannerPanel } from "./RoutePlannerPanel";
-import DonationPanel from "./DonationPanel";
-import MissingPersonsPanel from "./MissingPersonsPanel";
-import DamageClaimsPanel from "./DamageClaimsPanel";
-import { ImageryPanel } from "./ImageryPanel";
-import { FloodSimulationPanel } from "./FloodSimulationPanel";
-import { CVEvidencePanel } from "./CVEvidencePanel";
-import { ResourcePositioningPanel } from "./ResourcePositioningPanel";
 import {
   defaultFilters,
   fallbackAlerts,

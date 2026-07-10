@@ -21,9 +21,9 @@ import type {
   FloodSimulationFrame,
   FloodSimulationRun,
 } from "@nadaa/shared-types";
-import { SIMULATION_API_BASE } from "../../app/config";
-import { EmptyState } from "./components";
-import { severityColors } from "./data";
+import { SIMULATION_API_BASE } from "@/app/config";
+import { EmptyState } from "./shared";
+import { severityColors } from "../data";
 
 function isPositiveNumber(value: string) {
   const n = Number(value);

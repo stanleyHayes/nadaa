@@ -1,1 +1,1 @@
-export { default } from "./features/command-center/CommandCenterApp";
+export { default } from "./features/command-center";

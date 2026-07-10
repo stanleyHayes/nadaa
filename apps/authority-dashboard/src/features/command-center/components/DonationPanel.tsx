@@ -36,9 +36,9 @@ import type {
   UpdateDonationAidRequestRequest,
   UpdatePledgeRequest,
 } from "@nadaa/shared-types";
-import { DONATION_API_BASE } from "../../app/config";
-import { authorityHeaders } from "../../app/session";
-import { CommandSelect } from "./components";
+import { DONATION_API_BASE } from "@/app/config";
+import { authorityHeaders } from "@/app/session";
+import { CommandSelect } from "./shared";
 
 const aidRequestStatuses: DonationAidRequestStatus[] = [
   "open",

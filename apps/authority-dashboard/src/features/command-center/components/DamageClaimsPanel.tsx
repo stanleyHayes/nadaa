@@ -29,9 +29,9 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
-import { DAMAGE_CLAIM_API_BASE } from "../../app/config";
-import { authorityHeaders } from "../../app/session";
-import { CommandSelect, EmptyState, Fact } from "./components";
+import { DAMAGE_CLAIM_API_BASE } from "@/app/config";
+import { authorityHeaders } from "@/app/session";
+import { CommandSelect, EmptyState, Fact } from "./shared";
 
 type DamageClaimStatus = "draft" | "submitted" | "closed";
 type DamageClaimVerificationStatus = "pending" | "verified" | "rejected";
