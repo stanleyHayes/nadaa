@@ -347,7 +347,7 @@ export default function DamageClaimsPanel() {
         className="section-heading"
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <ShieldAlert size={21} color={nadaaBrand.colors.navy} />
+          <ShieldAlert size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">Damage claim review</Typography>
             <Typography variant="caption" color="text.secondary">

@@ -170,7 +170,7 @@ export function RoutePlannerPanel({
         className="section-heading"
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Route size={21} color={nadaaBrand.colors.navy} />
+          <Route size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">Evacuation route planner</Typography>
             <Typography variant="caption" color="text.secondary">

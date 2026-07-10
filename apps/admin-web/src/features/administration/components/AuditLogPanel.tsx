@@ -25,7 +25,7 @@ export function AuditLogPanel({ logs }: { logs: AuditLogRecord[] }) {
       <SectionHeader
         eyebrow="Audit trail"
         title="Sensitive action trace"
-        icon={<ShieldCheck size={22} color={nadaaBrand.colors.navy} />}
+        icon={<ShieldCheck size={22} color="var(--nadaa-navy)" />}
       />
       {logs.length ? (
         <Box

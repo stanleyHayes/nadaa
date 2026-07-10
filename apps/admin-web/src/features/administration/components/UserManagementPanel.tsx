@@ -115,7 +115,7 @@ export function UserManagementPanel({
       <SectionHeader
         eyebrow="Authority access"
         title="Users, roles, and MFA state"
-        icon={<KeyRound size={22} color={nadaaBrand.colors.navy} />}
+        icon={<KeyRound size={22} color="var(--nadaa-navy)" />}
       />
       {actionResult?.severity === "success" ? (
         <Alert severity="success" sx={{ mb: 2 }}>
@@ -134,7 +134,7 @@ export function UserManagementPanel({
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <Search size={16} color={nadaaBrand.colors.slate} />
+                <Search size={16} color="var(--nadaa-slate)" />
               </InputAdornment>
             ),
           }}

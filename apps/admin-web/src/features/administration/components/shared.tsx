@@ -72,7 +72,7 @@ export function EmptyState({
   return (
     <Box className="empty-state">
       <Stack alignItems="center" spacing={1}>
-        <ShieldCheck size={30} color={nadaaBrand.colors.slate} />
+        <ShieldCheck size={30} color="var(--nadaa-slate)" />
         <Typography variant="subtitle1" fontWeight={800}>
           {title}
         </Typography>

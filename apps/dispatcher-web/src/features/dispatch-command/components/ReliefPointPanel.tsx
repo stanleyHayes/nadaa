@@ -39,7 +39,7 @@ export function ReliefPointPanel({
         className="section-heading"
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Truck size={22} color={nadaaBrand.colors.navy} />
+          <Truck size={22} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h5">Relief distribution points</Typography>
             <Typography variant="caption" color="text.secondary">

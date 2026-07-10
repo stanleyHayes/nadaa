@@ -351,7 +351,7 @@ export function ImageryPanel({
         className="section-heading"
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Satellite size={21} color={nadaaBrand.colors.navy} />
+          <Satellite size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">Imagery ingestion</Typography>
             <Typography variant="caption" color="text.secondary">

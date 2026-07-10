@@ -52,7 +52,7 @@ const agencyTypeLabels: Record<AgencyType, string> = {
 };
 
 export const toneColors = {
-  navy: nadaaBrand.colors.navy,
+  navy: "var(--nadaa-navy)",
   green: nadaaBrand.colors.green,
   gold: nadaaBrand.colors.gold,
   red: nadaaBrand.colors.red,

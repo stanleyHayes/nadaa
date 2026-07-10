@@ -28,7 +28,7 @@ export function RoleMatrixPanel() {
       <SectionHeader
         eyebrow="Role policy"
         title="Admin, alert, and operational permissions"
-        icon={<LockKeyhole size={22} color={nadaaBrand.colors.navy} />}
+        icon={<LockKeyhole size={22} color="var(--nadaa-navy)" />}
       />
       <Box
         className="admin-table"

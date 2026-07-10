@@ -91,7 +91,7 @@ export function MLPredictionReviewPanel({
         className="section-heading"
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <BrainCircuit size={22} color={nadaaBrand.colors.navy} />
+          <BrainCircuit size={22} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h5">ML flood review</Typography>
             <Typography variant="caption" color="text.secondary">

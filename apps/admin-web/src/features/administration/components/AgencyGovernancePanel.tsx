@@ -42,7 +42,7 @@ export function AgencyGovernancePanel({
       <SectionHeader
         eyebrow="Agency governance"
         title="Registered agencies and operating scope"
-        icon={<UsersRound size={22} color={nadaaBrand.colors.navy} />}
+        icon={<UsersRound size={22} color="var(--nadaa-navy)" />}
       />
       <Box
         className="admin-table"

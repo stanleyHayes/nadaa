@@ -123,7 +123,7 @@ export function FloodSimulationPanel() {
         className="section-heading"
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Waves size={21} color={nadaaBrand.colors.navy} />
+          <Waves size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">Real-time flood simulation</Typography>
             <Typography variant="caption" color="text.secondary">

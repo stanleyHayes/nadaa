@@ -238,11 +238,11 @@ export function StatusLine({
  * fill, so a duty officer reads the operational load at a glance.
  */
 const RESPONSE_STAGES: Array<{ status: IncidentStatus; color: string }> = [
-  { status: "assigned", color: nadaaBrand.colors.navy },
+  { status: "assigned", color: "var(--nadaa-navy)" },
   { status: "response_en_route", color: nadaaBrand.colors.gold },
   { status: "on_scene", color: nadaaBrand.colors.red },
   { status: "contained", color: nadaaBrand.colors.green },
-  { status: "recovery_ongoing", color: nadaaBrand.colors.slate },
+  { status: "recovery_ongoing", color: "var(--nadaa-slate)" },
 ];
 
 export function ResponseLadder({

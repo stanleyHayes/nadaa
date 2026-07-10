@@ -71,7 +71,7 @@ export function HospitalCapacityPanel({
         className="section-heading"
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Hospital size={22} color={nadaaBrand.colors.navy} />
+          <Hospital size={22} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h5">Hospital capacity</Typography>
             <Typography variant="caption" color="text.secondary">

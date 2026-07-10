@@ -680,7 +680,7 @@ export function SchoolPreparednessPanel() {
         className="section-heading"
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <GraduationCap size={21} color={nadaaBrand.colors.navy} />
+          <GraduationCap size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">School preparedness</Typography>
             <Typography variant="caption" color="text.secondary">
@@ -844,7 +844,7 @@ export function SchoolPreparednessPanel() {
           {detail && (
             <>
               <Stack direction="row" spacing={1} alignItems="center">
-                <MapPin size={18} color={nadaaBrand.colors.navy} />
+                <MapPin size={18} color="var(--nadaa-navy)" />
                 <Typography variant="h6">{detail.name}</Typography>
               </Stack>
               <Grid container spacing={1}>

@@ -1972,6 +1972,13 @@ body {
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Metric watermark: the navy token lightens to indigo on dark, but at 0.08 the
+   oversized icon ghost is barely perceptible on a dark card — lift the opacity
+   so it stays subtle yet readable. */
+:root[data-theme="dark"] .cc-metric__watermark {
+  opacity: 0.18;
+}
+
 /* Feed status chips: swap light pastels for translucent tinted fills. */
 :root[data-theme="dark"] .cc-feed-chip--ready {
   background: color-mix(in srgb, var(--nadaa-green) 20%, transparent);

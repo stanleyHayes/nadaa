@@ -211,7 +211,7 @@ export function CVEvidencePanel() {
         alignItems="center"
         className="section-heading"
       >
-        <Image size={21} color={nadaaBrand.colors.navy} />
+        <Image size={21} color="var(--nadaa-navy)" />
         <Box>
           <Typography variant="h6">CV Evidence Panel</Typography>
           <Typography variant="caption" color="text.secondary">
@@ -324,7 +324,7 @@ function CVImageDetail({
           border: `1px solid ${nadaaBrand.colors.slate}30`,
         }}
       >
-        <Image size={48} color={nadaaBrand.colors.slate} />
+        <Image size={48} color="var(--nadaa-slate)" />
       </Box>
 
       <Stack direction="row" justifyContent="space-between" alignItems="center">

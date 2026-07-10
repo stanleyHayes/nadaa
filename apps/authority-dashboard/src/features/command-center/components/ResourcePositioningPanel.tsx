@@ -34,7 +34,7 @@ type ForecastLoadState = "loading" | "ready" | "fallback";
 
 const agencyColors: Record<string, string> = {
   fire: nadaaBrand.colors.red,
-  ambulance: nadaaBrand.colors.navy,
+  ambulance: "var(--nadaa-navy)",
   nadmo: nadaaBrand.colors.gold,
 };
 
@@ -186,7 +186,7 @@ export function ResourcePositioningPanel() {
         className="section-heading"
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Ambulance size={21} color={nadaaBrand.colors.navy} />
+          <Ambulance size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">
               Predictive resource positioning
@@ -302,7 +302,7 @@ export function ResourcePositioningPanel() {
                     size={16}
                     color={
                       agencyColors[suggestion.agencyType] ??
-                      nadaaBrand.colors.slate
+                      "var(--nadaa-slate)"
                     }
                   />
                   <Typography variant="body2">

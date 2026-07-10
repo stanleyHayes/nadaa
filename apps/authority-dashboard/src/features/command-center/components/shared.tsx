@@ -580,7 +580,7 @@ export function EmptyState({
       spacing={1}
       className="empty-state"
     >
-      <Crosshair size={28} color={nadaaBrand.colors.slate} />
+      <Crosshair size={28} color="var(--nadaa-slate)" />
       <Typography variant="subtitle2">{title}</Typography>
       <Typography variant="body2" color="text.secondary" textAlign="center">
         {detail}
