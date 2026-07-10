@@ -46,12 +46,12 @@ import type {
   ReviewAidRequestRequest,
   UpdateReliefPointRequest,
 } from "@nadaa/shared-types";
-import { agencyHeaders, agencyRoles, agencySession } from "../../app/session";
+import { agencyHeaders, agencyRoles, agencySession } from "@/app/session";
 import {
   INCIDENT_API_BASE,
   ROAD_CLOSURE_API_BASE,
   SHELTER_API_BASE,
-} from "../../app/config";
+} from "@/app/config";
 import {
   EmptyState,
   ErrorState,
