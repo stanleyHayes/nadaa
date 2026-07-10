@@ -532,8 +532,13 @@ body {
 
 .risk-lookup {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: 1fr 1fr;
   gap: var(--nadaa-space-2);
+}
+
+/* Field spans the full width on top; the two actions sit in a row beneath it. */
+.risk-lookup > .MuiTextField-root {
+  grid-column: 1 / -1;
 }
 
 .risk-presets .MuiChip-root {
