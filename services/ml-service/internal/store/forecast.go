@@ -59,12 +59,11 @@ type forecastOptions struct {
 	riskLevel        string
 	hazardTypes      []string
 	historicalWeight float64
-	capacityFactor   float64
 	timeWindowHours  int
 }
 
 func defaultForecastOptions() forecastOptions {
-	return forecastOptions{historicalWeight: 1, capacityFactor: 1, timeWindowHours: defaultForecastWindowH}
+	return forecastOptions{historicalWeight: 1, timeWindowHours: defaultForecastWindowH}
 }
 
 // districtForecast pairs a demand forecast with its district centroid so staging
@@ -102,7 +101,7 @@ func (m *MemoryStore) StagingSuggestions(agencyType string, now time.Time) []mod
 		if !ok {
 			continue
 		}
-		suggestions = append(suggestions, buildStagingSuggestion(base, nearest, 1.0, generatedAt))
+		suggestions = append(suggestions, buildStagingSuggestion(base, nearest, generatedAt))
 	}
 
 	sort.SliceStable(suggestions, func(i, j int) bool {
@@ -115,10 +114,20 @@ func (m *MemoryStore) StagingSuggestions(agencyType string, now time.Time) []mod
 }
 
 // CompareScenarios returns the baseline forecast alongside an adjusted scenario.
+// The scope filters (region, riskLevel, hazardTypes) apply to BOTH scenarios so
+// their totals stay comparable; only the levers (historicalWeight, capacityFactor,
+// timeWindowHours) differ between the baseline and the adjusted scenario.
 func (m *MemoryStore) CompareScenarios(req models.CompareScenarioRequest, now time.Time) []models.ScenarioResult {
+	baseParams := models.CompareScenarioRequest{
+		Region:      req.Region,
+		RiskLevel:   req.RiskLevel,
+		HazardTypes: req.HazardTypes,
+	}
 	baseOpts := defaultForecastOptions()
 	baseOpts.region = req.Region
-	baseline := m.scenarioResult("Current conditions", models.CompareScenarioRequest{Region: req.Region}, baseOpts, now)
+	baseOpts.riskLevel = strings.TrimSpace(strings.ToLower(req.RiskLevel))
+	baseOpts.hazardTypes = req.HazardTypes
+	baseline := m.scenarioResult("Current conditions", baseParams, baseOpts, now)
 
 	adjusted := m.scenarioResult("Adjusted scenario", req, optionsFromRequest(req), now)
 	return []models.ScenarioResult{baseline, adjusted}
@@ -146,12 +155,11 @@ func optionsFromRequest(req models.CompareScenarioRequest) forecastOptions {
 	if req.HistoricalWeight != 0 {
 		opts.historicalWeight = req.HistoricalWeight
 	}
-	if req.CapacityFactor != 0 {
-		opts.capacityFactor = req.CapacityFactor
-	}
 	if req.TimeWindowHours != 0 {
 		opts.timeWindowHours = req.TimeWindowHours
 	}
+	// capacityFactor is echoed back in the scenario parameters but is reserved for
+	// future capacity-aware staging optimization; it does not change demand counts.
 	return opts
 }
 
@@ -219,15 +227,17 @@ func (m *MemoryStore) computeDistrictForecasts(opts forecastOptions, now time.Ti
 		avgVuln := g.sumVuln / cells
 
 		windowFactor := float64(opts.timeWindowHours) / 24.0
+		exposureFactor := 1.0 + (avgVuln/100.0)*0.75
 		predictedFloat := (g.histTotal*opts.historicalWeight + avgComposite*4.0) *
-			(0.7 + avgRainfall/150.0) * windowFactor
+			(0.7 + avgRainfall/150.0) * exposureFactor * windowFactor
 		predicted := int(math.Round(predictedFloat))
 		if predicted < 0 {
 			predicted = 0
 		}
 
 		riskLevel := riskLevelForDistrict(g.worstRank, avgComposite)
-		if opts.riskLevel != "" && riskLevel != opts.riskLevel {
+		// riskLevel is a minimum-severity threshold: keep districts at or above it.
+		if opts.riskLevel != "" && severityRank[riskLevel] < severityRank[opts.riskLevel] {
 			continue
 		}
 
@@ -242,7 +252,7 @@ func (m *MemoryStore) computeDistrictForecasts(opts forecastOptions, now time.Ti
 			HazardType:             forecastHazardType,
 			Confidence:             confidenceBand(confidenceScore),
 			ConfidenceScore:        roundTo(confidenceScore, 2),
-			Factors:                forecastFactors(g.histTotal, opts.historicalWeight, avgRainfall, avgComposite, avgVuln, opts.capacityFactor),
+			Factors:                forecastFactors(g.histTotal, opts.historicalWeight, avgRainfall, avgComposite, avgVuln),
 			RiskLevel:              riskLevel,
 			GeneratedAt:            generatedAt,
 		}
@@ -261,30 +271,21 @@ func (m *MemoryStore) computeDistrictForecasts(opts forecastOptions, now time.Ti
 	return results
 }
 
-func forecastFactors(histTotal, historicalWeight, avgRainfall, avgComposite, avgVuln, capacityFactor float64) []models.ForecastFactor {
-	factors := []models.ForecastFactor{
+func forecastFactors(histTotal, historicalWeight, avgRainfall, avgComposite, avgVuln float64) []models.ForecastFactor {
+	return []models.ForecastFactor{
 		{Name: "historical_incidents", Label: "Historical flood reports (30d)", Value: roundTo(histTotal*historicalWeight, 2), Weight: 0.35, Direction: "increases_demand"},
 		{Name: "rainfall_forecast", Label: "Rainfall forecast 24h (mm)", Value: roundTo(avgRainfall, 2), Weight: 0.25, Direction: "increases_demand"},
 		{Name: "risk_score", Label: "Composite flood-risk score", Value: roundTo(avgComposite, 4), Weight: 0.25, Direction: "increases_demand"},
 		{Name: "population_exposure", Label: "Vulnerable population (%)", Value: roundTo(avgVuln, 2), Weight: 0.15, Direction: "increases_demand"},
 	}
-	if capacityFactor > 1 {
-		factors = append(factors, models.ForecastFactor{
-			Name: "assumed_capacity", Label: "Assumed responder capacity factor", Value: roundTo(capacityFactor, 2), Weight: 0.0, Direction: "reduces_demand",
-		})
-	}
-	return factors
 }
 
-func buildStagingSuggestion(base stagingBase, nearest districtForecast, capacityFactor float64, generatedAt string) models.StagingSuggestion {
-	if capacityFactor <= 0 {
-		capacityFactor = 1
-	}
+func buildStagingSuggestion(base stagingBase, nearest districtForecast, generatedAt string) models.StagingSuggestion {
 	perUnit := unitsPerAgency[base.agencyType]
 	if perUnit <= 0 {
 		perUnit = 8
 	}
-	units := int(math.Ceil(float64(nearest.forecast.PredictedIncidentCount) / (perUnit * capacityFactor)))
+	units := int(math.Ceil(float64(nearest.forecast.PredictedIncidentCount) / perUnit))
 	if units < 1 {
 		units = 1
 	}

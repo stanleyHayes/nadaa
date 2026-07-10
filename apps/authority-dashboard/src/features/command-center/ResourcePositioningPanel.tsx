@@ -56,7 +56,7 @@ const fallbackForecasts: DemandForecast[] = [
     district: "Accra Metropolitan",
     timeWindowStart: "2026-07-10T00:00:00Z",
     timeWindowEnd: "2026-07-11T00:00:00Z",
-    predictedIncidentCount: 15,
+    predictedIncidentCount: 17,
     hazardType: "flood",
     confidence: "high",
     confidenceScore: 0.95,
@@ -131,7 +131,7 @@ const fallbackStaging: StagingSuggestion[] = [
     locationLabel: "Accra Central Fire Station",
     agencyType: "fire",
     reason:
-      "Elevated predicted flood demand in Accra Metropolitan (~15 incidents in 24h, severe risk)",
+      "Elevated predicted flood demand in Accra Metropolitan (~17 incidents in 24h, severe risk)",
     confidence: "high",
     confidenceScore: 0.95,
     operationalConstraints: [
@@ -149,7 +149,7 @@ const fallbackStaging: StagingSuggestion[] = [
     locationLabel: "Ridge Ambulance Base",
     agencyType: "ambulance",
     reason:
-      "Elevated predicted flood demand in Accra Metropolitan (~15 incidents in 24h, severe risk)",
+      "Elevated predicted flood demand in Accra Metropolitan (~17 incidents in 24h, severe risk)",
     confidence: "high",
     confidenceScore: 0.95,
     operationalConstraints: [

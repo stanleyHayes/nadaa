@@ -302,10 +302,10 @@ Current implementation:
 
 - `services/ml-service` exposes `GET /api/v1/forecasts` (optional `?region=`), `GET /api/v1/forecasts/{region}`, `GET /api/v1/staging-suggestions` (optional `?agencyType=`), and `POST /api/v1/forecasts/compare`.
 - Model version: `resource-forecast-rules-0.1.0`. Fully deterministic — no randomness or wall-clock in the scoring; time windows derive from the injected request clock.
-- Demand features per district, aggregated from the NADAA-070 flood-risk feature grid: historical flood reports (30d), 24h rainfall forecast, composite flood-risk score, and vulnerable-population percentage. `predictedIncidentCount = round((histReports * historicalWeight + composite * 4) * (0.7 + rainfall/150) * (windowHours/24))`.
+- Demand features per district, aggregated from the NADAA-070 flood-risk feature grid: historical flood reports (30d), 24h rainfall forecast, composite flood-risk score, and vulnerable-population percentage. `predictedIncidentCount = round((histReports * historicalWeight + composite * 4) * (0.7 + rainfall/150) * (1 + vulnerablePct/100 * 0.75) * (windowHours/24))`.
 - Confidence score reflects data completeness and signal decisiveness (historical presence, cell coverage, composite extremity) and maps to `low`/`medium`/`high` bands.
 - Staging suggestions match a fixed set of candidate bases (fire, ambulance, NADMO) to the nearest demand district by haversine distance, sizing `recommendedUnits` by predicted demand and agency type, with per-agency operational constraints and a 5 km coverage radius.
-- Scenario comparison returns a baseline ("Current conditions") and an adjusted scenario applying `historicalWeight`, `capacityFactor`, `riskLevel`, `hazardTypes`, and `timeWindowHours`, each with a summary of total predicted incidents and average confidence.
+- Scenario comparison returns a baseline ("Current conditions") and an adjusted scenario. `region`, `riskLevel` (a minimum-severity threshold), and `hazardTypes` are scope filters applied to BOTH scenarios so their totals stay comparable; only the levers `historicalWeight` and `timeWindowHours` differ, so the adjusted total is never below the baseline for the same scope. `capacityFactor` is accepted and echoed back for forward compatibility with capacity-aware staging optimization but does not change demand counts.
 
 Human oversight and safety:
 

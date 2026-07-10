@@ -2177,6 +2177,8 @@ Request body:
 }
 ```
 
+`region`, `riskLevel` (a minimum-severity threshold), and `hazardTypes` are scope filters applied to both the baseline and the adjusted scenario so their totals remain comparable. Only the levers `historicalWeight` and `timeWindowHours` differ between the two scenarios. `capacityFactor` is validated and echoed back for forward compatibility with capacity-aware staging but does not change demand forecast counts.
+
 Response:
 
 ```json
@@ -2184,7 +2186,7 @@ Response:
   "scenarios": [
     {
       "name": "Current conditions",
-      "parameters": {},
+      "parameters": { "region": "Greater Accra", "riskLevel": "severe" },
       "forecasts": [ ... ],
       "summary": {
         "totalPredictedIncidents": 12,

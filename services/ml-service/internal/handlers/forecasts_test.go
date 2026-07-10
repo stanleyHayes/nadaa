@@ -185,6 +185,45 @@ func TestCompareScenarios(t *testing.T) {
 	}
 }
 
+func TestCompareScenariosRiskFilterIsSymmetric(t *testing.T) {
+	srv := newTestServer(t)
+
+	// riskLevel scopes BOTH scenarios, so a filtered comparison must remain
+	// consistent: the baseline and adjusted cover the same districts and the
+	// adjusted (heavier history) total is never below the baseline.
+	payload := models.CompareScenarioRequest{RiskLevel: "severe", HistoricalWeight: 2.0}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/forecasts/compare", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp models.CompareScenarioResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	base := resp.Scenarios[0]
+	adjusted := resp.Scenarios[1]
+	if len(base.Forecasts) != len(adjusted.Forecasts) {
+		t.Fatalf("filtered scenarios must cover the same districts: base %d adjusted %d",
+			len(base.Forecasts), len(adjusted.Forecasts))
+	}
+	if len(base.Forecasts) == 0 {
+		t.Fatal("severe threshold should include at least one seeded district")
+	}
+	for _, f := range adjusted.Forecasts {
+		if f.RiskLevel != "severe" && f.RiskLevel != "emergency" {
+			t.Fatalf("riskLevel threshold leaked a below-severe district: %s", f.RiskLevel)
+		}
+	}
+	if adjusted.Summary.TotalPredictedIncidents < base.Summary.TotalPredictedIncidents {
+		t.Fatalf("adjusted total %d must be >= baseline %d under a shared filter",
+			adjusted.Summary.TotalPredictedIncidents, base.Summary.TotalPredictedIncidents)
+	}
+}
+
 func TestCompareScenariosRejectsInvalidInput(t *testing.T) {
 	srv := newTestServer(t)
 
