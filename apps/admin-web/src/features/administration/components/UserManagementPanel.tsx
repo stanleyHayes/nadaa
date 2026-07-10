@@ -29,7 +29,7 @@ import type {
   ManagedAgencyUser,
 } from "../types";
 import { formatDateTime, roleLabel, roleOptions } from "../utils";
-import { SectionHeader } from "./shared";
+import { EmptyState, SectionHeader } from "./shared";
 
 export function UserManagementPanel({
   actionResult,
@@ -92,59 +92,66 @@ export function UserManagementPanel({
           {actionResult.message}
         </Alert>
       ) : null}
-      <Box
-        className="admin-table"
-        tabIndex={0}
-        aria-label="User management table, scroll horizontally on small screens"
-      >
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>User</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Agency</TableCell>
-              <TableCell>MFA</TableCell>
-              <TableCell>Last login</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>
-                  <Typography fontWeight={800}>{user.name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {user.email}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    className="role-chip"
-                    size="small"
-                    color={
-                      user.role === "system_admin" ? "primary" : "default"
-                    }
-                    label={roleLabel(user.role)}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{user.agency.name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {user.accessScope}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    size="small"
-                    color={user.mfaEnabled ? "success" : "warning"}
-                    label={user.mfaEnabled ? "Enabled" : "Setup pending"}
-                  />
-                </TableCell>
-                <TableCell>{formatDateTime(user.lastLoginAt)}</TableCell>
+      {users.length ? (
+        <Box
+          className="admin-table"
+          tabIndex={0}
+          aria-label="User management table, scroll horizontally on small screens"
+        >
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>User</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Agency</TableCell>
+                <TableCell>MFA</TableCell>
+                <TableCell>Last login</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Box>
+            </TableHead>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    <Typography fontWeight={800}>{user.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {user.email}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      className="role-chip"
+                      size="small"
+                      color={
+                        user.role === "system_admin" ? "primary" : "default"
+                      }
+                      label={roleLabel(user.role)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{user.agency.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {user.accessScope}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      color={user.mfaEnabled ? "success" : "warning"}
+                      label={user.mfaEnabled ? "Enabled" : "Setup pending"}
+                    />
+                  </TableCell>
+                  <TableCell>{formatDateTime(user.lastLoginAt)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
+      ) : (
+        <EmptyState
+          title="No users yet"
+          detail="Provision authority access with Create user. New users appear here once created."
+        />
+      )}
 
       <Dialog open={open} onClose={closeDialog} maxWidth="sm" fullWidth>
         <DialogTitle

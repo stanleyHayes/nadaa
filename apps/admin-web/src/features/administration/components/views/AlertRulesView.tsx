@@ -1,8 +1,9 @@
-import { Stack } from "@mui/material";
+import { Paper, Stack } from "@mui/material";
 import { BellRing } from "lucide-react";
 import type { AdminData } from "../../useAdminData";
 import { AlertRulePanel } from "../AlertRulePanel";
-import { ViewIntro } from "../primitives";
+import { EmptyState, ErrorState } from "../index";
+import { SkeletonRows, ViewIntro } from "../primitives";
 
 export function AlertRulesView({ data }: { data: AdminData }) {
   return (
@@ -12,7 +13,20 @@ export function AlertRulesView({ data }: { data: AdminData }) {
         title="Alert rules"
         description="Approval, emergency override, targeting, and audit controls that keep every public broadcast human-approved."
       />
-      <AlertRulePanel rules={data.alertRules} />
+      {data.loadState === "loading" ? (
+        <Paper className="surface">
+          <SkeletonRows rows={4} />
+        </Paper>
+      ) : data.alertRules.length ? (
+        <AlertRulePanel rules={data.alertRules} />
+      ) : data.loadState === "error" ? (
+        <ErrorState message={data.loadMessage} />
+      ) : (
+        <EmptyState
+          title="No alert rules"
+          detail="No alert governance rules are available from the alert service yet."
+        />
+      )}
     </Stack>
   );
 }

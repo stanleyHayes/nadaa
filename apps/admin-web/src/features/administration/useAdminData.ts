@@ -1,16 +1,12 @@
 import { type ChangeEvent, useEffect, useState } from "react";
-import type { CreateAgencyUserResponse } from "@nadaa/shared-types";
+import type {
+  AuditLogRecord,
+  CreateAgencyUserResponse,
+} from "@nadaa/shared-types";
 import { AUTH_API_BASE } from "@/app/config";
 import { adminHeaders } from "@/app/session";
 import { fetchAlertRules, fetchAuditLogs, fetchDataSources } from "./api";
-import {
-  defaultUserForm,
-  fallbackAgencies,
-  fallbackAlertRules,
-  fallbackAuditLogs,
-  fallbackDataSources,
-  fallbackUsers,
-} from "./data";
+import { defaultUserForm } from "./data";
 import type {
   AdminActionResult,
   AdminLoadState,
@@ -25,22 +21,20 @@ import { managedUserFromCreateResponse, validateUserForm } from "./utils";
 export type AdminData = ReturnType<typeof useAdminData>;
 
 /**
- * Central governance-console state container. Loads every agency, user, audit,
- * integration, and alert-rule surface the admin views depend on so the shell
- * can mount data once and route between views without losing state. Preserves
- * the fixture-fallback behaviour: any API surface that is unavailable falls
- * back to safe admin fixtures instead of blanking the console.
+ * Central governance-console state container. Loads the audit, integration, and
+ * alert-rule surfaces the admin views depend on from the live backends so the
+ * shell can mount data once and route between views without losing state.
+ * Collections start empty; a failed surface stays empty and the console
+ * surfaces a concise error state instead of substituting fixture data.
  */
 export function useAdminData() {
   const [loadState, setLoadState] = useState<AdminLoadState>("loading");
   const [loadMessage, setLoadMessage] = useState("Loading governance data");
-  const [agencies] = useState<ManagedAgency[]>(fallbackAgencies);
-  const [users, setUsers] = useState<ManagedAgencyUser[]>(fallbackUsers);
-  const [auditLogs, setAuditLogs] = useState(fallbackAuditLogs);
-  const [dataSources, setDataSources] =
-    useState<DataSourceSummary[]>(fallbackDataSources);
-  const [alertRules, setAlertRules] =
-    useState<AlertRuleSummary[]>(fallbackAlertRules);
+  const [agencies] = useState<ManagedAgency[]>([]);
+  const [users, setUsers] = useState<ManagedAgencyUser[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
+  const [dataSources, setDataSources] = useState<DataSourceSummary[]>([]);
+  const [alertRules, setAlertRules] = useState<AlertRuleSummary[]>([]);
   const [userForm, setUserForm] = useState<AdminUserFormState>(defaultUserForm);
   const [createBusy, setCreateBusy] = useState(false);
   const [actionResult, setActionResult] = useState<AdminActionResult>();
@@ -59,37 +53,37 @@ export function useAdminData() {
       return;
     }
 
-    let fallbackCount = 0;
+    let failureCount = 0;
     if (auditResult.status === "fulfilled") {
       setAuditLogs(auditResult.value);
     } else {
-      fallbackCount += 1;
-      setAuditLogs(fallbackAuditLogs);
+      failureCount += 1;
+      setAuditLogs([]);
     }
 
     if (sourceResult.status === "fulfilled") {
       setDataSources(sourceResult.value);
     } else {
-      fallbackCount += 1;
-      setDataSources(fallbackDataSources);
+      failureCount += 1;
+      setDataSources([]);
     }
 
     if (alertResult.status === "fulfilled") {
       setAlertRules(alertResult.value);
     } else {
-      fallbackCount += 1;
-      setAlertRules(fallbackAlertRules);
+      failureCount += 1;
+      setAlertRules([]);
     }
 
-    if (fallbackCount === 0) {
+    if (failureCount === 0) {
       setLoadState("ready");
       setLoadMessage("Governance APIs connected.");
       return;
     }
 
-    setLoadState("fallback");
+    setLoadState("error");
     setLoadMessage(
-      `${fallbackCount} governance API surface${fallbackCount === 1 ? "" : "s"} unavailable. Showing safe admin fixture data.`,
+      `${failureCount} governance API surface${failureCount === 1 ? "" : "s"} unavailable. Retry once the services are reachable.`,
     );
   };
 

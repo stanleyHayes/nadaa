@@ -1,4 +1,10 @@
-export { EmptyState, MetricCard, SectionHeader, StatusLine } from "./shared";
+export {
+  EmptyState,
+  ErrorState,
+  MetricCard,
+  SectionHeader,
+  StatusLine,
+} from "./shared";
 
 export { AgencyGovernancePanel } from "./AgencyGovernancePanel";
 export { AlertRulePanel } from "./AlertRulePanel";

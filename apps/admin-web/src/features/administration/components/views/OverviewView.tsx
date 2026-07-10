@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Grid, Stack, Typography } from "@mui/material";
+import { Alert, Button, Grid, Stack } from "@mui/material";
 import {
   ArrowRight,
   Building2,
@@ -59,12 +59,12 @@ export function OverviewView({
   const recentAudit = auditLogs.slice(0, 5);
 
   const feedLabel =
-    loadState === "ready" ? "Live" : loadState === "loading" ? "Loading" : "Fixture";
+    loadState === "ready" ? "Live" : loadState === "loading" ? "Loading" : "Offline";
 
   return (
     <Stack spacing={2.5} className="cc-overview">
-      {loadState === "fallback" ? (
-        <Alert severity="warning" className="feed-alert">
+      {loadState === "error" ? (
+        <Alert severity="error" className="feed-alert">
           {loadMessage}
         </Alert>
       ) : null}
@@ -197,8 +197,20 @@ export function OverviewView({
             <Stack spacing={1.25}>
               <PostureRow
                 label="Governance APIs"
-                value={loadState === "ready" ? "Connected" : "Fixture"}
-                tone={loadState === "ready" ? "green" : "gold"}
+                value={
+                  loadState === "ready"
+                    ? "Connected"
+                    : loadState === "loading"
+                      ? "Connecting"
+                      : "Unavailable"
+                }
+                tone={
+                  loadState === "ready"
+                    ? "green"
+                    : loadState === "loading"
+                      ? "gold"
+                      : "red"
+                }
               />
               <PostureRow
                 label="Admin session"

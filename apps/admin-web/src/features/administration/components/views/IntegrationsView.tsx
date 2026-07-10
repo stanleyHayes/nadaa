@@ -1,8 +1,8 @@
-import { Stack } from "@mui/material";
+import { Paper, Stack } from "@mui/material";
 import { DatabaseZap } from "lucide-react";
 import type { AdminData } from "../../useAdminData";
-import { DataSourcePanel, EmptyState } from "../index";
-import { ViewIntro } from "../primitives";
+import { DataSourcePanel, EmptyState, ErrorState } from "../index";
+import { SkeletonRows, ViewIntro } from "../primitives";
 
 export function IntegrationsView({ data }: { data: AdminData }) {
   return (
@@ -12,8 +12,14 @@ export function IntegrationsView({ data }: { data: AdminData }) {
         title="Data sources"
         description="Integration contracts, refresh cadence, PII posture, and safe secret scopes for partner feeds."
       />
-      {data.dataSources.length ? (
+      {data.loadState === "loading" ? (
+        <Paper className="surface">
+          <SkeletonRows rows={4} />
+        </Paper>
+      ) : data.dataSources.length ? (
         <DataSourcePanel dataSources={data.dataSources} />
+      ) : data.loadState === "error" ? (
+        <ErrorState message={data.loadMessage} />
       ) : (
         <EmptyState
           title="No data sources"

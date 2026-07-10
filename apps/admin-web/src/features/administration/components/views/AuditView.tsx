@@ -2,6 +2,7 @@ import { Paper, Stack } from "@mui/material";
 import { ScrollText } from "lucide-react";
 import type { AdminData } from "../../useAdminData";
 import { AuditLogPanel } from "../AuditLogPanel";
+import { ErrorState } from "../index";
 import { SkeletonRows, ViewIntro } from "../primitives";
 
 export function AuditView({ data }: { data: AdminData }) {
@@ -16,6 +17,8 @@ export function AuditView({ data }: { data: AdminData }) {
         <Paper className="surface">
           <SkeletonRows rows={6} />
         </Paper>
+      ) : data.loadState === "error" && data.auditLogs.length === 0 ? (
+        <ErrorState message={data.loadMessage} />
       ) : (
         <AuditLogPanel logs={data.auditLogs} />
       )}

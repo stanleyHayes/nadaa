@@ -12,7 +12,7 @@ import type {
   IntegrationDirection,
 } from "@nadaa/shared-types";
 
-export type AdminLoadState = "loading" | "ready" | "fallback" | "empty";
+export type AdminLoadState = "loading" | "ready" | "error";
 
 export type AgencyOperationalStatus = "active" | "pilot" | "review";
 

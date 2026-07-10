@@ -54,6 +54,14 @@ export function StatusLine({
   );
 }
 
+export function ErrorState({ message }: { message: string }) {
+  return (
+    <Alert severity="error" className="feed-alert">
+      {message}
+    </Alert>
+  );
+}
+
 export function EmptyState({
   detail,
   title,

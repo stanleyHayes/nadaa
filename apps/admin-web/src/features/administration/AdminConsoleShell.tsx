@@ -117,12 +117,12 @@ export function AdminConsoleShell({ session }: { session: AdminSession }) {
         tone: "gold",
       });
     }
-    if (data.loadState === "fallback") {
+    if (data.loadState === "error") {
       list.push({
-        id: "governance-fixture",
-        title: "Governance APIs on fixtures",
-        detail: "One or more admin APIs are unavailable; showing fixtures.",
-        tone: "gold",
+        id: "governance-error",
+        title: "Governance APIs unavailable",
+        detail: "One or more admin APIs could not be reached. Retry from the console.",
+        tone: "red",
       });
     }
     return list;

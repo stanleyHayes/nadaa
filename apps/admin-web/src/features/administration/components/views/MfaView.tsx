@@ -52,6 +52,9 @@ export function MfaView({ data }: { data: AdminData }) {
                   />
                 </div>
               ))}
+              {board.length === 0 ? (
+                <p className="cc-muted-note">No agencies are registered yet.</p>
+              ) : null}
             </Stack>
           </SectionCard>
         </Grid>

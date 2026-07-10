@@ -8,7 +8,6 @@ import type {
   CreateAgencyUserResponse,
   IntegrationContract,
 } from "@nadaa/shared-types";
-import { fallbackAlertRules } from "./data";
 import type {
   AdminMetric,
   AdminUserFormState,
@@ -211,10 +210,6 @@ export function dataSourceFromContract(
 export function buildAlertRulesFromAlerts(
   alerts: AuthorityAlertRecord[],
 ): AlertRuleSummary[] {
-  if (!alerts.length) {
-    return fallbackAlertRules;
-  }
-
   return alerts.slice(0, 4).map((alert) => ({
     id: `rule-${alert.id}`,
     name: `${alert.title} governance`,
