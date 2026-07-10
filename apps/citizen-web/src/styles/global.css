@@ -1948,3 +1948,99 @@ body {
     opacity: 0.4;
   }
 }
+
+/* ================================================================== *
+ * Citizen DataTable — the shared browse grid (missing persons, alerts,
+ * aid, reports). Navy Command treatment: a full-bleed tinted header band
+ * seamed by a gold hairline (the signature), airy hairline-divided rows,
+ * and a gold left-accent bar that lights up on clickable-row hover.
+ * ================================================================== */
+
+/* Let the header band, row dividers and pagination run edge-to-edge inside
+   the rounded card; each inner section owns its own padding. */
+.surface.nadaa-datatable {
+  padding: 0 !important;
+}
+
+.nadaa-datatable__toolbar {
+  border-bottom: 1px solid var(--nadaa-border-subtle);
+}
+
+/* Round the search + filter fields a touch so they sit in the brand family. */
+.nadaa-datatable__toolbar .MuiOutlinedInput-root {
+  border-radius: var(--nadaa-radius-md);
+}
+
+/* --- Header band + the gold hairline signature ------------------------- */
+.nadaa-dt-table .MuiTableHead-root .MuiTableCell-root {
+  padding-top: 15px;
+  padding-bottom: 15px;
+  background-color: color-mix(
+    in srgb,
+    var(--nadaa-navy) 5%,
+    var(--nadaa-surface-elevated)
+  );
+  color: color-mix(in srgb, var(--nadaa-navy) 70%, var(--nadaa-text-secondary));
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--nadaa-border);
+  /* the seam: a 2px gold hairline hugging the underside of the band */
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--nadaa-gold) 60%, transparent);
+}
+
+/* --- Body cells: comfortable, navy-inked, hairline-divided ------------- */
+.nadaa-dt-table .MuiTableBody-root .MuiTableCell-root {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  font-size: 0.9rem;
+  color: var(--nadaa-text-primary);
+  border-bottom: 1px solid var(--nadaa-border-subtle);
+  transition:
+    background-color var(--nadaa-dur-micro) ease,
+    box-shadow var(--nadaa-dur-micro) ease;
+}
+
+/* No divider under the final row — the pagination footer's top border seams it. */
+.nadaa-dt-table .MuiTableBody-root .MuiTableRow-root:last-of-type .MuiTableCell-root {
+  border-bottom: 0;
+}
+
+/* --- Row hover: a soft navy wash for every row ------------------------- */
+.nadaa-dt-table .MuiTableBody-root .MuiTableRow-hover:hover {
+  background-color: color-mix(in srgb, var(--nadaa-navy) 4%, transparent);
+}
+
+/* Clickable rows additionally light a gold accent bar down their leading edge. */
+.nadaa-dt-table
+  .MuiTableBody-root
+  .MuiTableRow-root[role="button"]:hover
+  .MuiTableCell-root:first-of-type {
+  box-shadow: inset 3px 0 0 var(--nadaa-gold);
+}
+
+/* Keyboard focus on a clickable row: an inset gold ring that can't be clipped
+   by the table's overflow (an outward outline on a table row often is). */
+.nadaa-dt-table .MuiTableBody-root .MuiTableRow-root[role="button"]:focus-visible {
+  outline: var(--nadaa-focus-outline);
+  outline-offset: -2px;
+}
+
+/* --- Pagination footer ------------------------------------------------- */
+.nadaa-datatable__pagination {
+  border-top: 1px solid var(--nadaa-border);
+  background-color: color-mix(
+    in srgb,
+    var(--nadaa-navy) 2%,
+    var(--nadaa-surface-elevated)
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nadaa-dt-table .MuiTableBody-root .MuiTableCell-root {
+    transition: none;
+  }
+}

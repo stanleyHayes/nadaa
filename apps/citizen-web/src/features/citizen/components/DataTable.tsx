@@ -109,9 +109,14 @@ export function DataTable<T>({
   };
 
   return (
-    <Paper className="surface" elevation={0} sx={{ overflow: "hidden" }}>
+    <Paper
+      className="surface nadaa-datatable"
+      elevation={0}
+      sx={{ overflow: "hidden" }}
+    >
       <Stack
         alignItems={{ xs: "stretch", md: "center" }}
+        className="nadaa-datatable__toolbar"
         direction={{ xs: "column", md: "row" }}
         spacing={1.5}
         sx={{ p: 2, flexWrap: "wrap" }}
@@ -160,15 +165,11 @@ export function DataTable<T>({
       </Stack>
 
       <TableContainer sx={{ maxWidth: "100%" }}>
-        <Table size="small" stickyHeader>
+        <Table className="nadaa-dt-table" size="small" stickyHeader>
           <TableHead>
             <TableRow>
               {columns.map((column) => (
-                <TableCell
-                  align={column.align}
-                  key={column.key}
-                  sx={{ fontWeight: 700, whiteSpace: "nowrap" }}
-                >
+                <TableCell align={column.align} key={column.key}>
                   {column.label}
                 </TableCell>
               ))}
@@ -225,6 +226,7 @@ export function DataTable<T>({
       </TableContainer>
 
       <TablePagination
+        className="nadaa-datatable__pagination"
         component="div"
         count={filtered.length}
         onPageChange={(_event, next) => setPage(next)}
