@@ -12,3 +12,6 @@ export const MISSING_PERSON_API_BASE =
   import.meta.env.VITE_MISSING_PERSON_API_URL ?? "http://localhost:8101/api/v1";
 export const DAMAGE_CLAIM_API_BASE =
   import.meta.env.VITE_DAMAGE_CLAIM_SERVICE_URL ?? "http://localhost:8098";
+
+export const IMAGERY_API_BASE =
+  import.meta.env.VITE_IMAGERY_API_URL ?? "http://localhost:8099/api/v1";

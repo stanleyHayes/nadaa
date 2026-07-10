@@ -2184,3 +2184,77 @@ export interface VerifyDamageClaimRequest {
 export interface CloseDamageClaimRequest {
   reason: string;
 }
+
+// NADAA-140 — Drone and satellite imagery ingestion
+
+export type ImagerySource = "drone" | "satellite" | "other";
+
+export type ImageryStatus = "active" | "expired";
+
+export interface ImageryGeometry {
+  type: "Polygon";
+  coordinates: number[][][];
+}
+
+export interface ImageryRecord {
+  id: string;
+  reference: string;
+  source: ImagerySource;
+  captureTime: string;
+  geometry: ImageryGeometry;
+  coverageAreaKm2: number;
+  resolutionMeters: number;
+  license?: string;
+  relatedIncidentId?: string;
+  relatedRiskZoneId?: string;
+  mlWorkflowId?: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  storagePath: string;
+  status: ImageryStatus;
+  uploadedBy: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface ImageryListResponse {
+  imagery: ImageryRecord[];
+  generatedAt: string;
+}
+
+export interface ImageryLifecycleResponse {
+  expiredCount: number;
+}
+
+export interface ImageryGeoJSONFeatureProperties {
+  id: string;
+  reference: string;
+  source: ImagerySource;
+  captureTime: string;
+  resolutionMeters: number;
+  downloadUrl: string;
+}
+
+export interface ImageryGeoJSONFeature {
+  type: "Feature";
+  geometry: ImageryGeometry;
+  properties: ImageryGeoJSONFeatureProperties;
+}
+
+export interface ImageryGeoJSONFeatureCollection {
+  type: "FeatureCollection";
+  features: ImageryGeoJSONFeature[];
+}
+
+export interface CreateImageryRequest {
+  source: ImagerySource;
+  captureTime: string;
+  geometry: string;
+  coverageAreaKm2: string;
+  resolutionMeters: string;
+  license?: string;
+  relatedIncidentId?: string;
+  relatedRiskZoneId?: string;
+  mlWorkflowId?: string;
+}

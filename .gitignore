@@ -22,6 +22,7 @@ coverage/
 # Go
 bin/
 *.test
+services/*/*-service
 
 # Python
 __pycache__/
