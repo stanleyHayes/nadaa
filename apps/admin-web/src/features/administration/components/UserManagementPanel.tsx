@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
 import {
   Alert,
   Box,
@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
   Stack,
@@ -20,8 +21,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { KeyRound, UserPlus, X } from "lucide-react";
+import { KeyRound, Search, UserPlus, X } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
+import type { AgencyUserRole } from "@nadaa/shared-types";
 import type {
   AdminActionResult,
   AdminUserFormState,
@@ -31,21 +33,28 @@ import type {
 import { formatDateTime, roleLabel, roleOptions } from "../utils";
 import { EmptyState, SectionHeader } from "./shared";
 
+type RoleFilter = AgencyUserRole | "all";
+type MfaFilter = "all" | "enabled" | "pending";
+
 export function UserManagementPanel({
   actionResult,
   agencies,
   busy,
   form,
+  onClose,
   onFormChange,
   onSelectChange,
   onSubmit,
+  open,
   users,
 }: {
   agencies: ManagedAgency[];
   users: ManagedAgencyUser[];
   form: AdminUserFormState;
   busy: boolean;
+  open: boolean;
   actionResult?: AdminActionResult;
+  onClose: () => void;
   onFormChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
@@ -54,22 +63,52 @@ export function UserManagementPanel({
   ) => void;
   onSubmit: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [agencyFilter, setAgencyFilter] = useState<string>("all");
+  const [mfaFilter, setMfaFilter] = useState<MfaFilter>("all");
 
   const nameInvalid = !form.name.trim();
   const emailInvalid = !form.email.includes("@");
   const phoneInvalid = !form.phone.startsWith("+233") || form.phone.length < 8;
   const agencyInvalid = !form.agencyId;
 
-  // Close the dialog once a create succeeds; keep it open on validation or
-  // network failure so the operator does not lose their input.
-  useEffect(() => {
-    if (actionResult?.severity === "success") {
-      setOpen(false);
+  // Agency options are derived from the loaded users so the filter always
+  // matches what is actually present in the table.
+  const agencyOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const user of users) {
+      if (!seen.has(user.agency.id)) {
+        seen.set(user.agency.id, user.agency.name);
+      }
     }
-  }, [actionResult]);
+    return Array.from(seen, ([id, name]) => ({ id, name }));
+  }, [users]);
 
-  const closeDialog = () => setOpen(false);
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return users.filter((user) => {
+      if (roleFilter !== "all" && user.role !== roleFilter) {
+        return false;
+      }
+      if (agencyFilter !== "all" && user.agency.id !== agencyFilter) {
+        return false;
+      }
+      if (mfaFilter === "enabled" && !user.mfaEnabled) {
+        return false;
+      }
+      if (mfaFilter === "pending" && user.mfaEnabled) {
+        return false;
+      }
+      if (
+        query &&
+        !`${user.name} ${user.email}`.toLowerCase().includes(query)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [users, search, roleFilter, agencyFilter, mfaFilter]);
 
   return (
     <Paper className="surface">
@@ -77,24 +116,86 @@ export function UserManagementPanel({
         eyebrow="Authority access"
         title="Users, roles, and MFA state"
         icon={<KeyRound size={22} color={nadaaBrand.colors.navy} />}
-        action={
-          <Button
-            variant="contained"
-            startIcon={<UserPlus size={18} />}
-            onClick={() => setOpen(true)}
-          >
-            Create user
-          </Button>
-        }
       />
       {actionResult?.severity === "success" ? (
         <Alert severity="success" sx={{ mb: 2 }}>
           {actionResult.message}
         </Alert>
       ) : null}
-      {users.length ? (
+
+      <Box className="cc-table-toolbar">
+        <TextField
+          className="cc-table-toolbar__search"
+          size="small"
+          placeholder="Search name or email"
+          aria-label="Search users by name or email"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={16} color={nadaaBrand.colors.slate} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <TextField
+          className="cc-table-toolbar__filter"
+          select
+          size="small"
+          label="Role"
+          value={roleFilter}
+          onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}
+        >
+          <MenuItem value="all">All roles</MenuItem>
+          {roleOptions.map((role) => (
+            <MenuItem key={role} value={role}>
+              {roleLabel(role)}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          className="cc-table-toolbar__filter"
+          select
+          size="small"
+          label="Agency"
+          value={agencyFilter}
+          onChange={(event) => setAgencyFilter(event.target.value)}
+        >
+          <MenuItem value="all">All agencies</MenuItem>
+          {agencyOptions.map((agency) => (
+            <MenuItem key={agency.id} value={agency.id}>
+              {agency.name}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          className="cc-table-toolbar__filter"
+          select
+          size="small"
+          label="MFA"
+          value={mfaFilter}
+          onChange={(event) => setMfaFilter(event.target.value as MfaFilter)}
+        >
+          <MenuItem value="all">All MFA states</MenuItem>
+          <MenuItem value="enabled">Enabled</MenuItem>
+          <MenuItem value="pending">Setup pending</MenuItem>
+        </TextField>
+      </Box>
+
+      {users.length === 0 ? (
+        <EmptyState
+          title="No users yet"
+          detail="Provision authority access with Create user. New users appear here once created."
+        />
+      ) : filteredUsers.length === 0 ? (
+        <EmptyState
+          title="No matching users"
+          detail="No users match the current search and filters. Adjust or clear them to see more."
+        />
+      ) : (
         <Box
-          className="admin-table"
+          className="admin-table cc-datatable"
           tabIndex={0}
           aria-label="User management table, scroll horizontally on small screens"
         >
@@ -109,7 +210,7 @@ export function UserManagementPanel({
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <Typography fontWeight={800}>{user.name}</Typography>
@@ -135,6 +236,7 @@ export function UserManagementPanel({
                   </TableCell>
                   <TableCell>
                     <Chip
+                      className="status-chip"
                       size="small"
                       color={user.mfaEnabled ? "success" : "warning"}
                       label={user.mfaEnabled ? "Enabled" : "Setup pending"}
@@ -146,14 +248,9 @@ export function UserManagementPanel({
             </TableBody>
           </Table>
         </Box>
-      ) : (
-        <EmptyState
-          title="No users yet"
-          detail="Provision authority access with Create user. New users appear here once created."
-        />
       )}
 
-      <Dialog open={open} onClose={closeDialog} maxWidth="sm" fullWidth>
+      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
         <DialogTitle
           sx={{
             display: "flex",
@@ -163,7 +260,7 @@ export function UserManagementPanel({
           }}
         >
           Provision authority access
-          <IconButton aria-label="Close" size="small" onClick={closeDialog}>
+          <IconButton aria-label="Close" size="small" onClick={onClose}>
             <X size={18} />
           </IconButton>
         </DialogTitle>
@@ -246,7 +343,7 @@ export function UserManagementPanel({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeDialog} disabled={busy}>
+          <Button onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button
