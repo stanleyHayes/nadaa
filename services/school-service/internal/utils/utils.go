@@ -64,7 +64,7 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		}
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-NADAA-Actor-ID, X-NADAA-Actor-Role, X-NADAA-Actor-District, X-NADAA-Agency-ID, X-NADAA-MFA-Completed, X-NADAA-Request-ID")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
 }
 
 // EnvOrDefault returns the value of key or fallback if unset.
