@@ -22,11 +22,11 @@ NADAA cell broadcast capability.
   classification. Ghana deployment maps onto the operator's Cell Broadcast Centre
   (CBC) per the national emergency-alerting agreement.
 - **Channels (message identifiers):**
-  | Identifier | Label | Handset category | Source severity | Override |
-  |-----------:|-------|------------------|-----------------|----------|
-  | 4370 | presidential | Presidential Alert | extreme / critical / catastrophic | yes — bypasses opt-out |
-  | 4371 | extreme | Extreme Alert | severe / high | no |
-  | 4373 | severe | Severe Alert | everything else eligible | no |
+  | Identifier | Label        | Handset category   | Source severity                   | Override               |
+  | ---------: | ------------ | ------------------ | --------------------------------- | ---------------------- |
+  |       4370 | presidential | Presidential Alert | extreme / critical / catastrophic | yes — bypasses opt-out |
+  |       4371 | extreme      | Extreme Alert      | severe / high                     | no                     |
+  |       4373 | severe       | Severe Alert       | everything else eligible          | no                     |
 - **Reserved use:** CB is reserved for severe-and-above hazards. Lower-severity
   advisories use push/SMS/voice, not cell broadcast.
 - **Languages:** en, tw (Twi), ga (Ga), ee (Ewe), dag (Dagbani), ha (Hausa). One
@@ -66,10 +66,10 @@ The telecom integration is isolated behind the `CellBroadcastAdapter` interface 
 the official path, a sandbox simulator, or a disabled no-op can be swapped without
 touching approval or audit logic. `NADAA_CELL_BROADCAST_MODE` selects the adapter:
 
-| Mode | Adapter | Behavior |
-|------|---------|----------|
+| Mode                 | Adapter        | Behavior                                                                              |
+| -------------------- | -------------- | ------------------------------------------------------------------------------------- |
 | `disabled` (default) | `disabled_cbc` | Records every dispatch as `skipped`. Safe default until the live agreement is active. |
-| `sandbox` | `sandbox_cbc` | In-process simulator. Live sends record `broadcast`; dry runs record `simulated`. |
+| `sandbox`            | `sandbox_cbc`  | In-process simulator. Live sends record `broadcast`; dry runs record `simulated`.     |
 
 A real telecom integration registers its adapter in
 `handlers.CellBroadcastAdapterFromMode` and is added to this table. **Do not enable
@@ -112,7 +112,7 @@ officer are available; `NADAA_CELL_BROADCAST_MODE` is set to the intended adapte
   status, language, serial number, and target areas.
 - **Structured logs:** generation, review, dispatch, and skip events emit
   structured logs (`cell broadcast message generated/reviewed`, `cell broadcast
-  segment dispatched/skipped`). Ship these to the observability stack (see
+segment dispatched/skipped`). Ship these to the observability stack (see
   NADAA-170) and alert on unexpected `failed`/`skipped` rates.
 - **Metrics to watch:** dispatch count by channel and status, review latency
   (generate → approve), truncation rate, and adapter error rate.
