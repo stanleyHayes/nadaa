@@ -10,10 +10,9 @@ import { ReportPage } from "./pages/ReportPage";
 import { SheltersPage } from "./pages/SheltersPage";
 
 /**
- * Router root for the citizen PWA. The former single-page app now lives at
- * `legacy/LegacyCitizenApp.tsx` as the reference each per-page migration copies
- * from. Every route renders a self-contained page inside the shared
- * `CitizenLayout` chrome (glass header, emergency 112 band, scroll-to-top).
+ * Router root for the citizen PWA. Every route renders a self-contained page
+ * inside the shared `CitizenLayout` chrome (glass header with mobile drawer,
+ * persistent emergency 112 band, scroll-to-top).
  */
 export default function CitizenApp() {
   return (
