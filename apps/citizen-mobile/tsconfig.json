@@ -1,8 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["./src/types/native-runtime"],
-    "baseUrl": "."
+    "types": ["./src/types/native-runtime"]
   },
   "include": ["App.tsx", "src"],
   "exclude": ["node_modules", "dist"]
