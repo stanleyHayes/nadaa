@@ -12,6 +12,7 @@ export {
   type DataTableFilter,
 } from "./DataTable";
 export { FormDialogButton } from "./FormDialogButton";
+export { DetailDialog, type DetailField } from "./DetailDialog";
 export { AnimatedCounter } from "./AnimatedCounter";
 export { CitizenHeader } from "./CitizenHeader";
 export { EmergencyBand } from "./EmergencyBand";

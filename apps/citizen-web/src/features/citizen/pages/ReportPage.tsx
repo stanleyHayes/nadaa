@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Button,
@@ -54,6 +54,8 @@ import {
   DataTable,
   type DataTableColumn,
   FormDialogButton,
+  DetailDialog,
+  type DetailField,
   PageHeader,
   Reveal,
 } from "../components";
@@ -123,6 +125,17 @@ const reportColumns: DataTableColumn<SavedReport>[] = [
 ];
 
 /**
+ * Runs `onOpen` once each time it mounts. `FormDialogButton` mounts the form
+ * only while its dialog is open, so rendering this inside the form resets the
+ * report's transient state on every open — no stale success/error banner ever
+ * lingers over a freshly opened form. Renders nothing.
+ */
+function ResetOnOpen({ onOpen }: { onOpen: () => void }) {
+  useEffect(onOpen, [onOpen]);
+  return null;
+}
+
+/**
  * Incident reporting (route `/report`). Info-first: everyone sees how reporting
  * works, the form lives behind an auth-gated `FormDialogButton`, and signed-in
  * citizens get their own saved reports as a table. Migrated from the legacy
@@ -138,6 +151,16 @@ export function ReportPage() {
   const [reportErrors, setReportErrors] = useState<
     Partial<Record<keyof ReportForm, string>>
   >({});
+  // The saved report opened in the read-only detail dialog (list/detail split).
+  const [detailReport, setDetailReport] = useState<SavedReport | null>(null);
+
+  // Clear any transient success/error banner (and stale field errors) so the
+  // form starts clean each time the dialog reopens. Stable so `ResetOnOpen`
+  // fires it once per open, not on every keystroke.
+  const resetReportState = useCallback(() => {
+    setReportState({ status: "idle" });
+    setReportErrors({});
+  }, []);
 
   const clearReportError = (key: keyof ReportForm) => {
     setReportErrors((current) => {
@@ -347,6 +370,7 @@ export function ReportPage() {
       onSubmit={(event) => void submitReport(event, close)}
       noValidate
     >
+      <ResetOnOpen onOpen={resetReportState} />
       <FormControl fullWidth error={Boolean(reportErrors.hazard)}>
         <InputLabel id="report-hazard-label">Hazard type</InputLabel>
         <Select
@@ -570,19 +594,8 @@ export function ReportPage() {
           {reportState.message}
         </Alert>
       ) : null}
-      {reportState.status === "success" ? (
-        <Alert
-          severity={reportState.priorityReview ? "warning" : "success"}
-          className="warning-alert"
-        >
-          <Typography variant="subtitle2">
-            Report {reportState.reference} received
-          </Typography>
-          <Typography variant="body2">
-            Call 112 if anyone is in immediate danger. Saved to your reports.
-          </Typography>
-        </Alert>
-      ) : null}
+      {/* The success confirmation is surfaced at the panel level (below "Your
+          reports") after the dialog closes — see the panel-level Alert. */}
       <Button
         type="submit"
         variant="contained"
@@ -668,10 +681,28 @@ export function ReportPage() {
                   tone="green"
                   as="h3"
                 />
+                {/* Panel-level success confirmation, shown after the dialog
+                    closes — the in-dialog Alert could never render because the
+                    dialog unmounts its children on close. Cleared on reopen. */}
+                {reportState.status === "success" ? (
+                  <Alert
+                    severity={reportState.priorityReview ? "warning" : "success"}
+                    className="warning-alert"
+                  >
+                    <Typography variant="subtitle2">
+                      Report {reportState.reference} received
+                    </Typography>
+                    <Typography variant="body2">
+                      Call 112 if anyone is in immediate danger. Saved to your
+                      reports.
+                    </Typography>
+                  </Alert>
+                ) : null}
                 <DataTable
                   rows={savedReports}
                   columns={reportColumns}
                   getRowKey={(report) => report.reference}
+                  onRowClick={setDetailReport}
                   searchOf={(report) =>
                     `${report.reference} ${hazardLabel(
                       report.hazard as HazardType,
@@ -705,6 +736,54 @@ export function ReportPage() {
           )}
         </div>
       </div>
+
+      {/* Light-detail half of the list/detail split: a report row opens this
+          read-only dialog instead of expanding inline. */}
+      <DetailDialog
+        open={Boolean(detailReport)}
+        onClose={() => setDetailReport(null)}
+        title={detailReport ? `Report ${detailReport.reference}` : ""}
+        subtitle={
+          detailReport
+            ? hazardLabel(detailReport.hazard as HazardType)
+            : undefined
+        }
+        fields={
+          detailReport
+            ? ([
+                { label: "Reference", value: detailReport.reference },
+                {
+                  label: "Hazard type",
+                  value: hazardLabel(detailReport.hazard as HazardType),
+                },
+                {
+                  label: "Urgency",
+                  value: urgencyLabel(detailReport.urgency),
+                },
+                {
+                  label: "Submitted",
+                  value: formatDateTime(detailReport.at),
+                },
+                {
+                  label: "Status",
+                  value: (
+                    <Chip
+                      size="small"
+                      label={
+                        detailReport.priorityReview
+                          ? "Priority review"
+                          : "Submitted"
+                      }
+                      color={
+                        detailReport.priorityReview ? "warning" : "success"
+                      }
+                    />
+                  ),
+                },
+              ] satisfies DetailField[])
+            : []
+        }
+      />
     </>
   );
 }

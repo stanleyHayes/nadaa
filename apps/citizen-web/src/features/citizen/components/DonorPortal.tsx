@@ -25,6 +25,7 @@ import type {
 import { DONATION_API_BASE } from "@/app/config";
 import { useCitizenSession } from "../session";
 import { DataTable, type DataTableColumn, type DataTableFilter } from "./DataTable";
+import { DetailDialog, type DetailField } from "./DetailDialog";
 import { FormDialogButton } from "./FormDialogButton";
 
 const fallbackCatalog: AidCatalogRecord[] = [
@@ -187,6 +188,12 @@ export function DonorPortal() {
   const [registeredDonor, setRegisteredDonor] = useState<DonorRecord | null>(
     null,
   );
+  // Dialog-scoped errors: validation/network failures inside a modal must
+  // surface within that modal, not on the panel Alert hidden behind its backdrop.
+  const [donorError, setDonorError] = useState("");
+  const [pledgeError, setPledgeError] = useState("");
+  const [detailRequest, setDetailRequest] =
+    useState<DonationAidRequestRecord | null>(null);
 
   const refresh = async (signal?: AbortSignal) => {
     setLoadState("loading");
@@ -271,7 +278,7 @@ export function DonorPortal() {
       return false;
     }
     if (!donorForm.name.trim()) {
-      setFeedback("Please enter your name or organization to register.");
+      setDonorError("Please enter your name or organization to register.");
       return false;
     }
 
@@ -286,6 +293,7 @@ export function DonorPortal() {
     };
 
     setBusy(true);
+    setDonorError("");
     setFeedback("");
     try {
       const response = await fetch(`${DONATION_API_BASE}/donors`, {
@@ -304,7 +312,7 @@ export function DonorPortal() {
       );
       return true;
     } catch {
-      setFeedback(
+      setDonorError(
         "Donor registration could not reach the donation service. Try again later.",
       );
       return false;
@@ -327,7 +335,7 @@ export function DonorPortal() {
       !Number.isFinite(quantityPledged) ||
       quantityPledged <= 0
     ) {
-      setFeedback("Enter your name and a positive quantity to pledge.");
+      setPledgeError("Enter your name and a positive quantity to pledge.");
       return false;
     }
 
@@ -340,6 +348,7 @@ export function DonorPortal() {
     };
 
     setBusy(true);
+    setPledgeError("");
     setFeedback("");
     try {
       const response = await fetch(
@@ -383,7 +392,7 @@ export function DonorPortal() {
       );
       return true;
     } catch {
-      setFeedback(
+      setPledgeError(
         "Pledge could not be submitted. The donation service may be offline.",
       );
       return false;
@@ -544,6 +553,7 @@ export function DonorPortal() {
 
   const donorFormFields = (close: () => void) => (
     <Stack spacing={1.5} sx={{ pt: 1 }}>
+      {donorError ? <Alert severity="error">{donorError}</Alert> : null}
       <Grid container spacing={1}>
         <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
@@ -618,6 +628,7 @@ export function DonorPortal() {
 
   const pledgeFormFields = (close: () => void) => (
     <Stack spacing={1.5} sx={{ pt: 1 }}>
+      {pledgeError ? <Alert severity="error">{pledgeError}</Alert> : null}
       <TextField
         select
         label="Aid request"
@@ -715,6 +726,60 @@ export function DonorPortal() {
     </Stack>
   );
 
+  const detailFields: DetailField[] = detailRequest
+    ? [
+        { label: "Item / need", value: detailRequest.title, full: true },
+        { label: "Item code", value: detailRequest.itemCode },
+        {
+          label: "Region / area",
+          value:
+            [detailRequest.region, detailRequest.district]
+              .filter(Boolean)
+              .join(" · ") || "—",
+        },
+        {
+          label: "Quantity needed",
+          value: `${detailRequest.quantityFulfilled}/${detailRequest.quantityNeeded} ${detailRequest.unit}`,
+        },
+        {
+          label: "Urgency",
+          value: (
+            <Chip
+              size="small"
+              label={detailRequest.priority}
+              color={priorityColor(detailRequest.priority)}
+            />
+          ),
+        },
+        {
+          label: "Status",
+          value: (
+            <Chip
+              size="small"
+              variant="outlined"
+              label={statusLabel(detailRequest.status)}
+            />
+          ),
+        },
+        {
+          label: "Beneficiaries",
+          value: detailRequest.beneficiaryCount
+            ? detailRequest.beneficiaryCount.toLocaleString()
+            : "—",
+        },
+        {
+          label: "Requested",
+          value: new Date(detailRequest.createdAt).toLocaleDateString(),
+        },
+        { label: "Reference", value: detailRequest.reference },
+        {
+          label: "Description / notes",
+          value: detailRequest.description ?? "—",
+          full: true,
+        },
+      ]
+    : [];
+
   return (
     <Paper className="surface donor-portal">
       <Stack
@@ -781,6 +846,7 @@ export function DonorPortal() {
             searchPlaceholder="Search aid requests"
             filters={requestFilters}
             emptyMessage="No aid requests match your filters."
+            onRowClick={setDetailRequest}
             toolbarActions={
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                 <FormDialogButton
@@ -820,6 +886,14 @@ export function DonorPortal() {
           />
         </Box>
       </Stack>
+
+      <DetailDialog
+        open={Boolean(detailRequest)}
+        onClose={() => setDetailRequest(null)}
+        title={detailRequest?.title ?? ""}
+        subtitle={detailRequest?.category}
+        fields={detailFields}
+      />
     </Paper>
   );
 }

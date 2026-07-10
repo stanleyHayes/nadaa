@@ -10,10 +10,12 @@ import { NOTIFICATION_API_BASE } from "@/app/config";
 import {
   AnimatedCounter,
   DataTable,
+  DetailDialog,
   PageHeader,
   Reveal,
   type DataTableColumn,
   type DataTableFilter,
+  type DetailField,
 } from "../components";
 import { PageBanner } from "../components/PageBanner";
 import { buildFallbackAlerts } from "../data";
@@ -137,6 +139,28 @@ const alertColumns: DataTableColumn<CitizenAlertFeedItem>[] = [
 ];
 
 /**
+ * Fuller detail for a single warning, shown in the row-opened dialog (the
+ * light-detail half of the list/detail split). The long guidance/message body
+ * spans the full dialog width; the rest read as a compact definition list.
+ */
+function alertDetailFields(alert: CitizenAlertFeedItem): DetailField[] {
+  return [
+    { label: "Hazard", value: hazardLabel(alert.hazardType) },
+    { label: "Area", value: alert.targetLabel },
+    { label: "Severity", value: alertSeverityLabel(alert.severity) },
+    { label: "Status", value: ALERT_STATUS_DISPLAY[alert.status] },
+    { label: "Effective", value: formatDateTime(alert.startsAt) },
+    { label: "Expires", value: formatDateTime(alert.expiresAt) },
+    {
+      label: "Recommended action",
+      value: alert.recommendedAction,
+      full: true,
+    },
+    { label: "Guidance", value: alert.message, full: true },
+  ];
+}
+
+/**
  * Self-contained approved-warnings feed migrated from the legacy `#alerts`
  * section: loads the notification alert feed (with an offline fallback) and
  * presents current, upcoming and expired warnings in one public, searchable and
@@ -150,6 +174,9 @@ function AlertsFeed() {
     status: "idle",
     message: "Showing saved warnings until the feed refreshes.",
   });
+  const [detailAlert, setDetailAlert] = useState<CitizenAlertFeedItem | null>(
+    null,
+  );
 
   const currentAlertCount = useMemo(
     () => alertFeed.filter((alert) => alert.status === "current").length,
@@ -294,6 +321,19 @@ function AlertsFeed() {
           searchPlaceholder="Search warnings, area, or hazard"
           filters={alertFilters}
           emptyMessage="No approved alerts match your search."
+          onRowClick={setDetailAlert}
+        />
+
+        <DetailDialog
+          open={detailAlert !== null}
+          onClose={() => setDetailAlert(null)}
+          title={detailAlert?.title}
+          subtitle={
+            detailAlert
+              ? `${hazardLabel(detailAlert.hazardType)} · ${detailAlert.targetLabel}`
+              : undefined
+          }
+          fields={detailAlert ? alertDetailFields(detailAlert) : []}
         />
       </Stack>
     </Reveal>

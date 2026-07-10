@@ -43,6 +43,9 @@ type DataTableProps<T> = {
   pageSize?: number;
   emptyMessage?: string;
   toolbarActions?: ReactNode;
+  /** When set, rows become clickable (and keyboard-activatable) and this fires
+   * with the row — used to open a detail dialog or navigate to a detail page. */
+  onRowClick?: (row: T) => void;
 };
 
 /**
@@ -60,6 +63,7 @@ export function DataTable<T>({
   pageSize = 8,
   emptyMessage = "No records to show.",
   toolbarActions,
+  onRowClick,
 }: DataTableProps<T>) {
   const [query, setQuery] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
@@ -88,7 +92,11 @@ export function DataTable<T>({
     });
   }, [rows, query, filters, filterValues, searchOf]);
 
-  const pageStart = page * rowsPerPage;
+  // Clamp the page so a shrinking `rows` prop (e.g. a refresh returning fewer
+  // records) can't strand the view on an out-of-range, blank page.
+  const lastPage = Math.max(0, Math.ceil(filtered.length / rowsPerPage) - 1);
+  const currentPage = Math.min(page, lastPage);
+  const pageStart = currentPage * rowsPerPage;
   const pageRows = filtered.slice(pageStart, pageStart + rowsPerPage);
 
   const setFilter = (key: string, value: string) => {
@@ -173,7 +181,24 @@ export function DataTable<T>({
               </TableRow>
             ) : (
               pageRows.map((row) => (
-                <TableRow hover key={getRowKey(row)}>
+                <TableRow
+                  hover
+                  key={getRowKey(row)}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
+                  role={onRowClick ? "button" : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  sx={onRowClick ? { cursor: "pointer" } : undefined}
+                >
                   {columns.map((column) => (
                     <TableCell align={column.align} key={column.key}>
                       {column.render
@@ -198,7 +223,7 @@ export function DataTable<T>({
           setRowsPerPage(parseInt(event.target.value, 10));
           setPage(0);
         }}
-        page={page}
+        page={currentPage}
         rowsPerPage={rowsPerPage}
         rowsPerPageOptions={[8, 16, 32]}
       />

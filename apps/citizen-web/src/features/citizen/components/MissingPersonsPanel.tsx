@@ -1,4 +1,11 @@
-import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Alert,
   Box,
@@ -22,7 +29,27 @@ import type {
 import { MISSING_PERSON_API_BASE } from "@/app/config";
 import { useCitizenSession } from "../session";
 import { DataTable, type DataTableColumn } from "./DataTable";
+import { DetailDialog, type DetailField } from "./DetailDialog";
 import { FormDialogButton } from "./FormDialogButton";
+
+// Report-form messaging, kept separate from the public data-load Alert so a
+// submit-time validation/success/error message never leaks into (or reddens)
+// the public browse banner. Rendered by the in-dialog Alert only.
+type FormState = { status: "idle" | "error" | "success"; message: string };
+const IDLE_FORM_STATE: FormState = { status: "idle", message: "" };
+
+/**
+ * Resets the report form's message back to idle whenever the form dialog
+ * (re)opens. `FormDialogButton` unmounts its children on close and remounts
+ * them on open, so this mount-only effect fires once per open — clearing a
+ * stale success/error banner from the previous session. `reset` must be stable.
+ */
+function FormStateReset({ reset }: { reset: () => void }) {
+  useEffect(() => {
+    reset();
+  }, [reset]);
+  return null;
+}
 
 type LoadState = "loading" | "ready" | "fallback" | "error";
 
@@ -183,7 +210,13 @@ export default function MissingPersonsPanel() {
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [feedback, setFeedback] = useState("Loading approved public cases");
   const [form, setForm] = useState<MissingPersonForm>(buildDefaultForm());
+  const [formState, setFormState] = useState<FormState>(IDLE_FORM_STATE);
   const [busy, setBusy] = useState(false);
+  const [detail, setDetail] = useState<PublicMissingPersonRecord | null>(null);
+
+  // Stable so the FormStateReset mount effect fires only on dialog (re)open,
+  // never on the re-render caused by setting a success/error message.
+  const resetFormState = useCallback(() => setFormState(IDLE_FORM_STATE), []);
 
   const refresh = async (signal?: AbortSignal) => {
     setLoadState("loading");
@@ -242,7 +275,7 @@ export default function MissingPersonsPanel() {
       setForm((current) => ({ ...current, [key]: value }));
     };
 
-  const submit = async (event: FormEvent<HTMLFormElement>, close: () => void) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!session) {
       requestSignIn();
@@ -257,13 +290,17 @@ export default function MissingPersonsPanel() {
       !form.reporterPhone.trim() ||
       !form.reporterRelationship.trim()
     ) {
-      setFeedback("Complete person, location, and reporter details first.");
-      setLoadState("error");
+      setFormState({
+        status: "error",
+        message: "Complete person, location, and reporter details first.",
+      });
       return;
     }
     if (!form.consentToContact) {
-      setFeedback("Contact consent is required so authorities can follow up.");
-      setLoadState("error");
+      setFormState({
+        status: "error",
+        message: "Contact consent is required so authorities can follow up.",
+      });
       return;
     }
 
@@ -306,20 +343,74 @@ export default function MissingPersonsPanel() {
         throw new Error(`missing-person API returned ${response.status}`);
       }
       setForm(buildDefaultForm());
-      setLoadState("ready");
-      setFeedback(
-        "Report received privately. Authorities will review before any public visibility.",
-      );
-      close();
+      setFormState({
+        status: "success",
+        message:
+          "Report received privately. Authorities will review before any public visibility.",
+      });
     } catch {
-      setLoadState("error");
-      setFeedback(
-        "Could not submit the report. Call 112 immediately if someone is at risk.",
-      );
+      setFormState({
+        status: "error",
+        message:
+          "Could not submit the report. Call 112 immediately if someone is at risk.",
+      });
     } finally {
       setBusy(false);
     }
   };
+
+  // Fuller detail for the row-opened dialog. Built only when a row is selected;
+  // the public record intentionally omits reporter PII, so contact stays a
+  // "report sightings" note rather than exposing private details.
+  const detailFields: DetailField[] = detail
+    ? [
+        {
+          label: "Status",
+          value: (
+            <Chip
+              label={statusLabel(detail.status)}
+              color={STATUS_META[detail.status].color}
+              size="small"
+            />
+          ),
+        },
+        {
+          label: "Age / gender",
+          value: `${detail.age ?? "—"} / ${detail.gender ?? "unknown"}`,
+        },
+        { label: "Last seen", value: formatDate(detail.lastSeenAt) },
+        { label: "Reported", value: formatDate(detail.updatedAt) },
+        {
+          label: "Last seen location",
+          full: true,
+          value: `${detail.lastSeenLocation.label} — ${detail.lastSeenLocation.district}, ${detail.lastSeenLocation.region}`,
+        },
+        { label: "Description", full: true, value: detail.description },
+        ...(detail.publicSummary
+          ? [
+              {
+                label: "Public notes",
+                full: true,
+                value: detail.publicSummary,
+              } satisfies DetailField,
+            ]
+          : []),
+        ...(detail.relatedIncidentId
+          ? [
+              {
+                label: "Related incident",
+                value: detail.relatedIncidentId,
+              } satisfies DetailField,
+            ]
+          : []),
+        {
+          label: "Contact",
+          full: true,
+          value:
+            "Report sightings to authorities on 112. Reporter contact details are held privately pending review.",
+        },
+      ]
+    : [];
 
   return (
     <Paper className="surface report-surface">
@@ -364,6 +455,7 @@ export default function MissingPersonsPanel() {
             },
           ]}
           emptyMessage="No approved public cases match this search."
+          onRowClick={setDetail}
           toolbarActions={
             <FormDialogButton
               label="Report a missing person"
@@ -371,11 +463,15 @@ export default function MissingPersonsPanel() {
               icon={UserPlus}
               color="secondary"
             >
-              {(close) => (
-                <Box component="form" onSubmit={(event) => void submit(event, close)}>
-                  {loadState === "error" ? (
-                    <Alert severity="error" sx={{ mb: 1.5 }}>
-                      {feedback}
+              {() => (
+                <Box component="form" onSubmit={(event) => void submit(event)}>
+                  <FormStateReset reset={resetFormState} />
+                  {formState.status !== "idle" ? (
+                    <Alert
+                      severity={formState.status === "success" ? "success" : "error"}
+                      sx={{ mb: 1.5 }}
+                    >
+                      {formState.message}
                     </Alert>
                   ) : null}
                   <Grid container spacing={1.5}>
@@ -536,6 +632,16 @@ export default function MissingPersonsPanel() {
               )}
             </FormDialogButton>
           }
+        />
+
+        <DetailDialog
+          open={Boolean(detail)}
+          onClose={() => setDetail(null)}
+          title={detail?.personName}
+          subtitle={
+            detail ? `${statusLabel(detail.status)} · ${detail.reference}` : undefined
+          }
+          fields={detailFields}
         />
       </Stack>
     </Paper>
