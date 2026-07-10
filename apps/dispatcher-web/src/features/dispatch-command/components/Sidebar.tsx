@@ -8,7 +8,8 @@ import {
 } from "../navigation";
 
 type SidebarProps = {
-  activeView: ViewId;
+  /** The active section; "settings" leaves every rail item unhighlighted. */
+  activeView: ViewId | "settings";
   onSelect: (id: ViewId) => void;
   badges: Record<BadgeKey, number>;
   variant?: "rail" | "drawer";

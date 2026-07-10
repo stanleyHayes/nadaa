@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { hasCommandAccess, useDispatcherSession } from "@/app/session";
 import { dispatcherTheme } from "@/app/theme";
@@ -11,8 +12,18 @@ import { SignInScreen } from "./components/SignInScreen";
  * loads its data once access is granted.
  */
 function DispatcherCommandApp() {
-  const session = useDispatcherSession();
+  const { session, preferences } = useDispatcherSession();
   const authorized = hasCommandAccess(session);
+
+  // Apply the controller's reduced-motion preference across the whole app.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (preferences.reducedMotion) {
+      root.setAttribute("data-nadaa-reduced-motion", "reduce");
+    } else {
+      root.removeAttribute("data-nadaa-reduced-motion");
+    }
+  }, [preferences.reducedMotion]);
 
   return (
     <ThemeProvider theme={dispatcherTheme}>

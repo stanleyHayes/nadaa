@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Drawer } from "@mui/material";
-import { signOutDispatcher, type DispatcherSession } from "@/app/session";
+import { Settings } from "lucide-react";
+import {
+  signOutDispatcher,
+  useDispatcherSession,
+  type DispatcherSession,
+} from "@/app/session";
 import { useDispatchData } from "./useDispatchData";
 import {
   DEFAULT_VIEW,
@@ -8,16 +13,28 @@ import {
   isViewId,
   navItemById,
   type BadgeKey,
+  type NavItem,
   type ViewId,
 } from "./navigation";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar, type CommandNotification } from "./components/Topbar";
+import { AccountSettings, type SettingsTab } from "./account";
 import { OverviewView } from "./components/views/OverviewView";
 import { IncidentsView } from "./components/views/IncidentsView";
 import { TriageView } from "./components/views/TriageView";
 import { MLReviewView } from "./components/views/MLReviewView";
 import { AlertsView } from "./components/views/AlertsView";
 import { CapacityView } from "./components/views/CapacityView";
+
+/** Synthetic nav item so the topbar can title the settings view. */
+const SETTINGS_NAV_ITEM: NavItem = {
+  id: DEFAULT_VIEW,
+  label: "Settings",
+  description: "Manage your profile, security, notifications and preferences",
+  icon: Settings,
+};
+
+type ShellView = ViewId | "settings";
 
 const VIEW_KEY = "nadaa.dispatcher.view";
 const COLLAPSE_KEY = "nadaa.dispatcher.sidebar.collapsed";
@@ -43,11 +60,22 @@ export function DispatchCommandShell({
   session: DispatcherSession;
 }) {
   const data = useDispatchData();
-  const [activeView, setActiveView] = useState<ViewId>(readInitialView);
+  const {
+    preferences,
+    updateProfile,
+    updatePreferences,
+    setMfaEnabled,
+    changePassword,
+  } = useDispatcherSession();
+  const [activeView, setActiveView] = useState<ShellView>(readInitialView);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [collapsed, setCollapsed] = useState<boolean>(readInitialCollapsed);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
+    if (activeView === "settings") {
+      return;
+    }
     try {
       window.localStorage.setItem(VIEW_KEY, activeView);
     } catch {
@@ -125,10 +153,20 @@ export function DispatchCommandShell({
     setMobileNavOpen(false);
   };
 
+  const openSettings = (tab: SettingsTab) => {
+    setSettingsTab(tab);
+    setActiveView("settings");
+    setMobileNavOpen(false);
+  };
+
   const handleSignOut = () => {
     setMobileNavOpen(false);
     signOutDispatcher();
   };
+
+  const isSettings = activeView === "settings";
+  const topbarView = isSettings ? SETTINGS_NAV_ITEM : navItemById(activeView);
+  const topbarGroup = isSettings ? "Account" : groupLabelForView(activeView);
 
   const renderView = () => {
     switch (activeView) {
@@ -142,6 +180,19 @@ export function DispatchCommandShell({
         return <AlertsView data={data} />;
       case "capacity":
         return <CapacityView data={data} />;
+      case "settings":
+        return (
+          <AccountSettings
+            tab={settingsTab}
+            onTabChange={setSettingsTab}
+            user={session}
+            preferences={preferences}
+            onUpdateProfile={updateProfile}
+            onUpdatePreferences={updatePreferences}
+            onSetMfaEnabled={setMfaEnabled}
+            onChangePassword={changePassword}
+          />
+        );
       case "overview":
       default:
         return (
@@ -183,11 +234,12 @@ export function DispatchCommandShell({
 
       <div className="cc-main">
         <Topbar
-          view={navItemById(activeView)}
-          groupLabel={groupLabelForView(activeView)}
+          view={topbarView}
+          groupLabel={topbarGroup}
           session={session}
           notifications={notifications}
           onSignOut={handleSignOut}
+          onOpenSettings={openSettings}
           onOpenMobileNav={() => setMobileNavOpen(true)}
         />
         <main id="main-content" className="cc-content" tabIndex={-1}>
