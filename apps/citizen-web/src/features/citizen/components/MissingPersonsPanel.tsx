@@ -58,7 +58,7 @@ function FormStateReset({ reset }: { reset: () => void }) {
   return null;
 }
 
-type LoadState = "loading" | "ready" | "fallback" | "error";
+type LoadState = "loading" | "ready" | "error";
 
 interface MissingPersonForm {
   personName: string;
@@ -80,34 +80,6 @@ interface MissingPersonForm {
   consentToContact: boolean;
   consentToPublicShare: boolean;
 }
-
-const now = new Date();
-
-const fallbackMissingPersons: PublicMissingPersonRecord[] = [
-  {
-    id: "missing_001",
-    reference: "MP-20260707-001",
-    personName: "Kojo Mensah",
-    age: 12,
-    gender: "male",
-    description:
-      "Last seen wearing a blue school shirt and black shorts near the shelter registration desk.",
-    photoUrl: "https://example.test/photos/kojo-mensah.jpg",
-    lastSeenAt: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
-    lastSeenLocation: {
-      label: "Accra Metro Assembly Shelter",
-      region: "Greater Accra",
-      district: "Accra Metropolitan",
-      lat: 5.56,
-      lng: -0.2,
-    },
-    relatedIncidentId: "inc_accra_flood_0241",
-    status: "active",
-    publicSummary:
-      "Child separated during shelter registration. Please contact authorities through 112 with credible sightings.",
-    updatedAt: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
-  },
-];
 
 const buildDefaultForm = (): MissingPersonForm => ({
   personName: "",
@@ -211,9 +183,7 @@ const columns: DataTableColumn<PublicMissingPersonRecord>[] = [
 
 export default function MissingPersonsPanel() {
   const { session, requestSignIn } = useCitizenSession();
-  const [records, setRecords] = useState<PublicMissingPersonRecord[]>(
-    fallbackMissingPersons,
-  );
+  const [records, setRecords] = useState<PublicMissingPersonRecord[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [feedback, setFeedback] = useState("Loading approved public cases");
   const [form, setForm] = useState<MissingPersonForm>(buildDefaultForm());
@@ -238,7 +208,7 @@ export default function MissingPersonsPanel() {
       }
       const payload =
         (await response.json()) as PublicMissingPersonListResponse;
-      setRecords(payload.records.length ? payload.records : []);
+      setRecords(payload.records);
       setLoadState("ready");
       setFeedback(
         payload.records.length
@@ -246,9 +216,12 @@ export default function MissingPersonsPanel() {
           : "No approved public cases are published yet.",
       );
     } catch {
-      setRecords(fallbackMissingPersons);
-      setLoadState("fallback");
-      setFeedback("Using public fixture cases until the service is available.");
+      if (signal?.aborted) {
+        return;
+      }
+      setRecords([]);
+      setLoadState("error");
+      setFeedback("Couldn't reach the missing-person service. Try again shortly.");
     }
   };
 

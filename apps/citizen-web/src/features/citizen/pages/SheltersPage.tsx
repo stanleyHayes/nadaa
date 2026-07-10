@@ -5,6 +5,7 @@ import {
   Button,
   Chip,
   Grid,
+  LinearProgress,
   Paper,
   Stack,
   Typography,
@@ -23,16 +24,15 @@ import type {
   RoadClosureListResponse,
   RoadClosureRecord,
 } from "@nadaa/shared-types";
-import { ROAD_CLOSURE_API_BASE, SHELTER_API_BASE } from "@/app/config";
+import {
+  RISK_API_BASE,
+  ROAD_CLOSURE_API_BASE,
+  SHELTER_API_BASE,
+} from "@/app/config";
 import { PageBanner } from "../components/PageBanner";
 import { PageHeader, Reveal, RoutePlanner } from "../components";
-import {
-  areaPresets,
-  sampleReliefPointResponse,
-  sampleRisk,
-  sampleShelterResponse,
-} from "../data";
-import type { ShelterState } from "../types";
+import { areaPresets } from "../data";
+import type { RiskState, ShelterState } from "../types";
 import {
   extractAPIError,
   formatDistance,
@@ -43,60 +43,28 @@ import {
 } from "../utils";
 
 /**
- * Builds a shelter payload from area-risk data so the shelters panel keeps
- * showing saved resources when the shelter service is offline or unreachable.
- */
-function shelterPayloadFromRisk(
-  riskPayload: AreaRiskResponse,
-): NearbyShelterResponse {
-  const generatedAt = new Date().toISOString();
-
-  return {
-    generatedAt,
-    shelters: riskPayload.nearestShelters.map((shelter) => ({
-      id: shelter.id,
-      name: shelter.name,
-      type: "temporary_shelter",
-      region: "Greater Accra",
-      district: riskPayload.location,
-      address: riskPayload.location,
-      location: shelter.location,
-      capacity: shelter.capacity ?? 0,
-      currentOccupancy: shelter.currentOccupancy ?? 0,
-      status: shelter.status ?? "unknown",
-      contact: shelter.contact ?? "112",
-      facilities: shelter.facilities ?? [],
-      distanceMeters: shelter.distanceMeters,
-      updatedAt: generatedAt,
-    })),
-    recoverySupport: sampleShelterResponse.recoverySupport,
-  };
-}
-
-/**
  * Self-contained "Shelters, routes & relief" surface migrated from the legacy
  * `#resources` section: the evacuation route planner, nearby shelters, relief
  * distribution, recovery support, nearby responders and active road closures.
- * Shelter, relief and road-closure fixtures load for the default Accra preset
- * on mount and can be refreshed; area risk stays on saved fixtures for the
- * responders panel and the offline shelter fallback.
+ * Shelters, relief, road closures and area risk (for the responders panel) all
+ * load live from their backend services for the default Accra preset on mount
+ * and can be refreshed.
  */
 function ShelterResources() {
-  const risk: AreaRiskResponse = sampleRisk;
   const riskCoordinates = {
     lat: areaPresets[0].lat.toFixed(6),
     lng: areaPresets[0].lng.toFixed(6),
   };
-  const [shelterSupport, setShelterSupport] = useState<NearbyShelterResponse>(
-    sampleShelterResponse,
-  );
-  const [reliefPoints, setReliefPoints] = useState<ReliefPointNearbyResponse>(
-    sampleReliefPointResponse,
-  );
+  const [risk, setRisk] = useState<AreaRiskResponse | null>(null);
+  const [riskState, setRiskState] = useState<RiskState>({ status: "idle" });
+  const [shelterSupport, setShelterSupport] =
+    useState<NearbyShelterResponse | null>(null);
+  const [reliefPoints, setReliefPoints] =
+    useState<ReliefPointNearbyResponse | null>(null);
   const [roadClosures, setRoadClosures] = useState<RoadClosureRecord[]>([]);
   const [shelterState, setShelterState] = useState<ShelterState>({
-    status: "idle",
-    message: "Shelter and recovery support fixtures are ready.",
+    status: "loading",
+    message: "Checking shelters",
   });
 
   async function fetchRoadClosures(lat: number, lng: number) {
@@ -118,9 +86,40 @@ function ShelterResources() {
     }
   }
 
+  async function fetchRisk(lat: number, lng: number) {
+    if (!navigator.onLine) {
+      setRisk(null);
+      setRiskState({
+        status: "error",
+        message: "Responder lookup needs a connection. Reconnect and try again.",
+      });
+      return;
+    }
+
+    setRiskState({ status: "loading", message: "Loading responders" });
+
+    try {
+      const response = await fetch(
+        `${RISK_API_BASE}/risk?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
+      );
+      if (!response.ok) {
+        throw new Error(await extractAPIError(response));
+      }
+      const payload = (await response.json()) as AreaRiskResponse;
+      setRisk(payload);
+      setRiskState({ status: "idle" });
+    } catch {
+      setRisk(null);
+      setRiskState({
+        status: "error",
+        message: "Couldn't reach the risk service. Try refreshing.",
+      });
+    }
+  }
+
   async function fetchReliefPoints(lat: number, lng: number) {
     if (!navigator.onLine) {
-      setReliefPoints(sampleReliefPointResponse);
+      setReliefPoints(null);
       return;
     }
 
@@ -132,24 +131,18 @@ function ShelterResources() {
         throw new Error(await extractAPIError(response));
       }
       const payload = (await response.json()) as ReliefPointNearbyResponse;
-      setReliefPoints(
-        payload.reliefPoints.length ? payload : sampleReliefPointResponse,
-      );
+      setReliefPoints(payload);
     } catch {
-      setReliefPoints(sampleReliefPointResponse);
+      setReliefPoints(null);
     }
   }
 
-  async function fetchShelters(
-    lat: number,
-    lng: number,
-    riskPayload: AreaRiskResponse = risk,
-  ) {
+  async function fetchShelters(lat: number, lng: number) {
     if (!navigator.onLine) {
-      setShelterSupport(shelterPayloadFromRisk(riskPayload));
+      setShelterSupport(null);
       setShelterState({
-        status: "fallback",
-        message: "Shelter lookup needs a connection. Showing saved resources.",
+        status: "error",
+        message: "Shelter lookup needs a connection. Reconnect and try again.",
       });
       return;
     }
@@ -170,24 +163,22 @@ function ShelterResources() {
         status: "idle",
         message: "Shelter and recovery support updated.",
       });
-    } catch (error) {
-      setShelterSupport(shelterPayloadFromRisk(riskPayload));
+    } catch {
+      setShelterSupport(null);
       setShelterState({
-        status: "fallback",
-        message:
-          error instanceof Error
-            ? `Shelter service unavailable. ${error.message}`
-            : "Shelter service unavailable. Showing saved resources.",
+        status: "error",
+        message: "Couldn't reach the shelter service. Try refreshing.",
       });
     }
   }
 
   useEffect(() => {
     const { lat, lng } = areaPresets[0];
-    void fetchShelters(lat, lng, risk);
+    void fetchRisk(lat, lng);
+    void fetchShelters(lat, lng);
     void fetchReliefPoints(lat, lng);
     void fetchRoadClosures(lat, lng);
-    // Load fixtures for the default Accra preset once on mount.
+    // Load live data for the default Accra preset once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -202,7 +193,8 @@ function ShelterResources() {
       return;
     }
 
-    void fetchShelters(lat, lng, risk);
+    void fetchRisk(lat, lng);
+    void fetchShelters(lat, lng);
     void fetchReliefPoints(lat, lng);
   };
 
@@ -246,19 +238,15 @@ function ShelterResources() {
                 tone="green"
                 as="h3"
               />
-              {shelterState.status === "fallback" ||
-              shelterState.status === "error" ? (
-                <Alert
-                  severity={
-                    shelterState.status === "fallback" ? "warning" : "error"
-                  }
-                  className="warning-alert"
-                >
+              {shelterState.status === "error" ? (
+                <Alert severity="error" className="warning-alert">
                   {shelterState.message}
                 </Alert>
               ) : null}
               <Stack spacing={1.25}>
-                {shelterSupport.shelters.length > 0 ? (
+                {shelterState.status === "loading" ? (
+                  <LinearProgress className="feed-progress" />
+                ) : shelterSupport && shelterSupport.shelters.length > 0 ? (
                   shelterSupport.shelters.map((shelter) => (
                     <Paper
                       variant="outlined"
@@ -301,7 +289,7 @@ function ShelterResources() {
                       </Stack>
                     </Paper>
                   ))
-                ) : (
+                ) : shelterState.status === "error" ? null : (
                   <Alert severity="info" className="warning-alert">
                     No nearby shelters were returned for this area.
                   </Alert>
@@ -320,7 +308,9 @@ function ShelterResources() {
                 as="h3"
               />
               <Stack spacing={1.25}>
-                {reliefPoints.reliefPoints.length > 0 ? (
+                {shelterState.status === "loading" ? (
+                  <LinearProgress className="feed-progress" />
+                ) : reliefPoints && reliefPoints.reliefPoints.length > 0 ? (
                   reliefPoints.reliefPoints.map((point) => (
                     <Paper
                       variant="outlined"
@@ -370,7 +360,7 @@ function ShelterResources() {
                       </Stack>
                     </Paper>
                   ))
-                ) : (
+                ) : shelterState.status === "error" ? null : (
                   <Alert severity="info" className="warning-alert">
                     No relief distribution points were returned for this area.
                   </Alert>
@@ -389,7 +379,10 @@ function ShelterResources() {
                 as="h3"
               />
               <Stack spacing={1.25}>
-                {shelterSupport.recoverySupport.length > 0 ? (
+                {shelterState.status === "loading" ? (
+                  <LinearProgress className="feed-progress" />
+                ) : shelterSupport &&
+                  shelterSupport.recoverySupport.length > 0 ? (
                   shelterSupport.recoverySupport.map((support) => (
                     <Paper
                       variant="outlined"
@@ -426,7 +419,7 @@ function ShelterResources() {
                       </Stack>
                     </Paper>
                   ))
-                ) : (
+                ) : shelterState.status === "error" ? null : (
                   <Alert severity="info" className="warning-alert">
                     No recovery support locations were returned for this area.
                   </Alert>
@@ -445,7 +438,13 @@ function ShelterResources() {
                 as="h3"
               />
               <Stack spacing={1.25}>
-                {risk.nearbyFacilities.length > 0 ? (
+                {riskState.status === "loading" ? (
+                  <LinearProgress className="feed-progress" />
+                ) : riskState.status === "error" ? (
+                  <Alert severity="error" className="warning-alert">
+                    {riskState.message}
+                  </Alert>
+                ) : risk && risk.nearbyFacilities.length > 0 ? (
                   risk.nearbyFacilities.map((facility) => (
                     <Paper
                       variant="outlined"

@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
+import {
+  Alert,
+  Button,
+  Chip,
+  LinearProgress,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { Loader2, Megaphone, RefreshCw, ShieldCheck } from "lucide-react";
 import type {
   CitizenAlertFeedItem,
@@ -19,7 +27,6 @@ import {
   type DetailField,
 } from "../components";
 import { PageBanner } from "../components/PageBanner";
-import { buildFallbackAlerts } from "../data";
 import type { AlertFeedState } from "../types";
 import {
   alertSeverityLabel,
@@ -168,12 +175,10 @@ function alertDetailFields(alert: CitizenAlertFeedItem): DetailField[] {
  * filterable `DataTable`. Owns its own state, effect and refresh handler.
  */
 function AlertsFeed() {
-  const [alertFeed, setAlertFeed] = useState<CitizenAlertFeedItem[]>(() =>
-    buildFallbackAlerts(),
-  );
+  const [alertFeed, setAlertFeed] = useState<CitizenAlertFeedItem[]>([]);
   const [alertFeedState, setAlertFeedState] = useState<AlertFeedState>({
-    status: "idle",
-    message: "Showing saved warnings until the feed refreshes.",
+    status: "loading",
+    message: "Loading alerts",
   });
   const [detailAlert, setDetailAlert] = useState<CitizenAlertFeedItem | null>(
     null,
@@ -221,9 +226,10 @@ function AlertsFeed() {
 
   async function fetchAlertFeed() {
     if (!navigator.onLine) {
+      setAlertFeed([]);
       setAlertFeedState({
         status: "error",
-        message: "Alert feed needs a connection. Showing saved warnings.",
+        message: "Alert feed needs a connection. Reconnect and try again.",
       });
       return;
     }
@@ -239,21 +245,16 @@ function AlertsFeed() {
       }
 
       const payload = (await response.json()) as CitizenAlertFeedResponse;
-      setAlertFeed(
-        payload.alerts.length > 0 ? payload.alerts : buildFallbackAlerts(),
-      );
+      setAlertFeed(payload.alerts);
       setAlertFeedState({
         status: "idle",
         message: `Alert feed updated ${formatDateTime(payload.generatedAt)}.`,
       });
-    } catch (error) {
-      setAlertFeed(buildFallbackAlerts());
+    } catch {
+      setAlertFeed([]);
       setAlertFeedState({
         status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Live alert feed unavailable. Showing saved warnings.",
+        message: "Couldn't reach the alerts service. Try refreshing.",
       });
     }
   }
@@ -296,8 +297,11 @@ function AlertsFeed() {
             }
           />
 
+          {alertFeedState.status === "loading" ? (
+            <LinearProgress className="feed-progress" />
+          ) : null}
           {alertFeedState.status === "error" ? (
-            <Alert severity="warning" className="warning-alert">
+            <Alert severity="error" className="warning-alert">
               {alertFeedState.message}
             </Alert>
           ) : null}
@@ -312,26 +316,28 @@ function AlertsFeed() {
           ) : null}
         </Paper>
 
-        <DataTable
-          rows={alertFeed}
-          columns={alertColumns}
-          getRowKey={(alert) => alert.id}
-          searchOf={(alert) =>
-            `${alert.title} ${alert.targetLabel} ${hazardLabel(alert.hazardType)}`
-          }
-          searchPlaceholder="Search warnings, area, or hazard"
-          filters={alertFilters}
-          emptyMessage="No approved alerts match your search."
-          emptyState={
-            <EmptyState
-              icon={ShieldCheck}
-              tone="green"
-              title="No active warnings"
-              description="No approved alerts match your search — that's good news."
-            />
-          }
-          onRowClick={setDetailAlert}
-        />
+        {alertFeedState.status === "loading" && alertFeed.length === 0 ? null : (
+          <DataTable
+            rows={alertFeed}
+            columns={alertColumns}
+            getRowKey={(alert) => alert.id}
+            searchOf={(alert) =>
+              `${alert.title} ${alert.targetLabel} ${hazardLabel(alert.hazardType)}`
+            }
+            searchPlaceholder="Search warnings, area, or hazard"
+            filters={alertFilters}
+            emptyMessage="No approved alerts match your search."
+            emptyState={
+              <EmptyState
+                icon={ShieldCheck}
+                tone="green"
+                title="No active warnings"
+                description="No approved alerts match your search — that's good news."
+              />
+            }
+            onRowClick={setDetailAlert}
+          />
+        )}
 
         <DetailDialog
           open={detailAlert !== null}

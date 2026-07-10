@@ -36,95 +36,7 @@ import { DetailDialog, type DetailField } from "./DetailDialog";
 import { EmptyState } from "./EmptyState";
 import { FormDialogButton } from "./FormDialogButton";
 
-const fallbackCatalog: AidCatalogRecord[] = [
-  {
-    id: "catalog_001",
-    code: "food_parcel",
-    name: "Ready-to-eat food parcels",
-    category: "food",
-    defaultUnit: "parcels",
-    priorityScore: 90,
-  },
-  {
-    id: "catalog_002",
-    code: "water_liter",
-    name: "Clean drinking water",
-    category: "water",
-    defaultUnit: "liters",
-    priorityScore: 95,
-  },
-  {
-    id: "catalog_003",
-    code: "medical_kit",
-    name: "Emergency medical kit",
-    category: "medical",
-    defaultUnit: "kits",
-    priorityScore: 100,
-  },
-  {
-    id: "catalog_004",
-    code: "shelter_kit",
-    name: "Family shelter kit",
-    category: "shelter",
-    defaultUnit: "kits",
-    priorityScore: 85,
-  },
-  {
-    id: "catalog_005",
-    code: "hygiene_kit",
-    name: "Hygiene and sanitation kit",
-    category: "sanitation",
-    defaultUnit: "kits",
-    priorityScore: 80,
-  },
-];
-
-const fallbackAidRequests: DonationAidRequestRecord[] = [
-  {
-    id: "request_001",
-    reference: "AR-20260707-001",
-    title: "Flood relief food parcels for Accra Metropolitan",
-    description:
-      "Ready-to-eat food parcels for households displaced by flooding in central Accra.",
-    category: "food",
-    itemCode: "food_parcel",
-    quantityNeeded: 500,
-    quantityFulfilled: 0,
-    unit: "parcels",
-    priority: "high",
-    locationLabel: "Accra Metropolitan Assembly Hall",
-    region: "Greater Accra",
-    district: "Accra Metropolitan",
-    beneficiaryCount: 2500,
-    status: "open",
-    requestedBy: "seed",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "request_002",
-    reference: "AR-20260707-002",
-    title: "Emergency medical supplies for Tema",
-    description:
-      "First-aid and emergency medical kits for flood-affected communities in Tema.",
-    category: "medical",
-    itemCode: "medical_kit",
-    quantityNeeded: 200,
-    quantityFulfilled: 0,
-    unit: "kits",
-    priority: "critical",
-    locationLabel: "Tema General Hospital",
-    region: "Greater Accra",
-    district: "Tema Metropolitan",
-    beneficiaryCount: 800,
-    status: "open",
-    requestedBy: "seed",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-type LoadState = "loading" | "ready" | "fallback" | "error";
+type LoadState = "loading" | "ready" | "error";
 
 interface DonorRegistrationForm {
   name: string;
@@ -180,9 +92,8 @@ function statusLabel(status: string) {
 
 export function DonorPortal() {
   const { session, requestSignIn } = useCitizenSession();
-  const [catalog, setCatalog] = useState<AidCatalogRecord[]>(fallbackCatalog);
-  const [aidRequests, setAidRequests] =
-    useState<DonationAidRequestRecord[]>(fallbackAidRequests);
+  const [catalog, setCatalog] = useState<AidCatalogRecord[]>([]);
+  const [aidRequests, setAidRequests] = useState<DonationAidRequestRecord[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [feedback, setFeedback] = useState("Loading aid opportunities");
   const [donorForm, setDonorForm] = useState<DonorRegistrationForm>(
@@ -217,11 +128,11 @@ export function DonorPortal() {
       if (catalogResponse.ok) {
         const payload =
           (await catalogResponse.json()) as AidCatalogListResponse;
-        setCatalog(payload.items.length ? payload.items : fallbackCatalog);
+        setCatalog(payload.items);
         catalogOk = true;
       }
     } catch {
-      setCatalog(fallbackCatalog);
+      // Network failure surfaces as the error state decided below.
     }
 
     try {
@@ -234,23 +145,23 @@ export function DonorPortal() {
       if (requestsResponse.ok) {
         const payload =
           (await requestsResponse.json()) as DonationAidRequestListResponse;
-        setAidRequests(
-          payload.requests.length ? payload.requests : fallbackAidRequests,
-        );
+        setAidRequests(payload.requests);
         requestsOk = true;
       }
     } catch {
-      setAidRequests(fallbackAidRequests);
+      // Network failure surfaces as the error state decided below.
+    }
+
+    if (signal?.aborted) {
+      return;
     }
 
     if (catalogOk && requestsOk) {
       setLoadState("ready");
       setFeedback("Aid opportunities updated.");
     } else {
-      setLoadState("fallback");
-      setFeedback(
-        "Donation service is offline. Showing seeded aid requests and catalog.",
-      );
+      setLoadState("error");
+      setFeedback("Couldn't reach the donation service. Try refreshing.");
     }
   };
 
@@ -831,7 +742,7 @@ export function DonorPortal() {
               ? "success"
               : loadState === "loading"
                 ? "info"
-                : "warning"
+                : "error"
           }
           className="warning-alert"
         >

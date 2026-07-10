@@ -5,6 +5,7 @@ import {
   Button,
   Chip,
   Grid,
+  LinearProgress,
   Paper,
   Stack,
   TextField,
@@ -24,16 +25,15 @@ import {
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   AreaRiskResponse,
+  CitizenAlertFeedResponse,
   NearbyShelterResponse,
 } from "@nadaa/shared-types";
-import { RISK_API_BASE, SHELTER_API_BASE } from "@/app/config";
 import {
-  areaPresets,
-  buildFallbackAlerts,
-  buildFallbackGuides,
-  sampleRisk,
-  sampleShelterResponse,
-} from "../data";
+  NOTIFICATION_API_BASE,
+  RISK_API_BASE,
+  SHELTER_API_BASE,
+} from "@/app/config";
+import { areaPresets } from "../data";
 import type { RiskState } from "../types";
 import {
   extractAPIError,
@@ -60,23 +60,23 @@ import { PageBanner } from "../components/PageBanner";
  *
  * Self-contained: it owns the area lookup, risk fetch and the shelter markers
  * shown on its own map. Alerts, guides, relief points and road closures live on
- * their dedicated pages, so this page only derives the hero summary counts from
- * the shared offline fixtures/cache (matching the legacy initial render) instead
- * of duplicating those pages' data flows. The persistent `EmergencyBand` (112)
- * is rendered by `CitizenLayout`, so the legacy inline band is dropped here.
+ * their dedicated pages, so this page derives the hero summary counts from the
+ * live alert-feed count and the saved offline guide cache instead of duplicating
+ * those pages' full data flows. The persistent `EmergencyBand` (112) is rendered
+ * by `CitizenLayout`, so the legacy inline band is dropped here.
  */
 export function HomePage() {
   const heroAuraRef = useParallax<HTMLDivElement>(0.12);
   const [area, setArea] = useState("Accra Central");
-  const [risk, setRisk] = useState<AreaRiskResponse>(sampleRisk);
+  const [risk, setRisk] = useState<AreaRiskResponse | null>(null);
   const [riskCoordinates, setRiskCoordinates] = useState({
     lat: "5.603700",
     lng: "-0.187000",
   });
   const [riskState, setRiskState] = useState<RiskState>({ status: "idle" });
-  const [shelterSupport, setShelterSupport] = useState<NearbyShelterResponse>(
-    sampleShelterResponse,
-  );
+  const [shelterSupport, setShelterSupport] =
+    useState<NearbyShelterResponse | null>(null);
+  const [currentAlertCount, setCurrentAlertCount] = useState(0);
 
   const severityIcons = {
     low: CheckCircle2,
@@ -86,31 +86,25 @@ export function HomePage() {
     info: Info,
   };
 
-  const currentAlertCount = useMemo(
-    () =>
-      buildFallbackAlerts().filter((alert) => alert.status === "current")
-        .length,
-    [],
-  );
   const offlineGuideCount = useMemo(() => {
     const cached = readGuideCache();
-    const guides = cached?.guides ?? buildFallbackGuides();
+    const guides = cached?.guides ?? [];
     return guides.filter((guide) => guide.offlineAvailable).length;
   }, []);
 
   const floodRisk = useMemo(
-    () => risk.risks.find((item) => item.type === "flood"),
-    [risk.risks],
+    () => risk?.risks.find((item) => item.type === "flood"),
+    [risk],
   );
 
   const mapLat = Number(riskCoordinates.lat);
   const mapLng = Number(riskCoordinates.lng);
   const hasMapCoords = Number.isFinite(mapLat) && Number.isFinite(mapLng);
-  const overallSeverityRole = severityRoleFor(risk.overallRisk);
+  const overallSeverityRole = risk ? severityRoleFor(risk.overallRisk) : "info";
   const overallSeverityColor = severityRoles[overallSeverityRole].foreground;
   const shelterMarkers = useMemo<RiskMapMarker[]>(
     () =>
-      shelterSupport.shelters.slice(0, 4).map((shelter, index) => ({
+      (shelterSupport?.shelters ?? []).slice(0, 4).map((shelter, index) => ({
         lat: shelter.location.lat,
         lng: shelter.location.lng,
         title: shelter.name,
@@ -118,7 +112,7 @@ export function HomePage() {
         glyph: String(index + 1),
         kind: "shelter",
       })),
-    [shelterSupport.shelters],
+    [shelterSupport],
   );
 
   useEffect(() => {
@@ -127,6 +121,30 @@ export function HomePage() {
       areaPresets[0].lng,
       areaPresets[0].label,
     );
+  }, []);
+
+  // Live "current warnings" hero count from the notification service. Stays at
+  // 0 when the feed is unreachable rather than showing a fabricated number.
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch(
+          `${NOTIFICATION_API_BASE}/notifications/alerts`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as CitizenAlertFeedResponse;
+        setCurrentAlertCount(
+          payload.alerts.filter((alert) => alert.status === "current").length,
+        );
+      } catch {
+        // Hero count stays at 0 when the alert feed is unreachable.
+      }
+    })();
+    return () => controller.abort();
   }, []);
 
   async function fetchRisk(lat: number, lng: number, label: string) {
@@ -157,7 +175,7 @@ export function HomePage() {
         status: "idle",
         message: `Updated for ${payload.location}`,
       });
-      void fetchShelters(lat, lng, payload);
+      void fetchShelters(lat, lng);
     } catch (error) {
       setRiskState({
         status: "error",
@@ -167,13 +185,9 @@ export function HomePage() {
     }
   }
 
-  async function fetchShelters(
-    lat: number,
-    lng: number,
-    riskPayload: AreaRiskResponse = risk,
-  ) {
+  async function fetchShelters(lat: number, lng: number) {
     if (!navigator.onLine) {
-      setShelterSupport(shelterPayloadFromRisk(riskPayload));
+      setShelterSupport(null);
       return;
     }
 
@@ -188,7 +202,7 @@ export function HomePage() {
       const payload = (await response.json()) as NearbyShelterResponse;
       setShelterSupport(payload);
     } catch {
-      setShelterSupport(shelterPayloadFromRisk(riskPayload));
+      setShelterSupport(null);
     }
   }
 
@@ -283,7 +297,9 @@ export function HomePage() {
               <div>
                 <dt>Nearby shelters</dt>
                 <dd>
-                  <AnimatedCounter value={shelterSupport.shelters.length} />
+                  <AnimatedCounter
+                    value={shelterSupport?.shelters.length ?? 0}
+                  />
                 </dd>
               </div>
             </dl>
@@ -367,36 +383,48 @@ export function HomePage() {
               </Alert>
             ) : null}
 
-            <Box className="risk-score">
-              <Typography variant="overline">Overall risk</Typography>
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                flexWrap="wrap"
-              >
-                <Typography variant="h2">{risk.overallRisk}</Typography>
-                <Chip
-                  label={`${overallSeverityRole} severity`}
-                  sx={{
-                    backgroundColor:
-                      severityRoles[overallSeverityRole].background,
-                    color: overallSeverityColor,
-                    borderColor: severityRoles[overallSeverityRole].border,
-                    borderWidth: 1,
-                    borderStyle: "solid",
-                    fontWeight: 700,
-                    textTransform: "capitalize",
-                  }}
-                />
-              </Stack>
-              <Typography color="text.secondary">
-                {risk.location} is currently reporting{" "}
-                {floodRisk?.level ?? risk.overallRisk} flood risk.
-              </Typography>
-            </Box>
+            {risk ? (
+              <Box className="risk-score">
+                <Typography variant="overline">Overall risk</Typography>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  flexWrap="wrap"
+                >
+                  <Typography variant="h2">{risk.overallRisk}</Typography>
+                  <Chip
+                    label={`${overallSeverityRole} severity`}
+                    sx={{
+                      backgroundColor:
+                        severityRoles[overallSeverityRole].background,
+                      color: overallSeverityColor,
+                      borderColor: severityRoles[overallSeverityRole].border,
+                      borderWidth: 1,
+                      borderStyle: "solid",
+                      fontWeight: 700,
+                      textTransform: "capitalize",
+                    }}
+                  />
+                </Stack>
+                <Typography color="text.secondary">
+                  {risk.location} is currently reporting{" "}
+                  {floodRisk?.level ?? risk.overallRisk} flood risk.
+                </Typography>
+              </Box>
+            ) : riskState.status === "loading" ? (
+              <Box className="risk-score">
+                <Typography variant="overline">Overall risk</Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Loader2 size={18} className="spin-icon" />
+                  <Typography color="text.secondary">
+                    Checking area risk…
+                  </Typography>
+                </Stack>
+              </Box>
+            ) : null}
 
-            {hasMapCoords ? (
+            {risk && hasMapCoords ? (
               <div className="risk-map-frame">
                 <RiskMap
                   lat={mapLat}
@@ -421,11 +449,26 @@ export function HomePage() {
             <PageHeader
               icon={ShieldCheck}
               title="What's driving the risk"
-              subtitle={`Hazard signals for ${risk.location}.`}
+              subtitle={
+                risk
+                  ? `Hazard signals for ${risk.location}.`
+                  : "Hazard signals for your selected area."
+              }
               tone="gold"
             />
             <Grid container spacing={2} className="stagger">
-              {risk.risks.length > 0 ? (
+              {!risk ? (
+                <Grid size={{ xs: 12 }}>
+                  {riskState.status === "loading" ? (
+                    <LinearProgress className="feed-progress" />
+                  ) : (
+                    <Alert severity="error" className="warning-alert">
+                      Couldn't reach the risk service. Check your area again to
+                      retry.
+                    </Alert>
+                  )}
+                </Grid>
+              ) : risk.risks.length > 0 ? (
                 risk.risks.map((item) => (
                   <Grid size={{ xs: 12, md: 6 }} key={item.type}>
                     <Paper variant="outlined" className="risk-row">
@@ -507,33 +550,6 @@ export function HomePage() {
       </div>
     </>
   );
-}
-
-function shelterPayloadFromRisk(
-  riskPayload: AreaRiskResponse,
-): NearbyShelterResponse {
-  const generatedAt = new Date().toISOString();
-
-  return {
-    generatedAt,
-    shelters: riskPayload.nearestShelters.map((shelter) => ({
-      id: shelter.id,
-      name: shelter.name,
-      type: "temporary_shelter",
-      region: "Greater Accra",
-      district: riskPayload.location,
-      address: riskPayload.location,
-      location: shelter.location,
-      capacity: shelter.capacity ?? 0,
-      currentOccupancy: shelter.currentOccupancy ?? 0,
-      status: shelter.status ?? "unknown",
-      contact: shelter.contact ?? "112",
-      facilities: shelter.facilities ?? [],
-      distanceMeters: shelter.distanceMeters,
-      updatedAt: generatedAt,
-    })),
-    recoverySupport: sampleShelterResponse.recoverySupport,
-  };
 }
 
 export default HomePage;

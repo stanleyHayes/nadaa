@@ -30,7 +30,6 @@ import type {
 } from "@nadaa/shared-types";
 import { GUIDE_API_BASE } from "@/app/config";
 import {
-  buildFallbackGuides,
   guideHazardOptions,
   guideLanguageOptions,
   guideStageOptions,
@@ -69,7 +68,7 @@ export function GuidesPage() {
   });
   const [guides, setGuides] = useState<EmergencyGuideRecord[]>(() => {
     const cached = readGuideCache();
-    return cached?.guides ?? buildFallbackGuides();
+    return cached?.guides ?? [];
   });
   const [guideCacheInfo, setGuideCacheInfo] = useState<GuideCacheInfo>(() => {
     const cached = readGuideCache();
@@ -81,13 +80,13 @@ export function GuidesPage() {
         }
       : {
           cachedAt: new Date().toISOString(),
-          source: "fixture",
+          source: "network",
           language: "en",
         };
   });
   const [guideState, setGuideState] = useState<GuideState>({
-    status: "idle",
-    message: "Offline guides are ready.",
+    status: "loading",
+    message: "Loading guides",
   });
 
   const visibleGuides = useMemo(
@@ -122,15 +121,11 @@ export function GuidesPage() {
         return;
       }
 
-      setGuides(buildFallbackGuides());
-      setGuideCacheInfo({
-        cachedAt: new Date().toISOString(),
-        source: "fixture",
-        language: "en",
-      });
+      setGuides([]);
       setGuideState({
         status: "offline",
-        message: "Showing starter emergency guides until connection returns.",
+        message:
+          "You're offline and no guides are saved yet. Reconnect to download guidance.",
       });
       return;
     }
@@ -146,9 +141,7 @@ export function GuidesPage() {
       }
 
       const payload = (await response.json()) as GuideListResponse;
-      const nextGuides = payload.guides.length
-        ? payload.guides
-        : buildFallbackGuides();
+      const nextGuides = payload.guides;
       const cachedAt = new Date().toISOString();
       setGuides(nextGuides);
       setGuideCacheInfo({ cachedAt, source: "network", language });
@@ -157,7 +150,7 @@ export function GuidesPage() {
         status: "idle",
         message: `Saved ${nextGuides.length} offline guides for ${guideLanguageLabel(language)}.`,
       });
-    } catch (error) {
+    } catch {
       const cached = readGuideCache();
       if (cached?.guides.length) {
         setGuides(cached.guides);
@@ -173,18 +166,10 @@ export function GuidesPage() {
         return;
       }
 
-      setGuides(buildFallbackGuides());
-      setGuideCacheInfo({
-        cachedAt: new Date().toISOString(),
-        source: "fixture",
-        language: "en",
-      });
+      setGuides([]);
       setGuideState({
         status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Could not load emergency guides.",
+        message: "Couldn't reach the guide service. Try refreshing.",
       });
     }
   }

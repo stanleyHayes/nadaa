@@ -34,7 +34,6 @@ export type RiskState =
 export type ShelterState =
   | { status: "idle"; message?: string }
   | { status: "loading"; message: string }
-  | { status: "fallback"; message: string }
   | { status: "error"; message: string };
 
 export type AlertFeedView = "current" | "expired" | "all";
@@ -67,6 +66,6 @@ export type GuideCachePayload = {
 
 export type GuideCacheInfo = {
   cachedAt: string;
-  source: "cache" | "fixture" | "network";
+  source: "cache" | "network";
   language: string;
 };
