@@ -1,0 +1,49 @@
+name: Web CI
+
+# Reusable: called by ci.yml. Lints, typechecks, tests, and builds the pnpm
+# workspaces plus doc/security validation.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  web-and-docs:
+    name: Web, Types, And Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate docs and project assets
+        run: pnpm validate:docs
+
+      - name: Security scan
+        run: pnpm security:scan
+
+      - name: Lint workspaces
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test workspaces
+        run: pnpm test
+
+      - name: Build apps and packages
+        run: pnpm build

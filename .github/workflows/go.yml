@@ -1,0 +1,47 @@
+name: Go CI
+
+# Reusable: called by ci.yml. Runs `go test` for each Go service in parallel.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  go-tests:
+    name: Go Tests (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - services/alert-service
+          - services/auth-service
+          - services/incident-service
+          - services/guide-service
+          - services/integration-service
+          - services/ml-service
+          - services/notification-service
+          - services/risk-service
+          - services/damage-claim-service
+          - services/road-closure-service
+          - services/route-service
+          - services/school-service
+          - services/donation-service
+          - services/missing-person-service
+          - services/open-data-service
+          - services/shelter-service
+          - services/imagery-service
+          - services/campaign-service
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.service }}/go.mod
+
+      - name: Test service
+        working-directory: ${{ matrix.service }}
+        run: go test ./...

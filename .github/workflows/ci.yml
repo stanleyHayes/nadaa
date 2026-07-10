@@ -1,5 +1,8 @@
 name: CI
 
+# Orchestrator: triggers on PRs and pushes to main, then delegates to the
+# focused reusable workflows (web / go / docker). Docker builds only run once
+# web and go pass. Each job's steps live in its own small workflow file.
 on:
   pull_request:
   push:
@@ -14,154 +17,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  web-and-docs:
-    name: Web, Types, And Docs
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+  web:
+    name: Web
+    uses: ./.github/workflows/web.yml
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.8.0
+  go:
+    name: Go
+    uses: ./.github/workflows/go.yml
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Validate docs and project assets
-        run: pnpm validate:docs
-
-      - name: Security scan
-        run: pnpm security:scan
-
-      - name: Lint workspaces
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test workspaces
-        run: pnpm test
-
-      - name: Build apps and packages
-        run: pnpm build
-
-  go-tests:
-    name: Go Tests (${{ matrix.service }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - services/alert-service
-          - services/auth-service
-          - services/incident-service
-          - services/guide-service
-          - services/integration-service
-          - services/ml-service
-          - services/notification-service
-          - services/risk-service
-          - services/damage-claim-service
-          - services/road-closure-service
-          - services/route-service
-          - services/school-service
-          - services/donation-service
-          - services/missing-person-service
-          - services/open-data-service
-          - services/shelter-service
-          - services/imagery-service
-          - services/campaign-service
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: ${{ matrix.service }}/go.mod
-
-      - name: Test service
-        working-directory: ${{ matrix.service }}
-        run: go test ./...
-
-  docker-builds:
-    name: Docker Build (${{ matrix.image.name }})
-    runs-on: ubuntu-latest
+  docker:
+    name: Docker
     needs:
-      - web-and-docs
-      - go-tests
-    strategy:
-      fail-fast: false
-      matrix:
-        image:
-          - name: marketing-web
-            dockerfile: apps/marketing-web/Dockerfile
-          - name: marketing-web
-            dockerfile: apps/marketing-web/Dockerfile
-          - name: citizen-web
-            dockerfile: apps/citizen-web/Dockerfile
-          - name: authority-dashboard
-            dockerfile: apps/authority-dashboard/Dockerfile
-          - name: dispatcher-web
-            dockerfile: apps/dispatcher-web/Dockerfile
-          - name: admin-web
-            dockerfile: apps/admin-web/Dockerfile
-          - name: agency-web
-            dockerfile: apps/agency-web/Dockerfile
-          - name: alert-service
-            dockerfile: services/alert-service/Dockerfile
-          - name: auth-service
-            dockerfile: services/auth-service/Dockerfile
-          - name: incident-service
-            dockerfile: services/incident-service/Dockerfile
-          - name: guide-service
-            dockerfile: services/guide-service/Dockerfile
-          - name: integration-service
-            dockerfile: services/integration-service/Dockerfile
-          - name: ml-service
-            dockerfile: services/ml-service/Dockerfile
-          - name: notification-service
-            dockerfile: services/notification-service/Dockerfile
-          - name: risk-service
-            dockerfile: services/risk-service/Dockerfile
-          - name: road-closure-service
-            dockerfile: services/road-closure-service/Dockerfile
-          - name: route-service
-            dockerfile: services/route-service/Dockerfile
-          - name: school-service
-            dockerfile: services/school-service/Dockerfile
-          - name: donation-service
-            dockerfile: services/donation-service/Dockerfile
-          - name: missing-person-service
-            dockerfile: services/missing-person-service/Dockerfile
-          - name: open-data-service
-            dockerfile: services/open-data-service/Dockerfile
-          - name: damage-claim-service
-            dockerfile: services/damage-claim-service/Dockerfile
-          - name: shelter-service
-            dockerfile: services/shelter-service/Dockerfile
-          - name: imagery-service
-            dockerfile: services/imagery-service/Dockerfile
-          - name: campaign-service
-            dockerfile: services/campaign-service/Dockerfile
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.image.dockerfile }}
-          push: false
-          tags: nadaa/${{ matrix.image.name }}:${{ github.sha }}
+      - web
+      - go
+    uses: ./.github/workflows/docker.yml
