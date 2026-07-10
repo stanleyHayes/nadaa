@@ -21,7 +21,7 @@
     "@mui/material": "^7.2.0"
   },
   "devDependencies": {
-    "@mui/material": "^7.2.0",
+    "@mui/material": "^9.2.0",
     "typescript": "^5.8.3"
   }
 }

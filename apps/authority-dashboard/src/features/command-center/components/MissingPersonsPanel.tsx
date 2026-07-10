@@ -258,8 +258,10 @@ export default function MissingPersonsPanel() {
         <Stack
           direction="row"
           spacing={1}
-          alignItems="center"
           className="section-heading"
+          sx={{
+            alignItems: "center"
+          }}
         >
           <HeartHandshake size={21} color={nadaaBrand.colors.gold} />
           <Typography variant="h6">Missing persons</Typography>
@@ -308,7 +310,9 @@ export default function MissingPersonsPanel() {
                 <Typography variant="subtitle1">
                   {selectedRecord.personName}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   Last seen {formatDate(selectedRecord.lastSeenAt)} at{" "}
                   {selectedRecord.lastSeenLocation.label},{" "}
                   {selectedRecord.lastSeenLocation.district}
@@ -316,7 +320,9 @@ export default function MissingPersonsPanel() {
                 <Typography variant="body2">
                   {selectedRecord.description}
                 </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Stack direction="row" spacing={1} sx={{
+                  flexWrap: "wrap"
+                }}>
                   <Chip
                     size="small"
                     label={`Reporter: ${selectedRecord.reporter.relationship}`}
@@ -423,14 +429,18 @@ export default function MissingPersonsPanel() {
 
         {auditEntries.length ? (
           <Stack spacing={0.75}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Audit trail
             </Typography>
             {auditEntries.slice(-3).map((entry) => (
               <Typography
                 variant="caption"
-                color="text.secondary"
                 key={entry.id}
+                sx={{
+                  color: "text.secondary"
+                }}
               >
                 {formatDate(entry.createdAt)} · {entry.action} ·{" "}
                 {entry.actorUserId || "system"}

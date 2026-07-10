@@ -94,7 +94,7 @@ export function SignInDialog({ open, onClose, onSignIn }: SignInDialogProps) {
       fullWidth
       maxWidth="md"
       aria-labelledby="citizen-signin-title"
-      PaperProps={{ sx: { borderRadius: "16px", overflow: "hidden" } }}
+      slotProps={{ paper: { sx: { borderRadius: "16px", overflow: "hidden" } } }}
     >
       <IconButton
         aria-label="Close sign in"

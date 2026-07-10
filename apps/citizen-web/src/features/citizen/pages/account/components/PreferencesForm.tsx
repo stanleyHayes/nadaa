@@ -67,7 +67,6 @@ export function PreferencesForm({
           Preferences saved. We will use these for how and when we reach you.
         </Alert>
       ) : null}
-
       <FormControl fullWidth>
         <InputLabel id="pref-language-label">Alert language</InputLabel>
         <Select
@@ -86,7 +85,6 @@ export function PreferencesForm({
           ))}
         </Select>
       </FormControl>
-
       <FormControl fullWidth>
         <InputLabel id="pref-region-label">Region of interest</InputLabel>
         <Select
@@ -105,14 +103,14 @@ export function PreferencesForm({
           ))}
         </Select>
       </FormControl>
-
       <Divider />
-
       <div>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
           Alert channels
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Choose how official warnings reach you.
         </Typography>
         <FormGroup sx={{ mt: 1 }}>
@@ -160,9 +158,7 @@ export function PreferencesForm({
           />
         </FormGroup>
       </div>
-
       <Divider />
-
       <div>
         <FormControlLabel
           control={
@@ -179,7 +175,12 @@ export function PreferencesForm({
           }
           label="Quiet hours (mute non-emergency alerts)"
         />
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mb: 1
+          }}>
           Life-threatening emergency alerts always come through, day or night.
         </Typography>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
@@ -192,8 +193,10 @@ export function PreferencesForm({
               dirty();
             }}
             disabled={!quietHours.enabled}
-            InputLabelProps={{ shrink: true }}
             fullWidth
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
           <TextField
             label="To"
@@ -204,12 +207,13 @@ export function PreferencesForm({
               dirty();
             }}
             disabled={!quietHours.enabled}
-            InputLabelProps={{ shrink: true }}
             fullWidth
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
         </Stack>
       </div>
-
       <div>
         <Button
           type="submit"

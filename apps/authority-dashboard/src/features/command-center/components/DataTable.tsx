@@ -96,21 +96,15 @@ export function DataTable<T>({
   return (
     <Box>
       <Stack
-        alignItems={{ xs: "stretch", md: "center" }}
         direction={{ xs: "column", md: "row" }}
         spacing={1.5}
-        sx={{ mb: 1.5, flexWrap: "wrap" }}
-      >
+        sx={{
+          alignItems: { xs: "stretch", md: "center" },
+          mb: 1.5,
+          flexWrap: "wrap"
+        }}>
         {searchOf ? (
           <TextField
-            InputProps={{
-              startAdornment: (
-                <Search
-                  size={16}
-                  style={{ marginRight: 8, opacity: 0.6, flexShrink: 0 }}
-                />
-              ),
-            }}
             onChange={(event) => {
               setQuery(event.target.value);
               setPage(0);
@@ -119,6 +113,16 @@ export function DataTable<T>({
             size="small"
             sx={{ minWidth: { xs: "100%", md: 240 } }}
             value={query}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <Search
+                    size={16}
+                    style={{ marginRight: 8, opacity: 0.6, flexShrink: 0 }}
+                  />
+                ),
+              }
+            }}
           />
         ) : null}
         {filters.map((filter) => (
@@ -149,7 +153,6 @@ export function DataTable<T>({
           <Box sx={{ ml: { md: "auto" } }}>{toolbarActions}</Box>
         ) : null}
       </Stack>
-
       <TableContainer sx={{ maxWidth: "100%" }}>
         <Table size="small">
           <TableHead>
@@ -205,7 +208,6 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       </TableContainer>
-
       <TablePagination
         component="div"
         count={filtered.length}

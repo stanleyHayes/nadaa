@@ -100,7 +100,13 @@ export function Topbar({
   return (
     <header className="cc-topbar">
       <span className="cc-topbar__hairline" aria-hidden />
-      <Stack direction="row" spacing={1.25} alignItems="center" minWidth={0}>
+      <Stack
+        direction="row"
+        spacing={1.25}
+        sx={{
+          alignItems: "center",
+          minWidth: 0
+        }}>
         <IconButton
           className="cc-topbar__hamburger"
           onClick={onOpenMobileNav}
@@ -111,7 +117,9 @@ export function Topbar({
         <span className="cc-chip cc-topbar__chip" aria-hidden>
           <ViewIcon size={18} />
         </span>
-        <Box minWidth={0} data-tour="page-header">
+        <Box data-tour="page-header" sx={{
+          minWidth: 0
+        }}>
           <Eyebrow>{groupLabel}</Eyebrow>
           <div className="cc-topbar__title-row">
             <Typography variant="h5" className="cc-topbar__title" noWrap>
@@ -128,8 +136,9 @@ export function Topbar({
           </Typography>
         </Box>
       </Stack>
-
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <IconButton
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
@@ -185,7 +194,6 @@ export function Topbar({
           <ChevronDown size={16} className="cc-user__chevron" aria-hidden />
         </button>
       </Stack>
-
       <Menu
         anchorEl={bellAnchor}
         open={bellOpen}
@@ -211,7 +219,6 @@ export function Topbar({
           ))
         )}
       </Menu>
-
       <Menu
         anchorEl={userAnchor}
         open={userOpen}

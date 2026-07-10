@@ -88,21 +88,32 @@ export function AITriageSuggestionPanel({
     <Paper className="surface triage-panel">
       <Stack
         direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        gap={1.5}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          gap: 1.5
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <BrainCircuit size={22} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h5">AI incident triage</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Severity, duplicate likelihood, affected population, and agency
               routing suggestion.
             </Typography>
           </Box>
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
           <Chip
             size="small"
             label={
@@ -121,7 +132,6 @@ export function AITriageSuggestionPanel({
           </Button>
         </Stack>
       </Stack>
-
       {loadState === "fallback" ||
       loadState === "error" ||
       loadState === "empty" ? (
@@ -135,7 +145,6 @@ export function AITriageSuggestionPanel({
       {loadState === "loading" ? (
         <LinearProgress className="feed-progress" />
       ) : null}
-
       {suggestion ? (
         <Stack spacing={1.5}>
           <Alert severity="info" icon={<ShieldAlert size={18} />}>
@@ -177,16 +186,25 @@ export function AITriageSuggestionPanel({
           </Grid>
 
           <Stack spacing={1}>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <ListChecks size={18} color={nadaaBrand.colors.green} />
               <Typography variant="subtitle2">Explanation factors</Typography>
             </Stack>
             {suggestion.explanationFactors.map((factor) => (
               <Box className="factor-row" key={factor.feature}>
-                <Stack direction="row" justifyContent="space-between" gap={1}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    gap: 1
+                  }}>
                   <Box>
                     <Typography variant="body2">{factor.label}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {String(factor.value)} ·{" "}
                       {factor.direction === "increases_risk"
                         ? "Increases risk"
@@ -316,7 +334,9 @@ export function AITriageSuggestionPanel({
             </Button>
           </Stack>
 
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Model {suggestion.modelVersion}
             {suggestion.suggestionId
               ? ` · Suggestion ${suggestion.suggestionId}`

@@ -181,17 +181,22 @@ export function ResourcePositioningPanel() {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Ambulance size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">
               Predictive resource positioning
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Decision-support staging suggestions; agency leadership retains
               deployment authority
             </Typography>
@@ -205,7 +210,6 @@ export function ResourcePositioningPanel() {
           color={live ? "success" : "warning"}
         />
       </Stack>
-
       {feedback ? (
         <Alert
           severity={
@@ -216,7 +220,6 @@ export function ResourcePositioningPanel() {
           {feedback}
         </Alert>
       ) : null}
-
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Demand forecast by district</Typography>
         {forecasts.length ? (
@@ -225,13 +228,16 @@ export function ResourcePositioningPanel() {
               <Box key={forecast.id} className="forecast-row">
                 <Stack
                   direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
                   spacing={1}
-                >
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
                   <Box>
                     <Typography variant="body2">{forecast.district}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {forecast.region} · {forecast.predictedIncidentCount}{" "}
                       predicted {forecast.hazardType} incident(s)
                     </Typography>
@@ -249,10 +255,13 @@ export function ResourcePositioningPanel() {
                 <Stack
                   direction="row"
                   spacing={1}
-                  alignItems="center"
-                  sx={{ mt: 0.5 }}
-                >
-                  <Typography variant="caption" color="text.secondary">
+                  sx={{
+                    alignItems: "center",
+                    mt: 0.5
+                  }}>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Confidence {forecast.confidence}
                   </Typography>
                   <Box sx={{ flexGrow: 1 }}>
@@ -293,11 +302,14 @@ export function ResourcePositioningPanel() {
             <Box key={suggestion.id} className="forecast-row">
               <Stack
                 direction="row"
-                justifyContent="space-between"
-                alignItems="center"
                 spacing={1}
-              >
-                <Stack direction="row" spacing={1} alignItems="center">
+                sx={{
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}>
+                <Stack direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <MapPin
                     size={16}
                     color={
@@ -315,13 +327,17 @@ export function ResourcePositioningPanel() {
                   variant="outlined"
                 />
               </Stack>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 {suggestion.reason}
               </Typography>
               <ul style={{ margin: "0.25rem 0 0", paddingLeft: "1.25rem" }}>
                 {suggestion.operationalConstraints.map((constraint) => (
                   <li key={constraint}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {constraint}
                     </Typography>
                   </li>
@@ -344,7 +360,9 @@ export function ResourcePositioningPanel() {
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setHistoricalWeight(event.target.value)
               }
-              inputProps={{ inputMode: "decimal" }}
+              slotProps={{
+                htmlInput: { inputMode: "decimal" }
+              }}
             />
           </Grid>
           <Grid size={4}>
@@ -356,7 +374,9 @@ export function ResourcePositioningPanel() {
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setTimeWindowHours(event.target.value)
               }
-              inputProps={{ inputMode: "numeric" }}
+              slotProps={{
+                htmlInput: { inputMode: "numeric" }
+              }}
             />
           </Grid>
           <Grid size={4}>
@@ -401,14 +421,18 @@ export function ResourcePositioningPanel() {
             {scenarios.map((scenario) => (
               <Grid size={6} key={scenario.name}>
                 <Box className="forecast-row">
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {scenario.name}
                   </Typography>
                   <Typography variant="body2">
                     {scenario.summary.totalPredictedIncidents} predicted
                     incident(s)
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Avg confidence{" "}
                     {(scenario.summary.averageConfidenceScore * 100).toFixed(0)}
                     % · {scenario.forecasts.length} district(s)

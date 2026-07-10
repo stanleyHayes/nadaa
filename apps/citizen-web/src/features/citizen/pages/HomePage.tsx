@@ -261,7 +261,6 @@ export function HomePage() {
         subtitle="Live risk scoring and the nearest shelters on the map, plus what's driving the danger right now."
         title="Your area's flood & hazard risk"
       />
-
       {/* ------------------------------------------------------------- *
        * Hero: check-your-risk front and centre (persistent 112 band is
        * rendered once by CitizenLayout, so the legacy inline band is gone).
@@ -319,9 +318,10 @@ export function HomePage() {
                 fullWidth
                 error={riskFormInvalid}
                 helperText={riskFormInvalid ? riskState.message : ""}
-                FormHelperTextProps={{ id: "risk-area-error" }}
-                inputProps={{ "aria-describedby": "risk-area-error" }}
-              />
+                slotProps={{
+                  htmlInput: { "aria-describedby": "risk-area-error" },
+                  formHelperText: { id: "risk-area-error" }
+                }} />
               <Button
                 type="submit"
                 variant="contained"
@@ -351,8 +351,10 @@ export function HomePage() {
             <Stack
               direction="row"
               spacing={1}
-              flexWrap="wrap"
               className="risk-presets"
+              sx={{
+                flexWrap: "wrap"
+              }}
             >
               {areaPresets.map((preset) => (
                 <Chip
@@ -389,9 +391,10 @@ export function HomePage() {
                 <Stack
                   direction="row"
                   spacing={1}
-                  alignItems="center"
-                  flexWrap="wrap"
-                >
+                  sx={{
+                    alignItems: "center",
+                    flexWrap: "wrap"
+                  }}>
                   <Typography variant="h2">{risk.overallRisk}</Typography>
                   <Chip
                     label={`${overallSeverityRole} severity`}
@@ -407,7 +410,9 @@ export function HomePage() {
                     }}
                   />
                 </Stack>
-                <Typography color="text.secondary">
+                <Typography sx={{
+                  color: "text.secondary"
+                }}>
                   {risk.location} is currently reporting{" "}
                   {floodRisk?.level ?? risk.overallRisk} flood risk.
                 </Typography>
@@ -415,9 +420,13 @@ export function HomePage() {
             ) : riskState.status === "loading" ? (
               <Box className="risk-score">
                 <Typography variant="overline">Overall risk</Typography>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <Loader2 size={18} className="spin-icon" />
-                  <Typography color="text.secondary">
+                  <Typography sx={{
+                    color: "text.secondary"
+                  }}>
                     Checking area risk…
                   </Typography>
                 </Stack>
@@ -441,7 +450,6 @@ export function HomePage() {
           </Paper>
         </div>
       </section>
-
       <div className="citizen-shell">
         {/* Risk breakdown */}
         <Reveal className="citizen-section">
@@ -475,7 +483,9 @@ export function HomePage() {
                       <Stack
                         direction="row"
                         spacing={1.5}
-                        alignItems="flex-start"
+                        sx={{
+                          alignItems: "flex-start"
+                        }}
                       >
                         <ShieldCheck
                           size={22}
@@ -487,9 +497,10 @@ export function HomePage() {
                           <Stack
                             direction="row"
                             spacing={1}
-                            alignItems="center"
-                            flexWrap="wrap"
-                          >
+                            sx={{
+                              alignItems: "center",
+                              flexWrap: "wrap"
+                            }}>
                             <Typography variant="subtitle1">
                               {item.type.replace("_", " ")}
                             </Typography>
@@ -529,7 +540,9 @@ export function HomePage() {
                               />
                             ) : null}
                           </Stack>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>
                             {item.reason}
                           </Typography>
                         </Box>

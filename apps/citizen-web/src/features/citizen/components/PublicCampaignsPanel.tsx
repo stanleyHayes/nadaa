@@ -96,15 +96,20 @@ export default function PublicCampaignsPanel() {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Megaphone size={21} color={nadaaBrand.colors.gold} />
           <Box>
             <Typography variant="h6">Preparedness campaigns</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Official guidance for your region and hazard
             </Typography>
           </Box>
@@ -126,7 +131,6 @@ export default function PublicCampaignsPanel() {
           Refresh
         </Button>
       </Stack>
-
       {loadState === "error" ? (
         <Alert severity="warning" className="warning-alert">
           {message}
@@ -135,7 +139,6 @@ export default function PublicCampaignsPanel() {
       {loadState === "loading" ? (
         <LinearProgress className="feed-progress" />
       ) : null}
-
       <Grid
         container
         spacing={1.25}
@@ -178,7 +181,6 @@ export default function PublicCampaignsPanel() {
           </FormControl>
         </Grid>
       </Grid>
-
       {filteredCampaigns.length ? (
         <Stack spacing={1.5}>
           {filteredCampaigns.map((campaign) => (
@@ -191,14 +193,17 @@ export default function PublicCampaignsPanel() {
                 <Stack
                   direction="row"
                   spacing={1}
-                  alignItems="center"
-                  justifyContent="space-between"
-                  flexWrap="wrap"
-                >
+                  sx={{
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap"
+                  }}>
                   <Typography variant="subtitle1">{campaign.title}</Typography>
                   <Chip size="small" label={hazardLabel(campaign.hazardType)} />
                 </Stack>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   {campaign.targetRegions.join(" · ")} ·{" "}
                   {campaign.languages.join(", ")}
                 </Typography>
@@ -219,7 +224,6 @@ export default function PublicCampaignsPanel() {
           No active preparedness campaigns match your filters.
         </Alert>
       )}
-
       <Dialog
         open={selectedCampaign !== null}
         onClose={() => setSelectedCampaign(null)}
@@ -230,7 +234,9 @@ export default function PublicCampaignsPanel() {
         <DialogContent>
           {selectedCampaign ? (
             <Stack spacing={2}>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Stack direction="row" spacing={1} sx={{
+                flexWrap: "wrap"
+              }}>
                 <Chip
                   size="small"
                   label={hazardLabel(selectedCampaign.hazardType)}
@@ -269,9 +275,10 @@ export default function PublicCampaignsPanel() {
                   <Stack
                     direction="row"
                     spacing={1}
-                    flexWrap="wrap"
-                    sx={{ mt: 1 }}
-                  >
+                    sx={{
+                      flexWrap: "wrap",
+                      mt: 1
+                    }}>
                     {selectedCampaign.linkedGuideIds?.map((id) => (
                       <Chip
                         key={id}
@@ -307,8 +314,10 @@ function ContentBlockView({ block }: { block: CampaignContentBlock }) {
           <Stack
             direction="row"
             spacing={1}
-            alignItems="flex-start"
             key={index}
+            sx={{
+              alignItems: "flex-start"
+            }}
           >
             <CheckCircle2 size={16} color={nadaaBrand.colors.green} />
             <Typography variant="body2">{item}</Typography>

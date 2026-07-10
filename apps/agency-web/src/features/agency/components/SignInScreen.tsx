@@ -44,14 +44,12 @@ function displayName(identifier: string, role: AgencyUserRole) {
     return roleLabels[role];
   }
   if (trimmed.includes("@")) {
-    return (
-      trimmed
-        .split("@")[0]
-        .split(/[._-]+/)
-        .filter(Boolean)
-        .map(cap)
-        .join(" ") || roleLabels[role]
-    );
+    return (trimmed
+      .split("@")[0]
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map(cap)
+      .join(" ") || roleLabels[role]);
   }
   return trimmed;
 }
@@ -173,7 +171,6 @@ export function SignInScreen() {
           })}
         </ul>
       </section>
-
       <section className="cc-auth__panel">
         <div className="cc-auth__card">
           <div className="cc-auth__steps" aria-hidden>
@@ -201,7 +198,9 @@ export function SignInScreen() {
               <Typography variant="h5" className="cc-auth__title">
                 Agency sign-in
               </Typography>
-              <Typography color="text.secondary" className="cc-auth__lede">
+              <Typography className="cc-auth__lede" sx={{
+                color: "text.secondary"
+              }}>
                 Use your agency credentials to reach response operations.
               </Typography>
 
@@ -212,12 +211,14 @@ export function SignInScreen() {
                 fullWidth
                 autoComplete="username"
                 autoFocus
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <AtSign size={17} />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <AtSign size={17} />
+                      </InputAdornment>
+                    ),
+                  }
                 }}
               />
 
@@ -228,30 +229,32 @@ export function SignInScreen() {
                 type={showPassword ? "text" : "password"}
                 fullWidth
                 autoComplete="current-password"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock size={17} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword((value) => !value)}
-                        edge="end"
-                        aria-label={
-                          showPassword ? "Hide password" : "Show password"
-                        }
-                        size="small"
-                      >
-                        {showPassword ? (
-                          <EyeOff size={17} />
-                        ) : (
-                          <Eye size={17} />
-                        )}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Lock size={17} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword((value) => !value)}
+                          edge="end"
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          size="small"
+                        >
+                          {showPassword ? (
+                            <EyeOff size={17} />
+                          ) : (
+                            <Eye size={17} />
+                          )}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }
                 }}
               />
 
@@ -298,7 +301,9 @@ export function SignInScreen() {
               <Typography variant="h5" className="cc-auth__title">
                 Verify it is you
               </Typography>
-              <Typography color="text.secondary" className="cc-auth__lede">
+              <Typography className="cc-auth__lede" sx={{
+                color: "text.secondary"
+              }}>
                 Enter the 6-digit code for{" "}
                 <strong>{displayName(identifier, role)}</strong> at{" "}
                 {agency || agencyByRole[role]}.

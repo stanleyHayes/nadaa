@@ -33,13 +33,16 @@ export function SavedReports({ reports }: SavedReportsProps) {
           >
             <Stack
               direction="row"
-              justifyContent="space-between"
               spacing={1}
-              alignItems="center"
-            >
+              sx={{
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}>
               <div>
                 <Typography variant="subtitle2">{report.reference}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   {hazardLabel(report.hazard as HazardType)} ·{" "}
                   {formatDateTime(report.at)}
                 </Typography>

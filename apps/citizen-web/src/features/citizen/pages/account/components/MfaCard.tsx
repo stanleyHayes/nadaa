@@ -126,7 +126,9 @@ export function MfaCard() {
 
   return (
     <Paper className="surface" component="section" elevation={0}>
-      <Stack direction="row" spacing={1.5} alignItems="flex-start">
+      <Stack direction="row" spacing={1.5} sx={{
+        alignItems: "flex-start"
+      }}>
         <Box
           aria-hidden
           sx={{
@@ -166,7 +168,6 @@ export function MfaCard() {
           </Typography>
         </Box>
       </Stack>
-
       <Stack spacing={2} sx={{ mt: 2.5 }}>
         {notice ? (
           <Alert
@@ -182,9 +183,10 @@ export function MfaCard() {
           <Stack
             direction={{ xs: "column", sm: "row" }}
             spacing={1.5}
-            alignItems={{ xs: "flex-start", sm: "center" }}
-            justifyContent="space-between"
-          >
+            sx={{
+              alignItems: { xs: "flex-start", sm: "center" },
+              justifyContent: "space-between"
+            }}>
             <Stack spacing={0.75} sx={{ minWidth: 0 }}>
               <MfaStatusChip enabled={mfaEnabled} />
               <MutedNote>
@@ -250,16 +252,20 @@ export function MfaCard() {
                 autoComplete="one-time-code"
                 placeholder="000000"
                 helperText="Enter the 6 digits shown in your authenticator app."
-                inputProps={{
-                  inputMode: "numeric",
-                  pattern: "[0-9]*",
-                  maxLength: 6,
-                  "aria-label": "Six-digit authenticator code",
-                  style: { letterSpacing: "0.35em", fontWeight: 700 },
-                }}
                 sx={{ maxWidth: 260 }}
+                slotProps={{
+                  htmlInput: {
+                    inputMode: "numeric",
+                    pattern: "[0-9]*",
+                    maxLength: 6,
+                    "aria-label": "Six-digit authenticator code",
+                    style: { letterSpacing: "0.35em", fontWeight: 700 },
+                  }
+                }}
               />
-              <Stack direction="row" spacing={1.5} flexWrap="wrap">
+              <Stack direction="row" spacing={1.5} sx={{
+                flexWrap: "wrap"
+              }}>
                 <Button
                   type="button"
                   onClick={verifyAndEnable}

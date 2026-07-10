@@ -667,15 +667,20 @@ export function DonationPanel({
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <HeartHandshake size={21} color={nadaaBrand.colors.green} />
           <Box>
             <Typography variant="h6">Donation and aid</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Catalog, requests, donors, and pledge allocation
             </Typography>
           </Box>
@@ -697,7 +702,6 @@ export function DonationPanel({
           Refresh
         </Button>
       </Stack>
-
       {localFeedback ? (
         <Alert
           severity={
@@ -712,7 +716,6 @@ export function DonationPanel({
           {localFeedback}
         </Alert>
       ) : null}
-
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Create aid request</Typography>
         <Grid container spacing={1}>
@@ -768,7 +771,9 @@ export function DonationPanel({
               fullWidth
               value={aidForm.quantityNeeded}
               onChange={updateAidForm("quantityNeeded")}
-              inputProps={{ inputMode: "numeric" }}
+              slotProps={{
+                htmlInput: { inputMode: "numeric" }
+              }}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
@@ -778,7 +783,9 @@ export function DonationPanel({
               fullWidth
               value={aidForm.beneficiaryCount}
               onChange={updateAidForm("beneficiaryCount")}
-              inputProps={{ inputMode: "numeric" }}
+              slotProps={{
+                htmlInput: { inputMode: "numeric" }
+              }}
             />
           </Grid>
           <Grid size={{ xs: 12 }}>
@@ -819,14 +826,14 @@ export function DonationPanel({
           Publish aid request
         </Button>
       </Stack>
-
       <Stack spacing={1.5}>
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          gap={1}
-        >
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1
+          }}>
           <Typography variant="subtitle2">Aid requests</Typography>
           <Chip
             size="small"
@@ -854,7 +861,9 @@ export function DonationPanel({
                     <Typography variant="subtitle2">
                       {request.reference}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {request.district}
                     </Typography>
                   </TableCell>
@@ -879,7 +888,9 @@ export function DonationPanel({
                   </TableCell>
                   <TableCell>{request.beneficiaryCount ?? 0}</TableCell>
                   <TableCell>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                    <Stack direction="row" spacing={0.5} sx={{
+                      flexWrap: "wrap"
+                    }}>
                       {aidRequestStatuses.map((status) => (
                         <Button
                           key={status}
@@ -913,7 +924,6 @@ export function DonationPanel({
           <Alert severity="info">No active aid requests.</Alert>
         )}
       </Stack>
-
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Register donor</Typography>
         <Grid container spacing={1}>
@@ -986,7 +996,6 @@ export function DonationPanel({
           Register donor
         </Button>
       </Stack>
-
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Pledges</Typography>
         {pledges.length ? (
@@ -1035,8 +1044,10 @@ export function DonationPanel({
                               },
                             }))
                           }
-                          inputProps={{ inputMode: "numeric" }}
                           sx={{ width: 80 }}
+                          slotProps={{
+                            htmlInput: { inputMode: "numeric" }
+                          }}
                         />
                         <Button
                           size="small"
@@ -1052,7 +1063,9 @@ export function DonationPanel({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                    <Stack direction="row" spacing={0.5} sx={{
+                      flexWrap: "wrap"
+                    }}>
                       {pledge.status === "pledged" ? (
                         <Button
                           size="small"
@@ -1083,7 +1096,6 @@ export function DonationPanel({
           <Alert severity="info">No pledges recorded yet.</Alert>
         )}
       </Stack>
-
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Record pledge</Typography>
         {activeAidRequests.length ? (
@@ -1097,9 +1109,10 @@ export function DonationPanel({
               <Stack spacing={1}>
                 <Stack
                   direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
                   <Typography variant="subtitle2">{request.title}</Typography>
                   <Chip
                     size="small"
@@ -1146,7 +1159,9 @@ export function DonationPanel({
                           },
                         }))
                       }
-                      inputProps={{ inputMode: "numeric" }}
+                      slotProps={{
+                        htmlInput: { inputMode: "numeric" }
+                      }}
                     />
                   </Grid>
                 </Grid>

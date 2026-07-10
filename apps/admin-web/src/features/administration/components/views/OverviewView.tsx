@@ -68,7 +68,6 @@ export function OverviewView({
           {loadMessage}
         </Alert>
       ) : null}
-
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <MetricTile
@@ -110,14 +109,15 @@ export function OverviewView({
           />
         </Grid>
       </Grid>
-
       <SectionCard
         title="MFA readiness by agency"
         eyebrow="Lowest coverage first"
         icon={ShieldCheck}
         accent="navy"
         action={
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{
+            alignItems: "center"
+          }}>
             <span className={`cc-feed-chip cc-feed-chip--${loadState}`}>
               {feedLabel}
             </span>
@@ -152,7 +152,6 @@ export function OverviewView({
           ) : null}
         </Stack>
       </SectionCard>
-
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 7 }}>
           <SectionCard

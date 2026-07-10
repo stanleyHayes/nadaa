@@ -85,22 +85,30 @@ export function AlertWorkflowPanel({
       <Stack
         direction="row"
         spacing={1}
-        alignItems="center"
         className="section-heading"
+        sx={{
+          alignItems: "center"
+        }}
       >
         <BellRing size={21} color={nadaaBrand.colors.red} />
         <Box>
           <Typography variant="h6">Alert workflow</Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Draft, submit, approve, reject, or override with audit.
           </Typography>
         </Box>
       </Stack>
-
       {selectedIncident ? (
         <Stack spacing={1.5}>
           <Box>
-            <Stack direction="row" justifyContent="space-between" gap={1}>
+            <Stack
+              direction="row"
+              sx={{
+                justifyContent: "space-between",
+                gap: 1
+              }}>
               <Typography variant="subtitle2">
                 Draft from {selectedIncident.reference}
               </Typography>
@@ -110,7 +118,9 @@ export function AlertWorkflowPanel({
                 color={form.severity === "emergency" ? "error" : "warning"}
               />
             </Stack>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {hazardLabel(selectedIncident.type)} · {selectedIncident.district}
             </Typography>
           </Box>
@@ -313,16 +323,15 @@ export function AlertWorkflowPanel({
           detail="Choose an incident before drafting an alert."
         />
       )}
-
       <Divider className="detail-divider" />
-
       <Stack spacing={1.25}>
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          gap={1}
-        >
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1
+          }}>
           <Typography variant="subtitle2">Approval queue</Typography>
           <Chip
             size="small"
@@ -352,10 +361,17 @@ export function AlertWorkflowPanel({
         {queueAlerts.length ? (
           queueAlerts.slice(0, 4).map((alert) => (
             <Box key={alert.id} className="alert-queue-row">
-              <Stack direction="row" justifyContent="space-between" gap={1}>
+              <Stack
+                direction="row"
+                sx={{
+                  justifyContent: "space-between",
+                  gap: 1
+                }}>
                 <Box>
                   <Typography variant="subtitle2">{alert.title}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {alert.target.label} · {alertSeverityLabel(alert.severity)}
                   </Typography>
                 </Box>
@@ -368,8 +384,10 @@ export function AlertWorkflowPanel({
               <Stack
                 direction="row"
                 spacing={1}
-                flexWrap="wrap"
                 className="alert-actions"
+                sx={{
+                  flexWrap: "wrap"
+                }}
               >
                 {alert.status === "draft" ? (
                   <Button

@@ -26,14 +26,19 @@ import { mapHazardRole, mapSeverityRole } from "../utils";
 export function LoadingState({ message }: { message?: string }) {
   return (
     <Box
-      alignItems="center"
-      display="flex"
-      justifyContent="center"
-      minHeight={200}
-    >
-      <Stack alignItems="center" spacing={2}>
+      sx={{
+        alignItems: "center",
+        display: "flex",
+        justifyContent: "center",
+        minHeight: 200
+      }}>
+      <Stack spacing={2} sx={{
+        alignItems: "center"
+      }}>
         <CircularProgress />
-        <Typography color="text.secondary">{message ?? "Loading"}</Typography>
+        <Typography sx={{
+          color: "text.secondary"
+        }}>{message ?? "Loading"}</Typography>
       </Stack>
     </Box>
   );
@@ -83,15 +88,23 @@ export function MetricCard({
   return (
     <Card variant="outlined">
       <CardContent>
-        <Stack alignItems="center" direction="row" spacing={2}>
-          <Box color="primary.main">
+        <Stack direction="row" spacing={2} sx={{
+          alignItems: "center"
+        }}>
+          <Box sx={{
+            color: "primary.main"
+          }}>
             <Icon size={24} />
           </Box>
           <Box>
-            <Typography color="text.secondary" variant="caption">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {label}
             </Typography>
-            <Typography fontWeight={800} variant="h5">
+            <Typography variant="h5" sx={{
+              fontWeight: 800
+            }}>
               {value}
             </Typography>
           </Box>

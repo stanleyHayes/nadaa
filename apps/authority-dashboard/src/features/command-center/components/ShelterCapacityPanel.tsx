@@ -164,7 +164,6 @@ export function ShelterCapacityPanel({
           {feedback}
         </Alert>
       ) : null}
-
       <DataTable
         rows={shelters}
         getRowKey={(shelter) => shelter.id}
@@ -208,7 +207,9 @@ export function ShelterCapacityPanel({
           },
         ]}
         rowActions={(shelter) => (
-          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+          <Stack direction="row" spacing={0.5} sx={{
+            justifyContent: "flex-end"
+          }}>
             <Tooltip title="View detail">
               <IconButton
                 size="small"
@@ -252,7 +253,6 @@ export function ShelterCapacityPanel({
           )
         }
       />
-
       {/* View detail dialog (read-only) */}
       <Dialog
         open={Boolean(viewShelter)}
@@ -283,7 +283,9 @@ export function ShelterCapacityPanel({
         <DialogContent dividers>
           {viewShelter ? (
             <Stack spacing={1.75}>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Stack direction="row" spacing={1} sx={{
+                flexWrap: "wrap"
+              }}>
                 <Chip
                   size="small"
                   label={toTitle(viewShelter.status)}
@@ -330,10 +332,14 @@ export function ShelterCapacityPanel({
 
               {viewShelter.facilities.length ? (
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Facilities
                   </Typography>
-                  <Stack direction="row" spacing={0.75} flexWrap="wrap">
+                  <Stack direction="row" spacing={0.75} sx={{
+                    flexWrap: "wrap"
+                  }}>
                     {viewShelter.facilities.map((facility) => (
                       <Chip
                         size="small"
@@ -348,7 +354,9 @@ export function ShelterCapacityPanel({
 
               {viewShelter.notes ? (
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Operational note
                   </Typography>
                   <Typography variant="body2">{viewShelter.notes}</Typography>
@@ -373,7 +381,6 @@ export function ShelterCapacityPanel({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Edit capacity dialog */}
       <Dialog
         open={formOpen}
@@ -416,7 +423,6 @@ export function ShelterCapacityPanel({
                 required
                 value={shelterForm.capacity}
                 onChange={onUpdateForm("capacity")}
-                inputProps={{ inputMode: "numeric" }}
                 error={
                   Boolean(shelterForm.capacity) &&
                   !Number.isFinite(Number(shelterForm.capacity))
@@ -427,6 +433,9 @@ export function ShelterCapacityPanel({
                     ? "Capacity must be a number"
                     : ""
                 }
+                slotProps={{
+                  htmlInput: { inputMode: "numeric" }
+                }}
               />
             </Grid>
             <Grid size={6}>
@@ -437,7 +446,6 @@ export function ShelterCapacityPanel({
                 required
                 value={shelterForm.currentOccupancy}
                 onChange={onUpdateForm("currentOccupancy")}
-                inputProps={{ inputMode: "numeric" }}
                 error={
                   Boolean(shelterForm.currentOccupancy) &&
                   !Number.isFinite(Number(shelterForm.currentOccupancy))
@@ -448,6 +456,9 @@ export function ShelterCapacityPanel({
                     ? "Occupancy must be a number"
                     : ""
                 }
+                slotProps={{
+                  htmlInput: { inputMode: "numeric" }
+                }}
               />
             </Grid>
             <Grid size={12}>
@@ -495,7 +506,6 @@ export function ShelterCapacityPanel({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Delete confirm dialog */}
       <Dialog
         open={Boolean(deleteTarget)}

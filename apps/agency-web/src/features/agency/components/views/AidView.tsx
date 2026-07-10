@@ -86,7 +86,6 @@ export function AidView({ data }: { data: AgencyData }) {
           </Stack>
         }
       />
-
       {aidLoadState === "loading" ? (
         <LoadingState message="Loading donation and aid requests" />
       ) : aidLoadState === "error" && !aidRequests.length ? (
@@ -110,7 +109,6 @@ export function AidView({ data }: { data: AgencyData }) {
           )}
         </Stack>
       )}
-
       <Dialog
         open={detailOpen}
         onClose={closeDetail}
@@ -152,7 +150,12 @@ export function AidView({ data }: { data: AgencyData }) {
                 }
               />
               {selectedAidRequest ? (
-                <Stack direction="row" flexWrap="wrap" gap={1}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    flexWrap: "wrap",
+                    gap: 1
+                  }}>
                   <Button
                     disabled={aidUpdateState === "loading"}
                     onClick={() => void handleReviewAidRequest("approved")}
@@ -187,7 +190,9 @@ export function AidView({ data }: { data: AgencyData }) {
               ) : null}
             </Stack>
             <Stack spacing={1}>
-              <Typography fontWeight={800} variant="h6">
+              <Typography variant="h6" sx={{
+                fontWeight: 800
+              }}>
                 Partner pledges
               </Typography>
               <AidPledgeList pledges={selectedAidRequest?.pledges ?? []} />

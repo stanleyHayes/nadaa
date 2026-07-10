@@ -124,10 +124,13 @@ export function SecurityTab({
             <Stack
               direction={{ xs: "column", sm: "row" }}
               spacing={1.5}
-              alignItems={{ xs: "flex-start", sm: "center" }}
-              justifyContent="space-between"
-            >
-              <Stack direction="row" spacing={1.25} alignItems="center">
+              sx={{
+                alignItems: { xs: "flex-start", sm: "center" },
+                justifyContent: "space-between"
+              }}>
+              <Stack direction="row" spacing={1.25} sx={{
+                alignItems: "center"
+              }}>
                 <StatusChip
                   label={mfaEnabled ? "Enabled" : "Not enabled"}
                   tone={mfaEnabled ? "green" : "gold"}
@@ -234,7 +237,6 @@ export function SecurityTab({
           </FieldPanel>
         </Stack>
       </SettingCard>
-
       <SettingCard
         icon={KeyRound}
         title="Password"
@@ -297,7 +299,6 @@ export function SecurityTab({
           </Box>
         </Box>
       </SettingCard>
-
       <Snackbar
         open={Boolean(mfaToast)}
         autoHideDuration={3000}

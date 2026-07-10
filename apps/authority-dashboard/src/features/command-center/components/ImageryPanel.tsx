@@ -346,15 +346,20 @@ export function ImageryPanel({
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Satellite size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">Imagery ingestion</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Drone and satellite image footprints and lifecycle
             </Typography>
           </Box>
@@ -376,7 +381,6 @@ export function ImageryPanel({
           Refresh
         </Button>
       </Stack>
-
       {feedback ? (
         <Alert
           severity={
@@ -391,18 +395,19 @@ export function ImageryPanel({
           {feedback}
         </Alert>
       ) : null}
-
       <Stack spacing={1.5}>
         <FormControlLabel
           control={
             <Switch
               checked={showOverlay}
               onChange={handleToggleOverlay}
-              inputProps={{ "aria-label": "Toggle imagery overlay" }}
+              slotProps={{ input: { "aria-label": "Toggle imagery overlay" } }}
             />
           }
           label={
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" spacing={0.5} sx={{
+              alignItems: "center"
+            }}>
               {showOverlay ? <Eye size={16} /> : <EyeOff size={16} />}
               <Typography variant="body2">
                 {showOverlay ? "Overlay on map" : "Overlay hidden"}
@@ -431,7 +436,9 @@ export function ImageryPanel({
               fullWidth
               value={form.captureTime}
               onChange={updateForm("captureTime")}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
           </Grid>
           <Grid size={{ xs: 6, sm: 4 }}>
@@ -441,7 +448,9 @@ export function ImageryPanel({
               fullWidth
               value={form.coverageAreaKm2}
               onChange={updateForm("coverageAreaKm2")}
-              inputProps={{ inputMode: "decimal" }}
+              slotProps={{
+                htmlInput: { inputMode: "decimal" }
+              }}
             />
           </Grid>
           <Grid size={{ xs: 6, sm: 4 }}>
@@ -451,7 +460,9 @@ export function ImageryPanel({
               fullWidth
               value={form.resolutionMeters}
               onChange={updateForm("resolutionMeters")}
-              inputProps={{ inputMode: "decimal" }}
+              slotProps={{
+                htmlInput: { inputMode: "decimal" }
+              }}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
@@ -504,7 +515,9 @@ export function ImageryPanel({
           </Grid>
         </Grid>
 
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <input
             ref={fileInputRef}
             type="file"
@@ -522,7 +535,9 @@ export function ImageryPanel({
             {file ? file.name : "Select image"}
           </Button>
           {file ? (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {formatBytes(file.size)}
             </Typography>
           ) : null}
@@ -549,9 +564,10 @@ export function ImageryPanel({
         <Stack
           direction="row"
           spacing={1}
-          justifyContent="space-between"
-          alignItems="center"
-        >
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
           <Typography variant="subtitle2">
             {activeRecords.length} active · {expiredRecords.length} expired
           </Typography>
@@ -584,7 +600,9 @@ export function ImageryPanel({
                       <Typography variant="subtitle2">
                         {record.reference}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         {formatBytes(record.sizeBytes)} ·{" "}
                         {record.resolutionMeters} m
                       </Typography>
@@ -613,7 +631,9 @@ export function ImageryPanel({
                       <Stack
                         direction="row"
                         spacing={0.5}
-                        justifyContent="flex-end"
+                        sx={{
+                          justifyContent: "flex-end"
+                        }}
                       >
                         <IconButton
                           size="small"
@@ -646,7 +666,9 @@ export function ImageryPanel({
             </Table>
           </Box>
         ) : (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             No imagery records available. Upload a drone or satellite image to
             begin.
           </Typography>

@@ -143,10 +143,11 @@ export function IncidentDetailPanel({
     <Paper className="surface detail-panel">
       <Stack
         direction="row"
-        justifyContent="space-between"
-        gap={1}
         className="section-heading"
-      >
+        sx={{
+          justifyContent: "space-between",
+          gap: 1
+        }}>
         <Box>
           <Typography variant="overline" color="secondary">
             Selected incident
@@ -155,13 +156,12 @@ export function IncidentDetailPanel({
         </Box>
         <SeverityChip severity={incident.severity} />
       </Stack>
-
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>
         {incident.description}
       </Typography>
-
       <Divider className="detail-divider" />
-
       <Grid container spacing={1.5}>
         <Grid size={6}>
           <Fact label="Hazard" value={hazardLabel(incident.type)} />
@@ -179,7 +179,6 @@ export function IncidentDetailPanel({
           <Fact label="Assigned agency" value={incident.assignedAgency} />
         </Grid>
       </Grid>
-
       <Alert
         severity={
           incident.anonymous || !incident.privacy?.reporterContactVisible
@@ -190,7 +189,9 @@ export function IncidentDetailPanel({
         className="privacy-alert"
       >
         <Stack spacing={0.75}>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Stack direction="row" spacing={1} sx={{
+            flexWrap: "wrap"
+          }}>
             <Chip size="small" label={privacyReporterLabel(incident)} />
             <Chip size="small" label={privacyContactLabel(incident)} />
             <Chip
@@ -203,20 +204,27 @@ export function IncidentDetailPanel({
               "Location is used for emergency response coordination."}
           </Typography>
           {incident.privacy?.notes?.length ? (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {incident.privacy.notes[0]}
             </Typography>
           ) : null}
         </Stack>
       </Alert>
-
       <Divider className="detail-divider" />
-
       <Stack spacing={1.25}>
-        <Stack direction="row" justifyContent="space-between" gap={1}>
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            gap: 1
+          }}>
           <Box>
             <Typography variant="subtitle2">Report safety review</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {incident.abuseReviewRequired
                 ? "Dispatcher review required"
                 : "No active safety hold"}
@@ -245,7 +253,9 @@ export function IncidentDetailPanel({
               <Box className="abuse-signal-row" key={signal.code}>
                 <Box>
                   <Typography variant="subtitle2">{signal.label}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {signal.detail}
                   </Typography>
                 </Box>
@@ -345,9 +355,7 @@ export function IncidentDetailPanel({
           </Alert>
         ) : null}
       </Stack>
-
       <Divider className="detail-divider" />
-
       <Stack spacing={1}>
         <Typography variant="subtitle2">Response timeline</Typography>
         {incident.timelineEntries.map((event) => (
@@ -356,7 +364,6 @@ export function IncidentDetailPanel({
           </Box>
         ))}
       </Stack>
-
       {incident.duplicateCandidates.length ||
       duplicateCandidates.length ||
       incident.mergedIncidentIds.length ||
@@ -364,10 +371,17 @@ export function IncidentDetailPanel({
         <>
           <Divider className="detail-divider" />
           <Stack spacing={1.25}>
-            <Stack direction="row" justifyContent="space-between" gap={1}>
+            <Stack
+              direction="row"
+              sx={{
+                justifyContent: "space-between",
+                gap: 1
+              }}>
               <Box>
                 <Typography variant="subtitle2">Duplicate review</Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {duplicateCandidates.length
                     ? "Side-by-side candidate check"
                     : "No open candidates"}
@@ -422,7 +436,9 @@ export function IncidentDetailPanel({
                 />
                 <Box className="duplicate-comparison">
                   <Box>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       Selected
                     </Typography>
                     <Typography variant="body2">
@@ -430,7 +446,9 @@ export function IncidentDetailPanel({
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       Candidate
                     </Typography>
                     <Typography variant="body2">
@@ -438,7 +456,9 @@ export function IncidentDetailPanel({
                     </Typography>
                   </Box>
                 </Box>
-                <Stack direction="row" spacing={0.75} flexWrap="wrap">
+                <Stack direction="row" spacing={0.75} sx={{
+                  flexWrap: "wrap"
+                }}>
                   <Chip
                     size="small"
                     label={`${Math.round(item.candidate.score * 100)}%`}
@@ -474,14 +494,19 @@ export function IncidentDetailPanel({
           </Stack>
         </>
       ) : null}
-
       <Divider className="detail-divider" />
-
       <Stack spacing={1.25}>
-        <Stack direction="row" justifyContent="space-between" gap={1}>
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            gap: 1
+          }}>
           <Box>
             <Typography variant="subtitle2">Agency assignment</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {canAssign ? "Dispatch coordination" : "Verification required"}
             </Typography>
           </Box>
@@ -500,7 +525,9 @@ export function IncidentDetailPanel({
                   <Typography variant="subtitle2">
                     {assignment.agencyName}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {assignment.responderLead || "Response lead pending"}
                   </Typography>
                 </Box>
@@ -590,14 +617,19 @@ export function IncidentDetailPanel({
           Assign agency
         </Button>
       </Stack>
-
       <Divider className="detail-divider" />
-
       <Stack spacing={1.25}>
-        <Stack direction="row" justifyContent="space-between" gap={1}>
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            gap: 1
+          }}>
           <Box>
             <Typography variant="subtitle2">Status workflow</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {terminal
                 ? "Terminal incident state"
                 : "Audited dispatcher action"}
@@ -659,7 +691,6 @@ export function IncidentDetailPanel({
           />
         ) : null}
       </Stack>
-
       <Stack direction="row" spacing={1} className="detail-actions">
         <Button
           variant="contained"

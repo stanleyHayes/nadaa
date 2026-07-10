@@ -44,7 +44,12 @@ export function AccountNotifications() {
         />
 
         {notifications.length === 0 ? (
-          <Typography sx={{ py: 3 }} align="center" color="text.secondary">
+          <Typography
+            align="center"
+            sx={{
+              color: "text.secondary",
+              py: 3
+            }}>
             No notifications yet. Alerts and report updates will appear here.
           </Typography>
         ) : (
@@ -76,10 +81,14 @@ export function AccountNotifications() {
                       variant="outlined"
                     />
                   </div>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {item.body}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {formatDateTime(item.at)}
                   </Typography>
                 </div>

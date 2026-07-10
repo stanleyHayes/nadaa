@@ -6,7 +6,9 @@ import MissingPersonsPanel from "../MissingPersonsPanel";
 export function RecoveryView() {
   return (
     <Stack spacing={2.5}>
-      <Grid container spacing={2.5} alignItems="flex-start">
+      <Grid container spacing={2.5} sx={{
+        alignItems: "flex-start"
+      }}>
         <Grid size={{ xs: 12, xl: 6 }}>
           <DamageClaimsPanel />
         </Grid>

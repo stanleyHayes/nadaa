@@ -21,12 +21,17 @@ export function MfaSupportPanel({ users }: { users: ManagedAgencyUser[] }) {
             <Stack
               key={user.id}
               direction={{ xs: "column", md: "row" }}
-              justifyContent="space-between"
-              gap={1}
-            >
+              sx={{
+                justifyContent: "space-between",
+                gap: 1
+              }}>
               <Box>
-                <Typography fontWeight={800}>{user.name}</Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography sx={{
+                  fontWeight: 800
+                }}>{user.name}</Typography>
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {user.agency.name} / {roleLabel(user.role)}
                 </Typography>
               </Box>

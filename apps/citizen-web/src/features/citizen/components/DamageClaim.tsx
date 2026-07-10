@@ -271,19 +271,25 @@ function DamageClaim() {
         <Stack
           direction="row"
           spacing={1}
-          alignItems="center"
           className="section-heading"
+          sx={{
+            alignItems: "center"
+          }}
         >
           <FileCheck size={21} color={nadaaBrand.colors.green} />
           <Box>
             <Typography variant="h6">Damage claim</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Insurance and relief support
             </Typography>
           </Box>
         </Stack>
 
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           A damage claim is a private record of property or asset loss after a
           disaster. Residents and businesses affected by a flood, fire, or other
           reported incident can file one. Verified claims can be exported for
@@ -341,7 +347,9 @@ function DamageClaim() {
                     updateForm("incidentId", event.target.value)
                   }
                   helperText="Link this claim to a reported incident if you have the reference."
-                  inputProps={{ maxLength: 100 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 100 }
+                  }}
                 />
 
                 <TextField
@@ -351,7 +359,9 @@ function DamageClaim() {
                     updateForm("reporterName", event.target.value)
                   }
                   required
-                  inputProps={{ maxLength: 200 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 200 }
+                  }}
                 />
 
                 <Grid container spacing={1.25}>
@@ -364,7 +374,9 @@ function DamageClaim() {
                       }
                       fullWidth
                       required
-                      inputProps={{ maxLength: 50 }}
+                      slotProps={{
+                        htmlInput: { maxLength: 50 }
+                      }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -376,7 +388,9 @@ function DamageClaim() {
                       }
                       fullWidth
                       type="email"
-                      inputProps={{ maxLength: 200 }}
+                      slotProps={{
+                        htmlInput: { maxLength: 200 }
+                      }}
                     />
                   </Grid>
                 </Grid>
@@ -408,7 +422,9 @@ function DamageClaim() {
                   multiline
                   minRows={3}
                   required
-                  inputProps={{ maxLength: 2000 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 2000 }
+                  }}
                 />
 
                 <TextField
@@ -420,7 +436,9 @@ function DamageClaim() {
                   required
                   inputMode="decimal"
                   helperText="Enter a number, for example 12500.00"
-                  inputProps={{ maxLength: 50 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 50 }
+                  }}
                 />
 
                 <Grid container spacing={1.25}>
@@ -460,7 +478,9 @@ function DamageClaim() {
                   label="Property address"
                   value={form.address}
                   onChange={(event) => updateForm("address", event.target.value)}
-                  inputProps={{ maxLength: 300 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 300 }
+                  }}
                 />
 
                 <TextField
@@ -470,7 +490,9 @@ function DamageClaim() {
                     updateForm("photoUrls", event.target.value)
                   }
                   helperText="Paste links to photos hosted elsewhere; each link must be safe and 500 characters or fewer."
-                  inputProps={{ maxLength: 2000 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 2000 }
+                  }}
                 />
 
                 <FormControlLabel

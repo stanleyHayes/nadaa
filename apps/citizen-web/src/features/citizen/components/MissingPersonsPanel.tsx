@@ -131,10 +131,14 @@ const columns: DataTableColumn<PublicMissingPersonRecord>[] = [
     label: "Name",
     render: (record) => (
       <Box>
-        <Typography variant="body2" fontWeight={700}>
+        <Typography variant="body2" sx={{
+          fontWeight: 700
+        }}>
           {record.personName}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {record.reference}
         </Typography>
       </Box>
@@ -152,7 +156,9 @@ const columns: DataTableColumn<PublicMissingPersonRecord>[] = [
     render: (record) => (
       <Box>
         <Typography variant="body2">{record.lastSeenLocation.label}</Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {record.lastSeenLocation.district}, {record.lastSeenLocation.region}
         </Typography>
       </Box>
@@ -398,8 +404,10 @@ export default function MissingPersonsPanel() {
         <Stack
           direction="row"
           spacing={1}
-          alignItems="center"
           className="section-heading"
+          sx={{
+            alignItems: "center"
+          }}
         >
           <HeartHandshake size={21} color={nadaaBrand.colors.gold} />
           <Typography variant="h6">Family reunification</Typography>
@@ -586,7 +594,9 @@ export default function MissingPersonsPanel() {
                     </Grid>
                   </Grid>
                   <Stack spacing={1.25} sx={{ mt: 1.5 }}>
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={1} sx={{
+                      alignItems: "center"
+                    }}>
                       <Switch
                         checked={form.consentToContact}
                         onChange={updateForm("consentToContact")}
@@ -596,7 +606,9 @@ export default function MissingPersonsPanel() {
                         details.
                       </Typography>
                     </Stack>
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={1} sx={{
+                      alignItems: "center"
+                    }}>
                       <Switch
                         checked={form.consentToPublicShare}
                         onChange={updateForm("consentToPublicShare")}

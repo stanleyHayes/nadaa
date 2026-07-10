@@ -74,12 +74,15 @@ export function SectionCard({
     >
       <Stack
         direction="row"
-        justifyContent="space-between"
-        alignItems="flex-start"
-        gap={1.5}
         className="cc-section__head"
-      >
-        <Stack direction="row" spacing={1.25} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 1.5
+        }}>
+        <Stack direction="row" spacing={1.25} sx={{
+          alignItems: "center"
+        }}>
           {Icon ? (
             <span className="cc-section__icon" aria-hidden>
               <Icon size={18} />
@@ -214,16 +217,19 @@ export function ViewIntro({
   return (
     <Stack
       direction={{ xs: "column", md: "row" }}
-      justifyContent="space-between"
-      alignItems={{ xs: "flex-start", md: "center" }}
-      gap={2}
       className="cc-view-intro"
-    >
+      sx={{
+        justifyContent: "space-between",
+        alignItems: { xs: "flex-start", md: "center" },
+        gap: 2
+      }}>
       <Box>
         <Typography variant="h4" className="cc-view-intro__title">
           {title}
         </Typography>
-        <Typography color="text.secondary" className="cc-view-intro__desc">
+        <Typography className="cc-view-intro__desc" sx={{
+          color: "text.secondary"
+        }}>
           {description}
         </Typography>
       </Box>

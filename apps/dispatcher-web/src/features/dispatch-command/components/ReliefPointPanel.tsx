@@ -34,21 +34,32 @@ export function ReliefPointPanel({
     <Paper className="surface capacity-panel">
       <Stack
         direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        gap={1.5}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          gap: 1.5
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Truck size={22} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h5">Relief distribution points</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Food, water, medical, hygiene, and blanket distribution locations
               for affected communities.
             </Typography>
           </Box>
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
           <Chip
             size="small"
             label={
@@ -78,7 +89,6 @@ export function ReliefPointPanel({
           </Button>
         </Stack>
       </Stack>
-
       {loadState === "loading" ? (
         <LinearProgress />
       ) : loadState === "fallback" || loadState === "empty" ? (
@@ -86,7 +96,6 @@ export function ReliefPointPanel({
           {loadMessage}
         </Alert>
       ) : null}
-
       {reliefPoints.length > 0 ? (
         <Grid container spacing={2}>
           {reliefPoints.map((point) => (
@@ -95,19 +104,29 @@ export function ReliefPointPanel({
                 <Stack spacing={1}>
                   <Stack
                     direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                  >
-                    <Typography variant="subtitle1" fontWeight={700}>
+                    sx={{
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}>
+                    <Typography variant="subtitle1" sx={{
+                      fontWeight: 700
+                    }}>
                       {point.name}
                     </Typography>
                     <Chip label={point.status} size="small" />
                   </Stack>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {point.type} · {point.district}
                   </Typography>
                   <Typography variant="body2">{point.address}</Typography>
-                  <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                  <Stack
+                    direction="row"
+                    sx={{
+                      flexWrap: "wrap",
+                      gap: 0.5
+                    }}>
                     {point.stockCategories.map((stock) => (
                       <Chip
                         key={stock.category}
@@ -118,7 +137,9 @@ export function ReliefPointPanel({
                     ))}
                   </Stack>
                   {point.operatingHours ? (
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       Hours: {point.operatingHours}
                     </Typography>
                   ) : null}

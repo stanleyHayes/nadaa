@@ -302,7 +302,9 @@ export function GuidesPage() {
 
             {featuredGuide ? (
               <Box className="guide-feature">
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <Chip
                     size="small"
                     color="success"
@@ -351,9 +353,10 @@ export function GuidesPage() {
                       <Stack
                         direction="row"
                         spacing={0.75}
-                        alignItems="center"
-                        flexWrap="wrap"
-                      >
+                        sx={{
+                          alignItems: "center",
+                          flexWrap: "wrap"
+                        }}>
                         <Typography variant="subtitle2">
                           {guide.title}
                         </Typography>
@@ -361,7 +364,9 @@ export function GuidesPage() {
                           <Chip size="small" label="Offline" />
                         ) : null}
                       </Stack>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         {guideStageLabel(guide.stage)} ·{" "}
                         {hazardLabel(guide.hazardType)}
                       </Typography>

@@ -352,10 +352,17 @@ export function AlertTargetPreview({ target }: { target: AlertTarget }) {
   const warnings = alertTargetWarnings(target);
   return (
     <Box className="target-preview">
-      <Stack direction="row" justifyContent="space-between" gap={1}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          gap: 1
+        }}>
         <Box>
           <Typography variant="subtitle2">Affected area preview</Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {alertTargetSummary(target)}
           </Typography>
         </Box>
@@ -365,9 +372,7 @@ export function AlertTargetPreview({ target }: { target: AlertTarget }) {
           color={target.type === "national" ? "error" : "warning"}
         />
       </Stack>
-
       <TargetPreviewMap target={target} />
-
       <Grid container spacing={1}>
         <Grid size={4}>
           <Fact
@@ -392,7 +397,6 @@ export function AlertTargetPreview({ target }: { target: AlertTarget }) {
           />
         </Grid>
       </Grid>
-
       {warnings.map((warning) => (
         <Alert severity="warning" key={warning}>
           {warning}
@@ -589,7 +593,9 @@ export function PredictionReviewMap({
 export function Fact({ label, value }: { label: string; value: string }) {
   return (
     <Box className="fact">
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{
+        color: "text.secondary"
+      }}>
         {label}
       </Typography>
       <Typography variant="subtitle2">{value}</Typography>
@@ -639,10 +645,11 @@ export function StatusLine({
   return (
     <Stack
       direction="row"
-      justifyContent="space-between"
-      alignItems="center"
-      gap={1}
-    >
+      sx={{
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 1
+      }}>
       <Typography variant="body2">{label}</Typography>
       <Chip size="small" label={value} color={color} />
     </Stack>
@@ -658,14 +665,20 @@ export function EmptyState({
 }) {
   return (
     <Stack
-      alignItems="center"
-      justifyContent="center"
       spacing={1}
       className="empty-state"
-    >
+      sx={{
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
       <Crosshair size={28} color="var(--nadaa-slate)" />
       <Typography variant="subtitle2">{title}</Typography>
-      <Typography variant="body2" color="text.secondary" textAlign="center">
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          textAlign: "center"
+        }}>
         {detail}
       </Typography>
     </Stack>

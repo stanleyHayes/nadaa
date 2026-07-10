@@ -123,12 +123,15 @@ export function SectionCard({
     >
       <Stack
         direction="row"
-        justifyContent="space-between"
-        alignItems="flex-start"
-        gap={1.5}
         className="cc-section__head"
-      >
-        <Stack direction="row" spacing={1.25} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 1.5
+        }}>
+        <Stack direction="row" spacing={1.25} sx={{
+          alignItems: "center"
+        }}>
           {Icon ? (
             <span className="cc-chip cc-section__icon" aria-hidden>
               <Icon size={18} />
@@ -185,22 +188,33 @@ export function ViewIntro({
   return (
     <Stack
       direction={{ xs: "column", md: "row" }}
-      justifyContent="space-between"
-      alignItems={{ xs: "flex-start", md: "center" }}
-      gap={2}
       className="cc-view-intro"
-    >
-      <Stack direction="row" spacing={1.5} alignItems="center" minWidth={0}>
+      sx={{
+        justifyContent: "space-between",
+        alignItems: { xs: "flex-start", md: "center" },
+        gap: 2
+      }}>
+      <Stack
+        direction="row"
+        spacing={1.5}
+        sx={{
+          alignItems: "center",
+          minWidth: 0
+        }}>
         {Icon ? (
           <span className="cc-chip cc-view-intro__chip" aria-hidden>
             <Icon size={20} />
           </span>
         ) : null}
-        <Box minWidth={0}>
+        <Box sx={{
+          minWidth: 0
+        }}>
           <Typography variant="h4" className="cc-view-intro__title">
             {title}
           </Typography>
-          <Typography color="text.secondary" className="cc-view-intro__desc">
+          <Typography className="cc-view-intro__desc" sx={{
+            color: "text.secondary"
+          }}>
             {description}
           </Typography>
         </Box>
@@ -222,10 +236,11 @@ export function StatusLine({
   return (
     <Stack
       direction="row"
-      justifyContent="space-between"
-      alignItems="center"
-      gap={1}
-    >
+      sx={{
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 1
+      }}>
       <Typography variant="body2">{label}</Typography>
       <Chip size="small" label={value} color={color} />
     </Stack>

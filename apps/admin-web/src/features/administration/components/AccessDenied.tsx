@@ -15,16 +15,22 @@ export function AccessDenied({ session }: { session: AdminSession }) {
       <Paper className="access-panel">
         <ShieldAlert size={38} color={nadaaBrand.colors.red} />
         <Typography variant="h5">Admin access denied</Typography>
-        <Typography color="text.secondary">
+        <Typography sx={{
+          color: "text.secondary"
+        }}>
           The governance console requires a permitted admin role (system or
           agency administrator) and completed MFA before any platform settings
           are visible.
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Signed in as <strong>{session.name}</strong> ({roleLabel(session.role)})
           {session.mfaCompleted ? "" : " · MFA incomplete"}.
         </Typography>
-        <Stack direction="row" justifyContent="center">
+        <Stack direction="row" sx={{
+          justifyContent: "center"
+        }}>
           <Button
             variant="outlined"
             startIcon={<LogOut size={18} />}

@@ -266,7 +266,7 @@ export function CitizenLayout() {
         id="citizen-drawer"
         onClose={closeDrawer}
         open={drawerOpen}
-        PaperProps={{ sx: { width: "min(320px, 82vw)" } }}
+        slotProps={{ paper: { sx: { width: "min(320px, 82vw)" } } }}
       >
         <div className="citizen-drawer">
           <div className="citizen-drawer__head">

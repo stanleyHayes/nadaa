@@ -36,7 +36,12 @@ export function AlertRulePanel({ rules }: { rules: AlertRuleSummary[] }) {
           <Grid key={rule.id} size={{ xs: 12, md: 6, xl: 4 }}>
             <Paper className="rule-card">
               <Stack spacing={1.25}>
-                <Stack direction="row" justifyContent="space-between" gap={1}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    gap: 1
+                  }}>
                   <Typography variant="h6">{rule.name}</Typography>
                   <Chip
                     size="small"
@@ -44,10 +49,14 @@ export function AlertRulePanel({ rules }: { rules: AlertRuleSummary[] }) {
                     label={rule.status}
                   />
                 </Stack>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   {rule.scope}
                 </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Stack direction="row" spacing={1} sx={{
+                  flexWrap: "wrap"
+                }}>
                   <Chip size="small" label={rule.targetType} />
                   <Chip
                     size="small"
@@ -67,17 +76,25 @@ export function AlertRulePanel({ rules }: { rules: AlertRuleSummary[] }) {
                     label={rule.mfaRequired ? "MFA required" : "MFA missing"}
                   />
                 </Stack>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Approvers: {rule.approverRoles.map(roleLabel).join(", ")}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Override:{" "}
                   {rule.emergencyOverrideRoles.map(roleLabel).join(", ")}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Audit: {rule.auditAction}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Reviewed {formatDateTime(rule.lastReviewedAt)}
                 </Typography>
               </Stack>

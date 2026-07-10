@@ -101,15 +101,24 @@ export function IncidentsView({ data }: { data: DispatchData }) {
     <Stack spacing={2.5}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", sm: "center" }}
-        gap={1.5}
-      >
-        <Typography color="text.secondary">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "flex-start", sm: "center" },
+          gap: 1.5
+        }}>
+        <Typography sx={{
+          color: "text.secondary"
+        }}>
           Monitor emergencies by place, severity, hazard, time, and response
           status.
         </Typography>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
           <span className={`cc-feed-chip cc-feed-chip--${loadState}`}>
             <Eye size={13} />
             {loadState === "ready"
@@ -131,11 +140,9 @@ export function IncidentsView({ data }: { data: DispatchData }) {
           </Button>
         </Stack>
       </Stack>
-
       {loadState === "loading" ? (
         <LinearProgress className="feed-progress" />
       ) : null}
-
       <SectionCard title="Filters" eyebrow="Narrow the queue" icon={Filter}>
         <Grid container spacing={1.5}>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
@@ -208,14 +215,15 @@ export function IncidentsView({ data }: { data: DispatchData }) {
           </Grid>
         </Grid>
       </SectionCard>
-
       <Stack spacing={2.5}>
         <SectionCard
           title="Incident map"
           eyebrow={`${filteredIncidents.length} visible of ${incidents.length}`}
           icon={MapPinned}
           action={
-            <Stack direction="row" spacing={0.75} flexWrap="wrap">
+            <Stack direction="row" spacing={0.75} sx={{
+              flexWrap: "wrap"
+            }}>
               {filterOptions.hazards.slice(0, 4).map((hazard) => (
                 <HazardChip key={hazard} hazard={hazard} />
               ))}
@@ -274,7 +282,9 @@ export function IncidentsView({ data }: { data: DispatchData }) {
                         <Typography variant="subtitle2">
                           {incident.reference}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                          color: "text.secondary"
+                        }}>
                           {incident.locality}
                         </Typography>
                       </TableCell>
@@ -306,7 +316,6 @@ export function IncidentsView({ data }: { data: DispatchData }) {
           )}
         </SectionCard>
       </Stack>
-
       <Dialog
         open={detailOpen && Boolean(selectedIncident)}
         onClose={closeDetail}
@@ -373,13 +382,11 @@ export function IncidentsView({ data }: { data: DispatchData }) {
           />
         </DialogContent>
       </Dialog>
-
       {loadState === "empty" ? (
         <Alert severity="info" className="feed-alert">
           No incidents are currently in the command queue.
         </Alert>
       ) : null}
-
       {loadState === "error" ? (
         <Alert severity="warning" className="feed-alert">
           {loadMessage}

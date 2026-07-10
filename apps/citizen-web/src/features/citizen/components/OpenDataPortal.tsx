@@ -257,15 +257,20 @@ export function OpenDataPortal() {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Database size={21} color={nadaaBrand.colors.navy} />
           <Box>
             <Typography variant="h6">Open Data Portal</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Approved, anonymized disaster datasets
             </Typography>
           </Box>
@@ -287,7 +292,6 @@ export function OpenDataPortal() {
           Refresh
         </Button>
       </Stack>
-
       <FormControl fullWidth size="small" sx={{ mb: 2 }}>
         <InputLabel id="open-data-category-label">Category</InputLabel>
         <Select
@@ -305,13 +309,11 @@ export function OpenDataPortal() {
           ))}
         </Select>
       </FormControl>
-
       {loadState === "error" ? (
         <Alert severity="warning" className="warning-alert">
           {feedback}
         </Alert>
       ) : null}
-
       <Stack spacing={1.5}>
         {filteredDatasets.length > 0 ? (
           filteredDatasets.map((dataset) => (
@@ -325,13 +327,16 @@ export function OpenDataPortal() {
               <Stack spacing={1}>
                 <Stack
                   direction="row"
-                  justifyContent="space-between"
-                  alignItems="flex-start"
                   spacing={1}
-                >
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "flex-start"
+                  }}>
                   <Box>
                     <Typography variant="subtitle2">{dataset.title}</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       {dataset.category.replace("_", " ")} ·{" "}
                       {dataset.updateFrequency.replace("_", " ")}
                     </Typography>
@@ -346,9 +351,10 @@ export function OpenDataPortal() {
                 <Stack
                   direction="row"
                   spacing={0.75}
-                  flexWrap="wrap"
-                  alignItems="center"
-                >
+                  sx={{
+                    flexWrap: "wrap",
+                    alignItems: "center"
+                  }}>
                   <Chip
                     size="small"
                     variant="outlined"
@@ -398,7 +404,6 @@ export function OpenDataPortal() {
           </Alert>
         )}
       </Stack>
-
       <Dialog
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
@@ -412,7 +417,9 @@ export function OpenDataPortal() {
               <Typography variant="body1">
                 {selectedDataset.description}
               </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Stack direction="row" spacing={1} sx={{
+                flexWrap: "wrap"
+              }}>
                 <Chip
                   size="small"
                   label={selectedDataset.category.replace("_", " ")}
@@ -444,28 +451,38 @@ export function OpenDataPortal() {
                 <Typography variant="subtitle2" gutterBottom>
                   Metadata
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   Publisher: {selectedDataset.metadata.publisher}
                 </Typography>
                 {selectedDataset.metadata.contactEmail ? (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Contact: {selectedDataset.metadata.contactEmail}
                   </Typography>
                 ) : null}
                 {selectedDataset.metadata.regionCoverage?.length ? (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Regions:{" "}
                     {selectedDataset.metadata.regionCoverage.join(", ")}
                   </Typography>
                 ) : null}
                 {selectedDataset.metadata.temporalCoverage ? (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Temporal coverage:{" "}
                     {selectedDataset.metadata.temporalCoverage}
                   </Typography>
                 ) : null}
                 {selectedDataset.metadata.anonymizationNotes ? (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Anonymization: {selectedDataset.metadata.anonymizationNotes}
                   </Typography>
                 ) : null}
@@ -579,7 +596,6 @@ export function OpenDataPortal() {
           <Button onClick={() => setDetailOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-
       <Dialog
         open={requestOpen}
         onClose={() => setRequestOpen(false)}
@@ -601,7 +617,9 @@ export function OpenDataPortal() {
               onSubmit={submitRequest}
               noValidate
             >
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Requesting access to <strong>{selectedDataset?.title}</strong>.
               </Typography>
               <TextField

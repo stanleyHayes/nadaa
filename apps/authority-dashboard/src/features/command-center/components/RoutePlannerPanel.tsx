@@ -165,28 +165,31 @@ export function RoutePlannerPanel({
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Route size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">Evacuation route planner</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Decision-support routes to shelter, higher ground, or a manual
               waypoint
             </Typography>
           </Box>
         </Stack>
       </Stack>
-
       {feedback ? (
         <Alert severity={result ? "success" : "warning"} className="feed-alert">
           {feedback}
         </Alert>
       ) : null}
-
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Origin</Typography>
         <Grid container spacing={1}>
@@ -200,13 +203,15 @@ export function RoutePlannerPanel({
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setOriginLat(event.target.value)
               }
-              inputProps={{ inputMode: "decimal" }}
               error={Boolean(originLat) && !originValid}
               helperText={
                 Boolean(originLat) && !originValid
                   ? "Enter a valid latitude"
                   : ""
               }
+              slotProps={{
+                htmlInput: { inputMode: "decimal" }
+              }}
             />
           </Grid>
           <Grid size={6}>
@@ -219,13 +224,15 @@ export function RoutePlannerPanel({
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setOriginLng(event.target.value)
               }
-              inputProps={{ inputMode: "decimal" }}
               error={Boolean(originLng) && !originValid}
               helperText={
                 Boolean(originLng) && !originValid
                   ? "Enter a valid longitude"
                   : ""
               }
+              slotProps={{
+                htmlInput: { inputMode: "decimal" }
+              }}
             />
           </Grid>
         </Grid>
@@ -259,7 +266,6 @@ export function RoutePlannerPanel({
                   onChange={(event: ChangeEvent<HTMLInputElement>) =>
                     setDestinationLat(event.target.value)
                   }
-                  inputProps={{ inputMode: "decimal" }}
                   error={
                     Boolean(destinationLat) &&
                     !isValidCoordinate(destinationLat, destinationLng)
@@ -270,6 +276,9 @@ export function RoutePlannerPanel({
                       ? "Enter a valid latitude"
                       : ""
                   }
+                  slotProps={{
+                    htmlInput: { inputMode: "decimal" }
+                  }}
                 />
               </Grid>
               <Grid size={6}>
@@ -282,7 +291,6 @@ export function RoutePlannerPanel({
                   onChange={(event: ChangeEvent<HTMLInputElement>) =>
                     setDestinationLng(event.target.value)
                   }
-                  inputProps={{ inputMode: "decimal" }}
                   error={
                     Boolean(destinationLng) &&
                     !isValidCoordinate(destinationLat, destinationLng)
@@ -293,6 +301,9 @@ export function RoutePlannerPanel({
                       ? "Enter a valid longitude"
                       : ""
                   }
+                  slotProps={{
+                    htmlInput: { inputMode: "decimal" }
+                  }}
                 />
               </Grid>
             </Grid>
@@ -309,7 +320,6 @@ export function RoutePlannerPanel({
           {busy ? "Planning" : "Plan route"}
         </Button>
       </Stack>
-
       {result ? (
         <>
           <Divider className="detail-divider" />
@@ -337,7 +347,9 @@ function RouteResultSummary({ plan }: { plan: RoutePlanResponse }) {
     <Grid container spacing={1.5}>
       <Grid size={6}>
         <Box className="route-stat">
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Distance
           </Typography>
           <Typography variant="subtitle2">
@@ -347,7 +359,9 @@ function RouteResultSummary({ plan }: { plan: RoutePlanResponse }) {
       </Grid>
       <Grid size={6}>
         <Box className="route-stat">
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Est. walking time
           </Typography>
           <Typography variant="subtitle2">
@@ -358,10 +372,14 @@ function RouteResultSummary({ plan }: { plan: RoutePlanResponse }) {
       {plan.targetShelter ? (
         <Grid size={12}>
           <Box className="route-stat">
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Target shelter
             </Typography>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <MapPinned size={16} />
               <Typography variant="subtitle2">
                 {plan.targetShelter.name}
@@ -377,7 +395,9 @@ function RouteResultSummary({ plan }: { plan: RoutePlanResponse }) {
       ) : null}
       <Grid size={6}>
         <Box className="route-stat">
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Avoided closures
           </Typography>
           <Typography variant="subtitle2">
@@ -387,7 +407,9 @@ function RouteResultSummary({ plan }: { plan: RoutePlanResponse }) {
       </Grid>
       <Grid size={6}>
         <Box className="route-stat">
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Avoided risk zones
           </Typography>
           <Typography variant="subtitle2">
@@ -420,7 +442,9 @@ function RouteSegmentList({
             <Typography variant="body2">
               {index + 1}. {formatDistance(segment.distanceMeters)}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {segment.start.lat.toFixed(5)}, {segment.start.lng.toFixed(5)} →{" "}
               {segment.end.lat.toFixed(5)}, {segment.end.lng.toFixed(5)}
             </Typography>

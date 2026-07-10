@@ -412,11 +412,13 @@ export function ReportPage() {
             inputMode="decimal"
             error={Boolean(reportErrors.lat)}
             helperText={reportErrors.lat}
-            FormHelperTextProps={{ id: "report-lat-error" }}
-            inputProps={{
-              "aria-describedby": "report-lat-error",
-            }}
-          />
+            slotProps={{
+              htmlInput: {
+                "aria-describedby": "report-lat-error",
+              },
+
+              formHelperText: { id: "report-lat-error" }
+            }} />
         </Grid>
         <Grid size={{ xs: 6 }}>
           <TextField
@@ -431,11 +433,13 @@ export function ReportPage() {
             inputMode="decimal"
             error={Boolean(reportErrors.lng)}
             helperText={reportErrors.lng}
-            FormHelperTextProps={{ id: "report-lng-error" }}
-            inputProps={{
-              "aria-describedby": "report-lng-error",
-            }}
-          />
+            slotProps={{
+              htmlInput: {
+                "aria-describedby": "report-lng-error",
+              },
+
+              formHelperText: { id: "report-lng-error" }
+            }} />
         </Grid>
       </Grid>
       <Button
@@ -459,12 +463,14 @@ export function ReportPage() {
         minRows={3}
         error={Boolean(reportErrors.description)}
         helperText={reportErrors.description}
-        FormHelperTextProps={{ id: "report-description-error" }}
-        inputProps={{
-          maxLength: 2000,
-          "aria-describedby": "report-description-error",
-        }}
-      />
+        slotProps={{
+          htmlInput: {
+            maxLength: 2000,
+            "aria-describedby": "report-description-error",
+          },
+
+          formHelperText: { id: "report-description-error" }
+        }} />
       <Grid container spacing={1.25}>
         <Grid size={{ xs: 6 }}>
           <TextField
@@ -479,13 +485,15 @@ export function ReportPage() {
             inputMode="numeric"
             error={Boolean(reportErrors.peopleAffected)}
             helperText={reportErrors.peopleAffected}
-            FormHelperTextProps={{
-              id: "report-people-affected-error",
-            }}
-            inputProps={{
-              "aria-describedby": "report-people-affected-error",
-            }}
-          />
+            slotProps={{
+              htmlInput: {
+                "aria-describedby": "report-people-affected-error",
+              },
+
+              formHelperText: {
+                id: "report-people-affected-error",
+              }
+            }} />
         </Grid>
         <Grid size={{ xs: 6 }}>
           <FormControl fullWidth error={Boolean(reportErrors.urgency)}>
@@ -532,7 +540,9 @@ export function ReportPage() {
         onChange={(event) =>
           updateReportForm("accessibilityNeeds", event.target.value)
         }
-        inputProps={{ maxLength: 500 }}
+        slotProps={{
+          htmlInput: { maxLength: 500 }
+        }}
       />
       <Button
         component="label"
@@ -561,9 +571,10 @@ export function ReportPage() {
       ) : null}
       <Stack
         direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
         <Typography>Injuries reported</Typography>
         <Switch
           checked={reportForm.injuriesReported}
@@ -574,9 +585,10 @@ export function ReportPage() {
       </Stack>
       <Stack
         direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
         <Typography>Allow responders to contact me</Typography>
         <Switch
           checked={reportForm.contactPermission}
@@ -652,12 +664,16 @@ export function ReportPage() {
                     key={title}
                     direction="row"
                     spacing={1.5}
-                    alignItems="flex-start"
+                    sx={{
+                      alignItems: "flex-start"
+                    }}
                   >
                     <StepIcon size={20} aria-hidden="true" />
                     <div>
                       <Typography variant="subtitle2">{title}</Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         {text}
                       </Typography>
                     </div>
@@ -746,7 +762,6 @@ export function ReportPage() {
           )}
         </div>
       </div>
-
       {/* Light-detail half of the list/detail split: a report row opens this
           read-only dialog instead of expanding inline. */}
       <DetailDialog

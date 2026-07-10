@@ -28,18 +28,30 @@ export function HospitalCapacityCard({
   return (
     <Card variant="outlined">
       <CardContent>
-        <Stack direction="row" justifyContent="space-between">
-          <Typography fontWeight={700}>{facility.name}</Typography>
+        <Stack direction="row" sx={{
+          justifyContent: "space-between"
+        }}>
+          <Typography sx={{
+            fontWeight: 700
+          }}>{facility.name}</Typography>
           <Chip
             color={hospitalCapacityColor(facility.emergencyCapacity)}
             label={facility.emergencyCapacity}
             size="small"
           />
         </Stack>
-        <Typography color="text.secondary" variant="body2">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {facility.address}
         </Typography>
-        <Stack direction="row" flexWrap="wrap" gap={1} mt={1}>
+        <Stack
+          direction="row"
+          sx={{
+            flexWrap: "wrap",
+            gap: 1,
+            mt: 1
+          }}>
           <Chip
             icon={<Bed size={14} />}
             label={`Beds ${facility.availableBeds}/${facility.totalBeds}`}

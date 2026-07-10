@@ -369,7 +369,9 @@ export function DonorPortal() {
           <Typography variant="body2" sx={{ fontWeight: 700 }}>
             {request.title}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {request.category}
           </Typography>
         </Box>
@@ -382,7 +384,9 @@ export function DonorPortal() {
         <Box>
           <Typography variant="body2">{request.region ?? "—"}</Typography>
           {request.district ? (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {request.district}
             </Typography>
           ) : null}
@@ -450,7 +454,9 @@ export function DonorPortal() {
           <Typography variant="body2" sx={{ fontWeight: 700 }}>
             {item.name}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {item.code}
           </Typography>
         </Box>
@@ -592,7 +598,9 @@ export function DonorPortal() {
                 event.target.value,
               )
             }
-            inputProps={{ inputMode: "numeric" }}
+            slotProps={{
+              htmlInput: { inputMode: "numeric" }
+            }}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
@@ -704,15 +712,20 @@ export function DonorPortal() {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <HeartHandshake size={21} color={nadaaBrand.colors.green} />
           <Box>
             <Typography variant="h6">Donor portal</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Browse aid requests, pledge support, and register as a donor
             </Typography>
           </Box>
@@ -734,7 +747,6 @@ export function DonorPortal() {
           Refresh
         </Button>
       </Stack>
-
       {feedback ? (
         <Alert
           severity={
@@ -749,16 +761,16 @@ export function DonorPortal() {
           {feedback}
         </Alert>
       ) : null}
-
       <Stack spacing={2}>
         <Box>
           <Stack
             direction={{ xs: "column", sm: "row" }}
             spacing={1.5}
-            justifyContent="space-between"
-            alignItems={{ xs: "stretch", sm: "center" }}
-            sx={{ mb: 1.5 }}
-          >
+            sx={{
+              justifyContent: "space-between",
+              alignItems: { xs: "stretch", sm: "center" },
+              mb: 1.5
+            }}>
             <Typography variant="subtitle2">Aid requests</Typography>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
               <FormDialogButton
@@ -825,7 +837,6 @@ export function DonorPortal() {
           />
         </Box>
       </Stack>
-
       <DetailDialog
         open={Boolean(detailRequest)}
         onClose={() => setDetailRequest(null)}

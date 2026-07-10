@@ -26,12 +26,15 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <Stack
-      alignItems="center"
       className="empty-state"
       data-tone={tone}
       spacing={1.25}
-      sx={{ py: { xs: 5, sm: 7 }, px: 3, textAlign: "center" }}
-    >
+      sx={{
+        alignItems: "center",
+        py: { xs: 5, sm: 7 },
+        px: 3,
+        textAlign: "center"
+      }}>
       <span aria-hidden="true" className="empty-state__icon">
         <Icon size={30} strokeWidth={1.75} />
       </span>
@@ -40,10 +43,11 @@ export function EmptyState({
       </Typography>
       {description ? (
         <Typography
-          color="text.secondary"
-          sx={{ maxWidth: 400 }}
           variant="body2"
-        >
+          sx={{
+            color: "text.secondary",
+            maxWidth: 400
+          }}>
           {description}
         </Typography>
       ) : null}

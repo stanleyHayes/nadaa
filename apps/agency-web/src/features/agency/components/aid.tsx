@@ -51,14 +51,22 @@ export function AidRequestCard({
       variant="outlined"
     >
       <CardContent>
-        <Stack direction="row" justifyContent="space-between" spacing={2}>
+        <Stack direction="row" spacing={2} sx={{
+          justifyContent: "space-between"
+        }}>
           <Box>
-            <Typography fontWeight={700}>{request.title}</Typography>
-            <Typography color="text.secondary" variant="body2">
+            <Typography sx={{
+              fontWeight: 700
+            }}>{request.title}</Typography>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {aidLabel(request.category)} · {request.district}
             </Typography>
           </Box>
-          <Stack alignItems="flex-end" spacing={1}>
+          <Stack spacing={1} sx={{
+            alignItems: "flex-end"
+          }}>
             <Chip
               color={aidStatusColor(request.status)}
               label={aidLabel(request.status)}
@@ -73,13 +81,21 @@ export function AidRequestCard({
           </Stack>
         </Stack>
 
-        <Typography mt={1} variant="body2">
+        <Typography variant="body2" sx={{
+          mt: 1
+        }}>
           {request.quantityPledged.toLocaleString("en-GH")} /{" "}
           {request.quantityNeeded.toLocaleString("en-GH")}{" "}
           {request.quantityUnit} pledged
         </Typography>
         <LinearProgress sx={{ mt: 1 }} value={progress} variant="determinate" />
-        <Stack direction="row" flexWrap="wrap" gap={1} mt={1.5}>
+        <Stack
+          direction="row"
+          sx={{
+            flexWrap: "wrap",
+            gap: 1,
+            mt: 1.5
+          }}>
           <Chip
             icon={<HandHeart size={14} />}
             label={`${request.pledges.length} pledges`}
@@ -253,7 +269,6 @@ export function AidRequestForm({
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <TextField
           fullWidth
-          InputLabelProps={{ shrink: true }}
           label="Needed by"
           onChange={(event) =>
             onChange({ ...form, neededBy: event.target.value })
@@ -261,6 +276,9 @@ export function AidRequestForm({
           size="small"
           type="datetime-local"
           value={form.neededBy}
+          slotProps={{
+            inputLabel: { shrink: true }
+          }}
         />
         <FormControl fullWidth size="small">
           <InputLabel>Visibility</InputLabel>
@@ -325,15 +343,23 @@ export function AidPledgeList({ pledges }: { pledges: AidPledgeRecord[] }) {
     <Stack spacing={1.25}>
       {pledges.map((pledge) => (
         <Paper key={pledge.id} sx={{ p: 2 }} variant="outlined">
-          <Stack direction="row" justifyContent="space-between" spacing={2}>
+          <Stack direction="row" spacing={2} sx={{
+            justifyContent: "space-between"
+          }}>
             <Box>
-              <Typography fontWeight={700}>{pledge.donorName}</Typography>
-              <Typography color="text.secondary" variant="body2">
+              <Typography sx={{
+                fontWeight: 700
+              }}>{pledge.donorName}</Typography>
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 {aidLabel(pledge.donorType)} ·{" "}
                 {new Date(pledge.pledgedAt).toLocaleString("en-GH")}
               </Typography>
             </Box>
-            <Stack alignItems="flex-end" spacing={1}>
+            <Stack spacing={1} sx={{
+              alignItems: "flex-end"
+            }}>
               <Chip label={aidLabel(pledge.status)} size="small" />
               <Chip
                 color={
@@ -349,11 +375,18 @@ export function AidPledgeList({ pledges }: { pledges: AidPledgeRecord[] }) {
               />
             </Stack>
           </Stack>
-          <Typography mt={1} variant="body2">
+          <Typography variant="body2" sx={{
+            mt: 1
+          }}>
             {pledge.quantity.toLocaleString("en-GH")} {pledge.unit}
           </Typography>
           {pledge.note ? (
-            <Typography color="text.secondary" mt={0.5} variant="body2">
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mt: 0.5
+              }}>
               {pledge.note}
             </Typography>
           ) : null}

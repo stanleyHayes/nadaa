@@ -675,15 +675,20 @@ export function SchoolPreparednessPanel() {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <GraduationCap size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">School preparedness</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Manage school plans, drills, and readiness checks
             </Typography>
           </Box>
@@ -705,7 +710,6 @@ export function SchoolPreparednessPanel() {
           Refresh
         </Button>
       </Stack>
-
       {feedback ? (
         <Alert
           severity={loadState === "error" ? "error" : "info"}
@@ -714,7 +718,6 @@ export function SchoolPreparednessPanel() {
           {feedback}
         </Alert>
       ) : null}
-
       <Tabs
         value={view}
         onChange={(_, next) => setView(next as SchoolPanelView)}
@@ -726,7 +729,6 @@ export function SchoolPreparednessPanel() {
         <Tab value="drill" label="Drill" />
         <Tab value="readiness" label="Readiness" />
       </Tabs>
-
       {view === "list" && (
         <Stack spacing={2} sx={{ mt: 2 }}>
           <Grid container spacing={1.5}>
@@ -830,7 +832,6 @@ export function SchoolPreparednessPanel() {
           )}
         </Stack>
       )}
-
       {view === "detail" && (
         <Stack spacing={2} sx={{ mt: 2 }}>
           {detailLoadState === "loading" && (
@@ -843,13 +844,17 @@ export function SchoolPreparednessPanel() {
           )}
           {detail && (
             <>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} sx={{
+                alignItems: "center"
+              }}>
                 <MapPin size={18} color="var(--nadaa-navy)" />
                 <Typography variant="h6">{detail.name}</Typography>
               </Stack>
               <Grid container spacing={1}>
                 <Grid size={{ xs: 6 }}>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Stack direction="row" spacing={0.5} sx={{
+                    alignItems: "center"
+                  }}>
                     <Users size={16} />
                     <Typography variant="body2">
                       {detail.studentPopulation.toLocaleString()} students
@@ -857,7 +862,9 @@ export function SchoolPreparednessPanel() {
                   </Stack>
                 </Grid>
                 <Grid size={{ xs: 6 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {detail.district}
                   </Typography>
                 </Grid>
@@ -876,19 +883,25 @@ export function SchoolPreparednessPanel() {
                   ))}
                 </Stack>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   No contacts recorded.
                 </Typography>
               )}
 
               <Typography variant="subtitle2">Hazards</Typography>
-              <Stack direction="row" spacing={0.5} flexWrap="wrap">
+              <Stack direction="row" spacing={0.5} sx={{
+                flexWrap: "wrap"
+              }}>
                 {detail.hazards.length ? (
                   detail.hazards.map((hazard) => (
                     <Chip key={hazard} size="small" label={hazard} />
                   ))
                 ) : (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     No hazards recorded.
                   </Typography>
                 )}
@@ -905,7 +918,9 @@ export function SchoolPreparednessPanel() {
                   ))}
                 </Stack>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   No evacuation points recorded.
                 </Typography>
               )}
@@ -924,7 +939,9 @@ export function SchoolPreparednessPanel() {
                   ))}
                 </Stack>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   No drills recorded.
                 </Typography>
               )}
@@ -932,7 +949,9 @@ export function SchoolPreparednessPanel() {
               <Typography variant="subtitle2">Latest readiness</Typography>
               {readiness ? (
                 <Stack spacing={0.5}>
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                  }}>
                     <SeverityChip severity={readiness.riskLevel} />
                     <Chip
                       size="small"
@@ -945,7 +964,9 @@ export function SchoolPreparednessPanel() {
                       }}
                     />
                   </Stack>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Checked {new Date(readiness.checkDate).toLocaleDateString()}
                     {readiness.areaRiskRef
                       ? ` · Risk ref ${readiness.areaRiskRef}`
@@ -956,7 +977,9 @@ export function SchoolPreparednessPanel() {
                   ) : null}
                 </Stack>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   No readiness check recorded.
                 </Typography>
               )}
@@ -981,7 +1004,6 @@ export function SchoolPreparednessPanel() {
           )}
         </Stack>
       )}
-
       {view === "drill" && (
         <Stack spacing={2} sx={{ mt: 2 }}>
           <Typography variant="h6">
@@ -1018,7 +1040,9 @@ export function SchoolPreparednessPanel() {
                 fullWidth
                 value={drillForm.participants}
                 onChange={updateDrillForm("participants")}
-                inputProps={{ inputMode: "numeric" }}
+                slotProps={{
+                  htmlInput: { inputMode: "numeric" }
+                }}
               />
             </Grid>
             <Grid size={{ xs: 6 }}>
@@ -1054,7 +1078,6 @@ export function SchoolPreparednessPanel() {
           </Button>
         </Stack>
       )}
-
       {view === "readiness" && (
         <Stack spacing={2} sx={{ mt: 2 }}>
           <Typography variant="h6">

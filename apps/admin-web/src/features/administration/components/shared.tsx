@@ -71,12 +71,18 @@ export function EmptyState({
 }) {
   return (
     <Box className="empty-state">
-      <Stack alignItems="center" spacing={1}>
+      <Stack spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <ShieldCheck size={30} color="var(--nadaa-slate)" />
-        <Typography variant="subtitle1" fontWeight={800}>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 800
+        }}>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {detail}
         </Typography>
       </Stack>
@@ -99,13 +105,21 @@ export function SectionHeader({
     <Stack
       className="section-heading"
       direction={{ xs: "column", md: "row" }}
-      justifyContent="space-between"
-      gap={1}
-    >
-      <Stack direction="row" spacing={1.25} alignItems="center">
+      sx={{
+        justifyContent: "space-between",
+        gap: 1
+      }}>
+      <Stack direction="row" spacing={1.25} sx={{
+        alignItems: "center"
+      }}>
         {icon}
         <Box>
-          <Typography variant="caption" color="text.secondary" fontWeight={800}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 800
+            }}>
             {eyebrow}
           </Typography>
           <Typography variant="h6">{title}</Typography>
@@ -125,16 +139,25 @@ export function MetricCard({
 }) {
   return (
     <Paper className="metric-card">
-      <Stack direction="row" spacing={2} alignItems="center">
+      <Stack direction="row" spacing={2} sx={{
+        alignItems: "center"
+      }}>
         <Box className="metric-icon" sx={{ color: toneColors[metric.tone] }}>
           {icon}
         </Box>
         <Box>
-          <Typography variant="caption" color="text.secondary" fontWeight={800}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 800
+            }}>
             {metric.label}
           </Typography>
           <Typography variant="h4">{metric.value}</Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {metric.detail}
           </Typography>
         </Box>

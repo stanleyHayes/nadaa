@@ -31,7 +31,12 @@ export function IncidentFilters({
   onChange: (filters: IncidentFilterState) => void;
 }) {
   return (
-    <Stack direction="row" flexWrap="wrap" gap={2}>
+    <Stack
+      direction="row"
+      sx={{
+        flexWrap: "wrap",
+        gap: 2
+      }}>
       <FormControl size="small" sx={{ minWidth: 140 }}>
         <InputLabel>Hazard</InputLabel>
         <Select
@@ -61,7 +66,6 @@ export function IncidentFilters({
           <MenuItem value="other">Other</MenuItem>
         </Select>
       </FormControl>
-
       <FormControl size="small" sx={{ minWidth: 140 }}>
         <InputLabel>Severity</InputLabel>
         <Select
@@ -82,7 +86,6 @@ export function IncidentFilters({
           <MenuItem value="low">Low</MenuItem>
         </Select>
       </FormControl>
-
       <FormControl size="small" sx={{ minWidth: 140 }}>
         <InputLabel>Status</InputLabel>
         <Select
@@ -137,18 +140,30 @@ export function IncidentListItem({
         "&:hover": { boxShadow: 2 },
       }}
     >
-      <Stack direction="row" justifyContent="space-between" spacing={2}>
+      <Stack direction="row" spacing={2} sx={{
+        justifyContent: "space-between"
+      }}>
         <Box>
-          <Typography fontWeight={700} variant="subtitle1">
+          <Typography variant="subtitle1" sx={{
+            fontWeight: 700
+          }}>
             {incident.reference}
           </Typography>
-          <Typography color="text.secondary" variant="body2">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {incident.description}
           </Typography>
         </Box>
         <SeverityChip severity={incident.severity} />
       </Stack>
-      <Stack direction="row" flexWrap="wrap" gap={1} mt={1}>
+      <Stack
+        direction="row"
+        sx={{
+          flexWrap: "wrap",
+          gap: 1,
+          mt: 1
+        }}>
         <HazardChip hazard={incident.type} />
         <Chip
           label={statusLabel(incident.status)}
@@ -166,16 +181,23 @@ export function IncidentListItem({
 export function IncidentDetail({ incident }: { incident: IncidentRecord }) {
   return (
     <Stack spacing={2}>
-      <Stack direction="row" justifyContent="space-between">
-        <Typography fontWeight={800} variant="h5">
+      <Stack direction="row" sx={{
+        justifyContent: "space-between"
+      }}>
+        <Typography variant="h5" sx={{
+          fontWeight: 800
+        }}>
           {incident.reference}
         </Typography>
         <SeverityChip severity={incident.severity} size="medium" />
       </Stack>
-
       <Typography variant="body1">{incident.description}</Typography>
-
-      <Stack direction="row" flexWrap="wrap" gap={1}>
+      <Stack
+        direction="row"
+        sx={{
+          flexWrap: "wrap",
+          gap: 1
+        }}>
         <Chip label={statusLabel(incident.status)} />
         <HazardChip hazard={incident.type} size="medium" />
         {incident.priorityReview ? (
@@ -183,9 +205,7 @@ export function IncidentDetail({ incident }: { incident: IncidentRecord }) {
         ) : null}
         {incident.anonymous ? <Chip label="Anonymous report" /> : null}
       </Stack>
-
       <Divider />
-
       <Grid container spacing={2}>
         <Grid size={{ xs: 6, md: 3 }}>
           <MetricCard
@@ -216,26 +236,33 @@ export function IncidentDetail({ incident }: { incident: IncidentRecord }) {
           />
         </Grid>
       </Grid>
-
       <Divider />
-
-      <Typography fontWeight={700} variant="h6">
+      <Typography variant="h6" sx={{
+        fontWeight: 700
+      }}>
         Location
       </Typography>
-      <Typography color="text.secondary" variant="body2">
+      <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>
         {incident.location.lat.toFixed(5)}, {incident.location.lng.toFixed(5)}
       </Typography>
-
       {incident.assignments.length > 0 ? (
         <>
           <Divider />
-          <Typography fontWeight={700} variant="h6">
+          <Typography variant="h6" sx={{
+            fontWeight: 700
+          }}>
             Assignment
           </Typography>
           {incident.assignments.map((assignment) => (
             <Paper key={assignment.id} sx={{ p: 2 }} variant="outlined">
-              <Typography fontWeight={600}>{assignment.agencyName}</Typography>
-              <Typography color="text.secondary" variant="body2">
+              <Typography sx={{
+                fontWeight: 600
+              }}>{assignment.agencyName}</Typography>
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Priority: {assignment.priority} · Lead:{" "}
                 {assignment.responderLead ?? "Unassigned"}
               </Typography>
@@ -244,20 +271,24 @@ export function IncidentDetail({ incident }: { incident: IncidentRecord }) {
           ))}
         </>
       ) : null}
-
       <Divider />
-
-      <Typography fontWeight={700} variant="h6">
+      <Typography variant="h6" sx={{
+        fontWeight: 700
+      }}>
         Timeline
       </Typography>
       {incident.timeline.length === 0 ? (
-        <Typography color="text.secondary">No timeline events yet.</Typography>
+        <Typography sx={{
+          color: "text.secondary"
+        }}>No timeline events yet.</Typography>
       ) : (
         <Stack spacing={1}>
           {incident.timeline.map((event) => (
             <Paper key={event.id} sx={{ p: 2 }} variant="outlined">
               <Typography variant="body2">{event.message}</Typography>
-              <Typography color="text.secondary" variant="caption">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 {event.actorRole ? `${event.actorRole} · ` : ""}
                 {new Date(event.createdAt).toLocaleString("en-GH")}
               </Typography>

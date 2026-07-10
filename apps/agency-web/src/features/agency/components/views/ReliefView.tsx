@@ -76,7 +76,6 @@ export function ReliefView({ data }: { data: AgencyData }) {
           </Button>
         }
       />
-
       {reliefLoadState === "loading" ? (
         <LoadingState message="Loading relief distribution points" />
       ) : reliefLoadState === "error" && !reliefPoints.length ? (
@@ -100,7 +99,6 @@ export function ReliefView({ data }: { data: AgencyData }) {
           )}
         </Stack>
       )}
-
       <Dialog
         open={detailOpen}
         onClose={closeDetail}
@@ -157,7 +155,9 @@ export function ReliefView({ data }: { data: AgencyData }) {
               ) : null}
             </Stack>
             <Stack spacing={1}>
-              <Typography fontWeight={800} variant="h6">
+              <Typography variant="h6" sx={{
+                fontWeight: 800
+              }}>
                 Stock history
               </Typography>
               <ReliefStockHistoryList history={reliefHistory} />

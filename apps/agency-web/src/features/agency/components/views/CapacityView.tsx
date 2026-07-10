@@ -65,7 +65,6 @@ export function CapacityView({
         description={`Shelter occupancy, hospital beds, and road closures ${contextLabel}. Open an incident to recentre on its scene.`}
         icon={Building2}
       />
-
       {capacityLoadState === "loading" ? (
         <LoadingState message="Loading nearby capacity" />
       ) : (
@@ -73,13 +72,16 @@ export function CapacityView({
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 6 }}>
               <Stack
-                alignItems="center"
                 direction="row"
-                justifyContent="space-between"
                 spacing={1}
-                sx={{ mb: 1.5 }}
-              >
-                <Typography fontWeight={800} variant="h6">
+                sx={{
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  mb: 1.5
+                }}>
+                <Typography variant="h6" sx={{
+                  fontWeight: 800
+                }}>
                   Nearby shelters
                 </Typography>
                 <Button
@@ -103,13 +105,16 @@ export function CapacityView({
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <Stack
-                alignItems="center"
                 direction="row"
-                justifyContent="space-between"
                 spacing={1}
-                sx={{ mb: 1.5 }}
-              >
-                <Typography fontWeight={800} variant="h6">
+                sx={{
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  mb: 1.5
+                }}>
+                <Typography variant="h6" sx={{
+                  fontWeight: 800
+                }}>
                   Hospital capacity
                 </Typography>
                 <Button
@@ -135,17 +140,23 @@ export function CapacityView({
 
           {roadClosures.length > 0 ? (
             <Stack spacing={2}>
-              <Typography fontWeight={800} variant="h6">
+              <Typography variant="h6" sx={{
+                fontWeight: 800
+              }}>
                 Nearby road closures
               </Typography>
               <Stack spacing={2}>
                 {roadClosures.map((closure) => (
                   <Paper key={closure.id} sx={{ p: 2 }}>
                     <Stack spacing={0.5}>
-                      <Typography fontWeight={700}>
+                      <Typography sx={{
+                        fontWeight: 700
+                      }}>
                         {closure.roadName}
                       </Typography>
-                      <Typography color="text.secondary" variant="body2">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         {closure.reason ?? "Road closure"} · {closure.severity}{" "}
                         · {closure.status}
                       </Typography>
@@ -163,7 +174,9 @@ export function CapacityView({
 
           {nearbyReliefPoints.length > 0 ? (
             <Stack spacing={2}>
-              <Typography fontWeight={800} variant="h6">
+              <Typography variant="h6" sx={{
+                fontWeight: 800
+              }}>
                 Nearby relief distribution points
               </Typography>
               <Stack spacing={2}>
@@ -183,7 +196,6 @@ export function CapacityView({
           ) : null}
         </>
       )}
-
       <Dialog
         fullWidth
         maxWidth="sm"
@@ -219,7 +231,6 @@ export function CapacityView({
           />
         </DialogContent>
       </Dialog>
-
       <Dialog
         fullWidth
         maxWidth="sm"

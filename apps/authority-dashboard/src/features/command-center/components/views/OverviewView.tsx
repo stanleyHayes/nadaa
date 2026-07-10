@@ -124,7 +124,6 @@ export function OverviewView({
           {loadMessage}
         </Alert>
       ) : null}
-
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <MetricTile
@@ -163,7 +162,6 @@ export function OverviewView({
           />
         </Grid>
       </Grid>
-
       <SectionCard
         title="Live triage"
         eyebrow="Active incidents by severity"
@@ -171,7 +169,9 @@ export function OverviewView({
         accent="navy"
         className="cc-triage-card"
         action={
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{
+            alignItems: "center"
+          }}>
             <span className={`cc-feed-chip cc-feed-chip--${loadState}`}>
               {feedLabel}
             </span>
@@ -192,7 +192,6 @@ export function OverviewView({
           Greater Accra.
         </p>
       </SectionCard>
-
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 6 }}>
           <SectionCard
@@ -274,7 +273,6 @@ export function OverviewView({
           </SectionCard>
         </Grid>
       </Grid>
-
       <SectionCard
         title="Operating posture"
         eyebrow="Desk status"

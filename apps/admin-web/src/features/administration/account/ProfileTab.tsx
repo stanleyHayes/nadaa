@@ -131,7 +131,6 @@ export function ProfileTab({
           </Box>
         </Box>
       </SettingCard>
-
       <Stack spacing={2.5}>
         <SettingCard
           icon={ShieldCheck}
@@ -152,10 +151,11 @@ export function ProfileTab({
               <Stack
                 direction="row"
                 spacing={1}
-                alignItems="center"
-                flexWrap="wrap"
                 useFlexGap
-              >
+                sx={{
+                  alignItems: "center",
+                  flexWrap: "wrap"
+                }}>
                 <StatusChip
                   label={mfaEnabled ? "Enabled" : "Not enabled"}
                   tone={mfaEnabled ? "green" : "gold"}
@@ -197,7 +197,6 @@ export function ProfileTab({
           </Typography>
         </SettingCard>
       </Stack>
-
       <Snackbar
         open={saved}
         autoHideDuration={3000}

@@ -118,27 +118,30 @@ export function FloodSimulationPanel() {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Waves size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">Real-time flood simulation</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Decision-support scenario runner; cannot publish alerts
             </Typography>
           </Box>
         </Stack>
       </Stack>
-
       {feedback ? (
         <Alert severity={run ? "success" : "warning"} className="feed-alert">
           {feedback}
         </Alert>
       ) : null}
-
       <Stack spacing={1.5}>
         <TextField
           label="Scenario name"
@@ -159,8 +162,10 @@ export function FloodSimulationPanel() {
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setRainfallOverride(event.target.value)
               }
-              inputProps={{ inputMode: "decimal" }}
               helperText="Added to 24h forecast"
+              slotProps={{
+                htmlInput: { inputMode: "decimal" }
+              }}
             />
           </Grid>
           <Grid size={6}>
@@ -172,8 +177,10 @@ export function FloodSimulationPanel() {
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setWaterLevelOverride(event.target.value)
               }
-              inputProps={{ inputMode: "decimal" }}
               helperText="Added to level trend"
+              slotProps={{
+                htmlInput: { inputMode: "decimal" }
+              }}
             />
           </Grid>
         </Grid>
@@ -187,8 +194,10 @@ export function FloodSimulationPanel() {
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setDuration(event.target.value)
               }
-              inputProps={{ inputMode: "numeric" }}
               error={Boolean(duration) && !isPositiveNumber(duration)}
+              slotProps={{
+                htmlInput: { inputMode: "numeric" }
+              }}
             />
           </Grid>
           <Grid size={6}>
@@ -200,8 +209,10 @@ export function FloodSimulationPanel() {
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setTimeStep(event.target.value)
               }
-              inputProps={{ inputMode: "numeric" }}
               error={Boolean(timeStep) && !isPositiveNumber(timeStep)}
+              slotProps={{
+                htmlInput: { inputMode: "numeric" }
+              }}
             />
           </Grid>
         </Grid>
@@ -215,7 +226,6 @@ export function FloodSimulationPanel() {
           {busy ? "Running" : "Run simulation"}
         </Button>
       </Stack>
-
       {run ? (
         <>
           <Divider className="detail-divider" />
@@ -223,9 +233,10 @@ export function FloodSimulationPanel() {
             <Stack
               direction="row"
               spacing={1}
-              alignItems="center"
-              justifyContent="space-between"
-            >
+              sx={{
+                alignItems: "center",
+                justifyContent: "space-between"
+              }}>
               <Typography variant="subtitle2">
                 Frames ({run.frames.length})
               </Typography>
@@ -265,13 +276,17 @@ export function FloodSimulationPanel() {
               {run.featureSetVersion}
             </Alert>
             <Stack spacing={0.5}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Limitations
               </Typography>
               <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
                 {run.limitations.map((limitation) => (
                   <li key={limitation}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {limitation}
                     </Typography>
                   </li>
@@ -294,10 +309,14 @@ function SimulationFrameSummary({ frame }: { frame: FloodSimulationFrame }) {
   const counts = frameSeveritySummary(frame);
   return (
     <Stack spacing={0.5}>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{
+        color: "text.secondary"
+      }}>
         Target time: {new Date(frame.targetTime).toLocaleString()}
       </Typography>
-      <Stack direction="row" spacing={1} flexWrap="wrap">
+      <Stack direction="row" spacing={1} sx={{
+        flexWrap: "wrap"
+      }}>
         {Object.entries(counts).map(([severity, count]) => (
           <Chip
             key={severity}

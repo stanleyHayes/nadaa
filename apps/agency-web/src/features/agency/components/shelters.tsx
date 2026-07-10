@@ -23,14 +23,26 @@ export function ShelterCard({ shelter }: { shelter: ShelterRecord }) {
   return (
     <Card variant="outlined">
       <CardContent>
-        <Stack direction="row" justifyContent="space-between">
-          <Typography fontWeight={700}>{shelter.name}</Typography>
+        <Stack direction="row" sx={{
+          justifyContent: "space-between"
+        }}>
+          <Typography sx={{
+            fontWeight: 700
+          }}>{shelter.name}</Typography>
           <Chip label={shelter.status} size="small" />
         </Stack>
-        <Typography color="text.secondary" variant="body2">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {shelter.address}
         </Typography>
-        <Stack direction="row" flexWrap="wrap" gap={1} mt={1}>
+        <Stack
+          direction="row"
+          sx={{
+            flexWrap: "wrap",
+            gap: 1,
+            mt: 1
+          }}>
           <Chip
             icon={<Bed size={14} />}
             label={`${shelter.currentOccupancy} / ${shelter.capacity}`}

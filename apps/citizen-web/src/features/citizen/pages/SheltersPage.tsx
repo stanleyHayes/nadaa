@@ -228,7 +228,12 @@ function ShelterResources() {
 
         <RoutePlanner />
 
-        <Grid container spacing={2.5} className="citizen-subsection" direction="column">
+        <Grid
+          container
+          spacing={2.5}
+          className="citizen-subsection"
+          sx={{ flexDirection: "column" }}
+        >
           <Grid size={{ xs: 12 }}>
             <Paper className="surface">
               <PageHeader
@@ -255,14 +260,18 @@ function ShelterResources() {
                     >
                       <Stack
                         direction="row"
-                        justifyContent="space-between"
                         spacing={1}
+                        sx={{
+                          justifyContent: "space-between"
+                        }}
                       >
                         <Box>
                           <Typography variant="subtitle2">
                             {shelter.name}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>
                             {formatOccupancy(shelter)}
                             {shelter.distanceMeters
                               ? ` · ${formatDistance(shelter.distanceMeters)}`
@@ -271,7 +280,9 @@ function ShelterResources() {
                           {shelter.facilities.length ? (
                             <Typography
                               variant="caption"
-                              color="text.secondary"
+                              sx={{
+                                color: "text.secondary"
+                              }}
                             >
                               {formatListLabel(shelter.facilities)}
                             </Typography>
@@ -320,14 +331,18 @@ function ShelterResources() {
                       <Stack spacing={1}>
                         <Stack
                           direction="row"
-                          justifyContent="space-between"
                           spacing={1}
+                          sx={{
+                            justifyContent: "space-between"
+                          }}
                         >
                           <Box>
                             <Typography variant="subtitle2">
                               {point.name}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{
+                              color: "text.secondary"
+                            }}>
                               {formatSupportType(point.type)}
                               {point.distanceMeters
                                 ? ` · ${formatDistance(point.distanceMeters)}`
@@ -349,7 +364,9 @@ function ShelterResources() {
                         <Typography variant="body2">
                           {formatReliefStock(point.stockCategories)}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                          color: "text.secondary"
+                        }}>
                           {point.operatingHours} · {point.schedule}
                         </Typography>
                         {point.eligibility ? (
@@ -391,20 +408,26 @@ function ShelterResources() {
                     >
                       <Stack
                         direction="row"
-                        justifyContent="space-between"
                         spacing={1}
+                        sx={{
+                          justifyContent: "space-between"
+                        }}
                       >
                         <Box>
                           <Typography variant="subtitle2">
                             {support.name}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>
                             {formatSupportType(support.type)}
                             {support.distanceMeters
                               ? ` · ${formatDistance(support.distanceMeters)}`
                               : ""}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                          }}>
                             {support.hours} ·{" "}
                             {formatListLabel(support.services)}
                           </Typography>
@@ -453,14 +476,18 @@ function ShelterResources() {
                     >
                       <Stack
                         direction="row"
-                        justifyContent="space-between"
                         spacing={1}
+                        sx={{
+                          justifyContent: "space-between"
+                        }}
                       >
                         <Box>
                           <Typography variant="subtitle2">
                             {facility.name}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>
                             {facility.type.replace("_", " ")}
                             {facility.distanceMeters
                               ? ` · ${formatDistance(facility.distanceMeters)}`
@@ -502,21 +529,27 @@ function ShelterResources() {
                       <Paper variant="outlined" className="shelter-row">
                         <Stack
                           direction="row"
-                          justifyContent="space-between"
                           spacing={1}
+                          sx={{
+                            justifyContent: "space-between"
+                          }}
                         >
                           <Box>
                             <Typography variant="subtitle2">
                               {closure.roadName}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{
+                              color: "text.secondary"
+                            }}>
                               {closure.reason ?? "Road closure"} ·{" "}
                               {closure.severity}
                             </Typography>
                             {closure.detourNote ? (
                               <Typography
                                 variant="caption"
-                                color="text.secondary"
+                                sx={{
+                                  color: "text.secondary"
+                                }}
                               >
                                 Detour: {closure.detourNote}
                               </Typography>

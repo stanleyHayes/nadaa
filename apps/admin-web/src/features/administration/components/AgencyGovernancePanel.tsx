@@ -64,8 +64,12 @@ export function AgencyGovernancePanel({
               <TableRow className="agency-row" key={agency.id}>
                 <TableCell>
                   <Stack spacing={0.75}>
-                    <Typography fontWeight={800}>{agency.name}</Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Typography sx={{
+                      fontWeight: 800
+                    }}>{agency.name}</Typography>
+                    <Stack direction="row" spacing={1} sx={{
+                      flexWrap: "wrap"
+                    }}>
                       <Chip
                         className="status-chip"
                         size="small"
@@ -74,15 +78,21 @@ export function AgencyGovernancePanel({
                       />
                       <Chip size="small" label={agencyTypeLabel(agency.type)} />
                     </Stack>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {agency.region} / {agency.district}
                     </Typography>
                   </Stack>
                 </TableCell>
                 <TableCell>{agency.dataScope}</TableCell>
                 <TableCell>
-                  <Typography fontWeight={800}>{agency.users}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography sx={{
+                    fontWeight: 800
+                  }}>{agency.users}</Typography>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {agency.openAssignments} open assignments
                   </Typography>
                 </TableCell>

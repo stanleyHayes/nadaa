@@ -45,10 +45,16 @@ export function ReliefPointCard({
       variant="outlined"
     >
       <CardContent>
-        <Stack direction="row" justifyContent="space-between" spacing={2}>
+        <Stack direction="row" spacing={2} sx={{
+          justifyContent: "space-between"
+        }}>
           <Box>
-            <Typography fontWeight={700}>{point.name}</Typography>
-            <Typography color="text.secondary" variant="body2">
+            <Typography sx={{
+              fontWeight: 700
+            }}>{point.name}</Typography>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {reliefLabel(point.type)} · {point.district}
             </Typography>
           </Box>
@@ -58,13 +64,26 @@ export function ReliefPointCard({
             size="small"
           />
         </Stack>
-        <Typography color="text.secondary" mt={1} variant="body2">
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mt: 1
+          }}>
           {point.address}
         </Typography>
-        <Typography mt={1} variant="body2">
+        <Typography variant="body2" sx={{
+          mt: 1
+        }}>
           {stockSummary(point.stockCategories)}
         </Typography>
-        <Stack direction="row" flexWrap="wrap" gap={1} mt={1}>
+        <Stack
+          direction="row"
+          sx={{
+            flexWrap: "wrap",
+            gap: 1,
+            mt: 1
+          }}>
           <Chip label={point.operatingHours} size="small" variant="outlined" />
           <Chip label={point.schedule} size="small" variant="outlined" />
         </Stack>
@@ -263,13 +282,19 @@ export function ReliefStockHistoryList({
     <Stack spacing={1.25}>
       {history.map((entry) => (
         <Paper key={entry.id} sx={{ p: 2 }} variant="outlined">
-          <Typography fontWeight={700}>
+          <Typography sx={{
+            fontWeight: 700
+          }}>
             {new Date(entry.changedAt).toLocaleString("en-GH")}
           </Typography>
-          <Typography color="text.secondary" variant="body2">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {entry.changedBy}
           </Typography>
-          <Typography mt={1} variant="body2">
+          <Typography variant="body2" sx={{
+            mt: 1
+          }}>
             {stockSummary(entry.stockCategories)}
           </Typography>
         </Paper>

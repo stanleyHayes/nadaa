@@ -70,7 +70,9 @@ const alertColumns: DataTableColumn<CitizenAlertFeedItem>[] = [
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {alert.title}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {alert.recommendedAction}
         </Typography>
       </Stack>
@@ -127,7 +129,9 @@ const alertColumns: DataTableColumn<CitizenAlertFeedItem>[] = [
         <Typography variant="body2">
           {formatDateTime(alert.startsAt)}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           Until {formatDateTime(alert.expiresAt)}
         </Typography>
       </Stack>
@@ -308,8 +312,10 @@ function AlertsFeed() {
           {alertFeedState.status === "idle" && alertFeedState.message ? (
             <Typography
               variant="caption"
-              color="text.secondary"
               className="alert-feed-note"
+              sx={{
+                color: "text.secondary"
+              }}
             >
               {alertFeedState.message}
             </Typography>

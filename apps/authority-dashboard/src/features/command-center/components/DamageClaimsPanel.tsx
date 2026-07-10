@@ -342,15 +342,20 @@ export default function DamageClaimsPanel() {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <ShieldAlert size={21} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h6">Damage claim review</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Verify, close and export insurance damage claims.
             </Typography>
           </Box>
@@ -372,7 +377,6 @@ export default function DamageClaimsPanel() {
           Refresh
         </Button>
       </Stack>
-
       <Grid container spacing={1.5}>
         <Grid size={{ xs: 12, sm: 6 }}>
           <CommandSelect
@@ -405,7 +409,9 @@ export default function DamageClaimsPanel() {
             fullWidth
             value={filters.incidentId}
             onChange={updateTextFilter("incidentId")}
-            inputProps={{ "aria-label": "Filter by incident ID" }}
+            slotProps={{
+              htmlInput: { "aria-label": "Filter by incident ID" }
+            }}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
@@ -415,14 +421,15 @@ export default function DamageClaimsPanel() {
             fullWidth
             value={filters.query}
             onChange={updateTextFilter("query")}
-            inputProps={{
-              "aria-label":
-                "Search claims by reference, reporter, type or address",
+            slotProps={{
+              htmlInput: {
+                "aria-label":
+                  "Search claims by reference, reporter, type or address",
+              }
             }}
           />
         </Grid>
       </Grid>
-
       {loadMessage && loadState !== "loading" ? (
         <Alert
           severity={
@@ -440,7 +447,6 @@ export default function DamageClaimsPanel() {
       {loadState === "loading" ? (
         <LinearProgress className="feed-progress" />
       ) : null}
-
       {claims.length ? (
         <>
           <TableContainer sx={{ overflowX: "auto" }}>
@@ -467,7 +473,9 @@ export default function DamageClaimsPanel() {
                       <Typography variant="subtitle2">
                         {claim.reference}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         {claim.incidentReference || "No incident"}
                       </Typography>
                     </TableCell>
@@ -534,10 +542,11 @@ export default function DamageClaimsPanel() {
                 <Stack spacing={2}>
                   <Stack
                     direction={{ xs: "column", sm: "row" }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: "flex-start", sm: "center" }}
-                    gap={1}
-                  >
+                    sx={{
+                      justifyContent: "space-between",
+                      alignItems: { xs: "flex-start", sm: "center" },
+                      gap: 1
+                    }}>
                     <Box>
                       <Typography variant="overline" color="secondary">
                         Selected claim
@@ -546,7 +555,9 @@ export default function DamageClaimsPanel() {
                         {selectedClaim.reference}
                       </Typography>
                     </Box>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Stack direction="row" spacing={1} sx={{
+                      flexWrap: "wrap"
+                    }}>
                       <Chip
                         size="small"
                         label={selectedClaim.verificationStatus}
@@ -571,7 +582,9 @@ export default function DamageClaimsPanel() {
                     </Stack>
                   </Stack>
 
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {selectedClaim.damageDescription}
                   </Typography>
 
@@ -633,7 +646,9 @@ export default function DamageClaimsPanel() {
                       <Typography variant="subtitle2" gutterBottom>
                         Photos
                       </Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap">
+                      <Stack direction="row" spacing={1} sx={{
+                        flexWrap: "wrap"
+                      }}>
                         {selectedClaim.damagePhotos.map((photo, index) => (
                           <Box
                             key={index}
@@ -652,7 +667,9 @@ export default function DamageClaimsPanel() {
                       </Stack>
                     </Box>
                   ) : (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       No photos attached.
                     </Typography>
                   )}
@@ -744,7 +761,9 @@ export default function DamageClaimsPanel() {
                     <Alert severity="info">This claim is closed.</Alert>
                   )}
 
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Stack direction="row" spacing={1} sx={{
+                    flexWrap: "wrap"
+                  }}>
                     <Button
                       type="button"
                       variant="outlined"

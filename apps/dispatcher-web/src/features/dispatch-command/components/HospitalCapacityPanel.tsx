@@ -66,21 +66,32 @@ export function HospitalCapacityPanel({
     <Paper className="surface capacity-panel">
       <Stack
         direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        gap={1.5}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          gap: 1.5
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Hospital size={22} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h5">Hospital capacity</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Beds, emergency unit status, ambulances, oxygen, and stale update
               warnings for dispatcher routing.
             </Typography>
           </Box>
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
           <Chip
             size="small"
             label={
@@ -114,7 +125,6 @@ export function HospitalCapacityPanel({
           </Button>
         </Stack>
       </Stack>
-
       {loadState === "fallback" ? (
         <Alert severity="warning" className="feed-alert">
           {loadMessage}
@@ -123,7 +133,6 @@ export function HospitalCapacityPanel({
       {loadState === "loading" ? (
         <LinearProgress className="feed-progress" />
       ) : null}
-
       <Grid container spacing={1.5} className="capacity-filters">
         <Grid size={{ xs: 12, md: 3 }}>
           <CommandSelect
@@ -179,16 +188,22 @@ export function HospitalCapacityPanel({
           />
         </Grid>
       </Grid>
-
       {facilities.length ? (
         <Grid container spacing={1.5} className="capacity-list">
           {facilities.map((facility) => (
             <Grid size={{ xs: 12, md: 4 }} key={facility.id}>
               <Box className="hospital-card">
-                <Stack direction="row" justifyContent="space-between" gap={1}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    gap: 1
+                  }}>
                   <Box>
                     <Typography variant="subtitle2">{facility.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {facility.district}
                       {facility.distanceMeters
                         ? ` · ${metersLabel(facility.distanceMeters)}`
@@ -205,9 +220,10 @@ export function HospitalCapacityPanel({
                 <Stack spacing={0.75}>
                   <Stack
                     direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                  >
+                    sx={{
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}>
                     <Typography variant="body2">Available beds</Typography>
                     <Typography variant="subtitle2">
                       {facility.availableBeds}/{facility.totalBeds}
@@ -258,7 +274,9 @@ export function HospitalCapacityPanel({
                   </Alert>
                 ) : null}
 
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Updated {hospitalUpdatedLabel(facility.updatedAt)} via{" "}
                   {facility.source}
                 </Typography>

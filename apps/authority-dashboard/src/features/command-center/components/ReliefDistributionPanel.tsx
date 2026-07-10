@@ -190,7 +190,6 @@ export function ReliefDistributionPanel({
           {feedback}
         </Alert>
       ) : null}
-
       <DataTable
         rows={reliefPoints}
         getRowKey={(point) => point.id}
@@ -247,7 +246,9 @@ export function ReliefDistributionPanel({
           },
         ]}
         rowActions={(point) => (
-          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+          <Stack direction="row" spacing={0.5} sx={{
+            justifyContent: "flex-end"
+          }}>
             <Tooltip title="View detail">
               <IconButton
                 size="small"
@@ -291,7 +292,6 @@ export function ReliefDistributionPanel({
           )
         }
       />
-
       {/* View detail dialog (read-only) */}
       <Dialog
         open={Boolean(viewPoint)}
@@ -322,7 +322,9 @@ export function ReliefDistributionPanel({
         <DialogContent dividers>
           {viewPoint ? (
             <Stack spacing={1.75}>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Stack direction="row" spacing={1} sx={{
+                flexWrap: "wrap"
+              }}>
                 <Chip
                   size="small"
                   label={toTitle(viewPoint.status)}
@@ -372,7 +374,9 @@ export function ReliefDistributionPanel({
 
               {viewPoint.eligibility ? (
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Eligibility
                   </Typography>
                   <Typography variant="body2">
@@ -383,7 +387,9 @@ export function ReliefDistributionPanel({
 
               {viewPoint.stockCategories.length ? (
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Stock lines
                   </Typography>
                   <Stack spacing={0.25}>
@@ -418,7 +424,6 @@ export function ReliefDistributionPanel({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Add / Edit form dialog */}
       <Dialog
         open={formOpen}
@@ -530,7 +535,6 @@ export function ReliefDistributionPanel({
                 required
                 value={reliefForm.latitude}
                 onChange={onUpdateForm("latitude")}
-                inputProps={{ inputMode: "decimal" }}
                 error={
                   Boolean(reliefForm.latitude) &&
                   !Number.isFinite(Number(reliefForm.latitude))
@@ -541,6 +545,9 @@ export function ReliefDistributionPanel({
                     ? "Latitude must be a number"
                     : ""
                 }
+                slotProps={{
+                  htmlInput: { inputMode: "decimal" }
+                }}
               />
             </Grid>
             <Grid size={{ xs: 6 }}>
@@ -551,7 +558,6 @@ export function ReliefDistributionPanel({
                 required
                 value={reliefForm.longitude}
                 onChange={onUpdateForm("longitude")}
-                inputProps={{ inputMode: "decimal" }}
                 error={
                   Boolean(reliefForm.longitude) &&
                   !Number.isFinite(Number(reliefForm.longitude))
@@ -562,6 +568,9 @@ export function ReliefDistributionPanel({
                     ? "Longitude must be a number"
                     : ""
                 }
+                slotProps={{
+                  htmlInput: { inputMode: "decimal" }
+                }}
               />
             </Grid>
             <Grid size={{ xs: 6 }}>
@@ -618,14 +627,18 @@ export function ReliefDistributionPanel({
 
           {formMode === "edit" && reliefHistory.length ? (
             <Box className="relief-history" sx={{ mt: 1.5 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Recent stock history
               </Typography>
               {reliefHistory.slice(0, 2).map((entry) => (
                 <Typography
                   variant="caption"
-                  color="text.secondary"
                   key={entry.id}
+                  sx={{
+                    color: "text.secondary"
+                  }}
                 >
                   {formatShortDate(entry.changedAt)} ·{" "}
                   {entry.stockCategories.length} stock lines · {entry.changedBy}
@@ -654,7 +667,6 @@ export function ReliefDistributionPanel({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Delete confirm dialog */}
       <Dialog
         open={Boolean(deleteTarget)}

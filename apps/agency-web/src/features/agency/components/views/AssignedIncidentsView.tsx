@@ -55,7 +55,6 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
         description="Triage the incidents on your desk, then open one to review detail and update its status."
         icon={ClipboardList}
       />
-
       <Grid container spacing={2}>
         <Grid size={{ xs: 6, md: 3 }}>
           <MetricTile
@@ -90,9 +89,7 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
           />
         </Grid>
       </Grid>
-
       <IncidentFilters filters={filters} onChange={setFilters} />
-
       {incidentLoadState === "loading" ? (
         <LoadingState message="Loading assigned incidents" />
       ) : incidentLoadState === "error" && !incidents.length ? (
@@ -114,7 +111,6 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
           ))}
         </Stack>
       )}
-
       <Dialog
         open={Boolean(selectedIncident)}
         onClose={deselectIncident}
@@ -147,11 +143,17 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
             <Stack spacing={2.5}>
               <IncidentDetail incident={selectedIncident} />
               <Box>
-                <Box mb={2}>
-                  <Typography fontWeight={800} variant="h6">
+                <Box sx={{
+                  mb: 2
+                }}>
+                  <Typography variant="h6" sx={{
+                    fontWeight: 800
+                  }}>
                     Update status
                   </Typography>
-                  <Typography color="text.secondary" variant="body2">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Advance {selectedIncident.reference} through its response
                     lifecycle.
                   </Typography>

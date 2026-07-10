@@ -47,8 +47,12 @@ export function AuditLogPanel({ logs }: { logs: AuditLogRecord[] }) {
               {logs.map((log) => (
                 <TableRow className="audit-row" key={log.id}>
                   <TableCell>
-                    <Typography fontWeight={800}>{log.action}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography sx={{
+                      fontWeight: 800
+                    }}>{log.action}</Typography>
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {log.requestId ?? "No request id"}
                     </Typography>
                   </TableCell>
@@ -56,7 +60,9 @@ export function AuditLogPanel({ logs }: { logs: AuditLogRecord[] }) {
                     <Typography variant="body2">
                       {log.actorRole ?? "system"}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {log.actorUserId ?? "anonymous"}
                     </Typography>
                   </TableCell>

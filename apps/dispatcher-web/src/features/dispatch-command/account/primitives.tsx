@@ -105,7 +105,9 @@ export function SettingCard({
         boxShadow: "var(--nadaa-shadow-md)",
       }}
     >
-      <Stack direction="row" spacing={1.5} alignItems="flex-start">
+      <Stack direction="row" spacing={1.5} sx={{
+        alignItems: "flex-start"
+      }}>
         <Box
           aria-hidden
           sx={{
@@ -300,7 +302,7 @@ export function PreferenceRow({
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         color="primary"
-        inputProps={{ "aria-describedby": descriptionId }}
+        slotProps={{ input: { "aria-describedby": descriptionId } }}
         sx={{ flex: "0 0 auto", mt: -0.25 }}
       />
     </Box>

@@ -31,7 +31,9 @@ function SettingCard({
         boxShadow: "var(--nadaa-shadow-md)",
       }}
     >
-      <Stack direction="row" spacing={1.5} alignItems="flex-start">
+      <Stack direction="row" spacing={1.5} sx={{
+        alignItems: "flex-start"
+      }}>
         <Box
           aria-hidden
           sx={{
@@ -134,10 +136,11 @@ function TintOption({
       />
       <Stack
         direction="row"
-        alignItems="flex-start"
-        justifyContent="space-between"
-        gap={1}
-      >
+        sx={{
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 1
+        }}>
         <Box sx={{ minWidth: 0 }}>
           <Typography
             sx={{

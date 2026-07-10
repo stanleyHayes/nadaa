@@ -218,18 +218,21 @@ export default function RoutePlanner() {
       <Stack
         direction="row"
         spacing={1}
-        alignItems="center"
         className="section-heading"
+        sx={{
+          alignItems: "center"
+        }}
       >
         <Navigation size={21} color={nadaaBrand.colors.red} />
         <Box>
           <Typography variant="h6">Plan evacuation route</Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Find a safer path to shelter or higher ground
           </Typography>
         </Box>
       </Stack>
-
       <Stack component="form" spacing={1.5} onSubmit={submitPlan} noValidate>
         <FormControl>
           <FormLabel id="route-waypoint-type-label">Destination type</FormLabel>
@@ -266,9 +269,10 @@ export default function RoutePlanner() {
               inputMode="decimal"
               error={Boolean(errors.originLat)}
               helperText={errors.originLat}
-              FormHelperTextProps={{ id: "route-origin-lat-error" }}
-              inputProps={{ "aria-describedby": "route-origin-lat-error" }}
-            />
+              slotProps={{
+                htmlInput: { "aria-describedby": "route-origin-lat-error" },
+                formHelperText: { id: "route-origin-lat-error" }
+              }} />
           </Grid>
           <Grid size={{ xs: 6 }}>
             <TextField
@@ -280,9 +284,10 @@ export default function RoutePlanner() {
               inputMode="decimal"
               error={Boolean(errors.originLng)}
               helperText={errors.originLng}
-              FormHelperTextProps={{ id: "route-origin-lng-error" }}
-              inputProps={{ "aria-describedby": "route-origin-lng-error" }}
-            />
+              slotProps={{
+                htmlInput: { "aria-describedby": "route-origin-lng-error" },
+                formHelperText: { id: "route-origin-lng-error" }
+              }} />
           </Grid>
         </Grid>
 
@@ -309,9 +314,10 @@ export default function RoutePlanner() {
                 inputMode="decimal"
                 error={Boolean(errors.destLat)}
                 helperText={errors.destLat}
-                FormHelperTextProps={{ id: "route-dest-lat-error" }}
-                inputProps={{ "aria-describedby": "route-dest-lat-error" }}
-              />
+                slotProps={{
+                  htmlInput: { "aria-describedby": "route-dest-lat-error" },
+                  formHelperText: { id: "route-dest-lat-error" }
+                }} />
             </Grid>
             <Grid size={{ xs: 6 }}>
               <TextField
@@ -323,9 +329,10 @@ export default function RoutePlanner() {
                 inputMode="decimal"
                 error={Boolean(errors.destLng)}
                 helperText={errors.destLng}
-                FormHelperTextProps={{ id: "route-dest-lng-error" }}
-                inputProps={{ "aria-describedby": "route-dest-lng-error" }}
-              />
+                slotProps={{
+                  htmlInput: { "aria-describedby": "route-dest-lng-error" },
+                  formHelperText: { id: "route-dest-lng-error" }
+                }} />
             </Grid>
           </Grid>
         ) : null}
@@ -354,7 +361,6 @@ export default function RoutePlanner() {
             : "Plan route"}
         </Button>
       </Stack>
-
       {result ? (
         <Stack spacing={1.5} sx={{ mt: 2 }}>
           <Alert
@@ -368,7 +374,9 @@ export default function RoutePlanner() {
           <Stack
             direction={{ xs: "column", sm: "row" }}
             spacing={1}
-            flexWrap="wrap"
+            sx={{
+              flexWrap: "wrap"
+            }}
           >
             <Chip
               icon={<MapPin size={16} />}
@@ -390,9 +398,10 @@ export default function RoutePlanner() {
           <Stack
             direction="row"
             spacing={1}
-            flexWrap="wrap"
-            sx={{ color: "text.secondary" }}
-          >
+            sx={{
+              flexWrap: "wrap",
+              color: "text.secondary"
+            }}>
             <Typography variant="caption">
               Avoided {result.avoidedClosures.length} closure
               {result.avoidedClosures.length === 1 ? "" : "s"} and{" "}
@@ -412,7 +421,9 @@ export default function RoutePlanner() {
                     key={index}
                     direction="row"
                     spacing={1}
-                    alignItems="center"
+                    sx={{
+                      alignItems: "center"
+                    }}
                   >
                     <Typography
                       variant="caption"
@@ -420,7 +431,9 @@ export default function RoutePlanner() {
                     >
                       {index + 1}.
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       {segment.start.lat.toFixed(5)},{" "}
                       {segment.start.lng.toFixed(5)} →{" "}
                       {segment.end.lat.toFixed(5)}, {segment.end.lng.toFixed(5)}
@@ -435,7 +448,6 @@ export default function RoutePlanner() {
           ) : null}
         </Stack>
       ) : null}
-
       {plannerState.status === "success" && plannerState.message ? (
         <FormHelperText sx={{ mt: 1 }}>{plannerState.message}</FormHelperText>
       ) : null}

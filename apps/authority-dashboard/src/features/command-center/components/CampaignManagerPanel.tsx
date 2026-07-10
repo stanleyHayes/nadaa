@@ -259,15 +259,20 @@ export default function CampaignManagerPanel() {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" }
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Megaphone size={21} color={nadaaBrand.colors.gold} />
           <Box>
             <Typography variant="h6">Campaign management</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Publish preparedness campaigns by region, hazard, and language
             </Typography>
           </Box>
@@ -300,7 +305,6 @@ export default function CampaignManagerPanel() {
           </Button>
         </Stack>
       </Stack>
-
       {loadState === "error" ? (
         <Alert severity="warning" className="warning-alert">
           {message}
@@ -309,11 +313,12 @@ export default function CampaignManagerPanel() {
       {loadState === "loading" ? (
         <LinearProgress className="feed-progress" />
       ) : null}
-
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12, sm: 4 }}>
           <Paper variant="outlined" className="metric-card">
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Total reach
             </Typography>
             <Typography variant="h5">
@@ -323,7 +328,9 @@ export default function CampaignManagerPanel() {
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
           <Paper variant="outlined" className="metric-card">
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Total engagement
             </Typography>
             <Typography variant="h5">
@@ -333,7 +340,9 @@ export default function CampaignManagerPanel() {
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
           <Paper variant="outlined" className="metric-card">
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Active campaigns
             </Typography>
             <Typography variant="h5">
@@ -342,9 +351,16 @@ export default function CampaignManagerPanel() {
           </Paper>
         </Grid>
       </Grid>
-
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-        <Typography variant="body2" color="text.secondary">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          mb: 1.5
+        }}>
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Filter by status:
         </Typography>
         <FormControl size="small" sx={{ minWidth: 140 }}>
@@ -365,7 +381,6 @@ export default function CampaignManagerPanel() {
           </Select>
         </FormControl>
       </Stack>
-
       {filteredCampaigns.length ? (
         <Table size="small">
           <TableHead>
@@ -388,7 +403,9 @@ export default function CampaignManagerPanel() {
                     <Typography variant="subtitle2">
                       {campaign.title}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {campaign.languages.join(", ")}
                     </Typography>
                   </TableCell>
@@ -423,7 +440,6 @@ export default function CampaignManagerPanel() {
           No campaigns match this filter.
         </Alert>
       )}
-
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -522,7 +538,9 @@ export default function CampaignManagerPanel() {
                   })
                 }
                 fullWidth
-                InputLabelProps={{ shrink: true }}
+                slotProps={{
+                  inputLabel: { shrink: true }
+                }}
               />
               <TextField
                 label="Publish until"
@@ -535,7 +553,9 @@ export default function CampaignManagerPanel() {
                   })
                 }
                 fullWidth
-                InputLabelProps={{ shrink: true }}
+                slotProps={{
+                  inputLabel: { shrink: true }
+                }}
               />
             </Stack>
 
@@ -593,7 +613,9 @@ export default function CampaignManagerPanel() {
             {form.contentBlocks.map((block, index) => (
               <Paper key={index} variant="outlined" sx={{ p: 1.5 }}>
                 <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                  }}>
                     <FormControl size="small" sx={{ minWidth: 120 }}>
                       <InputLabel id={`block-type-${index}-label`}>
                         Type

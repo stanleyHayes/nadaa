@@ -64,7 +64,13 @@ function TintOption({
           border: 0,
         }}
       />
-      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={1}>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 1
+        }}>
         <Box sx={{ minWidth: 0 }}>
           <Typography
             sx={{

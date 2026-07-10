@@ -74,7 +74,6 @@ export function AccountOverview() {
           />
         </div>
       </Paper>
-
       <Paper className="surface" component="section">
         <PageHeader
           icon={Siren}
@@ -110,7 +109,6 @@ export function AccountOverview() {
           />
         </div>
       </Paper>
-
       <Paper className="surface" component="section">
         <PageHeader
           icon={FileText}
@@ -130,7 +128,9 @@ export function AccountOverview() {
                   <Typography variant="subtitle2">
                     {latestReport.reference}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Filed {formatDateTime(latestReport.at)} ·{" "}
                     {latestReport.priorityReview
                       ? "Priority review"
@@ -138,7 +138,9 @@ export function AccountOverview() {
                   </Typography>
                 </>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   You haven't filed a report yet. Filing one keeps a copy here.
                 </Typography>
               )}
@@ -154,12 +156,16 @@ export function AccountOverview() {
                   <Typography variant="subtitle2">
                     {latestNotification.title}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {formatDateTime(latestNotification.at)}
                   </Typography>
                 </>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   No notifications yet.
                 </Typography>
               )}

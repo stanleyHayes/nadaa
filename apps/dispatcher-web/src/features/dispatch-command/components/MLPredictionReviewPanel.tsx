@@ -86,21 +86,32 @@ export function MLPredictionReviewPanel({
     <Paper className="surface ml-review-panel">
       <Stack
         direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        gap={1.5}
         className="section-heading"
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          gap: 1.5
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <BrainCircuit size={22} color="var(--nadaa-navy)" />
           <Box>
             <Typography variant="h5">ML flood review</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Review probability, severity, confidence, and explanation before
               drafting an alert.
             </Typography>
           </Box>
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
           <Chip
             size="small"
             label={
@@ -119,7 +130,6 @@ export function MLPredictionReviewPanel({
           </Button>
         </Stack>
       </Stack>
-
       {loadState === "fallback" || loadState === "error" ? (
         <Alert severity="warning" className="ml-review-alert">
           {loadMessage}
@@ -128,13 +138,11 @@ export function MLPredictionReviewPanel({
       {loadState === "loading" ? (
         <LinearProgress className="feed-progress" />
       ) : null}
-
       <PredictionReviewMap
         predictions={predictions}
         selectedPredictionId={selectedPredictionId}
         onSelect={openPrediction}
       />
-
       <Stack className="prediction-list" spacing={1}>
         {predictions.map((prediction) => (
           <Box
@@ -146,21 +154,26 @@ export function MLPredictionReviewPanel({
           >
             <Stack
               direction="row"
-              justifyContent="space-between"
-              gap={1}
-              alignItems="flex-start"
-            >
+              sx={{
+                justifyContent: "space-between",
+                gap: 1,
+                alignItems: "flex-start"
+              }}>
               <Box>
                 <Typography variant="subtitle2">
                   {prediction.community}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {prediction.district} · {prediction.cellId}
                 </Typography>
               </Box>
               <SeverityChip severity={prediction.severity} />
             </Stack>
-            <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Stack direction="row" spacing={1} sx={{
+              flexWrap: "wrap"
+            }}>
               <Chip
                 size="small"
                 label={probabilityLabel(prediction.probability)}
@@ -180,7 +193,6 @@ export function MLPredictionReviewPanel({
           </Box>
         ))}
       </Stack>
-
       <Dialog
         open={detailOpen && Boolean(selectedPrediction)}
         onClose={closeDetail}
@@ -225,7 +237,12 @@ export function MLPredictionReviewPanel({
         <DialogContent dividers>
           {selectedPrediction ? (
             <Stack spacing={1.25} className="prediction-detail">
-              <Stack direction="row" justifyContent="space-between" gap={1}>
+              <Stack
+                direction="row"
+                sx={{
+                  justifyContent: "space-between",
+                  gap: 1
+                }}>
                 <Box>
                   <Typography variant="overline" color="secondary">
                     Selected prediction
@@ -278,7 +295,9 @@ export function MLPredictionReviewPanel({
               </Alert>
 
               <Stack spacing={1}>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <ListChecks size={18} color={nadaaBrand.colors.green} />
                   <Typography variant="subtitle2">
                     Explanation factors
@@ -288,12 +307,15 @@ export function MLPredictionReviewPanel({
                   <Box className="factor-row" key={factor.feature}>
                     <Stack
                       direction="row"
-                      justifyContent="space-between"
-                      gap={1}
-                    >
+                      sx={{
+                        justifyContent: "space-between",
+                        gap: 1
+                      }}>
                       <Box>
                         <Typography variant="body2">{factor.label}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                          color: "text.secondary"
+                        }}>
                           {String(factor.value)} ·{" "}
                           {factor.direction === "increases_risk"
                             ? "Increases risk"

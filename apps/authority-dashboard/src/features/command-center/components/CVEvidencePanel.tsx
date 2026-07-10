@@ -208,19 +208,22 @@ export function CVEvidencePanel() {
       <Stack
         direction="row"
         spacing={1}
-        alignItems="center"
         className="section-heading"
+        sx={{
+          alignItems: "center"
+        }}
       >
         <Image size={21} color="var(--nadaa-navy)" />
         <Box>
           <Typography variant="h6">CV Evidence Panel</Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Decision-support image analysis; human review required for
             low-confidence or sensitive results
           </Typography>
         </Box>
       </Stack>
-
       {feedback ? (
         <Alert
           severity={
@@ -235,17 +238,17 @@ export function CVEvidencePanel() {
           {feedback}
         </Alert>
       ) : null}
-
       {imagesNeedingReview.length > 0 && (
         <Alert severity="warning" icon={<AlertTriangle size={18} />}>
           {imagesNeedingReview.length} image
           {imagesNeedingReview.length === 1 ? "" : "s"} require human review
         </Alert>
       )}
-
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Analyzed images</Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap">
+        <Stack direction="row" spacing={1} sx={{
+          flexWrap: "wrap"
+        }}>
           {images.map((image) => (
             <Button
               key={image.id}
@@ -326,11 +329,17 @@ function CVImageDetail({
       >
         <Image size={48} color="var(--nadaa-slate)" />
       </Box>
-
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
         <Box>
           <Typography variant="subtitle2">{image.name}</Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {image.incidentId
               ? `Incident: ${image.incidentId}`
               : "No incident linked"}
@@ -350,7 +359,6 @@ function CVImageDetail({
           }
         />
       </Stack>
-
       {result ? (
         <>
           <Divider />
@@ -358,13 +366,16 @@ function CVImageDetail({
           <Stack spacing={1}>
             <Stack
               direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
+              sx={{
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}>
               <Typography variant="subtitle2">
                 CV Labels ({result.labels.length})
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Model: {result.modelVersion}
               </Typography>
             </Stack>
@@ -373,16 +384,19 @@ function CVImageDetail({
               <Box key={label.label}>
                 <Stack
                   direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
                   spacing={1}
-                >
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
                   <Chip
                     size="small"
                     label={label.label}
                     color={labelSeverityRole(label.label)}
                   />
-                  <Typography variant="caption" fontWeight={600}>
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600
+                  }}>
                     {(label.confidence * 100).toFixed(0)}%
                   </Typography>
                 </Stack>

@@ -122,7 +122,6 @@ export function UserManagementPanel({
           {actionResult.message}
         </Alert>
       ) : null}
-
       <Box className="cc-table-toolbar">
         <TextField
           className="cc-table-toolbar__search"
@@ -131,12 +130,14 @@ export function UserManagementPanel({
           aria-label="Search users by name or email"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search size={16} color="var(--nadaa-slate)" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={16} color="var(--nadaa-slate)" />
+                </InputAdornment>
+              ),
+            }
           }}
         />
         <TextField
@@ -182,7 +183,6 @@ export function UserManagementPanel({
           <MenuItem value="pending">Setup pending</MenuItem>
         </TextField>
       </Box>
-
       {users.length === 0 ? (
         <EmptyState
           title="No users yet"
@@ -213,8 +213,12 @@ export function UserManagementPanel({
               {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
-                    <Typography fontWeight={800}>{user.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography sx={{
+                      fontWeight: 800
+                    }}>{user.name}</Typography>
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {user.email}
                     </Typography>
                   </TableCell>
@@ -230,7 +234,9 @@ export function UserManagementPanel({
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">{user.agency.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {user.accessScope}
                     </Typography>
                   </TableCell>
@@ -249,7 +255,6 @@ export function UserManagementPanel({
           </Table>
         </Box>
       )}
-
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
         <DialogTitle
           sx={{
@@ -280,7 +285,9 @@ export function UserManagementPanel({
               value={form.name}
               onChange={onFormChange}
               error={nameInvalid}
-              inputProps={{ "aria-invalid": nameInvalid }}
+              slotProps={{
+                htmlInput: { "aria-invalid": nameInvalid }
+              }}
             />
             <TextField
               id="user-email"
@@ -292,7 +299,9 @@ export function UserManagementPanel({
               value={form.email}
               onChange={onFormChange}
               error={emailInvalid}
-              inputProps={{ "aria-invalid": emailInvalid }}
+              slotProps={{
+                htmlInput: { "aria-invalid": emailInvalid }
+              }}
             />
             <TextField
               id="user-phone"
@@ -304,7 +313,9 @@ export function UserManagementPanel({
               value={form.phone}
               onChange={onFormChange}
               error={phoneInvalid}
-              inputProps={{ "aria-invalid": phoneInvalid }}
+              slotProps={{
+                htmlInput: { "aria-invalid": phoneInvalid }
+              }}
             />
             <TextField
               select
@@ -316,7 +327,9 @@ export function UserManagementPanel({
               value={form.agencyId}
               onChange={onSelectChange}
               error={agencyInvalid}
-              inputProps={{ "aria-invalid": agencyInvalid }}
+              slotProps={{
+                htmlInput: { "aria-invalid": agencyInvalid }
+              }}
             >
               {agencies.map((agency) => (
                 <MenuItem key={agency.id} value={agency.id}>
