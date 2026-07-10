@@ -41,9 +41,7 @@
     "actualEffortHours": 1.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-001"
-    ],
+    "dependencies": ["NADAA-001"],
     "blockers": [],
     "verification": [
       "pnpm validate:dashboard",
@@ -69,9 +67,7 @@
     "actualEffortHours": 1,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-001"
-    ],
+    "dependencies": ["NADAA-001"],
     "blockers": [],
     "verification": [
       "pnpm validate:dashboard",
@@ -97,14 +93,9 @@
     "actualEffortHours": 0.75,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-001"
-    ],
+    "dependencies": ["NADAA-001"],
     "blockers": [],
-    "verification": [
-      "pnpm validate:docs",
-      "git diff --check"
-    ],
+    "verification": ["pnpm validate:docs", "git diff --check"],
     "notes": "Platform portfolio, platform build board, delivery breakdown, ownership boundaries, shared dependencies, release gates, build sequence, ready queue, and tracker stories added for citizen web/mobile, dispatcher web/mobile, agency web, and admin web."
   },
   {
@@ -123,10 +114,7 @@
     "actualEffortHours": 1.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-004",
-      "NADAA-002"
-    ],
+    "dependencies": ["NADAA-004", "NADAA-002"],
     "blockers": [],
     "verification": [
       "pnpm --filter @nadaa/marketing-web typecheck",
@@ -164,9 +152,7 @@
     "actualEffortHours": 1,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-002"
-    ],
+    "dependencies": ["NADAA-002"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -193,9 +179,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-001"
-    ],
+    "dependencies": ["NADAA-001"],
     "blockers": [],
     "verification": [
       "pnpm validate:database",
@@ -221,9 +205,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-001"
-    ],
+    "dependencies": ["NADAA-001"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -251,9 +233,7 @@
     "actualEffortHours": 2.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-010"
-    ],
+    "dependencies": ["NADAA-010"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -283,9 +263,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-011"
-    ],
+    "dependencies": ["NADAA-011"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -315,11 +293,7 @@
     "actualEffortHours": 3,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-011",
-      "NADAA-012",
-      "NADAA-080"
-    ],
+    "dependencies": ["NADAA-011", "NADAA-012", "NADAA-080"],
     "blockers": [],
     "verification": [
       "pnpm --filter @nadaa/admin-web typecheck",
@@ -352,10 +326,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-020",
-      "NADAA-010"
-    ],
+    "dependencies": ["NADAA-020", "NADAA-010"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -383,9 +354,7 @@
     "actualEffortHours": 1.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-030"
-    ],
+    "dependencies": ["NADAA-030"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -413,10 +382,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-030",
-      "NADAA-031"
-    ],
+    "dependencies": ["NADAA-030", "NADAA-031"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -444,10 +410,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-030",
-      "NADAA-040"
-    ],
+    "dependencies": ["NADAA-030", "NADAA-040"],
     "blockers": [],
     "verification": [
       "services/incident-service go test ./...",
@@ -482,9 +445,7 @@
     "actualEffortHours": 1.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-030"
-    ],
+    "dependencies": ["NADAA-030"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -512,10 +473,7 @@
     "actualEffortHours": 3,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-011",
-      "NADAA-030"
-    ],
+    "dependencies": ["NADAA-011", "NADAA-030"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -545,10 +503,7 @@
     "actualEffortHours": 3,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-040",
-      "NADAA-012"
-    ],
+    "dependencies": ["NADAA-040", "NADAA-012"],
     "blockers": [],
     "verification": [
       "services/incident-service go test ./...",
@@ -582,9 +537,7 @@
     "actualEffortHours": 0,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-041"
-    ],
+    "dependencies": ["NADAA-041"],
     "blockers": [],
     "verification": [
       "services/incident-service go test ./...",
@@ -616,10 +569,7 @@
     "actualEffortHours": 0,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-033",
-      "NADAA-041"
-    ],
+    "dependencies": ["NADAA-033", "NADAA-041"],
     "blockers": [],
     "verification": [
       "services/incident-service go test ./...",
@@ -692,10 +642,7 @@
     "actualEffortHours": 0,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-030",
-      "NADAA-041"
-    ],
+    "dependencies": ["NADAA-030", "NADAA-041"],
     "blockers": [],
     "verification": [
       "services/incident-service go test ./...",
@@ -729,11 +676,7 @@
     "actualEffortHours": 3,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-011",
-      "NADAA-012",
-      "NADAA-020"
-    ],
+    "dependencies": ["NADAA-011", "NADAA-012", "NADAA-020"],
     "blockers": [],
     "verification": [
       "services/alert-service go test ./...",
@@ -767,9 +710,7 @@
     "actualEffortHours": 0,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-050"
-    ],
+    "dependencies": ["NADAA-050"],
     "blockers": [],
     "verification": [
       "services/alert-service go test ./...",
@@ -803,10 +744,7 @@
     "actualEffortHours": 0,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-050",
-      "NADAA-051"
-    ],
+    "dependencies": ["NADAA-050", "NADAA-051"],
     "blockers": [],
     "verification": [
       "services/notification-service go test ./...",
@@ -839,9 +777,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-001"
-    ],
+    "dependencies": ["NADAA-001"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -872,9 +808,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-020"
-    ],
+    "dependencies": ["NADAA-020"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -904,9 +838,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-021"
-    ],
+    "dependencies": ["NADAA-021"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -936,9 +868,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-020"
-    ],
+    "dependencies": ["NADAA-020"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -971,9 +901,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-060"
-    ],
+    "dependencies": ["NADAA-060"],
     "blockers": [],
     "verification": [
       "pnpm --filter @nadaa/citizen-web typecheck",
@@ -1009,10 +937,7 @@
     "actualEffortHours": 3,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-020",
-      "NADAA-022"
-    ],
+    "dependencies": ["NADAA-020", "NADAA-022"],
     "blockers": [],
     "verification": [
       "services/shelter-service go test ./...",
@@ -1047,9 +972,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-002"
-    ],
+    "dependencies": ["NADAA-002"],
     "blockers": [],
     "verification": [
       "pnpm validate:docs",
@@ -1081,10 +1004,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-020",
-      "NADAA-080"
-    ],
+    "dependencies": ["NADAA-020", "NADAA-080"],
     "blockers": [],
     "verification": [
       "services/integration-service go test ./...",
@@ -1118,10 +1038,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-020",
-      "NADAA-002"
-    ],
+    "dependencies": ["NADAA-020", "NADAA-002"],
     "blockers": [],
     "verification": [
       "pnpm features:flood",
@@ -1152,9 +1069,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-070"
-    ],
+    "dependencies": ["NADAA-070"],
     "blockers": [],
     "verification": [
       "pnpm ml:flood:train",
@@ -1185,10 +1100,7 @@
     "actualEffortHours": 3,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-071",
-      "NADAA-021"
-    ],
+    "dependencies": ["NADAA-071", "NADAA-021"],
     "blockers": [],
     "verification": [
       "services/ml-service go test ./...",
@@ -1222,10 +1134,7 @@
     "actualEffortHours": 3,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-06",
-    "dependencies": [
-      "NADAA-072",
-      "NADAA-050"
-    ],
+    "dependencies": ["NADAA-072", "NADAA-050"],
     "blockers": [],
     "verification": [
       "services/alert-service go test ./...",
@@ -1258,9 +1167,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "MVP feature completion"
-    ],
+    "dependencies": ["MVP feature completion"],
     "blockers": [],
     "verification": [
       "pnpm security:scan",
@@ -1292,11 +1199,7 @@
     "actualEffortHours": 1.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-100",
-      "NADAA-101",
-      "MVP feature completion"
-    ],
+    "dependencies": ["NADAA-100", "NADAA-101", "MVP feature completion"],
     "blockers": [],
     "verification": [
       "pnpm validate:release",
@@ -1328,11 +1231,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-010",
-      "NADAA-030",
-      "NADAA-052"
-    ],
+    "dependencies": ["NADAA-010", "NADAA-030", "NADAA-052"],
     "blockers": [],
     "verification": [
       "services/notification-service go test ./...",
@@ -1368,11 +1267,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-030",
-      "NADAA-052",
-      "NADAA-060"
-    ],
+    "dependencies": ["NADAA-030", "NADAA-052", "NADAA-060"],
     "blockers": [],
     "verification": [
       "services/notification-service go test ./...",
@@ -1407,11 +1302,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-050",
-      "NADAA-052",
-      "NADAA-111"
-    ],
+    "dependencies": ["NADAA-050", "NADAA-052", "NADAA-111"],
     "blockers": [],
     "verification": [
       "services/notification-service go test ./...",
@@ -1485,10 +1376,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-011",
-      "NADAA-042"
-    ],
+    "dependencies": ["NADAA-011", "NADAA-042"],
     "blockers": [],
     "verification": [
       "services/incident-service go test ./...",
@@ -1523,10 +1411,7 @@
     "actualEffortHours": 2,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-020",
-      "NADAA-080"
-    ],
+    "dependencies": ["NADAA-020", "NADAA-080"],
     "blockers": [],
     "verification": [
       "services/shelter-service go test ./...",
@@ -1561,12 +1446,7 @@
     "actualEffortHours": 2.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-041",
-      "NADAA-042",
-      "NADAA-091",
-      "NADAA-044"
-    ],
+    "dependencies": ["NADAA-041", "NADAA-042", "NADAA-091", "NADAA-044"],
     "blockers": [],
     "verification": [
       "pnpm --filter @nadaa/dispatcher-mobile typecheck",
@@ -1601,12 +1481,7 @@
     "actualEffortHours": 2.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-011",
-      "NADAA-042",
-      "NADAA-062",
-      "NADAA-121"
-    ],
+    "dependencies": ["NADAA-011", "NADAA-042", "NADAA-062", "NADAA-121"],
     "blockers": [],
     "verification": [
       "pnpm --filter @nadaa/agency-web typecheck",
@@ -1642,10 +1517,7 @@
     "actualEffortHours": 2.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-080",
-      "NADAA-040"
-    ],
+    "dependencies": ["NADAA-080", "NADAA-040"],
     "blockers": [],
     "verification": [
       "services/road-closure-service go test ./...",
@@ -1687,10 +1559,7 @@
     "actualEffortHours": 2.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-062",
-      "NADAA-012"
-    ],
+    "dependencies": ["NADAA-062", "NADAA-012"],
     "blockers": [],
     "verification": [
       "services/shelter-service go test ./...",
@@ -1732,10 +1601,7 @@
     "actualEffortHours": 3.5,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-122",
-      "NADAA-012"
-    ],
+    "dependencies": ["NADAA-122", "NADAA-012"],
     "blockers": [],
     "verification": [
       "services/shelter-service go test ./...",
@@ -1777,10 +1643,7 @@
     "actualEffortHours": 3,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-131",
-      "NADAA-040"
-    ],
+    "dependencies": ["NADAA-131", "NADAA-040"],
     "blockers": [],
     "verification": [
       "services/route-service go test ./...",
@@ -1808,10 +1671,7 @@
     "actualEffortHours": 4,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-09",
-    "dependencies": [
-      "NADAA-030",
-      "NADAA-090"
-    ],
+    "dependencies": ["NADAA-030", "NADAA-090"],
     "blockers": [],
     "verification": [
       "services/missing-person-service go test ./...",
@@ -1854,11 +1714,7 @@
     "actualEffortHours": 3,
     "progressPercentage": 100,
     "lastUpdated": "2026-07-07",
-    "dependencies": [
-      "NADAA-031",
-      "NADAA-040",
-      "NADAA-070"
-    ],
+    "dependencies": ["NADAA-031", "NADAA-040", "NADAA-070"],
     "blockers": [],
     "verification": [
       "services/imagery-service go test ./...",
