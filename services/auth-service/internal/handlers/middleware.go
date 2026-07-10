@@ -43,11 +43,15 @@ func agencyProfileFromMockHeaders(r *http.Request, allowedRoles []string) (model
 }
 
 func (s *Server) requireAgencyRole(w http.ResponseWriter, r *http.Request, allowedRoles ...string) (models.AgencyUserProfile, bool) {
-	// Demo mock-auth parity: when the shared X-NADAA-* actor headers are present
-	// and authorize the request, honor them like the other services do. Genuine
-	// token sessions (no actor headers) continue through real verification below.
-	if profile, ok := agencyProfileFromMockHeaders(r, allowedRoles); ok {
-		return profile, true
+	// Demo mock-auth parity (opt-in via NADAA_AUTH_ALLOW_MOCK_ACTORS): when the
+	// shared X-NADAA-* actor headers are present and authorize the request,
+	// honor them like the other services do. This trusts client-supplied role
+	// headers, so it is disabled by default and must stay off in production;
+	// real token verification below is the only path when the flag is unset.
+	if s.config.AllowMockActorHeaders {
+		if profile, ok := agencyProfileFromMockHeaders(r, allowedRoles); ok {
+			return profile, true
+		}
 	}
 
 	token, ok := utils.BearerToken(r)

@@ -45,6 +45,10 @@ Set `NADAA_AUTH_MOCK_OTP=123456` to make the service use a fixed OTP in developm
 
 Set `NADAA_AUTH_EXPOSE_DEV_OTP=true` only for local development or automated tests if the registration response should include `devOtp` or MFA setup should include `devCode`.
 
+## Mock actor headers (dev only)
+
+Set `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` to let agency endpoints accept the shared `X-NADAA-Actor-ID` / `X-NADAA-Agency-ID` / `X-NADAA-Actor-Role` / `X-NADAA-MFA-Completed` headers instead of a verified session token, matching the mock-auth scheme the other services use. This trusts client-supplied role headers and therefore bypasses real authentication, so it is **off by default and must never be enabled in production** — leave it unset there and require signed tokens.
+
 ## Run
 
 ```bash

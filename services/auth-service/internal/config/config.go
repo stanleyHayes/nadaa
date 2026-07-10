@@ -14,6 +14,10 @@ type Config struct {
 	TokenSecret            string
 	MockOTP                string
 	ExposeDevOTP           bool
+	// AllowMockActorHeaders lets agency endpoints accept the shared X-NADAA-*
+	// actor headers instead of a verified session token. Demo/dev only — it
+	// trusts client-supplied role headers, so it must stay false in production.
+	AllowMockActorHeaders bool
 	BootstrapAdminEmail    string
 	BootstrapAdminPassword string
 	BootstrapAdminPhone    string
@@ -29,6 +33,7 @@ func Load() *Config {
 		TokenSecret:            envOrDefault("NADAA_AUTH_TOKEN_SECRET", "dev-secret-change-me"),
 		MockOTP:                strings.TrimSpace(os.Getenv("NADAA_AUTH_MOCK_OTP")),
 		ExposeDevOTP:           os.Getenv("NADAA_AUTH_EXPOSE_DEV_OTP") == "true",
+		AllowMockActorHeaders:  os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
 		BootstrapAdminEmail:    strings.TrimSpace(os.Getenv("NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL")),
 		BootstrapAdminPassword: strings.TrimSpace(os.Getenv("NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD")),
 		BootstrapAdminPhone:    envOrDefault("NADAA_AUTH_BOOTSTRAP_ADMIN_PHONE", "+233200000001"),
