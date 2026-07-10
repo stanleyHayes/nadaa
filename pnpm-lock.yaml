@@ -221,6 +221,9 @@ importers:
       "@nadaa/shared-types":
         specifier: workspace:*
         version: link:../../packages/shared-types
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
       lucide-react:
         specifier: ^0.525.0
         version: 0.525.0(react@19.2.7)
@@ -231,6 +234,9 @@ importers:
         specifier: ^19.1.0
         version: 19.2.7(react@19.2.7)
     devDependencies:
+      "@types/leaflet":
+        specifier: ^1.9.21
+        version: 1.9.21
       "@types/react":
         specifier: ^19.1.8
         version: 19.2.17
