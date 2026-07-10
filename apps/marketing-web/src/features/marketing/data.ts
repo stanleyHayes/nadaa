@@ -459,18 +459,29 @@ export const differentiators = [
 ] as const;
 
 export const impactStats = [
-  { value: "19", label: "Coordinated services, from risk scoring to recovery" },
+  {
+    value: "16",
+    icon: "regions",
+    label: "Regions across Ghana",
+    detail: "National coverage, from Greater Accra to the Upper regions",
+  },
   {
     value: "6",
-    label: "Ghanaian languages, including Twi, Ga, Ewe, Dagbani, Hausa",
+    icon: "languages",
+    label: "Ghanaian languages",
+    detail: "English, Twi, Ga, Ewe, Dagbani, and Hausa",
   },
   {
     value: "7",
-    label: "Ways citizens are reached, from app to cell broadcast",
+    icon: "channels",
+    label: "Ways we reach you",
+    detail: "App, SMS, USSD, WhatsApp, voice, cell broadcast, push",
   },
   {
-    value: "5",
-    label: "Roles working together: citizen, command, dispatch, agency, admin",
+    value: "112",
+    icon: "emergency",
+    label: "Ghana's emergency line",
+    detail: "One number for police, fire, ambulance, and NADMO",
   },
 ] as const;
 

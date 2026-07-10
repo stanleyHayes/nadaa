@@ -2,11 +2,10 @@ import { ArrowRight, ChevronRight, PhoneCall } from "lucide-react";
 import { Link } from "react-router-dom";
 import { nadaaBrand } from "@nadaa/brand";
 import { marketingLinks } from "@/app/config";
-import { AnimatedCounter } from "../components/AnimatedCounter";
 import { Reveal } from "../components/Reveal";
+import { StatBand } from "../components/StatBand";
 import {
   heroMetrics,
-  impactStats,
   platformPositioning,
   responseLoop,
   roleSurfaces,
@@ -57,23 +56,7 @@ export function HomePage() {
         <p>{platformPositioning}</p>
       </section>
 
-      <section className="stats-band" aria-label="Platform at a glance">
-        <div className="stats-inner">
-          {impactStats.map((stat, index) => (
-            <Reveal
-              className="stat-tile"
-              delay={index * 90}
-              key={stat.label}
-              variant="up"
-            >
-              <strong>
-                <AnimatedCounter value={Number(stat.value)} />
-              </strong>
-              <span>{stat.label}</span>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+      <StatBand />
 
       <section aria-labelledby="home-loop-title" className="content-section">
         <div className="section-heading">

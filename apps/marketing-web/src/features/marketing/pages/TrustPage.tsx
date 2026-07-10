@@ -5,14 +5,9 @@ import {
   Lock,
   ShieldCheck,
 } from "lucide-react";
-import { AnimatedCounter } from "../components/AnimatedCounter";
 import { Reveal } from "../components/Reveal";
-import {
-  complianceItems,
-  impactStats,
-  researchNotes,
-  trustPoints,
-} from "../data";
+import { StatBand } from "../components/StatBand";
+import { complianceItems, researchNotes, trustPoints } from "../data";
 
 const complianceIcons = [Lock, Landmark, ShieldCheck, Accessibility] as const;
 
@@ -29,26 +24,7 @@ export function TrustPage() {
         </p>
       </section>
 
-      <section
-        className="stats-band stats-band--plain"
-        aria-label="At a glance"
-      >
-        <div className="stats-inner">
-          {impactStats.map((stat, index) => (
-            <Reveal
-              className="stat-tile"
-              delay={index * 80}
-              key={stat.label}
-              variant="up"
-            >
-              <strong>
-                <AnimatedCounter value={Number(stat.value)} />
-              </strong>
-              <span>{stat.label}</span>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+      <StatBand plain />
 
       <section className="content-section" aria-label="Compliance">
         <div className="compliance-grid compliance-grid--light">
