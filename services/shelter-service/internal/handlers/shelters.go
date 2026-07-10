@@ -61,3 +61,16 @@ func (s *server) updateShelterOccupancyHandler(w http.ResponseWriter, r *http.Re
 	}
 	utils.WriteJSON(w, http.StatusOK, models.ShelterUpdateResponse{Shelter: shelter})
 }
+
+func (s *server) deleteShelterHandler(w http.ResponseWriter, r *http.Request) {
+	_, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	if !ok {
+		return
+	}
+
+	if !s.store.DeleteShelter(r.PathValue("id")) {
+		utils.WriteError(w, http.StatusNotFound, "not_found", "shelter was not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -32,6 +32,9 @@ type Store interface {
 	ListAidPledges(aidRequestID string) ([]models.AidPledge, string, string)
 	CreateAidPledge(aidRequestID string, request models.CreateAidPledgeRequest, now time.Time) (models.AidPledge, string, string)
 	ReviewAidPledge(aidRequestID, pledgeID string, request models.ReviewAidPledgeRequest, ctx models.AuthorityContext, now time.Time) (models.AidPledge, string, string)
+	DeleteShelter(id string) bool
+	DeleteReliefPoint(id string) bool
+	DeleteAidRequest(id string) bool
 }
 
 // MemoryStore is an in-memory implementation of Store.
@@ -153,6 +156,21 @@ func (m *MemoryStore) UpdateShelter(id string, request models.OccupancyUpdateReq
 	}
 
 	return models.Shelter{}, "not_found", "shelter was not found"
+}
+
+// DeleteShelter removes a shelter and reports whether it existed.
+func (m *MemoryStore) DeleteShelter(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	id = strings.TrimSpace(id)
+	for index := range m.shelters {
+		if m.shelters[index].ID == id {
+			m.shelters = append(m.shelters[:index], m.shelters[index+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 // ListReliefPoints returns relief points matching the filter.
@@ -340,6 +358,21 @@ func (m *MemoryStore) UpdateReliefPoint(id string, request models.UpdateReliefPo
 	return models.ReliefPoint{}, "not_found", "relief point was not found"
 }
 
+// DeleteReliefPoint removes a relief point and reports whether it existed.
+func (m *MemoryStore) DeleteReliefPoint(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	id = strings.TrimSpace(id)
+	for index := range m.reliefPoints {
+		if m.reliefPoints[index].ID == id {
+			m.reliefPoints = append(m.reliefPoints[:index], m.reliefPoints[index+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 // ListReliefPointStockHistory returns stock history for a relief point.
 func (m *MemoryStore) ListReliefPointStockHistory(reliefPointID string) []models.ReliefStockHistory {
 	m.mu.RLock()
@@ -463,6 +496,21 @@ func (m *MemoryStore) ReviewAidRequest(id string, request models.ReviewAidReques
 		return m.copyAidRequestWithPledgesLocked(next), "", ""
 	}
 	return models.AidRequest{}, "not_found", "aid request was not found"
+}
+
+// DeleteAidRequest removes an aid request and reports whether it existed.
+func (m *MemoryStore) DeleteAidRequest(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	id = strings.TrimSpace(id)
+	for index := range m.aidRequests {
+		if m.aidRequests[index].ID == id {
+			m.aidRequests = append(m.aidRequests[:index], m.aidRequests[index+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 // ListAidPledges returns pledges for an aid request.

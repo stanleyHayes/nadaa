@@ -82,6 +82,22 @@ func (s *server) updateReliefPointHandler(w http.ResponseWriter, r *http.Request
 	utils.WriteJSON(w, http.StatusOK, reliefPoint)
 }
 
+func (s *server) deleteReliefPointHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	if !ok {
+		return
+	}
+
+	id := r.PathValue("id")
+	if !s.store.DeleteReliefPoint(id) {
+		log.Printf("WARN shelter-service relief_point_delete not_found id=%s actor=%s", id, ctx.ActorUserID)
+		utils.WriteError(w, http.StatusNotFound, "not_found", "relief point was not found")
+		return
+	}
+	log.Printf("INFO shelter-service relief_point_delete completed id=%s actor=%s", id, ctx.ActorUserID)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *server) listReliefPointStockHistoryHandler(w http.ResponseWriter, r *http.Request) {
 	history := s.store.ListReliefPointStockHistory(r.PathValue("id"))
 	log.Printf("INFO shelter-service relief_point_stock_history reliefPointId=%s count=%d", r.PathValue("id"), len(history))

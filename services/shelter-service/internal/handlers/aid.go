@@ -77,6 +77,22 @@ func (s *server) reviewAidRequestHandler(w http.ResponseWriter, r *http.Request)
 	utils.WriteJSON(w, http.StatusOK, aidRequest)
 }
 
+func (s *server) deleteAidRequestHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	if !ok {
+		return
+	}
+
+	id := r.PathValue("id")
+	if !s.store.DeleteAidRequest(id) {
+		log.Printf("WARN shelter-service aid_request_delete not_found id=%s actor=%s", id, ctx.ActorUserID)
+		utils.WriteError(w, http.StatusNotFound, "not_found", "aid request was not found")
+		return
+	}
+	log.Printf("INFO shelter-service aid_request_delete completed id=%s actor=%s", id, ctx.ActorUserID)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *server) listAidPledgesHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {

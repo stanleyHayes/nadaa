@@ -513,6 +513,84 @@ func TestAidRequestExportRequiresAuthority(t *testing.T) {
 	}
 }
 
+func TestDeleteShelter(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodDelete, "/api/v1/shelters/00000000-0000-0000-0000-000000000301", nil)
+	request.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
+
+	srv.deleteShelterHandler(response, request)
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusNoContent, response.Code, response.Body.String())
+	}
+}
+
+func TestDeleteShelterNotFound(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodDelete, "/api/v1/shelters/missing", nil)
+	request.SetPathValue("id", "missing")
+
+	srv.deleteShelterHandler(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, response.Code)
+	}
+}
+
+func TestDeleteReliefPoint(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodDelete, "/api/v1/relief-points/relief_ama_food_001", nil)
+	request.SetPathValue("id", "relief_ama_food_001")
+
+	srv.deleteReliefPointHandler(response, request)
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusNoContent, response.Code, response.Body.String())
+	}
+}
+
+func TestDeleteReliefPointNotFound(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodDelete, "/api/v1/relief-points/missing", nil)
+	request.SetPathValue("id", "missing")
+
+	srv.deleteReliefPointHandler(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, response.Code)
+	}
+}
+
+func TestDeleteAidRequest(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodDelete, "/api/v1/aid-requests/aid_ama_hygiene_001", nil)
+	request.SetPathValue("id", "aid_ama_hygiene_001")
+
+	srv.deleteAidRequestHandler(response, request)
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusNoContent, response.Code, response.Body.String())
+	}
+}
+
+func TestDeleteAidRequestNotFound(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodDelete, "/api/v1/aid-requests/missing", nil)
+	request.SetPathValue("id", "missing")
+
+	srv.deleteAidRequestHandler(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, response.Code)
+	}
+}
+
 func jsonBody(value any) *bytes.Reader {
 	body, err := json.Marshal(value)
 	if err != nil {
