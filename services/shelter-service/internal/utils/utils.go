@@ -37,6 +37,13 @@ var ShelterUpdateRoles = map[string]bool{
 	"dispatcher":       true,
 }
 
+// ShelterDeleteRoles lists roles allowed to delete shelters, relief points, and
+// aid requests. Deletion is destructive, so it is restricted to admins.
+var ShelterDeleteRoles = map[string]bool{
+	"system_admin": true,
+	"agency_admin": true,
+}
+
 // AllowedShelterStatuses lists supported shelter statuses.
 var AllowedShelterStatuses = map[string]bool{
 	"open":    true,

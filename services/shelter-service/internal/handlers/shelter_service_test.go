@@ -516,7 +516,7 @@ func TestAidRequestExportRequiresAuthority(t *testing.T) {
 func TestDeleteShelter(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
-	request := authorityRequest(http.MethodDelete, "/api/v1/shelters/00000000-0000-0000-0000-000000000301", nil)
+	request := adminRequest(http.MethodDelete, "/api/v1/shelters/00000000-0000-0000-0000-000000000301", nil)
 	request.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
 
 	srv.deleteShelterHandler(response, request)
@@ -529,7 +529,7 @@ func TestDeleteShelter(t *testing.T) {
 func TestDeleteShelterNotFound(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
-	request := authorityRequest(http.MethodDelete, "/api/v1/shelters/missing", nil)
+	request := adminRequest(http.MethodDelete, "/api/v1/shelters/missing", nil)
 	request.SetPathValue("id", "missing")
 
 	srv.deleteShelterHandler(response, request)
@@ -542,7 +542,7 @@ func TestDeleteShelterNotFound(t *testing.T) {
 func TestDeleteReliefPoint(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
-	request := authorityRequest(http.MethodDelete, "/api/v1/relief-points/relief_ama_food_001", nil)
+	request := adminRequest(http.MethodDelete, "/api/v1/relief-points/relief_ama_food_001", nil)
 	request.SetPathValue("id", "relief_ama_food_001")
 
 	srv.deleteReliefPointHandler(response, request)
@@ -555,7 +555,7 @@ func TestDeleteReliefPoint(t *testing.T) {
 func TestDeleteReliefPointNotFound(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
-	request := authorityRequest(http.MethodDelete, "/api/v1/relief-points/missing", nil)
+	request := adminRequest(http.MethodDelete, "/api/v1/relief-points/missing", nil)
 	request.SetPathValue("id", "missing")
 
 	srv.deleteReliefPointHandler(response, request)
@@ -568,7 +568,7 @@ func TestDeleteReliefPointNotFound(t *testing.T) {
 func TestDeleteAidRequest(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
-	request := authorityRequest(http.MethodDelete, "/api/v1/aid-requests/aid_ama_hygiene_001", nil)
+	request := adminRequest(http.MethodDelete, "/api/v1/aid-requests/aid_ama_hygiene_001", nil)
 	request.SetPathValue("id", "aid_ama_hygiene_001")
 
 	srv.deleteAidRequestHandler(response, request)
@@ -581,7 +581,7 @@ func TestDeleteAidRequest(t *testing.T) {
 func TestDeleteAidRequestNotFound(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
-	request := authorityRequest(http.MethodDelete, "/api/v1/aid-requests/missing", nil)
+	request := adminRequest(http.MethodDelete, "/api/v1/aid-requests/missing", nil)
 	request.SetPathValue("id", "missing")
 
 	srv.deleteAidRequestHandler(response, request)
@@ -610,6 +610,15 @@ func authorityRequest(method string, target string, body *bytes.Reader) *http.Re
 	request.Header.Set("X-NADAA-Agency-ID", "00000000-0000-0000-0000-000000000204")
 	request.Header.Set("X-NADAA-MFA-Completed", "true")
 	request.Header.Set("X-NADAA-Request-ID", "test-shelter-update")
+	return request
+}
+
+// adminRequest authenticates as a system_admin — required for the admin-only
+// delete endpoints (ShelterDeleteRoles).
+func adminRequest(method string, target string, body *bytes.Reader) *http.Request {
+	request := authorityRequest(method, target, body)
+	request.Header.Set("X-NADAA-Actor-ID", "usr_shelter_admin")
+	request.Header.Set("X-NADAA-Actor-Role", "system_admin")
 	return request
 }
 

@@ -63,7 +63,7 @@ func (s *server) updateShelterOccupancyHandler(w http.ResponseWriter, r *http.Re
 }
 
 func (s *server) deleteShelterHandler(w http.ResponseWriter, r *http.Request) {
-	_, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	_, ok := requireAuthority(w, r, utils.ShelterDeleteRoles)
 	if !ok {
 		return
 	}

@@ -83,7 +83,7 @@ func (s *server) updateReliefPointHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (s *server) deleteReliefPointHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := requireAuthority(w, r, utils.ShelterDeleteRoles)
 	if !ok {
 		return
 	}
