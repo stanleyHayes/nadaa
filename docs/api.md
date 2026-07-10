@@ -2211,3 +2211,542 @@ Rules:
 - All forecasts include confidence levels and operational constraints.
 - Predictions are decision-support only; no automatic deployment orders are generated.
 - Agency leadership retains final deployment authority.
+
+## Open Data Portal
+
+### List Datasets
+
+`GET /api/v1/open-data/datasets`
+
+Query parameters:
+
+- `category` (optional) — filter by category such as `flood`, `road_closure`, `shelter`
+- `privacyReviewStatus` (optional) — `approved`, `pending_review`, or `rejected`
+
+Response:
+
+```json
+{
+  "datasets": [
+    {
+      "id": "dataset_flood_reports_2026",
+      "title": "Flood incident reports — Greater Accra 2026",
+      "description": "Anonymized and aggregated flood incident reports for public awareness, research, and planning in Greater Accra.",
+      "category": "flood",
+      "license": "CC-BY-4.0",
+      "updateFrequency": "daily",
+      "privacyReviewStatus": "approved",
+      "anonymizationLevel": "aggregated",
+      "metadata": {
+        "publisher": "NADAA Ghana / NADMO",
+        "contactEmail": "opendata@nadaa.gov.gh",
+        "regionCoverage": ["Greater Accra"],
+        "temporalCoverage": "2026-01-01/2026-12-31",
+        "spatialResolution": "district",
+        "keywords": ["flood", "incident", "accra", "risk"],
+        "sourceSystems": ["incident-service"],
+        "anonymizationNotes": "Reporter identity removed; locations rounded to district centroids; counts aggregated by day and district."
+      },
+      "createdAt": "2026-06-10T08:00:00Z",
+      "updatedAt": "2026-07-09T08:00:00Z"
+    }
+  ],
+  "generatedAt": "2026-07-10T08:00:00Z"
+}
+```
+
+Rules:
+
+- The catalog lists datasets regardless of privacy review status so the status is visible on every entry.
+- Downloads are only permitted for datasets with `privacyReviewStatus: approved`.
+
+### Dataset Detail
+
+`GET /api/v1/open-data/datasets/{id}`
+
+Response:
+
+```json
+{
+  "dataset": {
+    "id": "dataset_flood_reports_2026",
+    "title": "Flood incident reports — Greater Accra 2026",
+    "description": "Anonymized and aggregated flood incident reports for public awareness, research, and planning in Greater Accra.",
+    "category": "flood",
+    "license": "CC-BY-4.0",
+    "updateFrequency": "daily",
+    "privacyReviewStatus": "approved",
+    "anonymizationLevel": "aggregated",
+    "metadata": { ... },
+    "sampleRows": [
+      {"date": "2026-07-01", "district": "Accra Metropolitan", "reportCount": 12, "maxUrgency": "high", "injuriesReported": false}
+    ],
+    "columns": [
+      {"name": "date", "type": "date", "description": "Aggregation date", "nullable": false}
+    ],
+    "createdAt": "2026-06-10T08:00:00Z",
+    "updatedAt": "2026-07-09T08:00:00Z"
+  }
+}
+```
+
+### Download Dataset
+
+`GET /api/v1/open-data/datasets/{id}/download?format=csv|json|parquet`
+
+Response:
+
+```json
+{
+  "download": {
+    "id": "dl_...",
+    "datasetId": "dataset_flood_reports_2026",
+    "format": "csv",
+    "url": "/api/v1/open-data/datasets/dataset_flood_reports_2026/download?format=csv",
+    "size": 23552,
+    "checksum": "sha256:...",
+    "createdAt": "2026-07-10T08:00:00Z"
+  },
+  "rateLimit": {
+    "limit": 10,
+    "remaining": 9,
+    "resetAt": "2026-07-10T08:01:00Z"
+  },
+  "auditLogged": true
+}
+```
+
+Rules:
+
+- Only `approved` datasets may be downloaded.
+- Downloads are rate-limited per IP using a token bucket.
+- Every successful download emits an audit event.
+
+### Request Dataset Access
+
+`POST /api/v1/open-data/requests`
+
+Request body:
+
+```json
+{
+  "datasetId": "dataset_raw_incident_feed",
+  "requesterInfo": {
+    "name": "Ama Kwame",
+    "organization": "University of Ghana",
+    "email": "ama.kwame@example.edu.gh",
+    "useCase": "academic research"
+  },
+  "purpose": "Research on flood response patterns in Accra for academic publication."
+}
+```
+
+Response:
+
+```json
+{
+  "request": {
+    "id": "odr_20260710080000_0001",
+    "datasetId": "dataset_raw_incident_feed",
+    "requesterInfo": { ... },
+    "purpose": "Research on flood response patterns in Accra for academic publication.",
+    "status": "pending",
+    "createdAt": "2026-07-10T08:00:00Z"
+  }
+}
+```
+
+Rules:
+
+- The dataset must exist.
+- Email is required and validated for format.
+- Purpose must be at least 10 characters.
+
+### List Access Requests
+
+`GET /api/v1/open-data/requests`
+
+Requires an admin role header (`system_admin`, `agency_admin`, or `nadmo_officer`).
+
+Response:
+
+```json
+{
+  "requests": [ ... ],
+  "generatedAt": "2026-07-10T08:00:00Z"
+}
+```
+
+### Review Access Request
+
+`POST /api/v1/open-data/requests/{id}/approve`
+
+Requires an admin role header.
+
+Request body:
+
+```json
+{
+  "reviewer": "admin@nadaa.gov.gh",
+  "approved": true,
+  "note": "Approved for academic use."
+}
+```
+
+Response:
+
+```json
+{
+  "request": {
+    "id": "odr_20260710080000_0001",
+    "status": "approved",
+    "reviewedAt": "2026-07-10T08:05:00Z",
+    "reviewedBy": "admin@nadaa.gov.gh",
+    "reviewNote": "Approved for academic use."
+  }
+}
+```
+
+## Public Disaster Education Campaigns
+
+### List Campaigns
+
+`GET /api/v1/campaigns?region=&language=&hazard=&status=`
+
+Public endpoint. Returns active published campaigns that overlap the current time and match the provided filters.
+
+Response:
+
+```json
+{
+  "campaigns": [
+    {
+      "id": "campaign_001",
+      "title": "Rainy season flood preparedness",
+      "hazardType": "flood",
+      "targetRegions": ["Greater Accra", "Ashanti", "Western"],
+      "languages": ["en", "tw"],
+      "contentBlocks": [
+        {
+          "type": "article",
+          "title": "Clear drains before the rains",
+          "body": "Remove loose rubbish from gutters and drains around your home."
+        },
+        {
+          "type": "checklist",
+          "title": "Flood-ready checklist",
+          "items": ["Know your nearest shelter", "Keep documents dry"]
+        }
+      ],
+      "publishWindow": {
+        "startsAt": "2026-06-06T12:00:00Z",
+        "endsAt": "2026-09-04T12:00:00Z"
+      },
+      "status": "published",
+      "linkedGuideIds": ["guide_flood_before_en"],
+      "linkedAlertIds": [],
+      "createdAt": "2026-07-04T12:00:00Z",
+      "updatedAt": "2026-07-05T12:00:00Z"
+    }
+  ],
+  "generatedAt": "2026-07-10T08:00:00Z"
+}
+```
+
+Rules:
+
+- `hazard` must be a supported NADAA hazard type.
+- `status` is only accepted from authority callers; public callers receive published campaigns whose `publishWindow` contains the current time.
+
+### Get Campaign Detail
+
+`GET /api/v1/campaigns/{id}`
+
+Response:
+
+```json
+{
+  "campaign": { ... }
+}
+```
+
+### Create Campaign
+
+`POST /api/v1/campaigns`
+
+Requires authority headers with MFA completed and an allowed role (`system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`).
+
+Request body:
+
+```json
+{
+  "title": "Dry season disease prevention",
+  "hazardType": "disease_outbreak",
+  "targetRegions": ["Greater Accra"],
+  "languages": ["en"],
+  "contentBlocks": [
+    {
+      "type": "article",
+      "title": "Stop the spread",
+      "body": "Wash hands, cover coughs, and seek care early if symptoms appear."
+    }
+  ],
+  "publishWindow": {
+    "startsAt": "2026-07-10T08:00:00Z",
+    "endsAt": "2026-08-10T08:00:00Z"
+  },
+  "status": "draft",
+  "linkedGuideIds": ["guide_disease_before_en"],
+  "linkedAlertIds": []
+}
+```
+
+Rules:
+
+- `title`, `hazardType`, `targetRegions`, `languages`, `contentBlocks`, and `publishWindow` are required.
+- `status` must be `draft`, `published`, or `archived`.
+- Published campaigns must have a publish window that contains the current time; stale or future-only windows are rejected.
+- Content block types are `article`, `checklist`, or `media`.
+
+### Update Campaign
+
+`PUT /api/v1/campaigns/{id}`
+
+Requires authority headers. Any campaign field may be replaced.
+
+### Get Campaign Metrics
+
+`GET /api/v1/campaigns/{id}/metrics`
+
+Returns mocked reach and engagement metrics for the campaign.
+
+Response:
+
+```json
+{
+  "metrics": [
+    {
+      "id": "metric_campaign_001_0",
+      "campaignId": "campaign_001",
+      "date": "2026-07-04T00:00:00Z",
+      "reach": 12400,
+      "engagement": 1180
+    }
+  ],
+  "campaignId": "campaign_001",
+  "generatedAt": "2026-07-10T08:00:00Z"
+}
+```
+
+### List Campaign Templates
+
+`GET /api/v1/campaign-templates`
+
+Returns reusable seasonal templates.
+
+Response:
+
+```json
+{
+  "templates": [
+    {
+      "id": "template_rainy_flood",
+      "name": "Rainy season flood preparedness",
+      "hazardType": "flood",
+      "season": "rainy",
+      "defaultContent": [ ... ]
+    }
+  ],
+  "generatedAt": "2026-07-10T08:00:00Z"
+}
+```
+
+## School Emergency Preparedness
+
+All school preparedness endpoints require authority headers and completed MFA.
+District officers are scoped to their district via `X-NADAA-Actor-District`;
+`system_admin` users can access all districts.
+
+### List Schools
+
+`GET /api/v1/schools`
+
+Query parameters:
+
+- `district` (optional) — filter by district name
+- `q` (optional) — search school name, district, region, or address
+
+Response:
+
+```json
+{
+  "schools": [
+    {
+      "id": "school_001",
+      "name": "Accra Methodist Primary School",
+      "location": { "lat": 5.56, "lng": -0.205 },
+      "district": "Accra Metropolitan",
+      "studentPopulation": 650,
+      "readinessStatus": "needs_improvement",
+      "lastDrillDate": "2026-06-26T12:00:00Z",
+      "updatedAt": "2026-07-08T12:00:00Z"
+    }
+  ],
+  "generatedAt": "2026-07-10T12:00:00Z"
+}
+```
+
+### Create School Profile
+
+`POST /api/v1/schools`
+
+```json
+{
+  "name": "New School",
+  "location": { "lat": 5.55, "lng": -0.19 },
+  "region": "Greater Accra",
+  "district": "Accra Metropolitan",
+  "address": "123 Independence Avenue",
+  "studentPopulation": 300,
+  "emergencyContacts": [
+    {
+      "name": "Head Teacher",
+      "role": "headteacher",
+      "phone": "+233200000999",
+      "isPrimary": true
+    }
+  ],
+  "hazards": ["flood", "fire"],
+  "evacuationPoints": [
+    {
+      "label": "Assembly ground",
+      "location": { "lat": 5.551, "lng": -0.191 },
+      "capacity": 350
+    }
+  ]
+}
+```
+
+Returns the created `SchoolProfile`.
+
+### Get School Profile
+
+`GET /api/v1/schools/{id}`
+
+Response:
+
+```json
+{
+  "school": { ... },
+  "generatedAt": "2026-07-10T12:00:00Z"
+}
+```
+
+### Update School Profile
+
+`PUT /api/v1/schools/{id}`
+
+Accepts the same fields as create, all optional. Returns the updated `SchoolProfile`.
+
+### List Drill Records
+
+`GET /api/v1/schools/{id}/drills`
+
+Response:
+
+```json
+{
+  "drills": [
+    {
+      "id": "drill_001",
+      "schoolId": "school_001",
+      "date": "2026-06-26T12:00:00Z",
+      "type": "fire",
+      "participants": 620,
+      "notes": "Evacuated in under three minutes.",
+      "completed": true,
+      "createdBy": "usr_district_officer_001",
+      "createdAt": "2026-06-26T12:00:00Z"
+    }
+  ],
+  "generatedAt": "2026-07-10T12:00:00Z"
+}
+```
+
+### Add Drill Record
+
+`POST /api/v1/schools/{id}/drills`
+
+```json
+{
+  "date": "2026-07-10T10:00:00Z",
+  "type": "flood",
+  "participants": 600,
+  "notes": "Wet season drill.",
+  "completed": true
+}
+```
+
+`type` must be `fire`, `flood`, `storm`, `earthquake`, `lockdown`, `evacuation`, or `medical`.
+
+### Get Readiness Check
+
+`GET /api/v1/schools/{id}/readiness`
+
+Returns the latest readiness check:
+
+```json
+{
+  "readiness": {
+    "id": "readiness_001",
+    "schoolId": "school_001",
+    "checkDate": "2026-07-03T09:00:00Z",
+    "riskLevel": "high",
+    "areaRiskRef": "risk_accra_north_001",
+    "checklistItems": [
+      {
+        "label": "Emergency contacts updated",
+        "checked": true,
+        "category": "admin"
+      }
+    ],
+    "overallStatus": "needs_improvement",
+    "notes": "First aid kits need restocking.",
+    "checkedBy": "usr_district_officer_001",
+    "createdAt": "2026-07-03T09:00:00Z",
+    "updatedAt": "2026-07-03T09:00:00Z"
+  },
+  "generatedAt": "2026-07-10T12:00:00Z"
+}
+```
+
+### Submit Readiness Check
+
+`POST /api/v1/schools/{id}/readiness`
+
+```json
+{
+  "checkDate": "2026-07-10T09:00:00Z",
+  "riskLevel": "high",
+  "areaRiskRef": "risk_accra_north_002",
+  "checklistItems": [
+    {
+      "label": "Emergency contacts updated",
+      "checked": true,
+      "category": "admin"
+    }
+  ],
+  "overallStatus": "ready",
+  "notes": "All set for rainy season."
+}
+```
+
+`overallStatus` must be `ready`, `needs_improvement`, `not_ready`, or `not_assessed`.
+`riskLevel` must be `low`, `moderate`, `high`, `severe`, or `emergency`.
+
+Rules:
+
+- Student population data is only exposed through authority-scoped endpoints.
+- District officers cannot create, update, or view schools outside their district.
+- Drill and readiness submissions are attributed to the authenticated authority actor.
+- `areaRiskRef` may link to a risk-service area or prediction record.

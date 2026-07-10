@@ -71,10 +71,13 @@ jobs:
           - services/damage-claim-service
           - services/road-closure-service
           - services/route-service
+          - services/school-service
           - services/donation-service
           - services/missing-person-service
+          - services/open-data-service
           - services/shelter-service
           - services/imagery-service
+          - services/campaign-service
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -132,16 +135,22 @@ jobs:
             dockerfile: services/road-closure-service/Dockerfile
           - name: route-service
             dockerfile: services/route-service/Dockerfile
+          - name: school-service
+            dockerfile: services/school-service/Dockerfile
           - name: donation-service
             dockerfile: services/donation-service/Dockerfile
           - name: missing-person-service
             dockerfile: services/missing-person-service/Dockerfile
+          - name: open-data-service
+            dockerfile: services/open-data-service/Dockerfile
           - name: damage-claim-service
             dockerfile: services/damage-claim-service/Dockerfile
           - name: shelter-service
             dockerfile: services/shelter-service/Dockerfile
           - name: imagery-service
             dockerfile: services/imagery-service/Dockerfile
+          - name: campaign-service
+            dockerfile: services/campaign-service/Dockerfile
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

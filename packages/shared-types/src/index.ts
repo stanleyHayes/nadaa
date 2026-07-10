@@ -616,6 +616,100 @@ export interface GuideListResponse {
   guides: EmergencyGuideRecord[];
 }
 
+export type CampaignStatus = "draft" | "published" | "archived";
+
+export type CampaignContentBlockType = "article" | "checklist" | "media";
+
+export interface CampaignContentBlock {
+  type: CampaignContentBlockType;
+  title: string;
+  body?: string;
+  items?: string[];
+  mediaUrl?: string;
+}
+
+export interface CampaignPublishWindow {
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface Campaign {
+  id: string;
+  title: string;
+  hazardType: HazardType;
+  targetRegions: string[];
+  languages: string[];
+  contentBlocks: CampaignContentBlock[];
+  publishWindow: CampaignPublishWindow;
+  status: CampaignStatus;
+  linkedGuideIds?: string[];
+  linkedAlertIds?: string[];
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CampaignMetric {
+  id: string;
+  campaignId: string;
+  date: string;
+  reach: number;
+  engagement: number;
+}
+
+export interface CampaignTemplate {
+  id: string;
+  name: string;
+  hazardType: HazardType;
+  season: string;
+  defaultContent: CampaignContentBlock[];
+}
+
+export interface CampaignListResponse {
+  campaigns: Campaign[];
+  generatedAt: string;
+}
+
+export interface CampaignResponse {
+  campaign: Campaign;
+}
+
+export interface CampaignMetricListResponse {
+  metrics: CampaignMetric[];
+  campaignId: string;
+  generatedAt: string;
+}
+
+export interface CampaignTemplateListResponse {
+  templates: CampaignTemplate[];
+  generatedAt: string;
+}
+
+export interface CreateCampaignRequest {
+  title: string;
+  hazardType: HazardType;
+  targetRegions: string[];
+  languages: string[];
+  contentBlocks: CampaignContentBlock[];
+  publishWindow: CampaignPublishWindow;
+  status: CampaignStatus;
+  linkedGuideIds?: string[];
+  linkedAlertIds?: string[];
+}
+
+export interface UpdateCampaignRequest {
+  title?: string;
+  hazardType?: HazardType;
+  targetRegions?: string[];
+  languages?: string[];
+  contentBlocks?: CampaignContentBlock[];
+  publishWindow?: CampaignPublishWindow;
+  status?: CampaignStatus;
+  linkedGuideIds?: string[];
+  linkedAlertIds?: string[];
+}
+
 export type IntegrationDirection = "inbound" | "outbound" | "bidirectional";
 
 export type IntegrationDomain =
@@ -1889,6 +1983,166 @@ export interface RouteOptionsResponse {
   generatedAt: string;
 }
 
+// NADAA-160 — School emergency preparedness
+
+export type SchoolHazardType =
+  | "flood"
+  | "fire"
+  | "storm"
+  | "earthquake"
+  | "landslide"
+  | "disease_outbreak"
+  | "security_incident"
+  | "other";
+
+export type DrillType =
+  | "fire"
+  | "flood"
+  | "storm"
+  | "earthquake"
+  | "lockdown"
+  | "evacuation"
+  | "medical";
+
+export type SchoolReadinessStatus =
+  "ready" | "needs_improvement" | "not_ready" | "not_assessed";
+
+export interface SchoolEmergencyContact {
+  name: string;
+  role: string;
+  phone?: string;
+  email?: string;
+  isPrimary: boolean;
+}
+
+export interface SchoolEvacuationPoint {
+  label: string;
+  location: Coordinates;
+  capacity?: number;
+  description?: string;
+}
+
+export interface SchoolProfile {
+  id: string;
+  name: string;
+  location: Coordinates;
+  region: string;
+  district: string;
+  address?: string;
+  studentPopulation: number;
+  emergencyContacts: SchoolEmergencyContact[];
+  hazards: SchoolHazardType[];
+  evacuationPoints: SchoolEvacuationPoint[];
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SchoolSummary {
+  id: string;
+  name: string;
+  location: Coordinates;
+  district: string;
+  studentPopulation: number;
+  readinessStatus: SchoolReadinessStatus;
+  lastDrillDate?: string;
+  updatedAt: string;
+}
+
+export interface SchoolListResponse {
+  schools: SchoolSummary[];
+  generatedAt: string;
+}
+
+export interface SchoolDetailResponse {
+  school: SchoolProfile;
+  generatedAt: string;
+}
+
+export interface CreateSchoolRequest {
+  name: string;
+  location: Coordinates;
+  region: string;
+  district: string;
+  address?: string;
+  studentPopulation: number;
+  emergencyContacts?: SchoolEmergencyContact[];
+  hazards?: SchoolHazardType[];
+  evacuationPoints?: SchoolEvacuationPoint[];
+}
+
+export interface UpdateSchoolRequest {
+  name?: string;
+  location?: Coordinates;
+  region?: string;
+  district?: string;
+  address?: string;
+  studentPopulation?: number;
+  emergencyContacts?: SchoolEmergencyContact[];
+  hazards?: SchoolHazardType[];
+  evacuationPoints?: SchoolEvacuationPoint[];
+}
+
+export interface DrillRecord {
+  id: string;
+  schoolId: string;
+  date: string;
+  type: DrillType;
+  participants: number;
+  notes?: string;
+  completed: boolean;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface DrillListResponse {
+  drills: DrillRecord[];
+  generatedAt: string;
+}
+
+export interface CreateDrillRequest {
+  date: string;
+  type: DrillType;
+  participants: number;
+  notes?: string;
+  completed: boolean;
+}
+
+export interface SchoolChecklistItem {
+  label: string;
+  checked: boolean;
+  category: string;
+}
+
+export interface ReadinessCheck {
+  id: string;
+  schoolId: string;
+  checkDate: string;
+  riskLevel: RiskLevel;
+  areaRiskRef?: string;
+  checklistItems: SchoolChecklistItem[];
+  overallStatus: SchoolReadinessStatus;
+  notes?: string;
+  checkedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReadinessResponse {
+  readiness?: ReadinessCheck;
+  generatedAt: string;
+}
+
+export interface CreateReadinessRequest {
+  checkDate: string;
+  riskLevel: RiskLevel;
+  areaRiskRef?: string;
+  checklistItems: SchoolChecklistItem[];
+  overallStatus: SchoolReadinessStatus;
+  notes?: string;
+}
+
 // NADAA-123 — Donation and aid coordination
 
 export type DonorType =
@@ -2466,4 +2720,151 @@ export interface ScenarioResult {
 export interface CompareScenarioResponse {
   scenarios: ScenarioResult[];
   generatedAt: string;
+}
+
+// NADAA-162 — National Open Disaster Data Portal
+
+export type OpenDataCategory =
+  | "flood"
+  | "fire"
+  | "road_closure"
+  | "weather"
+  | "shelter"
+  | "incident"
+  | "relief"
+  | "risk"
+  | "other";
+
+export type OpenDataPrivacyReviewStatus =
+  "pending_review" | "approved" | "rejected";
+
+export type OpenDataAnonymizationLevel =
+  "none" | "aggregated" | "anonymized" | "synthetic";
+
+export type OpenDataDatasetLicense =
+  | "ODC-Open"
+  | "CC-BY-4.0"
+  | "CC-BY-SA-4.0"
+  | "Ghana-Open-Government"
+  | "public-domain";
+
+export type OpenDataUpdateFrequency =
+  | "realtime"
+  | "hourly"
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "quarterly"
+  | "yearly"
+  | "ad_hoc"
+  | "static";
+
+export type OpenDataRequestStatus =
+  "pending" | "approved" | "rejected" | "expired";
+
+export interface OpenDataDatasetMetadata {
+  publisher: string;
+  contactEmail?: string;
+  regionCoverage?: string[];
+  temporalCoverage?: string;
+  spatialResolution?: string;
+  keywords?: string[];
+  sourceSystems?: string[];
+  anonymizationNotes?: string;
+  additional?: Record<string, string>;
+}
+
+export interface OpenDataDatasetColumn {
+  name: string;
+  type: string;
+  description?: string;
+  nullable: boolean;
+}
+
+export interface OpenDataDataset {
+  id: string;
+  title: string;
+  description: string;
+  category: OpenDataCategory;
+  license: OpenDataDatasetLicense;
+  updateFrequency: OpenDataUpdateFrequency;
+  privacyReviewStatus: OpenDataPrivacyReviewStatus;
+  anonymizationLevel: OpenDataAnonymizationLevel;
+  metadata: OpenDataDatasetMetadata;
+  sampleRows?: Record<string, unknown>[];
+  columns?: OpenDataDatasetColumn[];
+  accessRestriction?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OpenDataDatasetDownload {
+  id: string;
+  datasetId: string;
+  format: string;
+  url: string;
+  size: number;
+  checksum: string;
+  createdAt: string;
+}
+
+export interface OpenDataRateLimitStatus {
+  limit: number;
+  remaining: number;
+  resetAt: string;
+}
+
+export interface OpenDataRequesterInfo {
+  name: string;
+  organization?: string;
+  email: string;
+  useCase: string;
+}
+
+export interface OpenDataRequest {
+  id: string;
+  datasetId: string;
+  requesterInfo: OpenDataRequesterInfo;
+  purpose: string;
+  status: OpenDataRequestStatus;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  reviewNote?: string;
+}
+
+export interface OpenDataDatasetListResponse {
+  datasets: OpenDataDataset[];
+  generatedAt: string;
+}
+
+export interface OpenDataDatasetDetailResponse {
+  dataset: OpenDataDataset;
+}
+
+export interface OpenDataDatasetDownloadResponse {
+  download: OpenDataDatasetDownload;
+  rateLimit: OpenDataRateLimitStatus;
+  auditLogged: boolean;
+}
+
+export interface OpenDataCreateRequest {
+  datasetId: string;
+  requesterInfo: OpenDataRequesterInfo;
+  purpose: string;
+}
+
+export interface OpenDataRequestResponse {
+  request: OpenDataRequest;
+}
+
+export interface OpenDataRequestListResponse {
+  requests: OpenDataRequest[];
+  generatedAt: string;
+}
+
+export interface OpenDataReviewRequest {
+  reviewer: string;
+  approved: boolean;
+  note?: string;
 }

@@ -16,6 +16,7 @@ export const authoritySession = {
   role: "nadmo_officer" as AgencyUserRole,
   agencyId: "00000000-0000-0000-0000-000000000101",
   agency: "NADMO Accra Metro",
+  district: "Accra Metropolitan",
   mfaEnabled: true,
 };
 
@@ -25,6 +26,7 @@ export function authorityHeaders() {
     "X-NADAA-Actor-ID": authoritySession.id,
     "X-NADAA-Actor-Role": authoritySession.role,
     "X-NADAA-Agency-ID": authoritySession.agencyId,
+    "X-NADAA-Actor-District": authoritySession.district,
     "X-NADAA-MFA-Completed": authoritySession.mfaEnabled ? "true" : "false",
     "X-NADAA-Request-ID": `authority-ui-${Date.now()}`,
   };

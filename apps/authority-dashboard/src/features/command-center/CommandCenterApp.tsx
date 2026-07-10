@@ -86,6 +86,7 @@ import {
   StatusLine,
 } from "./components";
 import { RoutePlannerPanel } from "./RoutePlannerPanel";
+import { SchoolPreparednessPanel } from "./SchoolPreparednessPanel";
 import DonationPanel from "./DonationPanel";
 import MissingPersonsPanel from "./MissingPersonsPanel";
 import DamageClaimsPanel from "./DamageClaimsPanel";
@@ -93,6 +94,7 @@ import { ImageryPanel } from "./ImageryPanel";
 import { FloodSimulationPanel } from "./FloodSimulationPanel";
 import { CVEvidencePanel } from "./CVEvidencePanel";
 import { ResourcePositioningPanel } from "./ResourcePositioningPanel";
+import CampaignManagerPanel from "./CampaignManagerPanel";
 import {
   defaultFilters,
   fallbackAlerts,
@@ -1923,10 +1925,12 @@ function CommandCenterApp() {
 
               <MissingPersonsPanel />
               <FloodSimulationPanel />
+              <CampaignManagerPanel />
 
               <CVEvidencePanel />
 
               <ResourcePositioningPanel />
+              <SchoolPreparednessPanel />
 
               <Paper className="surface">
                 <Typography variant="h6" className="section-heading">

@@ -10,6 +10,7 @@ import type {
   ReliefPointStatus,
   ReliefPointType,
   RiskLevel,
+  SchoolReadinessStatus,
   ShelterStatus,
 } from "@nadaa/shared-types";
 
@@ -108,3 +109,38 @@ export type AssignmentAgencyOption = {
 };
 
 export type RoutePlanFormWaypointType = "shelter" | "higher_ground" | "manual";
+
+export type SchoolDetailLoadState =
+  "loading" | "ready" | "fallback" | "empty" | "error";
+
+export type SchoolPanelView = "list" | "detail" | "drill" | "readiness";
+
+export type SchoolFormState = {
+  name: string;
+  address: string;
+  region: string;
+  district: string;
+  latitude: string;
+  longitude: string;
+  studentPopulation: string;
+  emergencyContacts: string;
+  hazards: string;
+  evacuationPoints: string;
+};
+
+export type DrillFormState = {
+  date: string;
+  type: string;
+  participants: string;
+  notes: string;
+  completed: boolean;
+};
+
+export type ReadinessFormState = {
+  checkDate: string;
+  riskLevel: RiskLevel;
+  areaRiskRef: string;
+  overallStatus: SchoolReadinessStatus;
+  notes: string;
+  checklistItems: string;
+};

@@ -133,6 +133,8 @@ import RoutePlanner from "./RoutePlanner";
 import DonorPortal from "./DonorPortal";
 import MissingPersonsPanel from "./MissingPersonsPanel";
 import DamageClaim from "./DamageClaim";
+import PublicCampaignsPanel from "./PublicCampaignsPanel";
+import { OpenDataPortal } from "./OpenDataPortal";
 
 function CitizenApp() {
   const [area, setArea] = useState("Accra Central");
@@ -1212,6 +1214,10 @@ function CitizenApp() {
                   <MissingPersonsPanel />
                 </Grid>
 
+                <Grid size={{ xs: 12 }}>
+                  <OpenDataPortal />
+                </Grid>
+
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Paper className="surface report-surface">
                     <Stack
@@ -2143,6 +2149,8 @@ function CitizenApp() {
                     ))}
                   </Stack>
                 </Paper>
+
+                <PublicCampaignsPanel />
               </Stack>
             </Grid>
           </Grid>

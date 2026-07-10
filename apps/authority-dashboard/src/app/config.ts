@@ -21,3 +21,7 @@ export const CV_API_BASE =
   import.meta.env.VITE_CV_API_URL ?? "http://localhost:8094/api/v1";
 export const FORECAST_API_BASE =
   import.meta.env.VITE_FORECAST_API_URL ?? "http://localhost:8094/api/v1";
+export const SCHOOL_API_BASE =
+  import.meta.env.VITE_SCHOOL_API_URL ?? "http://localhost:8097/api/v1";
+export const CAMPAIGN_API_BASE =
+  import.meta.env.VITE_CAMPAIGN_API_URL ?? "http://localhost:8103/api/v1";

@@ -18,4 +18,8 @@ export const MISSING_PERSON_API_BASE =
   import.meta.env.VITE_MISSING_PERSON_API_URL ?? "http://localhost:8101/api/v1";
 export const DAMAGE_CLAIM_API_BASE =
   import.meta.env.VITE_DAMAGE_CLAIM_SERVICE_URL ?? "http://localhost:8098";
+export const CAMPAIGN_API_BASE =
+  import.meta.env.VITE_CAMPAIGN_API_URL ?? "http://localhost:8103/api/v1";
+export const OPEN_DATA_API_BASE =
+  import.meta.env.VITE_OPEN_DATA_SERVICE_URL ?? "http://localhost:8102/api/v1";
 export const GUIDE_CACHE_KEY = "nadaa.citizen.guides.v1";

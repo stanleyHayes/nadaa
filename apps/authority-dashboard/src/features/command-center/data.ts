@@ -7,6 +7,7 @@ import type {
   IncidentStatus,
   ReliefPointRecord,
   RiskLevel,
+  SchoolSummary,
   ShelterRecord,
 } from "@nadaa/shared-types";
 import type {
@@ -402,6 +403,38 @@ export const fallbackIncidents: CommandIncident[] = [
       "Engine crew en route",
     ],
     source: "fixture",
+  },
+];
+
+export const fallbackSchools: SchoolSummary[] = [
+  {
+    id: "school_fixture_001",
+    name: "Accra Methodist Primary School",
+    location: { lat: 5.56, lng: -0.205 },
+    district: "Accra Metropolitan",
+    studentPopulation: 650,
+    readinessStatus: "needs_improvement",
+    lastDrillDate: "2026-06-26T12:00:00Z",
+    updatedAt: "2026-07-08T12:00:00Z",
+  },
+  {
+    id: "school_fixture_002",
+    name: "Tema Community 2 JHS",
+    location: { lat: 5.642, lng: -0.028 },
+    district: "Tema Metropolitan",
+    studentPopulation: 420,
+    readinessStatus: "ready",
+    lastDrillDate: "2026-06-19T12:00:00Z",
+    updatedAt: "2026-07-05T12:00:00Z",
+  },
+  {
+    id: "school_fixture_003",
+    name: "Korle Bu Basic School",
+    location: { lat: 5.54, lng: -0.22 },
+    district: "Accra Metropolitan",
+    studentPopulation: 380,
+    readinessStatus: "not_assessed",
+    updatedAt: "2026-07-09T12:00:00Z",
   },
 ];
 
