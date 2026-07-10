@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { useAdminSession } from "@/app/session";
 import { adminTheme } from "@/app/theme";
@@ -15,10 +16,20 @@ import { SignInScreen } from "./components/SignInScreen";
  * RBAC + MFA gate passes.
  */
 function AdminConsoleApp() {
-  const session = useAdminSession();
+  const { session, preferences } = useAdminSession();
   const authorized = Boolean(
     session && hasAdminAccess(session.role, session.mfaCompleted),
   );
+
+  // Apply the admin's reduced-motion preference across the whole app.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (preferences.reducedMotion) {
+      root.setAttribute("data-nadaa-reduced-motion", "reduce");
+    } else {
+      root.removeAttribute("data-nadaa-reduced-motion");
+    }
+  }, [preferences.reducedMotion]);
 
   return (
     <ThemeProvider theme={adminTheme}>

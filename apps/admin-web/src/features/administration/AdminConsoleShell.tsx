@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Drawer } from "@mui/material";
-import { signOutAdmin, type AdminSession } from "@/app/session";
+import { Settings } from "lucide-react";
+import {
+  signOutAdmin,
+  useAdminSession,
+  type AdminSession,
+} from "@/app/session";
 import { useAdminData } from "./useAdminData";
 import {
   DEFAULT_VIEW,
@@ -8,10 +13,12 @@ import {
   isViewId,
   navItemById,
   type BadgeKey,
+  type NavItem,
   type ViewId,
 } from "./navigation";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar, type AdminNotification } from "./components/Topbar";
+import { AccountSettings, type SettingsTab } from "./account";
 import { OverviewView } from "./components/views/OverviewView";
 import { AgenciesView } from "./components/views/AgenciesView";
 import { UsersView } from "./components/views/UsersView";
@@ -20,6 +27,16 @@ import { MfaView } from "./components/views/MfaView";
 import { AuditView } from "./components/views/AuditView";
 import { IntegrationsView } from "./components/views/IntegrationsView";
 import { AlertRulesView } from "./components/views/AlertRulesView";
+
+/** Synthetic nav item so the topbar can title the settings view. */
+const SETTINGS_NAV_ITEM: NavItem = {
+  id: DEFAULT_VIEW,
+  label: "Settings",
+  description: "Manage your profile, security, notifications and preferences",
+  icon: Settings,
+};
+
+type ShellView = ViewId | "settings";
 
 const VIEW_KEY = "nadaa.admin.view";
 const COLLAPSE_KEY = "nadaa.admin.sidebar.collapsed";
@@ -41,11 +58,22 @@ function readInitialCollapsed(): boolean {
 
 export function AdminConsoleShell({ session }: { session: AdminSession }) {
   const data = useAdminData();
-  const [activeView, setActiveView] = useState<ViewId>(readInitialView);
+  const {
+    preferences,
+    updateProfile,
+    updatePreferences,
+    setMfaEnabled,
+    changePassword,
+  } = useAdminSession();
+  const [activeView, setActiveView] = useState<ShellView>(readInitialView);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [collapsed, setCollapsed] = useState<boolean>(readInitialCollapsed);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
+    if (activeView === "settings") {
+      return;
+    }
     try {
       window.localStorage.setItem(VIEW_KEY, activeView);
     } catch {
@@ -105,10 +133,20 @@ export function AdminConsoleShell({ session }: { session: AdminSession }) {
     setMobileNavOpen(false);
   };
 
+  const openSettings = (tab: SettingsTab) => {
+    setSettingsTab(tab);
+    setActiveView("settings");
+    setMobileNavOpen(false);
+  };
+
   const handleSignOut = () => {
     setMobileNavOpen(false);
     signOutAdmin();
   };
+
+  const isSettings = activeView === "settings";
+  const topbarView = isSettings ? SETTINGS_NAV_ITEM : navItemById(activeView);
+  const topbarGroup = isSettings ? "Account" : groupLabelForView(activeView);
 
   const renderView = () => {
     switch (activeView) {
@@ -126,6 +164,19 @@ export function AdminConsoleShell({ session }: { session: AdminSession }) {
         return <IntegrationsView data={data} />;
       case "alertRules":
         return <AlertRulesView data={data} />;
+      case "settings":
+        return (
+          <AccountSettings
+            tab={settingsTab}
+            onTabChange={setSettingsTab}
+            user={session}
+            preferences={preferences}
+            onUpdateProfile={updateProfile}
+            onUpdatePreferences={updatePreferences}
+            onSetMfaEnabled={setMfaEnabled}
+            onChangePassword={changePassword}
+          />
+        );
       case "overview":
       default:
         return (
@@ -167,11 +218,12 @@ export function AdminConsoleShell({ session }: { session: AdminSession }) {
 
       <div className="cc-main">
         <Topbar
-          view={navItemById(activeView)}
-          groupLabel={groupLabelForView(activeView)}
+          view={topbarView}
+          groupLabel={topbarGroup}
           session={session}
           notifications={notifications}
           onSignOut={handleSignOut}
+          onOpenSettings={openSettings}
           onOpenMobileNav={() => setMobileNavOpen(true)}
         />
         <main id="main-content" className="cc-content" tabIndex={-1}>
