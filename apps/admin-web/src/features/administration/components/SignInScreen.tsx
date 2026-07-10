@@ -22,6 +22,7 @@ import {
   ScrollText,
   ShieldCheck,
 } from "lucide-react";
+import { OtpInput } from "./OtpInput";
 import type { AgencyUserRole } from "@nadaa/shared-types";
 import {
   adminSignInRoles,
@@ -295,28 +296,21 @@ export function SignInScreen() {
                 {agency || agencyByRole[role]}.
               </Typography>
 
-              <TextField
-                label="Authenticator code"
-                value={code}
-                onChange={(event) =>
-                  setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                fullWidth
-                autoFocus
-                inputProps={{
-                  inputMode: "numeric",
-                  maxLength: 6,
-                  className: "cc-auth__code-input",
-                  "aria-describedby": "cc-auth-mfa-hint",
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <KeyRound size={17} />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+              <Box>
+                <Typography
+                  component="label"
+                  variant="subtitle2"
+                  sx={{ display: "block", mb: 1, fontWeight: 700 }}
+                >
+                  Authenticator code
+                </Typography>
+                <OtpInput
+                  autoFocus
+                  ariaDescribedBy="cc-auth-mfa-hint"
+                  onChange={setCode}
+                  value={code}
+                />
+              </Box>
               <p id="cc-auth-mfa-hint" className="cc-auth__hint">
                 Codes rotate every 30 seconds in your authenticator app.
               </p>
