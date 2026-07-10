@@ -2074,6 +2074,7 @@ Lists all cached CV analysis results.
 `GET /api/v1/forecasts`
 
 Query parameters:
+
 - `region` (optional) — filter by region name
 
 Response:
@@ -2129,6 +2130,7 @@ Response:
 `GET /api/v1/staging-suggestions`
 
 Query parameters:
+
 - `agencyType` (optional) — filter by agency type (e.g., `fire`, `ambulance`, `nadmo`)
 
 Response:

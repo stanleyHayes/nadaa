@@ -860,7 +860,8 @@ export function fallbackTriageSuggestion(
           agencyType: "fire" as AgencyType,
           agencyId: "00000000-0000-0000-0000-000000000201",
           name: "Ghana National Fire Service",
-          reason: "Primary responder for fire and structural collapse incidents.",
+          reason:
+            "Primary responder for fire and structural collapse incidents.",
         }
       : incident.type === "road_crash" || incident.type === "security_incident"
         ? {

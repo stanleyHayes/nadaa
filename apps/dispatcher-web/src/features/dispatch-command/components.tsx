@@ -1083,10 +1083,7 @@ export function AITriageSuggestionPanel({
               color="error"
               startIcon={<ShieldAlert size={17} />}
               disabled={
-                busy ||
-                !canOverride ||
-                !!reasonError ||
-                !!populationError
+                busy || !canOverride || !!reasonError || !!populationError
               }
               onClick={onOverride}
             >
