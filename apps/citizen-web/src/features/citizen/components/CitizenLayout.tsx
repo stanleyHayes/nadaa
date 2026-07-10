@@ -47,9 +47,9 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
  */
 export function CitizenLayout() {
   const { pathname } = useLocation();
-  const { session, signIn, signOut } = useCitizenSession();
+  const { session, signIn, signOut, signInOpen, requestSignIn, closeSignIn } =
+    useCitizenSession();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
   const [userAnchor, setUserAnchor] = useState<null | HTMLElement>(null);
 
   // Reset scroll and close the mobile drawer whenever the route changes.
@@ -157,7 +157,7 @@ export function CitizenLayout() {
           ) : (
             <button
               className="citizen-signin"
-              onClick={() => setSignInOpen(true)}
+              onClick={requestSignIn}
               type="button"
             >
               <UserPlus aria-hidden="true" size={16} />
@@ -179,11 +179,8 @@ export function CitizenLayout() {
       </header>
 
       <SignInDialog
-        onClose={() => setSignInOpen(false)}
-        onSignIn={(details) => {
-          signIn(details);
-          setSignInOpen(false);
-        }}
+        onClose={closeSignIn}
+        onSignIn={(details) => signIn(details)}
         open={signInOpen}
       />
 

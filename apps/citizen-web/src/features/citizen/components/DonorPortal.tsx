@@ -23,6 +23,7 @@ import type {
   DonorRecord,
 } from "@nadaa/shared-types";
 import { DONATION_API_BASE } from "@/app/config";
+import { useCitizenSession } from "../session";
 
 const fallbackCatalog: AidCatalogRecord[] = [
   {
@@ -167,6 +168,7 @@ function statusLabel(status: string) {
 }
 
 export function DonorPortal() {
+  const { session, requestSignIn } = useCitizenSession();
   const [catalog, setCatalog] = useState<AidCatalogRecord[]>(fallbackCatalog);
   const [aidRequests, setAidRequests] =
     useState<DonationAidRequestRecord[]>(fallbackAidRequests);
@@ -247,6 +249,10 @@ export function DonorPortal() {
     };
 
   const registerDonor = async () => {
+    if (!session) {
+      requestSignIn();
+      return;
+    }
     if (!donorForm.name.trim()) {
       setFeedback("Please enter your name or organization to register.");
       return;
@@ -289,6 +295,10 @@ export function DonorPortal() {
   };
 
   const submitPledge = async (aidRequest: DonationAidRequestRecord) => {
+    if (!session) {
+      requestSignIn();
+      return;
+    }
     const form = pledgeForms[aidRequest.id] ?? buildDefaultPledgeForm();
     const quantityPledged = Number(form.quantityPledged);
     if (

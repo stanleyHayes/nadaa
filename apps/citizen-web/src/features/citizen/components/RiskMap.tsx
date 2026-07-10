@@ -37,7 +37,9 @@ function escapeHtml(value: string): string {
 
 function markerIcon(marker: RiskMapMarker) {
   const isRisk = marker.kind !== "shelter";
-  const className = isRisk ? "citizen-map-pin citizen-map-pin--risk" : "citizen-map-pin";
+  const className = isRisk
+    ? "citizen-map-pin citizen-map-pin--risk"
+    : "citizen-map-pin";
   const size = isRisk ? 30 : 26;
   return L.divIcon({
     className: "citizen-map-icon",

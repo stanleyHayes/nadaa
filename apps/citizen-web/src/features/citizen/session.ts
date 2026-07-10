@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
- * Light, optional citizen sign-in. The citizen PWA is public and mostly
- * anonymous: a session only unlocks convenience (saved reports and claims) and
- * NEVER gates life-safety features. Everything is persisted to localStorage —
- * there is no backend auth here.
+ * Shared citizen session store. Viewing the platform (risk, alerts, shelters,
+ * guides, open data) is public and needs no account. SUBMITTING anything —
+ * incident reports, damage claims, aid pledges, missing-person reports — now
+ * requires a signed-in citizen; anonymous submissions are not allowed. The
+ * session is a single global store so every page/panel sees the same state
+ * reactively, and any submission surface can open the sign-in dialog. Persisted
+ * to localStorage; there is no backend auth here yet.
  */
 export type CitizenSession = {
   name: string;
@@ -44,7 +47,10 @@ export const signInRegions = [
   "Western North",
 ] as const;
 
-function readJSON<T>(key: string, guard: (value: unknown) => value is T): T | null {
+function readJSON<T>(
+  key: string,
+  guard: (value: unknown) => value is T,
+): T | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -94,49 +100,96 @@ function isSavedReports(value: unknown): value is SavedReport[] {
   );
 }
 
+type StoreState = {
+  session: CitizenSession | null;
+  savedReports: SavedReport[];
+  signInOpen: boolean;
+};
+
+let state: StoreState = {
+  session: readJSON(SESSION_KEY, isSession),
+  savedReports: readJSON(REPORTS_KEY, isSavedReports) ?? [],
+  signInOpen: false,
+};
+
+const listeners = new Set<() => void>();
+
+function emit() {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function setState(patch: Partial<StoreState>) {
+  state = { ...state, ...patch };
+  emit();
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot() {
+  return state;
+}
+
+/** Sign a citizen in (persists) and close the sign-in dialog. */
+export function signInCitizen(details: Omit<CitizenSession, "since">) {
+  const session: CitizenSession = {
+    ...details,
+    since: new Date().toISOString(),
+  };
+  writeJSON(SESSION_KEY, session);
+  setState({ session, signInOpen: false });
+}
+
+/** Sign out and clear the persisted session. */
+export function signOutCitizen() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(SESSION_KEY);
+  }
+  setState({ session: null });
+}
+
+/** Persist a report reference for the signed-in citizen's "My reports" list. */
+export function saveCitizenReport(report: SavedReport) {
+  const exists = state.savedReports.some(
+    (item) => item.reference === report.reference,
+  );
+  const savedReports = exists
+    ? state.savedReports
+    : [report, ...state.savedReports].slice(0, 12);
+  writeJSON(REPORTS_KEY, savedReports);
+  setState({ savedReports });
+}
+
+/** Open the sign-in dialog — used when a signed-out citizen tries to submit. */
+export function requestSignIn() {
+  setState({ signInOpen: true });
+}
+
+/** Close the sign-in dialog. */
+export function closeSignIn() {
+  setState({ signInOpen: false });
+}
+
 /**
- * Central store for the optional citizen session plus the reports saved while
- * signed in. Returns stable callbacks and keeps localStorage in sync.
+ * Subscribe to the shared citizen session. Any component can read `session`,
+ * gate a submission on it, and call `requestSignIn()` to open the dialog.
  */
 export function useCitizenSession() {
-  const [session, setSession] = useState<CitizenSession | null>(() =>
-    readJSON(SESSION_KEY, isSession),
-  );
-  const [savedReports, setSavedReports] = useState<SavedReport[]>(
-    () => readJSON(REPORTS_KEY, isSavedReports) ?? [],
-  );
-
-  useEffect(() => {
-    if (session) {
-      writeJSON(SESSION_KEY, session);
-    } else if (typeof window !== "undefined") {
-      window.localStorage.removeItem(SESSION_KEY);
-    }
-  }, [session]);
-
-  useEffect(() => {
-    writeJSON(REPORTS_KEY, savedReports);
-  }, [savedReports]);
-
-  const signIn = useCallback(
-    (details: Omit<CitizenSession, "since">) => {
-      setSession({ ...details, since: new Date().toISOString() });
-    },
-    [],
-  );
-
-  const signOut = useCallback(() => {
-    setSession(null);
-  }, []);
-
-  const saveReport = useCallback((report: SavedReport) => {
-    setSavedReports((current) => {
-      if (current.some((item) => item.reference === report.reference)) {
-        return current;
-      }
-      return [report, ...current].slice(0, 12);
-    });
-  }, []);
-
-  return { session, savedReports, signIn, signOut, saveReport };
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return {
+    session: snapshot.session,
+    savedReports: snapshot.savedReports,
+    signInOpen: snapshot.signInOpen,
+    signIn: signInCitizen,
+    signOut: signOutCitizen,
+    saveReport: saveCitizenReport,
+    requestSignIn,
+    closeSignIn,
+  };
 }

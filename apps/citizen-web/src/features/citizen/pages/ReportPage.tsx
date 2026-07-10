@@ -32,17 +32,23 @@ import {
   urgencyOptions,
 } from "../data";
 import type { ReportForm, ReportState } from "../types";
-import { extractAPIError, formatFileSize, initiateMediaUploads } from "../utils";
+import {
+  extractAPIError,
+  formatFileSize,
+  initiateMediaUploads,
+} from "../utils";
 import { useCitizenSession } from "../session";
 import { PageHeader, Reveal, SavedReports } from "../components";
 import { PageBanner } from "../components/PageBanner";
+import { SignInGate } from "../components/SignInGate";
 
 /**
  * Incident reporting (route `/report`). Self-contained migration of the legacy
  * `#report` form together with the signed-in `SavedReports` list.
  */
 export function ReportPage() {
-  const { session, savedReports, saveReport } = useCitizenSession();
+  const { session, savedReports, saveReport, requestSignIn } =
+    useCitizenSession();
   const [reportForm, setReportForm] = useState<ReportForm>(initialReportForm);
   const [reportState, setReportState] = useState<ReportState>({
     status: "idle",
@@ -136,6 +142,13 @@ export function ReportPage() {
   const submitReport = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    // Submissions require a signed-in citizen — no anonymous reports.
+    const currentSession = session;
+    if (!currentSession) {
+      requestSignIn();
+      return;
+    }
+
     const lat = Number(reportForm.lat);
     const lng = Number(reportForm.lng);
     const peopleAffected = Number(reportForm.peopleAffected || 0);
@@ -190,18 +203,16 @@ export function ReportPage() {
         peopleAffected,
         injuriesReported: reportForm.injuriesReported,
         urgency: reportForm.urgency,
-        anonymous: reportForm.anonymous,
-        contactPermission: reportForm.anonymous
-          ? false
-          : reportForm.contactPermission,
+        anonymous: false,
+        contactPermission: reportForm.contactPermission,
         accessibilityNeeds: reportForm.accessibilityNeeds.trim() || undefined,
         media: mediaIds,
-        reporter: reportForm.anonymous
-          ? undefined
-          : {
-              userId: "usr_demo_citizen",
-              phone: reportForm.contactPermission ? "+233200000000" : undefined,
-            },
+        reporter: {
+          userId: "usr_demo_citizen",
+          phone: reportForm.contactPermission
+            ? currentSession.phone
+            : undefined,
+        },
       };
 
       const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {
@@ -249,310 +260,308 @@ export function ReportPage() {
       />
       <div className="citizen-shell">
         <div className="citizen-section">
-          <Reveal delay={80}>
-            <Paper
-              className="surface report-surface"
-              id="report"
-              component="section"
-            >
-              <PageHeader
-                icon={Siren}
-                title="Report an incident"
-                subtitle="Flag a flood, fire, road crash or hazard for responders."
-                tone="gold"
-              />
-              <Stack
-                component="form"
-                spacing={1.5}
-                onSubmit={submitReport}
-                noValidate
+          <SignInGate
+            message="Anyone can browse alerts, risk, shelters, and guides. To report an incident, sign in with your name and phone — NADAA does not take anonymous reports, so responders can verify and follow up with you."
+            title="Sign in to report an incident"
+          >
+            <Reveal delay={80}>
+              <Paper
+                className="surface report-surface"
+                id="report"
+                component="section"
               >
-                <FormControl fullWidth error={Boolean(reportErrors.hazard)}>
-                  <InputLabel id="report-hazard-label">Hazard type</InputLabel>
-                  <Select
-                    id="report-hazard"
-                    labelId="report-hazard-label"
-                    value={reportForm.hazard}
-                    label="Hazard type"
-                    onChange={(event) => {
-                      clearReportError("hazard");
-                      updateReportForm(
-                        "hazard",
-                        event.target.value as HazardType,
-                      );
-                    }}
-                    aria-describedby="report-hazard-error"
-                  >
-                    {hazardOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {reportErrors.hazard ? (
-                    <FormHelperText id="report-hazard-error">
-                      {reportErrors.hazard}
-                    </FormHelperText>
-                  ) : null}
-                </FormControl>
-                <Grid container spacing={1.25}>
-                  <Grid size={{ xs: 6 }}>
-                    <TextField
-                      id="report-lat"
-                      label="Latitude"
-                      value={reportForm.lat}
-                      onChange={(event) => {
-                        clearReportError("lat");
-                        updateReportForm("lat", event.target.value);
-                      }}
-                      fullWidth
-                      inputMode="decimal"
-                      error={Boolean(reportErrors.lat)}
-                      helperText={reportErrors.lat}
-                      FormHelperTextProps={{ id: "report-lat-error" }}
-                      inputProps={{
-                        "aria-describedby": "report-lat-error",
-                      }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 6 }}>
-                    <TextField
-                      id="report-lng"
-                      label="Longitude"
-                      value={reportForm.lng}
-                      onChange={(event) => {
-                        clearReportError("lng");
-                        updateReportForm("lng", event.target.value);
-                      }}
-                      fullWidth
-                      inputMode="decimal"
-                      error={Boolean(reportErrors.lng)}
-                      helperText={reportErrors.lng}
-                      FormHelperTextProps={{ id: "report-lng-error" }}
-                      inputProps={{
-                        "aria-describedby": "report-lng-error",
-                      }}
-                    />
-                  </Grid>
-                </Grid>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  startIcon={<LocateFixed size={18} />}
-                  onClick={useCurrentLocation}
-                  disabled={reportState.status === "loading"}
-                >
-                  Use GPS
-                </Button>
-                <TextField
-                  id="report-description"
-                  label="What happened?"
-                  value={reportForm.description}
-                  onChange={(event) => {
-                    clearReportError("description");
-                    updateReportForm("description", event.target.value);
-                  }}
-                  multiline
-                  minRows={3}
-                  error={Boolean(reportErrors.description)}
-                  helperText={reportErrors.description}
-                  FormHelperTextProps={{ id: "report-description-error" }}
-                  inputProps={{
-                    maxLength: 2000,
-                    "aria-describedby": "report-description-error",
-                  }}
+                <PageHeader
+                  icon={Siren}
+                  title="Report an incident"
+                  subtitle="Flag a flood, fire, road crash or hazard for responders."
+                  tone="gold"
                 />
-                <Grid container spacing={1.25}>
-                  <Grid size={{ xs: 6 }}>
-                    <TextField
-                      id="report-people-affected"
-                      label="People affected"
-                      value={reportForm.peopleAffected}
+                <Stack
+                  component="form"
+                  spacing={1.5}
+                  onSubmit={submitReport}
+                  noValidate
+                >
+                  <FormControl fullWidth error={Boolean(reportErrors.hazard)}>
+                    <InputLabel id="report-hazard-label">
+                      Hazard type
+                    </InputLabel>
+                    <Select
+                      id="report-hazard"
+                      labelId="report-hazard-label"
+                      value={reportForm.hazard}
+                      label="Hazard type"
                       onChange={(event) => {
-                        clearReportError("peopleAffected");
-                        updateReportForm("peopleAffected", event.target.value);
+                        clearReportError("hazard");
+                        updateReportForm(
+                          "hazard",
+                          event.target.value as HazardType,
+                        );
                       }}
-                      fullWidth
-                      inputMode="numeric"
-                      error={Boolean(reportErrors.peopleAffected)}
-                      helperText={reportErrors.peopleAffected}
-                      FormHelperTextProps={{
-                        id: "report-people-affected-error",
-                      }}
-                      inputProps={{
-                        "aria-describedby": "report-people-affected-error",
-                      }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 6 }}>
-                    <FormControl fullWidth error={Boolean(reportErrors.urgency)}>
-                      <InputLabel id="report-urgency-label">Urgency</InputLabel>
-                      <Select
-                        id="report-urgency"
-                        labelId="report-urgency-label"
-                        value={reportForm.urgency}
-                        label="Urgency"
+                      aria-describedby="report-hazard-error"
+                    >
+                      {hazardOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {reportErrors.hazard ? (
+                      <FormHelperText id="report-hazard-error">
+                        {reportErrors.hazard}
+                      </FormHelperText>
+                    ) : null}
+                  </FormControl>
+                  <Grid container spacing={1.25}>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        id="report-lat"
+                        label="Latitude"
+                        value={reportForm.lat}
                         onChange={(event) => {
-                          clearReportError("urgency");
+                          clearReportError("lat");
+                          updateReportForm("lat", event.target.value);
+                        }}
+                        fullWidth
+                        inputMode="decimal"
+                        error={Boolean(reportErrors.lat)}
+                        helperText={reportErrors.lat}
+                        FormHelperTextProps={{ id: "report-lat-error" }}
+                        inputProps={{
+                          "aria-describedby": "report-lat-error",
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        id="report-lng"
+                        label="Longitude"
+                        value={reportForm.lng}
+                        onChange={(event) => {
+                          clearReportError("lng");
+                          updateReportForm("lng", event.target.value);
+                        }}
+                        fullWidth
+                        inputMode="decimal"
+                        error={Boolean(reportErrors.lng)}
+                        helperText={reportErrors.lng}
+                        FormHelperTextProps={{ id: "report-lng-error" }}
+                        inputProps={{
+                          "aria-describedby": "report-lng-error",
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    startIcon={<LocateFixed size={18} />}
+                    onClick={useCurrentLocation}
+                    disabled={reportState.status === "loading"}
+                  >
+                    Use GPS
+                  </Button>
+                  <TextField
+                    id="report-description"
+                    label="What happened?"
+                    value={reportForm.description}
+                    onChange={(event) => {
+                      clearReportError("description");
+                      updateReportForm("description", event.target.value);
+                    }}
+                    multiline
+                    minRows={3}
+                    error={Boolean(reportErrors.description)}
+                    helperText={reportErrors.description}
+                    FormHelperTextProps={{ id: "report-description-error" }}
+                    inputProps={{
+                      maxLength: 2000,
+                      "aria-describedby": "report-description-error",
+                    }}
+                  />
+                  <Grid container spacing={1.25}>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        id="report-people-affected"
+                        label="People affected"
+                        value={reportForm.peopleAffected}
+                        onChange={(event) => {
+                          clearReportError("peopleAffected");
                           updateReportForm(
-                            "urgency",
-                            event.target.value as IncidentUrgency,
+                            "peopleAffected",
+                            event.target.value,
                           );
                         }}
-                        aria-describedby="report-urgency-error"
-                      >
-                        {urgencyOptions.map((option) => (
-                          <MenuItem key={option.value} value={option.value}>
-                            {option.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {reportErrors.urgency ? (
-                        <FormHelperText id="report-urgency-error">
-                          {reportErrors.urgency}
-                        </FormHelperText>
-                      ) : null}
-                    </FormControl>
-                  </Grid>
-                </Grid>
-                {reportForm.urgency === "life_threatening" ? (
-                  <Alert severity="error" className="warning-alert">
-                    <Typography variant="body2">
-                      Call 112 immediately after sending this report.
-                    </Typography>
-                  </Alert>
-                ) : null}
-                <TextField
-                  id="report-accessibility-needs"
-                  label="Accessibility needs"
-                  value={reportForm.accessibilityNeeds}
-                  onChange={(event) =>
-                    updateReportForm("accessibilityNeeds", event.target.value)
-                  }
-                  inputProps={{ maxLength: 500 }}
-                />
-                <Button
-                  component="label"
-                  variant="outlined"
-                  startIcon={<ImagePlus size={18} />}
-                >
-                  Add media
-                  <input
-                    type="file"
-                    hidden
-                    multiple
-                    accept={supportedMediaTypes.join(",")}
-                    onChange={handleFileSelection}
-                  />
-                </Button>
-                {reportForm.files.length > 0 ? (
-                  <Stack spacing={0.75}>
-                    {reportForm.files.map((file) => (
-                      <Chip
-                        key={`${file.name}-${file.size}`}
-                        label={`${file.name} · ${formatFileSize(file.size)}`}
-                        className="media-chip"
+                        fullWidth
+                        inputMode="numeric"
+                        error={Boolean(reportErrors.peopleAffected)}
+                        helperText={reportErrors.peopleAffected}
+                        FormHelperTextProps={{
+                          id: "report-people-affected-error",
+                        }}
+                        inputProps={{
+                          "aria-describedby": "report-people-affected-error",
+                        }}
                       />
-                    ))}
-                  </Stack>
-                ) : null}
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <Typography>Injuries reported</Typography>
-                  <Switch
-                    checked={reportForm.injuriesReported}
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <FormControl
+                        fullWidth
+                        error={Boolean(reportErrors.urgency)}
+                      >
+                        <InputLabel id="report-urgency-label">
+                          Urgency
+                        </InputLabel>
+                        <Select
+                          id="report-urgency"
+                          labelId="report-urgency-label"
+                          value={reportForm.urgency}
+                          label="Urgency"
+                          onChange={(event) => {
+                            clearReportError("urgency");
+                            updateReportForm(
+                              "urgency",
+                              event.target.value as IncidentUrgency,
+                            );
+                          }}
+                          aria-describedby="report-urgency-error"
+                        >
+                          {urgencyOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {reportErrors.urgency ? (
+                          <FormHelperText id="report-urgency-error">
+                            {reportErrors.urgency}
+                          </FormHelperText>
+                        ) : null}
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+                  {reportForm.urgency === "life_threatening" ? (
+                    <Alert severity="error" className="warning-alert">
+                      <Typography variant="body2">
+                        Call 112 immediately after sending this report.
+                      </Typography>
+                    </Alert>
+                  ) : null}
+                  <TextField
+                    id="report-accessibility-needs"
+                    label="Accessibility needs"
+                    value={reportForm.accessibilityNeeds}
                     onChange={(event) =>
-                      updateReportForm("injuriesReported", event.target.checked)
+                      updateReportForm("accessibilityNeeds", event.target.value)
                     }
+                    inputProps={{ maxLength: 500 }}
                   />
-                </Stack>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <Typography>Report anonymously</Typography>
-                  <Switch
-                    checked={reportForm.anonymous}
-                    onChange={(event) =>
-                      setReportForm((current) => ({
-                        ...current,
-                        anonymous: event.target.checked,
-                        contactPermission: event.target.checked
-                          ? false
-                          : current.contactPermission,
-                      }))
-                    }
-                  />
-                </Stack>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <Typography>Allow contact</Typography>
-                  <Switch
-                    checked={
-                      !reportForm.anonymous && reportForm.contactPermission
-                    }
-                    onChange={(event) =>
-                      updateReportForm("contactPermission", event.target.checked)
-                    }
-                    disabled={reportForm.anonymous}
-                  />
-                </Stack>
-                <Alert severity="info" className="warning-alert">
-                  NADAA uses report location to route emergency response, detect
-                  duplicates, and coordinate verified authority actions.
-                  Anonymous reports hide your identity; disabling contact means
-                  responders cannot call you back through this report.
-                </Alert>
-                {reportState.status === "error" ? (
-                  <Alert severity="error" className="warning-alert">
-                    {reportState.message}
-                  </Alert>
-                ) : null}
-                {reportState.status === "success" ? (
-                  <Alert
-                    severity={
-                      reportState.priorityReview ? "warning" : "success"
-                    }
-                    className="warning-alert"
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    startIcon={<ImagePlus size={18} />}
                   >
-                    <Typography variant="subtitle2">
-                      Report {reportState.reference} received
-                    </Typography>
-                    <Typography variant="body2">
-                      Call 112 if anyone is in immediate danger.
-                      {session
-                        ? " Saved to your reports below."
-                        : " Sign in to keep a copy of your reports."}
-                    </Typography>
+                    Add media
+                    <input
+                      type="file"
+                      hidden
+                      multiple
+                      accept={supportedMediaTypes.join(",")}
+                      onChange={handleFileSelection}
+                    />
+                  </Button>
+                  {reportForm.files.length > 0 ? (
+                    <Stack spacing={0.75}>
+                      {reportForm.files.map((file) => (
+                        <Chip
+                          key={`${file.name}-${file.size}`}
+                          label={`${file.name} · ${formatFileSize(file.size)}`}
+                          className="media-chip"
+                        />
+                      ))}
+                    </Stack>
+                  ) : null}
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Typography>Injuries reported</Typography>
+                    <Switch
+                      checked={reportForm.injuriesReported}
+                      onChange={(event) =>
+                        updateReportForm(
+                          "injuriesReported",
+                          event.target.checked,
+                        )
+                      }
+                    />
+                  </Stack>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Typography>Allow responders to contact me</Typography>
+                    <Switch
+                      checked={reportForm.contactPermission}
+                      onChange={(event) =>
+                        updateReportForm(
+                          "contactPermission",
+                          event.target.checked,
+                        )
+                      }
+                    />
+                  </Stack>
+                  <Alert severity="info" className="warning-alert">
+                    You're reporting as {session?.name}. NADAA uses your report
+                    and location to route emergency response, detect duplicates,
+                    and coordinate verified authority actions. Turning off
+                    contact means responders cannot call you back about this
+                    report.
                   </Alert>
-                ) : null}
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="error"
-                  disabled={reportState.status === "loading"}
-                  startIcon={
-                    reportState.status === "loading" ? (
-                      <Loader2 size={18} className="spin-icon" />
-                    ) : (
-                      <Siren size={18} />
-                    )
-                  }
-                >
-                  {reportState.status === "loading"
-                    ? reportState.message
-                    : "Send report"}
-                </Button>
-              </Stack>
-            </Paper>
-          </Reveal>
+                  {reportState.status === "error" ? (
+                    <Alert severity="error" className="warning-alert">
+                      {reportState.message}
+                    </Alert>
+                  ) : null}
+                  {reportState.status === "success" ? (
+                    <Alert
+                      severity={
+                        reportState.priorityReview ? "warning" : "success"
+                      }
+                      className="warning-alert"
+                    >
+                      <Typography variant="subtitle2">
+                        Report {reportState.reference} received
+                      </Typography>
+                      <Typography variant="body2">
+                        Call 112 if anyone is in immediate danger. Saved to your
+                        reports below.
+                      </Typography>
+                    </Alert>
+                  ) : null}
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="error"
+                    disabled={reportState.status === "loading"}
+                    startIcon={
+                      reportState.status === "loading" ? (
+                        <Loader2 size={18} className="spin-icon" />
+                      ) : (
+                        <Siren size={18} />
+                      )
+                    }
+                  >
+                    {reportState.status === "loading"
+                      ? reportState.message
+                      : "Send report"}
+                  </Button>
+                </Stack>
+              </Paper>
+            </Reveal>
+          </SignInGate>
 
           {session ? (
             <Reveal delay={80} className="citizen-subsection">

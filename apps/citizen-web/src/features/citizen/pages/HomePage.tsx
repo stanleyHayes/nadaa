@@ -22,7 +22,10 @@ import {
   Waves,
 } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
-import type { AreaRiskResponse, NearbyShelterResponse } from "@nadaa/shared-types";
+import type {
+  AreaRiskResponse,
+  NearbyShelterResponse,
+} from "@nadaa/shared-types";
 import { RISK_API_BASE, SHELTER_API_BASE } from "@/app/config";
 import {
   areaPresets,
@@ -85,7 +88,8 @@ export function HomePage() {
 
   const currentAlertCount = useMemo(
     () =>
-      buildFallbackAlerts().filter((alert) => alert.status === "current").length,
+      buildFallbackAlerts().filter((alert) => alert.status === "current")
+        .length,
     [],
   );
   const offlineGuideCount = useMemo(() => {
@@ -118,7 +122,11 @@ export function HomePage() {
   );
 
   useEffect(() => {
-    void fetchRisk(areaPresets[0].lat, areaPresets[0].lng, areaPresets[0].label);
+    void fetchRisk(
+      areaPresets[0].lat,
+      areaPresets[0].lng,
+      areaPresets[0].label,
+    );
   }, []);
 
   async function fetchRisk(lat: number, lng: number, label: string) {
@@ -346,9 +354,7 @@ export function HomePage() {
               <Alert
                 id="risk-form-error"
                 severity={
-                  riskState.status === "permission-denied"
-                    ? "warning"
-                    : "error"
+                  riskState.status === "permission-denied" ? "warning" : "error"
                 }
                 className="warning-alert"
               >

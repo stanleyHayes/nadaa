@@ -19,6 +19,7 @@ import type {
   PublicMissingPersonRecord,
 } from "@nadaa/shared-types";
 import { MISSING_PERSON_API_BASE } from "@/app/config";
+import { useCitizenSession } from "../session";
 
 type LoadState = "loading" | "ready" | "fallback" | "error";
 
@@ -100,6 +101,7 @@ function formatDate(value: string) {
 }
 
 export default function MissingPersonsPanel() {
+  const { session, requestSignIn } = useCitizenSession();
   const [records, setRecords] = useState<PublicMissingPersonRecord[]>(
     fallbackMissingPersons,
   );
@@ -157,6 +159,10 @@ export default function MissingPersonsPanel() {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!session) {
+      requestSignIn();
+      return;
+    }
     if (
       !form.personName.trim() ||
       !form.description.trim() ||

@@ -9,7 +9,13 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { Cross, LifeBuoy, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import {
+  Cross,
+  LifeBuoy,
+  Loader2,
+  RefreshCw,
+  TriangleAlert,
+} from "lucide-react";
 import type {
   AreaRiskResponse,
   NearbyShelterResponse,
@@ -275,7 +281,10 @@ function ShelterResources() {
                               : ""}
                           </Typography>
                           {shelter.facilities.length ? (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               {formatListLabel(shelter.facilities)}
                             </Typography>
                           ) : null}
@@ -403,7 +412,8 @@ function ShelterResources() {
                               : ""}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {support.hours} · {formatListLabel(support.services)}
+                            {support.hours} ·{" "}
+                            {formatListLabel(support.services)}
                           </Typography>
                         </Box>
                         <Chip

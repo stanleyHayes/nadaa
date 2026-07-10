@@ -23,6 +23,7 @@ import type {
   DamageType,
 } from "@nadaa/shared-types";
 import { DAMAGE_CLAIM_API_BASE } from "@/app/config";
+import { useCitizenSession } from "../session";
 import { extractAPIError } from "../utils";
 
 const damageTypeOptions: { label: string; value: DamageType }[] = [
@@ -74,6 +75,7 @@ type DamageClaimState =
   | { status: "error"; message: string };
 
 function DamageClaim() {
+  const { session, requestSignIn } = useCitizenSession();
   const [form, setForm] = useState<DamageClaimForm>(initialForm);
   const [state, setState] = useState<DamageClaimState>({ status: "idle" });
 
@@ -115,6 +117,11 @@ function DamageClaim() {
 
   const submitClaim = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (!session) {
+      requestSignIn();
+      return;
+    }
 
     const lat = Number(form.lat);
     const lng = Number(form.lng);

@@ -283,7 +283,9 @@ export function GuidesPage() {
                   <Select
                     value={guideFilters.language}
                     label="Language"
-                    onChange={(event) => updateGuideLanguage(event.target.value)}
+                    onChange={(event) =>
+                      updateGuideLanguage(event.target.value)
+                    }
                     startAdornment={
                       <Languages size={16} className="select-leading-icon" />
                     }
