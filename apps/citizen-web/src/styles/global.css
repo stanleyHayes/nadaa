@@ -1179,3 +1179,194 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* ================================================================== *
+ * Router chrome: multi-page pill nav, mobile drawer, page banner
+ * ================================================================== */
+
+/* Desktop pill nav for the six routes (mirrors the legacy .citizen-nav look). */
+.citizen-router-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
+  border-radius: var(--nadaa-radius-full, 999px);
+  background: color-mix(in srgb, var(--nadaa-white) 70%, transparent);
+  box-shadow: inset 0 1px 2px
+    color-mix(in srgb, var(--nadaa-navy) 5%, transparent);
+}
+
+.citizen-router-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 15px;
+  border-radius: var(--nadaa-radius-full, 999px);
+  color: color-mix(in srgb, var(--nadaa-navy) 82%, transparent);
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.citizen-router-nav a:hover {
+  color: var(--nadaa-navy);
+  background: color-mix(in srgb, var(--nadaa-navy) 7%, transparent);
+}
+
+.citizen-router-nav a.is-active {
+  color: var(--nadaa-navy);
+  background: color-mix(in srgb, var(--nadaa-gold) 90%, var(--nadaa-white));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--nadaa-gold) 42%, transparent);
+}
+
+/* Hamburger that opens the mobile drawer. Hidden until the pill nav collapses. */
+.citizen-router-burger {
+  display: none;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 14%, transparent);
+  border-radius: var(--nadaa-radius-md);
+  color: var(--nadaa-navy);
+  background: var(--nadaa-white);
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .citizen-router-nav {
+    display: none;
+  }
+
+  .citizen-router-burger {
+    display: inline-flex;
+  }
+}
+
+/* Contents of the MUI mobile Drawer. */
+.citizen-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nadaa-space-2);
+  padding: var(--nadaa-space-4);
+}
+
+.citizen-drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--nadaa-space-2);
+}
+
+.citizen-drawer__head strong {
+  color: var(--nadaa-navy);
+  font-size: 1.05rem;
+}
+
+.citizen-drawer__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--nadaa-space-2);
+}
+
+.citizen-drawer__nav a {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 var(--nadaa-space-3);
+  border-radius: var(--nadaa-radius-md);
+  color: color-mix(in srgb, var(--nadaa-navy) 82%, transparent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.citizen-drawer__nav a:hover {
+  color: var(--nadaa-navy);
+  background: color-mix(in srgb, var(--nadaa-navy) 7%, transparent);
+}
+
+.citizen-drawer__nav a.is-active {
+  color: var(--nadaa-navy);
+  background: color-mix(in srgb, var(--nadaa-gold) 90%, var(--nadaa-white));
+}
+
+.citizen-drawer .citizen-cta,
+.citizen-drawer .citizen-emergency-link {
+  width: 100%;
+}
+
+/* uposa-style page banner band (mirrors marketing-web's .page-banner). */
+.page-banner {
+  position: relative;
+  overflow: hidden;
+  color: var(--nadaa-text-inverse);
+  background:
+    url("/patterns/radar-rings-light.svg") no-repeat right -80px center /
+      clamp(320px, 40vw, 520px),
+    linear-gradient(
+      118deg,
+      var(--nadaa-navy),
+      color-mix(in srgb, var(--nadaa-navy) 80%, var(--nadaa-green))
+    );
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--nadaa-navy) 40%, transparent);
+}
+
+.page-banner::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--nadaa-gold),
+    color-mix(in srgb, var(--nadaa-gold) 30%, transparent)
+  );
+}
+
+.page-banner-inner {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, calc(100% - var(--nadaa-space-8)));
+  margin: 0 auto;
+  padding: clamp(52px, 8vw, 96px) 0 clamp(40px, 5vw, 60px);
+}
+
+.page-banner .eyebrow {
+  margin: 0 0 var(--nadaa-space-2);
+  color: var(--nadaa-gold);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.page-banner h1 {
+  margin: var(--nadaa-space-2) 0 0;
+  color: var(--nadaa-white);
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  line-height: 1.03;
+  letter-spacing: 0;
+}
+
+.page-banner-sub {
+  max-width: 720px;
+  margin: var(--nadaa-space-4) 0 0;
+  color: color-mix(in srgb, var(--nadaa-white) 86%, transparent);
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+/* Placeholder line shown on each stub page until its content is migrated. */
+.page-placeholder {
+  margin: clamp(28px, 5vw, 48px) 0;
+  color: var(--nadaa-text-secondary);
+  font-size: 1.05rem;
+}
