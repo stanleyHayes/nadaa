@@ -1,6 +1,12 @@
 /* NADAA brand CSS custom properties.
    Import once at the root of each web app so utility classes can use tokens. */
 
+/* Dark theme + screen tints. Gated by `:root[data-theme="dark"]`, so apps that
+   never set the attribute stay in light mode unaffected. The dark rules win by
+   attribute specificity regardless of source order. Must precede other rules
+   per the CSS `@import` placement requirement. */
+@import "./dark.css";
+
 :root {
   /* Core palette */
   --nadaa-navy: #0d1b3d;

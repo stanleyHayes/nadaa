@@ -1,0 +1,111 @@
+/* NADAA dark theme — token-level dark mode + screen tints.
+
+   Strategy: the web apps style through `--nadaa-*` custom properties, so dark
+   mode is achieved by re-pointing the token VALUES under a single attribute
+   selector rather than rewriting every rule. Light mode (no `data-theme`
+   attribute) is never touched.
+
+   Two roles of the navy token are reconciled here:
+   - navy as ACCENT (icon / heading / stripe on a surface) is lightened to an
+     indigo so it reads on dark cards. This is what `--nadaa-navy` becomes.
+   - navy as CHROME (the permanently-navy command rail, avatars, sign-in hero)
+     is kept dark. `--nadaa-primary` holds that darker navy, and apps pin their
+     local rail variable (e.g. `--cc-navy`) to a fixed navy.
+
+   `--nadaa-text-inverse` stays white in both modes: it is the correct token for
+   text sitting on those permanently-dark chrome surfaces. */
+
+:root[data-theme="dark"] {
+  /* Palette — accents stay vivid (nudged brighter for dark), navy lightens to
+     an indigo so navy-as-accent reads on dark surfaces. */
+  --nadaa-navy: #8ea6dc; /* accent / icon / heading indigo on dark */
+  --nadaa-green: #2eba71;
+  --nadaa-red: #ff5f5a;
+  --nadaa-gold: #f6ca3d;
+  --nadaa-slate: #9aa8c0; /* secondary text */
+  --nadaa-white: #18223c; /* elevated card surface (near-navy) */
+  --nadaa-mist: #111a30; /* recessed inset well inside cards */
+  --nadaa-ink: #eaf0fb; /* primary text (near-white) */
+
+  /* Screen (canvas) base — Ink default. Tints below shift this hue only. */
+  --nadaa-surface: #0b1120;
+  --nadaa-surface-elevated: var(--nadaa-white);
+  --nadaa-border: #29324e;
+  --nadaa-divider: #212b46;
+  --nadaa-text-primary: var(--nadaa-ink);
+  --nadaa-text-secondary: var(--nadaa-slate);
+  --nadaa-text-inverse: #ffffff; /* on permanently-navy chrome */
+  --nadaa-primary: #22345f; /* chrome navy (skip-link, legacy topbar) */
+  --nadaa-secondary: var(--nadaa-green);
+  --nadaa-accent: var(--nadaa-gold);
+  --nadaa-info: #3a9fe0;
+  --nadaa-success: var(--nadaa-green);
+  --nadaa-warning: var(--nadaa-gold);
+  --nadaa-danger: var(--nadaa-red);
+
+  /* Shadows — deeper, black-based so elevation reads on a dark screen. */
+  --nadaa-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --nadaa-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
+  --nadaa-shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.55);
+  --nadaa-shadow-xl: 0 22px 52px rgba(0, 0, 0, 0.62);
+
+  /* Focus ring stays gold. */
+  --nadaa-focus-color: var(--nadaa-gold);
+  --nadaa-focus-outline: 2px solid var(--nadaa-focus-color);
+
+  color-scheme: dark;
+}
+
+/* ============================================================
+   Screen tints — shift the dark screen CAST only (surface / inset / card),
+   leaving text and brand accents unchanged, per the AURA model. Ink is the
+   neutral warm-navy default and matches the base block above.
+   ============================================================ */
+
+:root[data-theme="dark"][data-dark-tint="ink"] {
+  --nadaa-surface: #0b1120;
+  --nadaa-mist: #141d33;
+  --nadaa-white: #1a2440;
+}
+
+:root[data-theme="dark"][data-dark-tint="burgundy"] {
+  --nadaa-surface: #150a12;
+  --nadaa-mist: #24121c;
+  --nadaa-white: #2a1622;
+}
+
+:root[data-theme="dark"][data-dark-tint="midnight"] {
+  --nadaa-surface: #080d1a;
+  --nadaa-mist: #121a2c;
+  --nadaa-white: #17203a;
+}
+
+:root[data-theme="dark"][data-dark-tint="canopy"] {
+  --nadaa-surface: #08130e;
+  --nadaa-mist: #112017;
+  --nadaa-white: #16281d;
+}
+
+:root[data-theme="dark"][data-dark-tint="slate"] {
+  --nadaa-surface: #0d1017;
+  --nadaa-mist: #1a1f28;
+  --nadaa-white: #20262f;
+}
+
+:root[data-theme="dark"][data-dark-tint="ocean"] {
+  --nadaa-surface: #06121a;
+  --nadaa-mist: #0f2029;
+  --nadaa-white: #142a33;
+}
+
+:root[data-theme="dark"][data-dark-tint="plum"] {
+  --nadaa-surface: #120a18;
+  --nadaa-mist: #1e1428;
+  --nadaa-white: #241a30;
+}
+
+:root[data-theme="dark"][data-dark-tint="espresso"] {
+  --nadaa-surface: #130d08;
+  --nadaa-mist: #201812;
+  --nadaa-white: #281f16;
+}

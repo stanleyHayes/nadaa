@@ -10,12 +10,39 @@ import {
   appAccent,
 } from "./tokens.js";
 
+export type ThemeMode = "light" | "dark";
+
 export interface NadaaThemeOptions {
   /** When true, disable non-essential motion. */
   reducedMotion?: boolean;
   /** Accent color used for topbar/brand accents. */
   accent?: "public" | "operational";
+  /** Light (default) or dark palette. Must mirror the `data-theme` attribute
+   *  applied by the theme-preferences helper so MUI surfaces match the CSS
+   *  token flip. */
+  mode?: ThemeMode;
 }
+
+/**
+ * Dark-mode neutrals. These mirror the `--nadaa-*` dark token values in
+ * `dark.css` (Ink default) so MUI-rendered surfaces — Dialog, Menu, TextField,
+ * Table, Card — land on the same warm-navy palette as the `cc-*` surfaces.
+ */
+const darkNeutrals = {
+  /** Screen base. */
+  background: "#0b1120",
+  /** Elevated card / paper (Menu, Dialog, Select popover). */
+  paper: "#1a2440",
+  textPrimary: "#eaf0fb",
+  textSecondary: "#9aa8c0",
+  divider: "#29324e",
+  /** Navy lightened to an indigo so it reads as an accent on dark. */
+  primary: "#8ea6dc",
+  green: "#2eba71",
+  red: "#ff5f5a",
+  gold: "#f6ca3d",
+  info: "#3a9fe0",
+} as const;
 
 /**
  * Creates the canonical NADAA MUI theme.
@@ -24,49 +51,62 @@ export interface NadaaThemeOptions {
  * duplication. App-specific visual overrides should be rare and documented.
  */
 export function createNadaaTheme(options: NadaaThemeOptions = {}) {
-  const { reducedMotion = false, accent = "operational" } = options;
+  const { reducedMotion = false, accent = "operational", mode = "light" } =
+    options;
+  const isDark = mode === "dark";
   const accentColor =
     accent === "public" ? appAccent.public : appAccent.operational;
+
+  // Neutral surfaces/text resolve per mode; brand accents stay vivid (brightened
+  // in dark for contrast). Kept in sync with `dark.css`.
+  const bg = isDark
+    ? { default: darkNeutrals.background, paper: darkNeutrals.paper }
+    : { default: semantic.surface, paper: semantic.surfaceElevated };
+  const text = isDark
+    ? { primary: darkNeutrals.textPrimary, secondary: darkNeutrals.textSecondary }
+    : { primary: semantic.textPrimary, secondary: semantic.textSecondary };
+  const dividerColor = isDark ? darkNeutrals.divider : semantic.divider;
 
   const base: ThemeOptions = {
     breakpoints: {
       values: breakpoints.values,
     },
     palette: {
-      mode: "light",
+      mode,
       primary: {
-        main: colors.navy,
-        contrastText: colors.white,
+        main: isDark ? darkNeutrals.primary : colors.navy,
+        // On dark the indigo primary carries dark text; on light, navy carries white.
+        contrastText: isDark ? "#0b1120" : colors.white,
       },
       secondary: {
-        main: colors.green,
-        contrastText: colors.white,
+        main: isDark ? darkNeutrals.green : colors.green,
+        contrastText: isDark ? "#0b1120" : colors.white,
       },
       error: {
-        main: colors.red,
-        contrastText: colors.white,
+        main: isDark ? darkNeutrals.red : colors.red,
+        contrastText: isDark ? "#0b1120" : colors.white,
       },
       warning: {
-        main: colors.gold,
+        main: isDark ? darkNeutrals.gold : colors.gold,
         contrastText: colors.ink,
       },
       info: {
-        main: semantic.info,
-        contrastText: colors.white,
+        main: isDark ? darkNeutrals.info : semantic.info,
+        contrastText: isDark ? "#0b1120" : colors.white,
       },
       success: {
-        main: colors.green,
-        contrastText: colors.white,
+        main: isDark ? darkNeutrals.green : colors.green,
+        contrastText: isDark ? "#0b1120" : colors.white,
       },
       background: {
-        default: semantic.surface,
-        paper: semantic.surfaceElevated,
+        default: bg.default,
+        paper: bg.paper,
       },
       text: {
-        primary: semantic.textPrimary,
-        secondary: semantic.textSecondary,
+        primary: text.primary,
+        secondary: text.secondary,
       },
-      divider: semantic.divider,
+      divider: dividerColor,
     },
     typography: {
       fontFamily: typography.fontFamily,
@@ -166,8 +206,8 @@ export function createNadaaTheme(options: NadaaThemeOptions = {}) {
             scrollBehavior: reducedMotion ? "auto" : "smooth",
           },
           body: {
-            backgroundColor: semantic.surface,
-            color: semantic.textPrimary,
+            backgroundColor: bg.default,
+            color: text.primary,
           },
           ":focus-visible": {
             outline: `2px solid ${accentColor}`,

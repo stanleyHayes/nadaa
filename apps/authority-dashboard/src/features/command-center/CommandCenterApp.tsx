@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { hasCommandAccess, useAuthoritySession } from "@/app/session";
-import { authorityTheme } from "@/app/theme";
+import { createAuthorityTheme } from "@/app/theme";
+import { useThemeMode } from "@/app/theme-mode";
 import { CommandCenterShell } from "./CommandCenterShell";
 import { SignInScreen } from "./components/SignInScreen";
 
@@ -14,6 +15,15 @@ import { SignInScreen } from "./components/SignInScreen";
 function CommandCenterApp() {
   const { session, preferences } = useAuthoritySession();
   const authorized = hasCommandAccess(session);
+  const mode = useThemeMode();
+
+  // Rebuild the MUI theme whenever the appearance mode or reduced-motion
+  // preference changes, so dialogs/menus/inputs match the CSS token flip.
+  const theme = useMemo(
+    () =>
+      createAuthorityTheme({ mode, reducedMotion: preferences.reducedMotion }),
+    [mode, preferences.reducedMotion],
+  );
 
   // Apply the operator's reduced-motion preference across the whole app.
   useEffect(() => {
@@ -26,7 +36,7 @@ function CommandCenterApp() {
   }, [preferences.reducedMotion]);
 
   return (
-    <ThemeProvider theme={authorityTheme}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       {authorized && session ? (
         <CommandCenterShell session={session} />
