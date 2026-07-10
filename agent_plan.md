@@ -1859,6 +1859,161 @@ Use this table for cross-agent status tracking. Keep the `Active Work Board` foc
 | NADAA-163 | Phase 3 | Sprint 16    | Telecom Cell Broadcast Integration                    | Todo   | Unassigned | TBD                                  | Depends on official telecom path.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | NADAA-170 | Phase 3 | Sprint 16    | National-Scale Resilience And Operations Hardening    | Todo   | Unassigned | TBD                                  | Load, observability, DR.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
+## Phase 4 Plan: Experience, Accessibility, Onboarding, And Real-Time UX
+
+Phase 4 raises NADAA's front-end quality to a distinctive, accessible, mobile-first bar while keeping public-safety actions instant and human-approved. It is informed by UI/UX audits of two reference apps (`/Users/shayford/aura` — cbs-monorepo, Next+Tailwind+shadcn; `/Users/shayford/dev/uposa` — uposa-monorepo, React+Tailwind+DaisyUI+framer-motion) plus NADAA-specific accessibility/low-bandwidth research. NADAA's stack is React + MUI + Emotion + Leaflet + lucide-react, so ported patterns keep their logic and are re-expressed as MUI `sx`/`styled` + theme.
+
+Cross-cutting principles:
+
+- Motion is wayfinding and status, never decoration. Honor `prefers-reduced-motion` (the brand theme already has a `reducedMotion` flag) and never encode meaning in motion/color alone (WCAG 1.4.1/2.3.x).
+- Never bury or block emergency actions (SOS, live alerts) behind tours, dropdowns, or animations.
+- Never gate life-safety flows (risk check, report, alerts) behind sign-up; never let users silence mandatory/evacuation alerts.
+- Default to MUI transitions/CSS keyframes; add framer-motion only where it earns its weight, gated behind `LazyMotion` + `MotionConfig reducedMotion="user"`, and kept off citizen-web's critical path (low-end Android / 2G).
+- Library choices for React 19: pin `react-joyride@^3` (v2 is React-19-incompatible) for dashboards or use MIT `driver.js` for citizen-web; avoid AGPL tour libs (Shepherd/Intro.js); use `notistack` for toasts (MUI-native, ARIA politeness); standardize i18n on `react-i18next`.
+
+### EPIC 18: Experience System, Accessibility, And Real-Time UX
+
+#### NADAA-180: Design System And Theme Extension
+
+- Outcome: one shared MUI theme powers all web apps with light/dark and a high-contrast "emergency" skin, consistent tokens, typography, radii, elevation, and a comfortable/compact density switch.
+- Acceptance criteria: tokens (color/spacing/type/radius/shadow) centralized in `packages/brand`; `palette.mode` light + dark + high-contrast; hazard-aware accents; density toggle persisted; WCAG AA contrast verified.
+- Source: aura BRAND.md/tokens.css (OKLCH ramps, status colors kept distinct from brand); uposa navy/gold/cream + `borderRadius:0` identity; research (theme is light-only today, already has `reducedMotion` + `accent` switch).
+- Estimate: 8 points. Priority: P1. Apps: all web (+brand package). Dependencies: NADAA-173.
+
+#### NADAA-181: Motion, Skeletons, And Micro-Interaction System
+
+- Outcome: a reusable, reduced-motion-aware motion toolkit (page transitions, scroll reveal, stagger, view-transition theme toggle), skeleton loaders, and animated empty states.
+- Acceptance criteria: MUI transitions/CSS keyframes for the common cases; framer-motion added only via `LazyMotion`+`m` behind `MotionConfig reducedMotion="user"` and excluded from citizen-web critical path; skeleton + empty-state components used across data views; no animation on `width/height/top/left`.
+- Source: aura pure-CSS motion + View Transitions theme reveal + `reveal-3d`; uposa framer-motion wrappers (`ScrollReveal`/`StaggerChildren`/`Parallax`/`AnimatedCounter`) + CSS stagger + Skeleton family + EmptyState; research motion-performance guidance.
+- Estimate: 8 points. Priority: P1. Apps: all web. Dependencies: NADAA-180.
+
+#### NADAA-182: Shared App Shell — Sidebar And Navbar Dropdowns
+
+- Outcome: an extracted, reusable app shell: a collapsible, permission-gated sidebar (grouped sections, active state, mobile drawer, live count badges) and an enhanced navbar with user-menu and notifications dropdowns.
+- Acceptance criteria: one `AppShell`/`AppSidebar` reused by admin/dispatcher/agency/authority (no per-app copies); collapse state persisted (offline); RBAC-driven item visibility; `aria-current`, keyboard traversal, visible focus; badges wired to alert/incident counts; hamburger/drawer on mobile; citizen-web keeps core safety actions one tap away (bottom nav, not buried).
+- Source: aura `app-shell` (collapsible rail, grouped sections, SVG connectors, localStorage); uposa `Sidebar`/`Topbar` (permission-gated, badge counts, mobile drawer, user-menu-as-help-hub); research (admin-web `rbac.ts`/`nav.ts`).
+- Estimate: 13 points. Priority: P1. Apps: admin-web, dispatcher-web, authority-dashboard, agency-web, citizen-web. Dependencies: NADAA-180, NADAA-014.
+
+#### NADAA-183: Loading Buttons And Async-State Standardization
+
+- Outcome: every network action shows an inline busy state that disables re-submit, keeps its label, and announces progress.
+- Acceptance criteria: shared loading button (MUI `loading` + wave/bouncing dots), `aria-busy`, reserved width (no layout shift), client + server double-submit guards on incident report/alert send; long-running submits pair with timeout/retry and offline-queue messaging.
+- Source: aura wave-dot button; uposa `Button`+`BouncingDots`/`Spinner`; research (MUI 7 first-class `loading`, dedupe reports).
+- Estimate: 5 points. Priority: P1. Apps: all web. Dependencies: NADAA-180.
+
+#### NADAA-184: "Show Me Around" Guided Product Tour
+
+- Outcome: short, skippable, role-specific first-run tours (citizen: check risk → report → alerts → SOS; dispatcher: queue → map → assign → broadcast), always re-launchable from Help.
+- Acceptance criteria: spotlight coach-marks target `data-tour` attributes; first-run offer via per-user localStorage; replay from Help/user menu; the tour never covers or blocks a live alert or the SOS button and pauses/dismisses on high-severity alert; axe-clean (focus trap, `aria-labelledby`, Esc, visible Skip); tour copy translatable; lazy-loaded.
+- Source: aura `app-tour`, uposa `HelpExperience`+`helpEvents` (both dependency-free spotlight tours); research (Driver.js for citizen-web, react-joyride v3 for dashboards; avoid AGPL libs; verify with axe).
+- Estimate: 8 points. Priority: P1. Apps: citizen-web, dispatcher-web, authority-dashboard. Dependencies: NADAA-182, NADAA-185.
+
+#### NADAA-185: In-App User Guide And Contextual Help With Read-Aloud
+
+- Outcome: a searchable, versioned help center plus per-page contextual help, with text-to-speech, distinct from the life-safety emergency guides.
+- Acceptance criteria: structured guide content (one data model feeds tour, help drawer, and guide page); route→topic contextual drawer; Web Speech API read-aloud with visible transcript; content offline-cached via the existing guide service worker; plain language (WCAG 3.1.5); multilingual-ready; visually distinct from emergency guides.
+- Source: aura `page-help`/`page-guides`/`user-guide-page` + Web Speech TTS; uposa `HelpPage`/`helpContent`/`topicToSpeech`; research (reuse `guide-service` + offline cache).
+- Estimate: 8 points. Priority: P1. Apps: all web. Dependencies: NADAA-060, NADAA-061.
+
+#### NADAA-186: Unified Settings Surface
+
+- Outcome: one consistent Settings surface across apps: Language, Notifications, Accessibility, Data-saver, Location/saved places (citizen), Security/MFA (staff).
+- Acceptance criteria: all toggles keyboard-operable and labeled; preferences persisted locally (work offline) and synced when back online; a prominent Data-saver toggle; notification prefs can mute low-severity noise but cannot silence mandatory/evacuation alerts.
+- Source: aura settings (tabs, MFA/QR, tint picker); uposa settings (tabs, `ToggleSwitch`, danger zone); research.
+- Estimate: 8 points. Priority: P1. Apps: all web. Dependencies: NADAA-180, NADAA-191, NADAA-193.
+
+#### NADAA-187: Profile
+
+- Outcome: role-appropriate profiles — citizen (phone, saved locations, emergency contacts, language, consent) and staff (agency, role/permissions read-only, MFA, sessions, verification badge).
+- Acceptance criteria: minimal PII; editable offline; clear consent/data-use language; official/verification badge on authority accounts; never gate life-safety behind profile completion; dispatcher PII not exposed to citizens.
+- Source: aura profile (identity + access summary); uposa profile (completion meter, unsaved-changes indicator, avatar upload); research.
+- Estimate: 5 points. Priority: P2. Apps: all web. Dependencies: NADAA-010, NADAA-011.
+
+#### NADAA-188: Notifications Center And Real-Time Alert Toasts
+
+- Outcome: a persistent bell inbox (unread count, grouped by type, deep-links) plus transient real-time toasts for new alerts/incident updates, sharing one store.
+- Acceptance criteria: `notistack` toasts with `aria-live="assertive"` for emergency and `polite` for routine; emergency items require explicit acknowledge for evacuation-class; icon+text+color (never color alone), ≥4.5:1 contrast; live arrival via SSE/socket invalidating the store; last N cached for offline; batching to avoid notification fatigue.
+- Source: aura `notifications-bell` (SSE→React-Query) + dependency-free toast; uposa notification store + 30s poll + socket.io rooms; research (USWDS/WAI-ARIA alert patterns, FCC WEA multichannel).
+- Estimate: 13 points. Priority: P0. Apps: citizen-web, authority-dashboard, dispatcher-web. Dependencies: NADAA-052, NADAA-050.
+
+#### NADAA-189: SOS / Panic Quick Action
+
+- Outcome: an always-reachable SOS that sends location + hazard to dispatch from any screen.
+- Acceptance criteria: literal "SOS" text (not icon-only), one-hand reachable, long-press (~2–3s) to fire with unmistakable Cancel; optional silent/duress send; works with degraded connectivity (queues offline); reachable during a tour/modal; audited.
+- Source: research P0 (SOS UX best practices).
+- Estimate: 8 points. Priority: P0. Apps: citizen-web, citizen-mobile. Dependencies: NADAA-030, NADAA-190.
+
+#### NADAA-190: Offline Banner And Sync Status
+
+- Outcome: a persistent, honest connectivity indicator — offline / N queued / synced — with an optimistic queue for citizen submissions.
+- Acceptance criteria: IndexedDB (Dexie) as the source of truth for queued reports; optimistic pending→synced UI; `online`/`offline`-event manual replay fallback (Background Sync is Chromium-only); reconciliation on reconnect; visible queued-item count; manage the existing service worker (e.g. Serwist).
+- Source: research P0 + existing `apps/citizen-web/public/sw.js` and guide offline cache.
+- Estimate: 13 points. Priority: P0. Apps: citizen-web, citizen-mobile, dispatcher-mobile. Dependencies: NADAA-030, NADAA-031.
+
+#### NADAA-191: App-Wide Multilingual Switcher
+
+- Outcome: the entire UI (not just guides) is localizable across English, Twi, Ga, Ewe, Dagbani, and Hausa.
+- Acceptance criteria: `react-i18next` wired app-wide; locale bundles lazy-loaded (not all six up front on 2G) and SW-cached; language choice persisted and shared with guide/voice language; RTL not required but pluralization handled; extends the existing `guideLanguageOptions`.
+- Source: research P0/P1 + existing per-language guide cache.
+- Estimate: 21 points. Priority: P0/P1. Apps: all web + mobile. Dependencies: NADAA-061.
+
+#### NADAA-192: Data-Saver / Lite Mode
+
+- Outcome: a toggle that drops map tiles, imagery, and animation for a text-first, life-safety-first experience on 2G.
+- Acceptance criteria: disables Leaflet tiles/heavy imagery/motion; core alert and risk info still loads; persisted and respected across apps; surfaced prominently in Settings and as a first-run hint on slow connections.
+- Source: research P0/P1.
+- Estimate: 5 points. Priority: P1. Apps: citizen-web, marketing-web. Dependencies: NADAA-186, NADAA-181.
+
+#### NADAA-193: Accessibility Toolbar
+
+- Outcome: a user-controllable accessibility toolbar: font scaling, dyslexia-friendly font, reduce-motion, high-contrast, read-aloud.
+- Acceptance criteria: WCAG 2.1 AA target; toggles keyboard-operable and persisted offline; wires reduce-motion to the theme flag and read-aloud to the guide/alert TTS; does not conflict with the emergency theme.
+- Source: research P1 (accessibility for gov/public-safety, mixed-literacy audience).
+- Estimate: 8 points. Priority: P1. Apps: citizen-web, marketing-web. Dependencies: NADAA-180, NADAA-181.
+
+#### NADAA-194: Citizen Safety UX Bundle
+
+- Outcome: a guided incident-report wizard, a My Reports status tracker, saved locations, and an emergency-contacts directory.
+- Acceptance criteria: report wizard is a stepper (hazard → location → photo → severity → review) with per-step autosave and offline queueing; My Reports shows submitted → acknowledged → responding → resolved; saved locations enable one-tap risk check + alert subscribe; emergency contacts use `tel:` links and work fully offline.
+- Source: research P1 (report wizard, status tracker, saved locations, emergency contacts).
+- Estimate: 21 points. Priority: P1. Apps: citizen-web, citizen-mobile. Dependencies: NADAA-030, NADAA-021, NADAA-190.
+
+#### NADAA-195: Operator Efficiency — Command Palette And Shortcuts
+
+- Outcome: a `Cmd/Ctrl-K` command palette plus keyboard shortcuts and a density toggle for high-volume operational apps.
+- Acceptance criteria: palette jumps to incidents/shelters/actions; shortcuts for assign/broadcast/next-incident with a `?` cheatsheet overlay; compact density option for long queues; all keyboard-accessible and discoverable.
+- Source: uposa (the `⌘K` was decorative — net-new build); research P1/P2.
+- Estimate: 8 points. Priority: P1/P2. Apps: dispatcher-web, authority-dashboard, admin-web. Dependencies: NADAA-044.
+
+#### NADAA-196: Trust, Session, And Onboarding Polish
+
+- Outcome: provenance/verification badges on alerts, a session-timeout warning, an agency onboarding checklist, and a dismissible PWA install prompt.
+- Acceptance criteria: "Official NADMO — approved by <role>" chip on approved alerts; WCAG 2.2.1 session-timeout warning with extend/re-auth on staff apps; onboarding checklist drives correct first-run agency config; custom A2HS nudge after first useful action on citizen-web.
+- Source: research P2; reinforces the human-approved rule and fights misinformation.
+- Estimate: 8 points. Priority: P2. Apps: citizen-web, marketing-web, staff apps. Dependencies: NADAA-050, NADAA-011.
+
+### Phase 4 Tracker
+
+| ID        | Phase   | Epic    | Story                                             | Status | Owner      | Priority | Notes                                                          |
+| --------- | ------- | ------- | ------------------------------------------------- | ------ | ---------- | -------- | -------------------------------------------------------------- |
+| NADAA-180 | Phase 4 | EPIC 18 | Design System And Theme Extension                 | Todo   | Unassigned | P1       | Light/dark/high-contrast; density; tokens in brand.            |
+| NADAA-181 | Phase 4 | EPIC 18 | Motion, Skeletons, And Micro-Interactions         | Todo   | Unassigned | P1       | MUI transitions default; gated framer-motion; reduced-motion.  |
+| NADAA-182 | Phase 4 | EPIC 18 | Shared App Shell — Sidebar And Navbar Dropdowns   | Todo   | Unassigned | P1       | One reusable shell; RBAC + badges; mobile drawer.              |
+| NADAA-183 | Phase 4 | EPIC 18 | Loading Buttons And Async-State Standardization   | Todo   | Unassigned | P1       | aria-busy; double-submit guards.                               |
+| NADAA-184 | Phase 4 | EPIC 18 | "Show Me Around" Guided Product Tour              | Todo   | Unassigned | P1       | Driver.js/joyride v3; never blocks emergency actions.          |
+| NADAA-185 | Phase 4 | EPIC 18 | In-App User Guide And Contextual Help + TTS       | Todo   | Unassigned | P1       | Reuse guide-service + offline; distinct from emergency guides. |
+| NADAA-186 | Phase 4 | EPIC 18 | Unified Settings Surface                          | Todo   | Unassigned | P1       | Offline prefs; cannot silence life-safety alerts.              |
+| NADAA-187 | Phase 4 | EPIC 18 | Profile                                           | Todo   | Unassigned | P2       | Minimal PII; verification badge; no life-safety gating.        |
+| NADAA-188 | Phase 4 | EPIC 18 | Notifications Center And Real-Time Alert Toasts   | Todo   | Unassigned | P0       | notistack; aria-live; ack for evacuation-class.                |
+| NADAA-189 | Phase 4 | EPIC 18 | SOS / Panic Quick Action                          | Todo   | Unassigned | P0       | Always reachable; long-press; offline queue.                   |
+| NADAA-190 | Phase 4 | EPIC 18 | Offline Banner And Sync Status                    | Todo   | Unassigned | P0       | IndexedDB queue; optimistic sync; SW.                          |
+| NADAA-191 | Phase 4 | EPIC 18 | App-Wide Multilingual Switcher                    | Todo   | Unassigned | P0/P1    | react-i18next; 6 languages; lazy locale bundles.               |
+| NADAA-192 | Phase 4 | EPIC 18 | Data-Saver / Lite Mode                            | Todo   | Unassigned | P1       | Drops tiles/imagery/motion; text-first.                        |
+| NADAA-193 | Phase 4 | EPIC 18 | Accessibility Toolbar                             | Todo   | Unassigned | P1       | Font scale, dyslexia font, reduce-motion, TTS.                 |
+| NADAA-194 | Phase 4 | EPIC 18 | Citizen Safety UX Bundle                          | Todo   | Unassigned | P1       | Report wizard, status tracker, saved places, contacts.         |
+| NADAA-195 | Phase 4 | EPIC 18 | Operator Efficiency — Command Palette + Shortcuts | Todo   | Unassigned | P1/P2    | Cmd-K, hotkeys, density toggle.                                |
+| NADAA-196 | Phase 4 | EPIC 18 | Trust, Session, And Onboarding Polish             | Todo   | Unassigned | P2       | Verification badges, session-timeout, onboarding, A2HS.        |
+
 ## Initial Ready Queue
 
 Start here:
