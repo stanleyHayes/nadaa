@@ -56,7 +56,10 @@ console.log(`damage-claim authority list OK ${listPayload.claims.length}`);
 const verify = await fetch(`${baseURL}/claims/${created.id}/verify`, {
   method: "POST",
   headers: authorityHeaders,
-  body: JSON.stringify({ verificationStatus: "verified", notes: "Smoke verified" }),
+  body: JSON.stringify({
+    verificationStatus: "verified",
+    notes: "Smoke verified",
+  }),
 });
 if (!verify.ok) {
   throw new Error(`damage-claim verify smoke failed: ${verify.status}`);
@@ -67,9 +70,12 @@ if (verified.verificationStatus !== "verified") {
 }
 console.log("damage-claim verify OK");
 
-const csvExport = await fetch(`${baseURL}/claims/${created.id}/export?format=csv`, {
-  headers: authorityHeaders,
-});
+const csvExport = await fetch(
+  `${baseURL}/claims/${created.id}/export?format=csv`,
+  {
+    headers: authorityHeaders,
+  },
+);
 if (!csvExport.ok) {
   throw new Error(`damage-claim CSV export smoke failed: ${csvExport.status}`);
 }
@@ -79,9 +85,12 @@ if (!csvText.includes(created.reference)) {
 }
 console.log("damage-claim CSV export OK");
 
-const pdfExport = await fetch(`${baseURL}/claims/${created.id}/export?format=pdf`, {
-  headers: authorityHeaders,
-});
+const pdfExport = await fetch(
+  `${baseURL}/claims/${created.id}/export?format=pdf`,
+  {
+    headers: authorityHeaders,
+  },
+);
 if (!pdfExport.ok) {
   throw new Error(`damage-claim PDF export smoke failed: ${pdfExport.status}`);
 }
@@ -109,9 +118,14 @@ console.log("damage-claim close OK");
 const invalidVerify = await fetch(`${baseURL}/claims/${created.id}/verify`, {
   method: "POST",
   headers: authorityHeaders,
-  body: JSON.stringify({ verificationStatus: "rejected", notes: "Invalid after close" }),
+  body: JSON.stringify({
+    verificationStatus: "rejected",
+    notes: "Invalid after close",
+  }),
 });
 if (invalidVerify.status !== 400) {
-  throw new Error(`damage-claim invalid verify smoke expected 400 got ${invalidVerify.status}`);
+  throw new Error(
+    `damage-claim invalid verify smoke expected 400 got ${invalidVerify.status}`,
+  );
 }
 console.log("damage-claim invalid verify OK 400");
