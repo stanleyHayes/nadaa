@@ -70,6 +70,7 @@ export function ReliefDistributionPanel({
   feedback,
   busy,
   canDelete,
+  canManage,
   onUpdateForm,
   onRefresh,
   onStartCreate,
@@ -84,6 +85,7 @@ export function ReliefDistributionPanel({
   feedback: string;
   busy: boolean;
   canDelete: boolean;
+  canManage: boolean;
   onUpdateForm: FieldChange;
   onRefresh: () => void;
   onStartCreate: () => void;
@@ -164,15 +166,17 @@ export function ReliefDistributionPanel({
           >
             Refresh
           </Button>
-          <Button
-            type="button"
-            variant="contained"
-            size="small"
-            startIcon={<Plus size={16} />}
-            onClick={openCreate}
-          >
-            Add relief point
-          </Button>
+          {canManage ? (
+            <Button
+              type="button"
+              variant="contained"
+              size="small"
+              startIcon={<Plus size={16} />}
+              onClick={openCreate}
+            >
+              Add relief point
+            </Button>
+          ) : null}
         </Stack>
       }
     >
@@ -258,15 +262,17 @@ export function ReliefDistributionPanel({
                 <Eye size={16} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Edit">
-              <IconButton
-                size="small"
-                aria-label={`Edit ${point.name}`}
-                onClick={() => openEdit(point)}
-              >
-                <Pencil size={16} />
-              </IconButton>
-            </Tooltip>
+            {canManage ? (
+              <Tooltip title="Edit">
+                <IconButton
+                  size="small"
+                  aria-label={`Edit ${point.name}`}
+                  onClick={() => openEdit(point)}
+                >
+                  <Pencil size={16} />
+                </IconButton>
+              </Tooltip>
+            ) : null}
             {canDelete ? (
               <Tooltip title="Delete">
                 <IconButton
@@ -410,18 +416,20 @@ export function ReliefDistributionPanel({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewPoint(undefined)}>Close</Button>
-          <Button
-            variant="contained"
-            startIcon={<Pencil size={16} />}
-            onClick={() => {
-              if (viewPoint) {
-                openEdit(viewPoint);
-                setViewPoint(undefined);
-              }
-            }}
-          >
-            Edit
-          </Button>
+          {canManage ? (
+            <Button
+              variant="contained"
+              startIcon={<Pencil size={16} />}
+              onClick={() => {
+                if (viewPoint) {
+                  openEdit(viewPoint);
+                  setViewPoint(undefined);
+                }
+              }}
+            >
+              Edit
+            </Button>
+          ) : null}
         </DialogActions>
       </Dialog>
       {/* Add / Edit form dialog */}

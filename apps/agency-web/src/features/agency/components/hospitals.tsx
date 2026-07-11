@@ -1,5 +1,6 @@
 import {
   Alert,
+  AlertTitle,
   Button,
   Card,
   CardContent,
@@ -26,7 +27,19 @@ export function HospitalCapacityCard({
   facility: HospitalCapacityRecord;
 }) {
   return (
-    <Card variant="outlined">
+    <Card
+      variant="outlined"
+      sx={
+        facility.stale
+          ? {
+              borderColor: "warning.main",
+              borderWidth: 2,
+              boxShadow: (theme) =>
+                `0 0 0 1px ${theme.palette.warning.main}22`,
+            }
+          : undefined
+      }
+    >
       <CardContent>
         <Stack direction="row" sx={{
           justifyContent: "space-between"
@@ -69,8 +82,17 @@ export function HospitalCapacityCard({
           />
         </Stack>
         {facility.stale ? (
-          <Alert severity="warning" sx={{ mt: 1 }}>
-            Stale data · confirm before transfer
+          <Alert
+            severity="warning"
+            variant="filled"
+            sx={{ mt: 1.5, fontWeight: 600, alignItems: "flex-start" }}
+          >
+            <AlertTitle sx={{ fontWeight: 800, mb: 0.25 }}>
+              Capacity may be out of date
+            </AlertTitle>
+            {facility.staleReason ? `${facility.staleReason}. ` : ""}
+            Confirm bed availability directly with the facility before
+            transferring patients.
           </Alert>
         ) : null}
       </CardContent>

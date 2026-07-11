@@ -52,6 +52,7 @@ export function SheltersView({ data }: { data: CommandData }) {
             feedback={data.shelterFeedback}
             busy={data.shelterBusy}
             canDelete={data.canDelete}
+            canManage={data.canManage}
             onUpdateForm={data.updateShelterForm}
             onRefresh={() => void data.refreshShelters()}
             onEdit={data.editShelter}
@@ -76,6 +77,7 @@ export function SheltersView({ data }: { data: CommandData }) {
             feedback={data.reliefFeedback}
             busy={data.reliefBusy}
             canDelete={data.canDelete}
+            canManage={data.canManage}
             onUpdateForm={data.updateReliefForm}
             onRefresh={() => void data.refreshReliefPoints()}
             onStartCreate={data.startReliefPointDraft}

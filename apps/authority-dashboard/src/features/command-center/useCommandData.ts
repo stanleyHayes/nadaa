@@ -76,6 +76,19 @@ export function useCommandData() {
   const canDelete = Boolean(
     session && ["system_admin", "agency_admin"].includes(session.role),
   );
+  // Shelter/relief capacity updates are limited to these roles server-side
+  // (shelter-service ShelterUpdateRoles -> 403 otherwise). Gate the edit/create
+  // UI to match, so a read-only role sees a view instead of a failing action.
+  const canManage = Boolean(
+    session &&
+      [
+        "system_admin",
+        "agency_admin",
+        "nadmo_officer",
+        "district_officer",
+        "dispatcher",
+      ].includes(session.role),
+  );
 
   const [incidents, setIncidents] = useState<CommandIncident[]>([]);
   const [loadState, setLoadState] = useState<IncidentLoadState>("loading");
@@ -1109,6 +1122,7 @@ export function useCommandData() {
   return {
     // Session-derived permissions
     canDelete,
+    canManage,
     // Incident feed
     incidents,
     filteredIncidents,

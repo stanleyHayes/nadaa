@@ -66,6 +66,7 @@ export function ShelterCapacityPanel({
   feedback,
   busy,
   canDelete,
+  canManage,
   onUpdateForm,
   onRefresh,
   onEdit,
@@ -78,6 +79,7 @@ export function ShelterCapacityPanel({
   feedback: string;
   busy: boolean;
   canDelete: boolean;
+  canManage: boolean;
   onUpdateForm: FieldChange;
   onRefresh: () => void;
   onEdit: (shelter: ShelterRecord) => void;
@@ -219,15 +221,17 @@ export function ShelterCapacityPanel({
                 <Eye size={16} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Edit capacity">
-              <IconButton
-                size="small"
-                aria-label={`Edit ${shelter.name}`}
-                onClick={() => openEdit(shelter)}
-              >
-                <Pencil size={16} />
-              </IconButton>
-            </Tooltip>
+            {canManage ? (
+              <Tooltip title="Edit capacity">
+                <IconButton
+                  size="small"
+                  aria-label={`Edit ${shelter.name}`}
+                  onClick={() => openEdit(shelter)}
+                >
+                  <Pencil size={16} />
+                </IconButton>
+              </Tooltip>
+            ) : null}
             {canDelete ? (
               <Tooltip title="Delete">
                 <IconButton
@@ -367,18 +371,20 @@ export function ShelterCapacityPanel({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewShelter(undefined)}>Close</Button>
-          <Button
-            variant="contained"
-            startIcon={<Pencil size={16} />}
-            onClick={() => {
-              if (viewShelter) {
-                openEdit(viewShelter);
-                setViewShelter(undefined);
-              }
-            }}
-          >
-            Edit capacity
-          </Button>
+          {canManage ? (
+            <Button
+              variant="contained"
+              startIcon={<Pencil size={16} />}
+              onClick={() => {
+                if (viewShelter) {
+                  openEdit(viewShelter);
+                  setViewShelter(undefined);
+                }
+              }}
+            >
+              Edit capacity
+            </Button>
+          ) : null}
         </DialogActions>
       </Dialog>
       {/* Edit capacity dialog */}
