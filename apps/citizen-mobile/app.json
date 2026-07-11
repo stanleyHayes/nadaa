@@ -5,7 +5,14 @@
     "scheme": "nadaa-citizen",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#0D1B3D",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D1B3D"
+    },
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "bundleIdentifier": "com.nadaa.citizen",
@@ -18,6 +25,10 @@
     },
     "android": {
       "package": "com.nadaa.citizen",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D1B3D"
+      },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -27,6 +38,19 @@
         "READ_MEDIA_VIDEO"
       ]
     },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#E53935"
+        }
+      ],
+      "expo-location"
+    ],
     "extra": {
       "incidentApiUrl": "http://localhost:8084/api/v1",
       "riskApiUrl": "http://localhost:8081/api/v1",
