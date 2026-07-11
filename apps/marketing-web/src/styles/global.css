@@ -782,6 +782,12 @@ textarea {
   background: var(--nadaa-navy);
 }
 
+/* Row icon + chevron belong to the mobile menu; the desktop nav is a pill bar. */
+.site-nav__icon,
+.site-nav__chevron {
+  display: none;
+}
+
 .cta-button {
   display: inline-flex;
   align-items: center;
@@ -963,26 +969,113 @@ textarea {
     overflow: visible;
   }
 
+  .nav-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    background: color-mix(in srgb, var(--nadaa-navy) 52%, transparent);
+    backdrop-filter: blur(2px);
+    animation: nav-scrim-in 180ms ease both;
+  }
+
   .site-nav {
     position: fixed;
-    inset: 70px 12px auto;
+    inset: 76px 12px auto;
     z-index: 40;
     display: none;
     grid-template-columns: 1fr;
-    gap: 0;
-    border: 1px solid color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
-    border-radius: var(--nadaa-radius-md);
-    padding: var(--nadaa-space-2);
+    gap: 4px;
+    border: 1px solid color-mix(in srgb, var(--nadaa-navy) 14%, transparent);
+    border-radius: 18px;
+    padding: 10px;
     background: var(--nadaa-white);
     box-shadow: var(--nadaa-shadow-xl);
+    transform-origin: top center;
   }
 
   .site-nav.is-open {
     display: grid;
+    animation: nav-menu-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .site-nav a {
-    padding: 0 var(--nadaa-space-2);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    padding: 0 12px;
+    border-radius: 12px;
+    font-size: 1.02rem;
+  }
+
+  .site-nav a:hover {
+    background: color-mix(in srgb, var(--nadaa-navy) 6%, transparent);
+  }
+
+  .site-nav a.is-active,
+  .site-nav a.is-active:hover {
+    color: var(--nadaa-navy);
+    background: color-mix(in srgb, var(--nadaa-gold) 15%, transparent);
+    box-shadow: inset 3px 0 0 var(--nadaa-gold);
+  }
+
+  .site-nav__icon,
+  .site-nav__chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .site-nav__icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    color: var(--nadaa-navy);
+    background: color-mix(in srgb, var(--nadaa-navy) 8%, transparent);
+  }
+
+  .site-nav a.is-active .site-nav__icon {
+    background: color-mix(in srgb, var(--nadaa-gold) 30%, transparent);
+  }
+
+  .site-nav__label {
+    flex: 1;
+  }
+
+  .site-nav__chevron {
+    flex-shrink: 0;
+    opacity: 0.4;
+  }
+
+  @keyframes nav-menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes nav-scrim-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-nav.is-open,
+    .nav-scrim {
+      animation: none;
+    }
   }
 
   .icon-button {

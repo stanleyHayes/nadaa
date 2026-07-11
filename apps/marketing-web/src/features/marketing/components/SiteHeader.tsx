@@ -1,11 +1,16 @@
 import {
+  ChevronRight,
+  House,
   Languages,
+  LayoutGrid,
+  Mail,
   Menu,
   Moon,
   PhoneCall,
   ShieldCheck,
   Sun,
   UserPlus,
+  Workflow,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -15,11 +20,11 @@ import { marketingLinks } from "@/app/config";
 import { toggleThemeMode, useThemeMode } from "@/app/theme-mode";
 
 const pages = [
-  { to: "/", label: "Home", end: true },
-  { to: "/platforms", label: "Platforms", end: false },
-  { to: "/how-it-works", label: "How it works", end: false },
-  { to: "/trust", label: "Trust", end: false },
-  { to: "/contact", label: "Contact", end: false },
+  { to: "/", label: "Home", end: true, icon: House },
+  { to: "/platforms", label: "Platforms", end: false, icon: LayoutGrid },
+  { to: "/how-it-works", label: "How it works", end: false, icon: Workflow },
+  { to: "/trust", label: "Trust", end: false, icon: ShieldCheck },
+  { to: "/contact", label: "Contact", end: false, icon: Mail },
 ] as const;
 
 export function SiteHeader() {
@@ -60,22 +65,42 @@ export function SiteHeader() {
           </span>
         </NavLink>
 
+        {menuOpen ? (
+          <button
+            aria-label="Close menu"
+            className="nav-scrim"
+            onClick={() => setMenuOpen(false)}
+            type="button"
+          />
+        ) : null}
+
         <nav
           aria-label="Primary"
           className={menuOpen ? "site-nav is-open" : "site-nav"}
           id="primary-nav"
         >
-          {pages.map((page) => (
-            <NavLink
-              className={navClass}
-              end={page.end}
-              key={page.to}
-              onClick={() => setMenuOpen(false)}
-              to={page.to}
-            >
-              {page.label}
-            </NavLink>
-          ))}
+          {pages.map((page) => {
+            const Icon = page.icon;
+            return (
+              <NavLink
+                className={navClass}
+                end={page.end}
+                key={page.to}
+                onClick={() => setMenuOpen(false)}
+                to={page.to}
+              >
+                <span aria-hidden="true" className="site-nav__icon">
+                  <Icon size={18} />
+                </span>
+                <span className="site-nav__label">{page.label}</span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className="site-nav__chevron"
+                  size={16}
+                />
+              </NavLink>
+            );
+          })}
         </nav>
 
         <div className="header-actions">
