@@ -20,11 +20,14 @@ import {
   Moon,
   Settings,
   Sun,
+  Volume2,
+  VolumeX,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { roleLabels, type AuthoritySession } from "@/app/session";
 import { toggleThemeMode, useThemeMode } from "@/app/theme-mode";
+import { useAlarmEnabled } from "@/app/alarm";
 import type { NavItem } from "../navigation";
 import type { PageGuide } from "../pageGuides";
 import type { SettingsTab } from "../account";
@@ -89,6 +92,7 @@ export function Topbar({
   const bellOpen = Boolean(bellAnchor);
   const mode = useThemeMode();
   const isDark = mode === "dark";
+  const [alarmEnabled, toggleAlarm] = useAlarmEnabled();
 
   const openUser = (event: MouseEvent<HTMLElement>) =>
     setUserAnchor(event.currentTarget);
@@ -133,6 +137,15 @@ export function Topbar({
       <Stack direction="row" spacing={1} sx={{
         alignItems: "center"
       }}>
+        <IconButton
+          onClick={toggleAlarm}
+          aria-label={alarmEnabled ? "Mute alert alarm" : "Unmute alert alarm"}
+          aria-pressed={!alarmEnabled}
+          className="cc-topbar__theme"
+          title={alarmEnabled ? "Mute alert alarm" : "Unmute alert alarm"}
+        >
+          {alarmEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}
+        </IconButton>
         <IconButton
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();

@@ -31,6 +31,7 @@ import {
   SHELTER_API_BASE,
 } from "@/app/config";
 import { authorityHeaders, useAuthoritySession } from "@/app/session";
+import { playCommandAlarm } from "@/app/alarm";
 import { defaultFilters, assignmentAgencyOptions } from "./data";
 import type {
   AbuseReviewFormState,
@@ -1112,6 +1113,10 @@ export function useCommandData() {
       );
       setAlertLoadState("ready");
       setAlertFeedback(`${alertStatusLabel(updatedAlert.status)} alert saved.`);
+      if (updatedAlert.status === "published") {
+        // An approved warning just went out to citizens — sound the alarm.
+        playCommandAlarm();
+      }
     } catch (error) {
       setAlertFeedback("Alert action needs the alert-service API running.");
     } finally {
