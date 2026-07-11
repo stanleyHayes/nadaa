@@ -17,11 +17,14 @@
       content="NADAA — National Disaster Management Organisation"
     />
     <meta name="theme-color" content="#0D1B3D" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://nadaa.gov.gh/" />
 
     <!-- Icons -->
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
 
     <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
     <meta property="og:type" content="website" />
@@ -65,6 +68,54 @@
       name="twitter:image:alt"
       content="NADAA — Be Aware. Be Prepared. Be Safe."
     />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "GovernmentOrganization",
+            "@id": "https://nadaa.gov.gh/#organization",
+            "name": "NADAA",
+            "alternateName": "National Disaster Management Organisation",
+            "url": "https://nadaa.gov.gh",
+            "logo": "https://nadaa.gov.gh/icon-512.png",
+            "slogan": "Be Aware. Be Prepared. Be Safe.",
+            "areaServed": {
+              "@type": "Country",
+              "name": "Ghana"
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://nadaa.gov.gh/#website",
+            "name": "NADAA — Ghana National Disaster Alert & Response Platform",
+            "url": "https://nadaa.gov.gh",
+            "inLanguage": "en-GH",
+            "publisher": {
+              "@id": "https://nadaa.gov.gh/#organization"
+            }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://nadaa.gov.gh/#webapp",
+            "name": "NADAA",
+            "url": "https://nadaa.gov.gh",
+            "applicationCategory": "SecurityApplication",
+            "operatingSystem": "Web",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "GHS"
+            },
+            "publisher": {
+              "@id": "https://nadaa.gov.gh/#organization"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
