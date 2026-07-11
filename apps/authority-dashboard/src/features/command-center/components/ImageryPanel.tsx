@@ -18,11 +18,6 @@ import {
   Paper,
   Stack,
   Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -48,6 +43,7 @@ import type {
 import { IMAGERY_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
 import { CommandSelect } from "./shared";
+import { DataTable } from "./DataTable";
 
 type LoadState = "loading" | "ready" | "fallback" | "error";
 
@@ -581,98 +577,125 @@ export function ImageryPanel({
           </Button>
         </Stack>
 
-        {records.length ? (
-          <Box className="responsive-table-wrapper">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Ref</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell>Captured</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {records.map((record) => (
-                  <TableRow key={record.id} hover>
-                    <TableCell>
-                      <Typography variant="subtitle2">
-                        {record.reference}
-                      </Typography>
-                      <Typography variant="caption" sx={{
-                        color: "text.secondary"
-                      }}>
-                        {formatBytes(record.sizeBytes)} ·{" "}
-                        {record.resolutionMeters} m
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={sourceLabels[record.source]}
-                        style={{
-                          backgroundColor: sourceColors[record.source],
-                          color: "#FFFFFF",
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>{formatDateTime(record.captureTime)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={record.status}
-                        color={
-                          record.status === "active" ? "success" : "default"
-                        }
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Stack
-                        direction="row"
-                        spacing={0.5}
-                        sx={{
-                          justifyContent: "flex-end"
-                        }}
-                      >
-                        <IconButton
-                          size="small"
-                          aria-label="Download"
-                          onClick={() => handleDownload(record)}
-                        >
-                          <CloudUpload size={16} />
-                        </IconButton>
-                        {record.status === "active" ? (
-                          <IconButton
-                            size="small"
-                            aria-label="Expire"
-                            onClick={() => void handleExpire(record)}
-                          >
-                            <EyeOff size={16} />
-                          </IconButton>
-                        ) : null}
-                        <IconButton
-                          size="small"
-                          aria-label="Delete"
-                          onClick={() => void handleDelete(record)}
-                        >
-                          <Trash2 size={16} />
-                        </IconButton>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        ) : (
-          <Typography variant="body2" sx={{
-            color: "text.secondary"
-          }}>
-            No imagery records available. Upload a drone or satellite image to
-            begin.
-          </Typography>
-        )}
+        <DataTable
+          rows={records}
+          getRowKey={(record) => record.id}
+          searchOf={(record) =>
+            `${record.reference} ${record.fileName} ${record.license ?? ""} ${
+              record.relatedIncidentId ?? ""
+            }`
+          }
+          searchPlaceholder="Search imagery"
+          filters={[
+            {
+              key: "source",
+              label: "Source",
+              options: Array.from(
+                new Set(records.map((record) => sourceLabels[record.source])),
+              ),
+              valueOf: (record) => sourceLabels[record.source],
+            },
+            {
+              key: "status",
+              label: "Status",
+              options: Array.from(
+                new Set(records.map((record) => record.status)),
+              ),
+              valueOf: (record) => record.status,
+            },
+          ]}
+          columns={[
+            {
+              key: "reference",
+              label: "Ref",
+              render: (record) => (
+                <>
+                  <Typography variant="subtitle2">
+                    {record.reference}
+                  </Typography>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
+                    {formatBytes(record.sizeBytes)} ·{" "}
+                    {record.resolutionMeters} m
+                  </Typography>
+                </>
+              ),
+            },
+            {
+              key: "source",
+              label: "Source",
+              render: (record) => (
+                <Chip
+                  size="small"
+                  label={sourceLabels[record.source]}
+                  style={{
+                    backgroundColor: sourceColors[record.source],
+                    color: "#FFFFFF",
+                  }}
+                />
+              ),
+            },
+            {
+              key: "captureTime",
+              label: "Captured",
+              render: (record) => formatDateTime(record.captureTime),
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (record) => (
+                <Chip
+                  size="small"
+                  label={record.status}
+                  color={record.status === "active" ? "success" : "default"}
+                />
+              ),
+            },
+          ]}
+          rowActions={(record) => (
+            <Stack
+              direction="row"
+              spacing={0.5}
+              sx={{
+                justifyContent: "flex-end"
+              }}
+            >
+              <IconButton
+                size="small"
+                aria-label="Download"
+                onClick={() => handleDownload(record)}
+              >
+                <CloudUpload size={16} />
+              </IconButton>
+              {record.status === "active" ? (
+                <IconButton
+                  size="small"
+                  aria-label="Expire"
+                  onClick={() => void handleExpire(record)}
+                >
+                  <EyeOff size={16} />
+                </IconButton>
+              ) : null}
+              <IconButton
+                size="small"
+                aria-label="Delete"
+                onClick={() => void handleDelete(record)}
+              >
+                <Trash2 size={16} />
+              </IconButton>
+            </Stack>
+          )}
+          rowActionsLabel="Actions"
+          emptyState={
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
+              No imagery records available. Upload a drone or satellite image to
+              begin.
+            </Typography>
+          }
+        />
       </Stack>
     </Paper>
   );

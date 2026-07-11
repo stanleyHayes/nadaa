@@ -5,18 +5,21 @@ import {
   Button,
   Chip,
   Grid,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import { HeartHandshake, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import {
+  Eye,
+  HeartHandshake,
+  Loader2,
+  RefreshCw,
+  ShieldCheck,
+} from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   CloseMissingPersonRequest,
@@ -30,6 +33,8 @@ import type {
 } from "@nadaa/shared-types";
 import { MISSING_PERSON_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
+import { DataTable } from "./DataTable";
+import { EmptyState } from "./shared";
 
 type LoadState = "loading" | "ready" | "fallback" | "error";
 
@@ -271,37 +276,85 @@ export default function MissingPersonsPanel() {
           {feedback}
         </Alert>
 
-        <Box className="table-wrap">
-          <Table size="small" aria-label="Missing persons queue">
-            <TableHead>
-              <TableRow>
-                <TableCell>Reference</TableCell>
-                <TableCell>Person</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Visibility</TableCell>
-                <TableCell>Last seen</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {records.map((record) => (
-                <TableRow
-                  key={record.id}
-                  hover
-                  selected={record.id === selectedRecord?.id}
-                  onClick={() => setSelectedId(record.id)}
-                >
-                  <TableCell>{record.reference}</TableCell>
-                  <TableCell>{record.personName}</TableCell>
-                  <TableCell>
-                    <Chip size="small" label={label(record.status)} />
-                  </TableCell>
-                  <TableCell>{label(record.publicVisibility)}</TableCell>
-                  <TableCell>{record.lastSeenLocation.district}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
+        <DataTable
+          rows={records}
+          getRowKey={(record) => record.id}
+          searchOf={(record) =>
+            `${record.personName} ${record.reference} ${record.lastSeenLocation.district}`
+          }
+          searchPlaceholder="Search by name"
+          filters={[
+            {
+              key: "status",
+              label: "Status",
+              options: Array.from(
+                new Set(records.map((record) => label(record.status))),
+              ),
+              valueOf: (record) => label(record.status),
+            },
+            {
+              key: "visibility",
+              label: "Visibility",
+              options: Array.from(
+                new Set(
+                  records.map((record) => label(record.publicVisibility)),
+                ),
+              ),
+              valueOf: (record) => label(record.publicVisibility),
+            },
+          ]}
+          columns={[
+            {
+              key: "reference",
+              label: "Reference",
+              render: (record) => record.reference,
+            },
+            {
+              key: "personName",
+              label: "Person",
+              render: (record) => record.personName,
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (record) => (
+                <Chip size="small" label={label(record.status)} />
+              ),
+            },
+            {
+              key: "visibility",
+              label: "Visibility",
+              render: (record) => label(record.publicVisibility),
+            },
+            {
+              key: "lastSeen",
+              label: "Last seen",
+              render: (record) => record.lastSeenLocation.district,
+            },
+          ]}
+          rowActions={(record) => (
+            <Tooltip title="Review case">
+              <IconButton
+                size="small"
+                aria-label={`Review ${record.personName}`}
+                color={record.id === selectedRecord?.id ? "primary" : "default"}
+                onClick={() => setSelectedId(record.id)}
+              >
+                <Eye size={16} />
+              </IconButton>
+            </Tooltip>
+          )}
+          emptyState={
+            loadState === "loading" ? (
+              <Box sx={{ py: 3 }} />
+            ) : (
+              <EmptyState
+                title="No missing-person cases"
+                detail="Open missing-person cases will appear here for review and closure."
+              />
+            )
+          }
+        />
 
         {selectedRecord ? (
           <Grid container spacing={2}>

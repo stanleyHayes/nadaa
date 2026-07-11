@@ -13,13 +13,8 @@ import {
   MenuItem,
   Paper,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -27,6 +22,7 @@ import {
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
   CheckCheck,
+  Eye,
   FileDown,
   FileText,
   Loader2,
@@ -37,6 +33,7 @@ import {
 import { nadaaBrand } from "@nadaa/brand";
 import { DAMAGE_CLAIM_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
+import { DataTable } from "./DataTable";
 import { CommandSelect, EmptyState, Fact, SkeletonRows } from "./shared";
 
 type DamageClaimStatus = "draft" | "submitted" | "closed";
@@ -448,66 +445,117 @@ export default function DamageClaimsPanel() {
       ) : null}
       {claims.length ? (
         <>
-          <TableContainer sx={{ overflowX: "auto" }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Reference</TableCell>
-                  <TableCell>Reporter</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Verification</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {claims.map((claim) => (
-                  <TableRow
-                    key={claim.id}
-                    hover
-                    selected={claim.id === selectedId}
-                    onClick={() => openClaim(claim.id)}
-                    className="incident-row"
-                  >
-                    <TableCell>
-                      <Typography variant="subtitle2">
-                        {claim.reference}
-                      </Typography>
-                      <Typography variant="caption" sx={{
-                        color: "text.secondary"
-                      }}>
-                        {claim.incidentReference || "No incident"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{claim.reporter.name}</TableCell>
-                    <TableCell>{claim.damageType}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={claim.verificationStatus}
-                        color={
-                          claim.verificationStatus === "pending"
-                            ? "warning"
-                            : claim.verificationStatus === "verified"
-                              ? "success"
-                              : "error"
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={claim.status}
-                        variant="outlined"
-                        color={
-                          claim.status === "closed" ? "default" : "primary"
-                        }
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <DataTable
+            rows={claims}
+            getRowKey={(claim) => claim.id}
+            searchOf={(claim) =>
+              `${claim.reference} ${claim.reporter.name} ${claim.damageType} ${claim.incidentReference ?? ""} ${claim.location.address ?? ""}`
+            }
+            searchPlaceholder="Search by reference, reporter, type or address"
+            filters={[
+              {
+                key: "verificationStatus",
+                label: "Verification",
+                options: Array.from(
+                  new Set(claims.map((claim) => claim.verificationStatus)),
+                ),
+                valueOf: (claim) => claim.verificationStatus,
+              },
+              {
+                key: "status",
+                label: "Status",
+                options: Array.from(
+                  new Set(claims.map((claim) => claim.status)),
+                ),
+                valueOf: (claim) => claim.status,
+              },
+              {
+                key: "damageType",
+                label: "Category",
+                options: Array.from(
+                  new Set(claims.map((claim) => claim.damageType)),
+                ),
+                valueOf: (claim) => claim.damageType,
+              },
+            ]}
+            columns={[
+              {
+                key: "reference",
+                label: "Reference",
+                render: (claim) => (
+                  <>
+                    <Typography variant="subtitle2">
+                      {claim.reference}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "text.secondary" }}
+                    >
+                      {claim.incidentReference || "No incident"}
+                    </Typography>
+                  </>
+                ),
+              },
+              {
+                key: "reporter",
+                label: "Reporter",
+                render: (claim) => claim.reporter.name,
+              },
+              {
+                key: "damageType",
+                label: "Type",
+                render: (claim) => claim.damageType,
+              },
+              {
+                key: "verificationStatus",
+                label: "Verification",
+                render: (claim) => (
+                  <Chip
+                    size="small"
+                    label={claim.verificationStatus}
+                    color={
+                      claim.verificationStatus === "pending"
+                        ? "warning"
+                        : claim.verificationStatus === "verified"
+                          ? "success"
+                          : "error"
+                    }
+                  />
+                ),
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (claim) => (
+                  <Chip
+                    size="small"
+                    label={claim.status}
+                    variant="outlined"
+                    color={claim.status === "closed" ? "default" : "primary"}
+                  />
+                ),
+              },
+            ]}
+            rowActions={(claim) => (
+              <Tooltip title="Review claim">
+                <IconButton
+                  size="small"
+                  aria-label={`Review claim ${claim.reference}`}
+                  onClick={() => openClaim(claim.id)}
+                >
+                  <Eye size={16} />
+                </IconButton>
+              </Tooltip>
+            )}
+            rowActionsLabel="Actions"
+            pageSize={8}
+            emptyState={
+              <EmptyState
+                title="No claims"
+                detail="No damage claims match the search or filters."
+              />
+            }
+          />
 
           <Dialog
             open={detailOpen}

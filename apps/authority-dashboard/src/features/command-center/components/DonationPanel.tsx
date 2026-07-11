@@ -8,11 +8,8 @@ import {
   MenuItem,
   Paper,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -39,6 +36,7 @@ import type {
 import { DONATION_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
 import { CommandSelect } from "./shared";
+import { DataTable } from "./DataTable";
 
 const aidRequestStatuses: DonationAidRequestStatus[] = [
   "open",
@@ -206,6 +204,7 @@ export function DonationPanel({
   const [allocateForms, setAllocateForms] = useState<
     Record<string, AllocateFormState>
   >({});
+  const [entityTab, setEntityTab] = useState(0);
 
   useEffect(() => {
     setLocalLoadState(loadState);
@@ -834,94 +833,252 @@ export function DonationPanel({
             alignItems: "center",
             gap: 1
           }}>
-          <Typography variant="subtitle2">Aid requests</Typography>
+          <Tabs
+            value={entityTab}
+            onChange={(_event, value) => setEntityTab(value)}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab label="Aid requests" />
+            <Tab label="Pledges" />
+          </Tabs>
           <Chip
             size="small"
             label={localLoadState === "ready" ? "Live" : "Offline"}
             color={localLoadState === "ready" ? "success" : "warning"}
           />
         </Stack>
-        {activeAidRequests.length ? (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Reference</TableCell>
-                <TableCell>Item</TableCell>
-                <TableCell>Priority</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Fulfilled</TableCell>
-                <TableCell>Beneficiaries</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {activeAidRequests.map((request) => (
-                <TableRow key={request.id}>
-                  <TableCell>
+        {entityTab === 0 ? (
+          <DataTable
+            rows={activeAidRequests}
+            getRowKey={(request) => request.id}
+            searchOf={(request) =>
+              `${request.reference} ${request.title} ${request.district}`
+            }
+            searchPlaceholder="Search aid requests"
+            filters={[
+              {
+                key: "status",
+                label: "Status",
+                options: Array.from(
+                  new Set(
+                    activeAidRequests.map((request) =>
+                      statusLabel(request.status),
+                    ),
+                  ),
+                ),
+                valueOf: (request) => statusLabel(request.status),
+              },
+              {
+                key: "priority",
+                label: "Priority",
+                options: Array.from(
+                  new Set(activeAidRequests.map((request) => request.priority)),
+                ),
+                valueOf: (request) => request.priority,
+              },
+            ]}
+            columns={[
+              {
+                key: "reference",
+                label: "Reference",
+                render: (request) => (
+                  <>
                     <Typography variant="subtitle2">
                       {request.reference}
                     </Typography>
-                    <Typography variant="caption" sx={{
-                      color: "text.secondary"
-                    }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "text.secondary" }}
+                    >
                       {request.district}
                     </Typography>
-                  </TableCell>
-                  <TableCell>{request.title}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={request.priority}
-                      color={priorityColor(request.priority)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={statusLabel(request.status)}
-                      color={statusColor(request.status)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {request.quantityFulfilled}/{request.quantityNeeded}{" "}
-                    {request.unit}
-                  </TableCell>
-                  <TableCell>{request.beneficiaryCount ?? 0}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5} sx={{
-                      flexWrap: "wrap"
-                    }}>
-                      {aidRequestStatuses.map((status) => (
-                        <Button
-                          key={status}
-                          size="small"
-                          variant="outlined"
-                          disabled={busy || request.status === status}
-                          onClick={() =>
-                            void updateDonationAidRequestStatus(request, status)
-                          }
-                        >
-                          {status === "partially_fulfilled"
-                            ? "Partial"
-                            : statusLabel(status)}
-                        </Button>
-                      ))}
+                  </>
+                ),
+              },
+              {
+                key: "title",
+                label: "Item",
+                render: (request) => request.title,
+              },
+              {
+                key: "priority",
+                label: "Priority",
+                render: (request) => (
+                  <Chip
+                    size="small"
+                    label={request.priority}
+                    color={priorityColor(request.priority)}
+                  />
+                ),
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (request) => (
+                  <Chip
+                    size="small"
+                    label={statusLabel(request.status)}
+                    color={statusColor(request.status)}
+                  />
+                ),
+              },
+              {
+                key: "fulfilled",
+                label: "Fulfilled",
+                render: (request) =>
+                  `${request.quantityFulfilled}/${request.quantityNeeded} ${request.unit}`,
+              },
+              {
+                key: "beneficiaries",
+                label: "Beneficiaries",
+                render: (request) => request.beneficiaryCount ?? 0,
+              },
+            ]}
+            rowActions={(request) => (
+              <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
+                {aidRequestStatuses.map((status) => (
+                  <Button
+                    key={status}
+                    size="small"
+                    variant="outlined"
+                    disabled={busy || request.status === status}
+                    onClick={() =>
+                      void updateDonationAidRequestStatus(request, status)
+                    }
+                  >
+                    {status === "partially_fulfilled"
+                      ? "Partial"
+                      : statusLabel(status)}
+                  </Button>
+                ))}
+                <Button
+                  size="small"
+                  color="error"
+                  disabled={busy}
+                  onClick={() => void deleteAidRequest(request)}
+                >
+                  Delete
+                </Button>
+              </Stack>
+            )}
+            emptyState={
+              <Alert severity="info">No active aid requests.</Alert>
+            }
+          />
+        ) : (
+          <DataTable
+            rows={pledges}
+            getRowKey={(pledge) => pledge.id}
+            searchOf={(pledge) => `${pledge.reference} ${pledge.donorName}`}
+            searchPlaceholder="Search pledges"
+            filters={[
+              {
+                key: "status",
+                label: "Status",
+                options: Array.from(
+                  new Set(pledges.map((pledge) => pledge.status)),
+                ),
+                valueOf: (pledge) => pledge.status,
+              },
+            ]}
+            columns={[
+              {
+                key: "reference",
+                label: "Reference",
+                render: (pledge) => pledge.reference,
+              },
+              {
+                key: "donorName",
+                label: "Donor",
+                render: (pledge) => pledge.donorName,
+              },
+              {
+                key: "quantity",
+                label: "Quantity",
+                render: (pledge) =>
+                  `${pledge.quantityDelivered}/${pledge.quantityPledged}`,
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (pledge) => (
+                  <Chip
+                    size="small"
+                    label={pledge.status}
+                    color={
+                      pledge.status === "delivered" ? "success" : "default"
+                    }
+                  />
+                ),
+              },
+              {
+                key: "allocate",
+                label: "Allocate",
+                render: (pledge) =>
+                  pledge.status !== "delivered" ? (
+                    <Stack direction="row" spacing={0.5}>
+                      <TextField
+                        size="small"
+                        label="Qty"
+                        value={allocateForms[pledge.id]?.quantity ?? ""}
+                        onChange={(event) =>
+                          setAllocateForms((current) => ({
+                            ...current,
+                            [pledge.id]: {
+                              ...(current[pledge.id] ??
+                                buildDefaultAllocateForm()),
+                              quantity: event.target.value,
+                            },
+                          }))
+                        }
+                        sx={{ width: 80 }}
+                        slotProps={{
+                          htmlInput: { inputMode: "numeric" }
+                        }}
+                      />
                       <Button
                         size="small"
-                        color="error"
+                        variant="outlined"
                         disabled={busy}
-                        onClick={() => void deleteAidRequest(request)}
+                        onClick={() => void allocatePledge(pledge)}
                       >
-                        Delete
+                        Deliver
                       </Button>
                     </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <Alert severity="info">No active aid requests.</Alert>
+                  ) : (
+                    "—"
+                  ),
+              },
+            ]}
+            rowActions={(pledge) => (
+              <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
+                {pledge.status === "pledged" ? (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={busy}
+                    onClick={() => void updatePledge(pledge, "cancelled")}
+                  >
+                    Cancel
+                  </Button>
+                ) : null}
+                {pledge.status === "cancelled" ? (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={busy}
+                    onClick={() => void updatePledge(pledge, "pledged")}
+                  >
+                    Reopen
+                  </Button>
+                ) : null}
+              </Stack>
+            )}
+            emptyState={
+              <Alert severity="info">No pledges recorded yet.</Alert>
+            }
+          />
         )}
       </Stack>
       <Stack spacing={1.5}>
@@ -995,106 +1152,6 @@ export function DonationPanel({
         >
           Register donor
         </Button>
-      </Stack>
-      <Stack spacing={1.5}>
-        <Typography variant="subtitle2">Pledges</Typography>
-        {pledges.length ? (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Reference</TableCell>
-                <TableCell>Donor</TableCell>
-                <TableCell>Quantity</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Allocate</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {pledges.map((pledge) => (
-                <TableRow key={pledge.id}>
-                  <TableCell>{pledge.reference}</TableCell>
-                  <TableCell>{pledge.donorName}</TableCell>
-                  <TableCell>
-                    {pledge.quantityDelivered}/{pledge.quantityPledged}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={pledge.status}
-                      color={
-                        pledge.status === "delivered" ? "success" : "default"
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {pledge.status !== "delivered" ? (
-                      <Stack direction="row" spacing={0.5}>
-                        <TextField
-                          size="small"
-                          label="Qty"
-                          value={allocateForms[pledge.id]?.quantity ?? ""}
-                          onChange={(event) =>
-                            setAllocateForms((current) => ({
-                              ...current,
-                              [pledge.id]: {
-                                ...(current[pledge.id] ??
-                                  buildDefaultAllocateForm()),
-                                quantity: event.target.value,
-                              },
-                            }))
-                          }
-                          sx={{ width: 80 }}
-                          slotProps={{
-                            htmlInput: { inputMode: "numeric" }
-                          }}
-                        />
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          disabled={busy}
-                          onClick={() => void allocatePledge(pledge)}
-                        >
-                          Deliver
-                        </Button>
-                      </Stack>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5} sx={{
-                      flexWrap: "wrap"
-                    }}>
-                      {pledge.status === "pledged" ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          disabled={busy}
-                          onClick={() => void updatePledge(pledge, "cancelled")}
-                        >
-                          Cancel
-                        </Button>
-                      ) : null}
-                      {pledge.status === "cancelled" ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          disabled={busy}
-                          onClick={() => void updatePledge(pledge, "pledged")}
-                        >
-                          Reopen
-                        </Button>
-                      ) : null}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <Alert severity="info">No pledges recorded yet.</Alert>
-        )}
       </Stack>
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Record pledge</Typography>

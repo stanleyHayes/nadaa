@@ -15,11 +15,6 @@ import {
   Paper,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -35,6 +30,7 @@ import type {
 } from "@nadaa/shared-types";
 import { CAMPAIGN_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
+import { DataTable, type DataColumn } from "./DataTable";
 import { EmptyState, SkeletonRows } from "./shared";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
@@ -69,19 +65,11 @@ export default function CampaignManagerPanel() {
   >({});
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
-  const [statusFilter, setStatusFilter] = useState<CampaignStatus | "all">(
-    "all",
-  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [form, setForm] = useState<CreateCampaignRequest>(buildDefaultForm());
-
-  const filteredCampaigns = useMemo(() => {
-    if (statusFilter === "all") return campaigns;
-    return campaigns.filter((c) => c.status === statusFilter);
-  }, [campaigns, statusFilter]);
 
   const fetchCampaigns = async (signal?: AbortSignal) => {
     setLoadState("loading");
@@ -254,6 +242,57 @@ export default function CampaignManagerPanel() {
     return { reach, engagement };
   }, [metricsMap]);
 
+  const campaignColumns: DataColumn<Campaign>[] = [
+    {
+      key: "title",
+      label: "Title",
+      render: (campaign) => (
+        <>
+          <Typography variant="subtitle2">{campaign.title}</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            {campaign.languages.join(", ")}
+          </Typography>
+        </>
+      ),
+    },
+    {
+      key: "hazard",
+      label: "Hazard",
+      render: (campaign) => campaign.hazardType,
+    },
+    {
+      key: "regions",
+      label: "Regions",
+      render: (campaign) => campaign.targetRegions.join(", "),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (campaign) => (
+        <Chip
+          size="small"
+          label={campaign.status}
+          color={
+            campaign.status === "published"
+              ? "success"
+              : campaign.status === "draft"
+                ? "default"
+                : "warning"
+          }
+        />
+      ),
+    },
+    {
+      key: "reach",
+      label: "Reach",
+      render: (campaign) => {
+        const metrics = metricsMap[campaign.id] ?? [];
+        const reach = metrics.reduce((sum, m) => sum + m.reach, 0);
+        return reach.toLocaleString();
+      },
+    },
+  ];
+
   return (
     <Paper className="surface">
       <Stack
@@ -351,96 +390,47 @@ export default function CampaignManagerPanel() {
           </Paper>
         </Grid>
       </Grid>
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{
-          alignItems: "center",
-          mb: 1.5
-        }}>
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
-          Filter by status:
-        </Typography>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel id="campaign-status-filter-label">Status</InputLabel>
-          <Select
-            labelId="campaign-status-filter-label"
-            label="Status"
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as CampaignStatus | "all")
-            }
-          >
-            {statusOptions.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Stack>
-      {filteredCampaigns.length ? (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Title</TableCell>
-              <TableCell>Hazard</TableCell>
-              <TableCell>Regions</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Reach</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredCampaigns.map((campaign) => {
-              const metrics = metricsMap[campaign.id] ?? [];
-              const reach = metrics.reduce((sum, m) => sum + m.reach, 0);
-              return (
-                <TableRow key={campaign.id} hover>
-                  <TableCell>
-                    <Typography variant="subtitle2">
-                      {campaign.title}
-                    </Typography>
-                    <Typography variant="caption" sx={{
-                      color: "text.secondary"
-                    }}>
-                      {campaign.languages.join(", ")}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{campaign.hazardType}</TableCell>
-                  <TableCell>{campaign.targetRegions.join(", ")}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={campaign.status}
-                      color={
-                        campaign.status === "published"
-                          ? "success"
-                          : campaign.status === "draft"
-                            ? "default"
-                            : "warning"
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>{reach.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Button size="small" onClick={() => openEdit(campaign)}>
-                      Edit
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      ) : (
-        <EmptyState
-          title="No campaigns"
-          detail="No campaigns match this filter. Adjust or clear the filters to see more."
-        />
-      )}
+      <DataTable<Campaign>
+        rows={campaigns}
+        columns={campaignColumns}
+        getRowKey={(campaign) => campaign.id}
+        searchOf={(campaign) =>
+          [
+            campaign.title,
+            campaign.hazardType,
+            campaign.targetRegions.join(" "),
+            campaign.languages.join(" "),
+          ].join(" ")
+        }
+        searchPlaceholder="Search campaigns by title"
+        filters={[
+          {
+            key: "status",
+            label: "Status",
+            options: Array.from(new Set(campaigns.map((c) => c.status))),
+            valueOf: (campaign) => campaign.status,
+          },
+          {
+            key: "hazard",
+            label: "Hazard",
+            options: Array.from(new Set(campaigns.map((c) => c.hazardType))),
+            valueOf: (campaign) => campaign.hazardType,
+          },
+        ]}
+        rowActions={(campaign) => (
+          <Button size="small" onClick={() => openEdit(campaign)}>
+            Edit
+          </Button>
+        )}
+        rowActionsLabel="Actions"
+        pageSize={8}
+        emptyState={
+          <EmptyState
+            title="No campaigns"
+            detail="No campaigns match this filter. Adjust or clear the filters to see more."
+          />
+        }
+      />
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}

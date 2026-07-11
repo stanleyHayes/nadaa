@@ -7,18 +7,15 @@ import {
   Divider,
   FormControlLabel,
   Grid,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
   Switch,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
@@ -26,6 +23,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   CheckCircle2,
+  Eye,
   GraduationCap,
   Loader2,
   MapPin,
@@ -46,7 +44,8 @@ import type {
 } from "@nadaa/shared-types";
 import { SCHOOL_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
-import { CommandSelect, ScrollableTable, SeverityChip } from "./shared";
+import { CommandSelect, EmptyState, SeverityChip } from "./shared";
+import { DataTable } from "./DataTable";
 import type {
   DrillFormState,
   ReadinessFormState,
@@ -761,75 +760,97 @@ export function SchoolPreparednessPanel() {
             </Grid>
           </Grid>
 
-          {filteredSchools.length ? (
-            <ScrollableTable label="School list table">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>School</TableCell>
-                    <TableCell>District</TableCell>
-                    <TableCell>Students</TableCell>
-                    <TableCell>Readiness</TableCell>
-                    <TableCell>Last drill</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredSchools
-                    .slice()
-                    .sort(
-                      (a, b) =>
-                        readinessStatusOrder[a.readinessStatus] -
-                        readinessStatusOrder[b.readinessStatus],
-                    )
-                    .map((school) => (
-                      <TableRow
-                        key={school.id}
-                        hover
-                        selected={school.id === selectedSchool?.id}
-                        onClick={() => {
-                          setSelectedSchoolId(school.id);
-                          setView("detail");
-                        }}
-                        className="incident-row"
-                      >
-                        <TableCell>
-                          <Typography variant="subtitle2">
-                            {school.name}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{school.district}</TableCell>
-                        <TableCell>
-                          {school.studentPopulation.toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={readinessLabel(school.readinessStatus)}
-                            style={{
-                              backgroundColor: readinessColor(
-                                school.readinessStatus,
-                              ),
-                              color: "#fff",
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {school.lastDrillDate
-                            ? new Date(
-                                school.lastDrillDate,
-                              ).toLocaleDateString()
-                            : "—"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </ScrollableTable>
-          ) : (
-            <Alert severity="info">
-              No schools match the selected district.
-            </Alert>
-          )}
+          <DataTable
+            rows={filteredSchools
+              .slice()
+              .sort(
+                (a, b) =>
+                  readinessStatusOrder[a.readinessStatus] -
+                  readinessStatusOrder[b.readinessStatus],
+              )}
+            getRowKey={(school) => school.id}
+            searchOf={(school) => `${school.name} ${school.district}`}
+            searchPlaceholder="Search schools"
+            filters={[
+              {
+                key: "readiness",
+                label: "Readiness",
+                options: Array.from(
+                  new Set(
+                    schools.map((school) =>
+                      readinessLabel(school.readinessStatus),
+                    ),
+                  ),
+                ),
+                valueOf: (school) => readinessLabel(school.readinessStatus),
+              },
+            ]}
+            columns={[
+              {
+                key: "name",
+                label: "School",
+                render: (school) => (
+                  <Typography variant="subtitle2">{school.name}</Typography>
+                ),
+              },
+              {
+                key: "district",
+                label: "District",
+                render: (school) => school.district,
+              },
+              {
+                key: "students",
+                label: "Students",
+                render: (school) => school.studentPopulation.toLocaleString(),
+              },
+              {
+                key: "readiness",
+                label: "Readiness",
+                render: (school) => (
+                  <Chip
+                    size="small"
+                    label={readinessLabel(school.readinessStatus)}
+                    style={{
+                      backgroundColor: readinessColor(school.readinessStatus),
+                      color: "#fff",
+                    }}
+                  />
+                ),
+              },
+              {
+                key: "lastDrill",
+                label: "Last drill",
+                render: (school) =>
+                  school.lastDrillDate
+                    ? new Date(school.lastDrillDate).toLocaleDateString()
+                    : "—",
+              },
+            ]}
+            rowActions={(school) => (
+              <Tooltip title="View profile">
+                <IconButton
+                  size="small"
+                  aria-label={`View ${school.name}`}
+                  onClick={() => {
+                    setSelectedSchoolId(school.id);
+                    setView("detail");
+                  }}
+                >
+                  <Eye size={16} />
+                </IconButton>
+              </Tooltip>
+            )}
+            emptyState={
+              loadState === "loading" ? (
+                <Box sx={{ py: 3 }} />
+              ) : (
+                <EmptyState
+                  title="No schools"
+                  detail="No schools match the selected district."
+                />
+              )
+            }
+          />
         </Stack>
       )}
       {view === "detail" && (
