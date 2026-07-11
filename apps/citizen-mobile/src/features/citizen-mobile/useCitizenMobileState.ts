@@ -174,7 +174,9 @@ export function useCitizenMobileState() {
       // The OS notification channel handles Do-Not-Disturb; a level-5 emergency
       // overrides it. Seed seen ids when we can't/shouldn't notify.
       if (alertsSeeded.current && permissions.push === "granted") {
-        void notifyNewAlerts(nextAlerts, seenAlertIds.current);
+        void notifyNewAlerts(nextAlerts, seenAlertIds.current).catch(
+          () => undefined,
+        );
       } else {
         nextAlerts
           .filter((alert) => alert.status === "current")
@@ -348,11 +350,19 @@ export function useCitizenMobileState() {
       message: permissionMessage(key, nextStatus),
     });
     if (key === "push") {
-      setPushState(await registerPushToken(nextStatus === "granted"));
-      if (nextStatus === "granted") {
-        // Ask the OS for notification permission (incl. iOS critical alerts).
-        await requestAlertPermission();
+      // Pin the permission to the REAL OS answer, not just the in-app toggle —
+      // otherwise notifications are scheduled but silently dropped.
+      let granted = nextStatus === "granted";
+      if (granted) {
+        granted = await requestAlertPermission();
       }
+      const resolved = granted ? "granted" : "denied";
+      setPermissions((current) => ({ ...current, push: resolved }));
+      setLoadState({
+        status: granted ? "success" : "idle",
+        message: permissionMessage("push", resolved),
+      });
+      setPushState(await registerPushToken(granted));
     }
   }
 

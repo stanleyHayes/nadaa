@@ -87,7 +87,7 @@ export async function presentAlertNotification(
     content: {
       title: alert.title,
       body: alert.message,
-      sound: "default",
+      sound: emergency ? "defaultCritical" : "default",
       interruptionLevel: emergency ? "critical" : "timeSensitive",
       data: { id: alert.id, severity: alert.severity },
     },
@@ -107,9 +107,15 @@ export async function notifyNewAlerts(
   const fresh = alerts.filter(
     (alert) => alert.status === "current" && !seen.has(alert.id),
   );
+  const delivered: CitizenAlertFeedItem[] = [];
   for (const alert of fresh) {
-    seen.add(alert.id);
-    await presentAlertNotification(alert);
+    try {
+      await presentAlertNotification(alert);
+      seen.add(alert.id);
+      delivered.push(alert);
+    } catch {
+      // Leave un-seen so a transient failure retries on the next refresh.
+    }
   }
-  return fresh;
+  return delivered;
 }

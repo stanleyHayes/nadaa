@@ -84,7 +84,7 @@ export async function presentIncidentNotification(
     content: {
       title: critical ? "Life-threatening incident" : "New incident in queue",
       body: incident.description,
-      sound: "default",
+      sound: critical ? "defaultCritical" : "default",
       interruptionLevel: critical ? "critical" : "timeSensitive",
       data: { id: incident.id, urgency: incident.urgency },
     },
@@ -106,9 +106,15 @@ export async function notifyNewIncidents(
       incident.status !== "closed" &&
       incident.status !== "false_report",
   );
+  const delivered: IncidentRecord[] = [];
   for (const incident of fresh) {
-    seen.add(incident.id);
-    await presentIncidentNotification(incident);
+    try {
+      await presentIncidentNotification(incident);
+      seen.add(incident.id);
+      delivered.push(incident);
+    } catch {
+      // Leave un-seen so a transient failure retries on the next refresh.
+    }
   }
-  return fresh;
+  return delivered;
 }

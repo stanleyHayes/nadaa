@@ -198,7 +198,9 @@ export function useDispatcherMobileState() {
       // Notify for newly-arrived active incidents (never on the first load).
       // The OS channel handles DND; a life-threatening incident overrides it.
       if (incidentsSeeded.current && permissions.push === "granted") {
-        void notifyNewIncidents(nextIncidents, seenIncidentIds.current);
+        void notifyNewIncidents(nextIncidents, seenIncidentIds.current).catch(
+          () => undefined,
+        );
       } else {
         nextIncidents.forEach((incident) =>
           seenIncidentIds.current.add(incident.id),
@@ -459,11 +461,19 @@ export function useDispatcherMobileState() {
       message: permissionMessage(key, nextStatus),
     });
     if (key === "push") {
-      setPushState(await registerPushToken(nextStatus === "granted"));
-      if (nextStatus === "granted") {
-        // Ask the OS for notification permission (incl. iOS critical alerts).
-        await requestIncidentPermission();
+      // Pin the permission to the REAL OS answer, not just the in-app toggle —
+      // otherwise notifications are scheduled but silently dropped.
+      let granted = nextStatus === "granted";
+      if (granted) {
+        granted = await requestIncidentPermission();
       }
+      const resolved = granted ? "granted" : "denied";
+      setPermissions((current) => ({ ...current, push: resolved }));
+      setLoadState({
+        status: granted ? "success" : "idle",
+        message: permissionMessage("push", resolved),
+      });
+      setPushState(await registerPushToken(granted));
     }
   }
 
