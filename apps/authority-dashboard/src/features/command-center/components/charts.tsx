@@ -195,7 +195,13 @@ export function ProgressRing({
   const dash = (pct / 100) * circumference;
   return (
     <Box sx={{ position: "relative", width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img">
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label={label ? `${label}: ${pct}%` : `${pct}%`}
+      >
         <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
           <circle
             cx={size / 2}

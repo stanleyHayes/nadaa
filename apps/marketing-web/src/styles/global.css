@@ -779,6 +779,9 @@ textarea {
   color: var(--nadaa-white);
   background: transparent;
   box-shadow: none;
+  /* Keep the white label legible while the navy pill slides in/out beneath it
+     (invisible over the settled navy pill, a halo over the light bar in transit). */
+  text-shadow: 0 1px 4px color-mix(in srgb, var(--nadaa-navy) 68%, transparent);
 }
 
 /* The single navy highlight that slides between desktop pills. */

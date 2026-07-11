@@ -242,7 +242,7 @@ function AlertsFeed() {
 
   async function fetchAlertFeed() {
     if (!navigator.onLine) {
-      setAlertFeed([]);
+      // Keep the last-known warnings on screen; only report the connection issue.
       setAlertFeedState({
         status: "error",
         message: "Alert feed needs a connection. Reconnect and try again.",
@@ -269,8 +269,10 @@ function AlertsFeed() {
         (alert) => !seenAlertIds.current.has(alert.id),
       );
       fresh.forEach((alert) => seenAlertIds.current.add(alert.id));
-      if (seededRef.current && fresh.length > 0) {
-        const loudest = fresh.reduce((max, alert) =>
+      // Only chime for newly-arrived CURRENT warnings, never upcoming/expired.
+      const freshCurrent = fresh.filter((alert) => alert.status === "current");
+      if (seededRef.current && freshCurrent.length > 0) {
+        const loudest = freshCurrent.reduce((max, alert) =>
           severityRank(alert.severity) > severityRank(max.severity) ? alert : max,
         );
         if (
@@ -289,7 +291,7 @@ function AlertsFeed() {
         message: `Alert feed updated ${formatDateTime(payload.generatedAt)}.`,
       });
     } catch {
-      setAlertFeed([]);
+      // Keep the last-known warnings on screen rather than wiping them.
       setAlertFeedState({
         status: "error",
         message: "Couldn't reach the alerts service. Try refreshing.",

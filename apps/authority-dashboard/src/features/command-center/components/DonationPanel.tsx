@@ -850,6 +850,7 @@ export function DonationPanel({
         </Stack>
         {entityTab === 0 ? (
           <DataTable
+            key="aid-requests"
             rows={activeAidRequests}
             getRowKey={(request) => request.id}
             searchOf={(request) =>
@@ -968,6 +969,7 @@ export function DonationPanel({
           />
         ) : (
           <DataTable
+            key="pledges"
             rows={pledges}
             getRowKey={(pledge) => pledge.id}
             searchOf={(pledge) => `${pledge.reference} ${pledge.donorName}`}

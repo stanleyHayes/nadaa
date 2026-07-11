@@ -448,28 +448,11 @@ export default function DamageClaimsPanel() {
           <DataTable
             rows={claims}
             getRowKey={(claim) => claim.id}
-            searchOf={(claim) =>
-              `${claim.reference} ${claim.reporter.name} ${claim.damageType} ${claim.incidentReference ?? ""} ${claim.location.address ?? ""}`
-            }
-            searchPlaceholder="Search by reference, reporter, type or address"
             filters={[
               {
-                key: "verificationStatus",
-                label: "Verification",
-                options: Array.from(
-                  new Set(claims.map((claim) => claim.verificationStatus)),
-                ),
-                valueOf: (claim) => claim.verificationStatus,
-              },
-              {
-                key: "status",
-                label: "Status",
-                options: Array.from(
-                  new Set(claims.map((claim) => claim.status)),
-                ),
-                valueOf: (claim) => claim.status,
-              },
-              {
+                // Verification, Status and Search are already handled server-side
+                // by the toolbar above; only Category (damage type) has no server
+                // control, so keep just that one here to avoid duplicate/conflicting filters.
                 key: "damageType",
                 label: "Category",
                 options: Array.from(

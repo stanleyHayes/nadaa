@@ -1,5 +1,3 @@
-import { signOutAdmin } from "@/app/session";
-
 /**
  * Raised when a request is rejected because the session is no longer valid.
  * Callers can let it propagate — the session has already been cleared, so the
@@ -20,7 +18,8 @@ export class SessionExpiredError extends Error {
  */
 export function handleUnauthorized(response: Response): void {
   if (response.status === 401) {
-    signOutAdmin();
+    // The global 401 guard (installUnauthorizedRedirect) already clears the
+    // session for every fetch; just unwind this request.
     throw new SessionExpiredError();
   }
 }
