@@ -18,6 +18,7 @@ import {
   TriageLadder,
 } from "../primitives";
 import { StatusLine } from "../shared";
+import { DonutChart, ProgressRing } from "../charts";
 
 function utilizationTone(pct: number): "green" | "gold" | "red" {
   if (pct >= 90) {
@@ -104,6 +105,24 @@ export function OverviewView({
     { label: "Approved", value: approvedAlerts },
     { label: "Live", value: liveAlerts },
   ];
+
+  const resolved = incidents.filter(
+    (incident) =>
+      incident.status === "contained" ||
+      incident.status === "recovery_ongoing" ||
+      incident.status === "closed",
+  ).length;
+  const statusMix = [
+    { label: "New / review", value: newReports, color: "var(--nadaa-gold)" },
+    { label: "En route / on scene", value: enRoute, color: "var(--nadaa-navy)" },
+    { label: "Resolved / closed", value: resolved, color: "var(--nadaa-green)" },
+  ];
+  const occupancyColor =
+    utilization >= 90
+      ? "var(--nadaa-red)"
+      : utilization >= 70
+        ? "var(--nadaa-gold)"
+        : "var(--nadaa-green)";
 
   const feedLabel =
     loadState === "ready"
@@ -269,6 +288,52 @@ export function OverviewView({
               {topShelters.length === 0 ? (
                 <p className="cc-muted-note">No shelters are loaded yet.</p>
               ) : null}
+            </Stack>
+          </SectionCard>
+        </Grid>
+      </Grid>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <SectionCard
+            title="Response status"
+            eyebrow="Incidents by stage"
+            icon={Siren}
+            accent="red"
+          >
+            <DonutChart
+              data={statusMix}
+              centerValue={active.length}
+              centerLabel="active"
+            />
+          </SectionCard>
+        </Grid>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <SectionCard
+            title="Shelter occupancy"
+            eyebrow="Network utilisation"
+            icon={LifeBuoy}
+            accent="green"
+          >
+            <Stack
+              direction="row"
+              spacing={2.5}
+              sx={{ alignItems: "center", flexWrap: "wrap" }}
+            >
+              <ProgressRing
+                value={utilization}
+                color={occupancyColor}
+                label="occupied"
+              />
+              <Stack spacing={0.5}>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  {totalOccupancy.toLocaleString()} of{" "}
+                  {totalCapacity.toLocaleString()} places
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  {shelters.length} shelters · {reliefPoints.length} relief
+                  points
+                </Typography>
+              </Stack>
             </Stack>
           </SectionCard>
         </Grid>
