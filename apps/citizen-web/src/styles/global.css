@@ -2103,3 +2103,22 @@ body {
   --citizen-navy: #0d1b3d;
 }
 
+
+/* Nav pill active change: lift the newly-active pill for a visible transition. */
+.citizen-router-nav a {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.citizen-router-nav a.is-active {
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .citizen-router-nav a {
+    transition: none;
+  }
+}

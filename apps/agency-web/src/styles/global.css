@@ -2141,3 +2141,28 @@ body {
     animation: none;
   }
 }
+
+/* Smooth active-indicator transition in the sidebar nav (was an instant jump). */
+.cc-nav__item {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    transform 200ms ease;
+}
+
+.cc-nav__item.is-active {
+  transform: translateX(2px);
+}
+
+.cc-nav__list > li::before {
+  transition:
+    height 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-nav__item,
+  .cc-nav__list > li::before {
+    transition: none;
+  }
+}
