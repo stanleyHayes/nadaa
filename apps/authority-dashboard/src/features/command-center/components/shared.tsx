@@ -588,7 +588,9 @@ export function EmptyState({
         alignItems: "center",
         justifyContent: "center"
       }}>
-      <Crosshair size={28} color="var(--nadaa-slate)" />
+      <span aria-hidden="true" className="empty-state__icon">
+        <Crosshair size={28} strokeWidth={1.75} />
+      </span>
       <Typography variant="subtitle2">{title}</Typography>
       <Typography
         variant="body2"

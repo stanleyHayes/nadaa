@@ -74,7 +74,9 @@ export function EmptyState({
       <Stack spacing={1} sx={{
         alignItems: "center"
       }}>
-        <ShieldCheck size={30} color="var(--nadaa-slate)" />
+        <span aria-hidden="true" className="empty-state__icon">
+          <ShieldCheck size={30} strokeWidth={1.75} />
+        </span>
         <Typography variant="subtitle1" sx={{
           fontWeight: 800
         }}>

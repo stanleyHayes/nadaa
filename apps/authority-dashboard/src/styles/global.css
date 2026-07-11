@@ -366,9 +366,69 @@ body {
 }
 
 .empty-state {
-  min-height: 160px;
-  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: clamp(2.5rem, 6vh, 4rem) 24px;
+  text-align: center;
 }
+
+.empty-state__icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  color: var(--nadaa-navy);
+  background: color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
+  animation: empty-float 3s ease-in-out infinite;
+}
+
+.empty-state__icon::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--nadaa-navy) 32%, transparent);
+  animation: empty-halo 2.8s ease-out infinite;
+}
+
+@keyframes empty-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes empty-halo {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-state__icon,
+  .empty-state__icon::before {
+    animation: none;
+  }
+}
+
 
 .MuiButton-root {
   min-height: 44px;
