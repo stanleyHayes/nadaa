@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Divider,
   Drawer,
@@ -74,6 +81,35 @@ export function CitizenLayout() {
   const mode = useThemeMode();
   const isDark = mode === "dark";
 
+  // Sliding pill indicator for the desktop nav — moves to the active pill so
+  // route changes slide smoothly instead of jumping.
+  const navRef = useRef<HTMLElement>(null);
+  const [pillStyle, setPillStyle] = useState<CSSProperties>({ opacity: 0 });
+
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) {
+      return;
+    }
+    const measure = () => {
+      const active = nav.querySelector<HTMLElement>("a.is-active");
+      if (!active) {
+        setPillStyle((prev) => ({ ...prev, opacity: 0 }));
+        return;
+      }
+      setPillStyle({
+        opacity: 1,
+        width: active.offsetWidth,
+        height: active.offsetHeight,
+        top: active.offsetTop,
+        transform: `translateX(${active.offsetLeft}px)`,
+      });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [pathname]);
+
   const unread = useMemo(
     () => notifications.filter((item) => !item.read).length,
     [notifications],
@@ -119,7 +155,16 @@ export function CitizenLayout() {
           </span>
         </NavLink>
 
-        <nav aria-label="Citizen sections" className="citizen-router-nav">
+        <nav
+          aria-label="Citizen sections"
+          className="citizen-router-nav"
+          ref={navRef}
+        >
+          <span
+            aria-hidden="true"
+            className="nav-pill-indicator"
+            style={pillStyle}
+          />
           {navItems.map((item) => (
             <NavLink
               className={navClass}

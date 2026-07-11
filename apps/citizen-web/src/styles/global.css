@@ -2113,12 +2113,47 @@ body {
     transform 200ms ease;
 }
 
-.citizen-router-nav a.is-active {
-  transform: translateY(-1px);
-}
 
 @media (prefers-reduced-motion: reduce) {
   .citizen-router-nav a {
     transition: none;
+  }
+}
+
+/* Sliding gold pill indicator for the citizen desktop nav (smooth active move). */
+.citizen-router-nav {
+  position: relative;
+}
+
+.citizen-router-nav a {
+  position: relative;
+  z-index: 1;
+}
+
+.citizen-router-nav a.is-active,
+.citizen-router-nav a.is-active:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+.citizen-router-nav .nav-pill-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  border-radius: var(--nadaa-radius-full, 999px);
+  background: color-mix(in srgb, var(--nadaa-gold) 90%, var(--nadaa-white));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--nadaa-gold) 42%, transparent);
+  pointer-events: none;
+  transition:
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 360ms ease,
+    opacity 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .citizen-router-nav .nav-pill-indicator {
+    transition: opacity 200ms ease;
   }
 }

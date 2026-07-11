@@ -13,8 +13,8 @@ import {
   Workflow,
   X,
 } from "lucide-react";
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { nadaaBrand } from "@nadaa/brand";
 import { marketingLinks } from "@/app/config";
 import { toggleThemeMode, useThemeMode } from "@/app/theme-mode";
@@ -33,6 +33,36 @@ export function SiteHeader() {
   const isDark = mode === "dark";
   const navClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? "is-active" : undefined;
+
+  // Sliding pill indicator: measure the active desktop pill and move a single
+  // highlight to it, so switching routes slides smoothly instead of jumping.
+  const { pathname } = useLocation();
+  const navRef = useRef<HTMLElement>(null);
+  const [pillStyle, setPillStyle] = useState<CSSProperties>({ opacity: 0 });
+
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) {
+      return;
+    }
+    const measure = () => {
+      const active = nav.querySelector<HTMLElement>("a.is-active");
+      if (!active) {
+        setPillStyle((prev) => ({ ...prev, opacity: 0 }));
+        return;
+      }
+      setPillStyle({
+        opacity: 1,
+        width: active.offsetWidth,
+        height: active.offsetHeight,
+        top: active.offsetTop,
+        transform: `translateX(${active.offsetLeft}px)`,
+      });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [pathname]);
 
   return (
     <>
@@ -78,7 +108,13 @@ export function SiteHeader() {
           aria-label="Primary"
           className={menuOpen ? "site-nav is-open" : "site-nav"}
           id="primary-nav"
+          ref={navRef}
         >
+          <span
+            aria-hidden="true"
+            className="nav-pill-indicator"
+            style={pillStyle}
+          />
           {pages.map((page) => {
             const Icon = page.icon;
             return (

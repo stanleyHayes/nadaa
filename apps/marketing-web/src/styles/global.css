@@ -743,6 +743,7 @@ textarea {
 
 /* Segmented pill navigation rail. */
 .site-nav {
+  position: relative;
   gap: 2px;
   padding: 5px;
   border: 1px solid color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
@@ -753,6 +754,8 @@ textarea {
 }
 
 .site-nav a {
+  position: relative;
+  z-index: 1;
   min-height: 40px;
   padding: 0 16px;
   border-bottom: none;
@@ -771,15 +774,34 @@ textarea {
   background: color-mix(in srgb, var(--nadaa-navy) 7%, transparent);
 }
 
-.site-nav a.is-active {
-  color: var(--nadaa-white);
-  background: var(--nadaa-navy);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--nadaa-navy) 32%, transparent);
-}
-
+.site-nav a.is-active,
 .site-nav a.is-active:hover {
   color: var(--nadaa-white);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The single navy highlight that slides between desktop pills. */
+.nav-pill-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  border-radius: var(--nadaa-radius-full, 999px);
   background: var(--nadaa-navy);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--nadaa-navy) 32%, transparent);
+  pointer-events: none;
+  transition:
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 360ms ease,
+    opacity 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-pill-indicator {
+    transition: opacity 200ms ease;
+  }
 }
 
 /* Row icon + chevron belong to the mobile menu; the desktop nav is a pill bar. */
@@ -999,6 +1021,10 @@ textarea {
   .site-nav.is-open {
     display: grid;
     animation: nav-menu-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .nav-pill-indicator {
+    display: none;
   }
 
   .site-nav a {
@@ -2832,8 +2858,3 @@ textarea {
     transform 180ms ease;
 }
 
-@media (min-width: 761px) {
-  .site-nav a.is-active {
-    transform: translateY(-1px);
-  }
-}
