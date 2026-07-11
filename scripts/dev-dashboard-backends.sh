@@ -29,7 +29,7 @@ start school-service       school       PORT                    9424
 start imagery-service      imagery      PORT                    9425
 # auth-service alone does real token auth; the demo dashboards send the shared
 # X-NADAA-* actor headers, so opt this dev instance into mock-actor parity.
-start auth-service         auth         NADAA_AUTH_ADDR         9426  NADAA_AUTH_ALLOW_MOCK_ACTORS=true
+start auth-service         auth         NADAA_AUTH_ADDR         9426  NADAA_AUTH_ALLOW_MOCK_ACTORS=true NADAA_AUTH_ALLOW_INSECURE_SECRET=true
 start integration-service  integration  NADAA_INTEGRATION_ADDR  9427
 
 sleep 6

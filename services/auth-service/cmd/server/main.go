@@ -19,6 +19,9 @@ const serviceName = "auth-service"
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("%s: invalid configuration: %v", serviceName, err)
+	}
 	s := store.NewMemoryStore(time.Now().UTC(), cfg)
 	srv := handlers.NewServer(s, time.Now, cfg)
 

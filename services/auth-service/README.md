@@ -49,6 +49,10 @@ Set `NADAA_AUTH_EXPOSE_DEV_OTP=true` only for local development or automated tes
 
 Set `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` to let agency endpoints accept the shared `X-NADAA-Actor-ID` / `X-NADAA-Agency-ID` / `X-NADAA-Actor-Role` / `X-NADAA-MFA-Completed` headers instead of a verified session token, matching the mock-auth scheme the other services use. This trusts client-supplied role headers and therefore bypasses real authentication, so it is **off by default and must never be enabled in production** — leave it unset there and require signed tokens.
 
+## Token signing secret (required)
+
+`NADAA_AUTH_TOKEN_SECRET` signs every citizen and agency bearer token (HMAC-SHA256). It is **required**: the service refuses to start if it is empty, equals the placeholder `dev-secret-change-me`, or is shorter than 32 bytes — because a build shipping with the placeholder can have its tokens forged and its RBAC bypassed. Set a strong random value in every real environment. For local development only, set `NADAA_AUTH_ALLOW_INSECURE_SECRET=true` to bypass this check (the dev backend script already does).
+
 ## Run
 
 ```bash
