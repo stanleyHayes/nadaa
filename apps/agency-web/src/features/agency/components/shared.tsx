@@ -14,6 +14,7 @@ import {
   AlertOctagon,
   AlertTriangle,
   CheckCircle2,
+  Inbox,
   Info,
   MapPin,
   Users,
@@ -44,11 +45,25 @@ export function LoadingState({ message }: { message?: string }) {
   );
 }
 
-export function EmptyState({ message }: { message: string }) {
+export function EmptyState({
+  message,
+  title = "Nothing to show yet",
+}: {
+  message: string;
+  title?: string;
+}) {
   return (
-    <Alert severity="info" sx={{ mt: 2 }}>
-      {message}
-    </Alert>
+    <Stack className="empty-state" spacing={1} sx={{ alignItems: "center" }}>
+      <span aria-hidden="true" className="empty-state__icon">
+        <Inbox size={28} strokeWidth={1.75} />
+      </span>
+      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+        {title}
+      </Typography>
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        {message}
+      </Typography>
+    </Stack>
   );
 }
 
