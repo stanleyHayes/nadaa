@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   HospitalCapacityRecord,
   IncidentRecord,
@@ -35,6 +35,11 @@ import {
   writeSession,
 } from "./offline";
 import { nextPermissionStatus, permissionMessage } from "./permissions";
+import {
+  configureIncidentNotifications,
+  notifyNewIncidents,
+  requestIncidentPermission,
+} from "./incidentNotifications";
 import type {
   AuthFormState,
   AssignmentFormState,
@@ -86,8 +91,12 @@ export function useDispatcherMobileState() {
   const [timelineNoteForm, setTimelineNoteForm] =
     useState<TimelineNoteFormState>(initialTimelineNoteForm);
 
+  const seenIncidentIds = useRef<Set<string>>(new Set());
+  const incidentsSeeded = useRef(false);
+
   useEffect(() => {
     void hydrate();
+    void configureIncidentNotifications();
   }, []);
 
   const selectedIncident = useMemo(
@@ -186,6 +195,16 @@ export function useDispatcherMobileState() {
     try {
       const nextIncidents = await fetchIncidentQueue(session);
       setIncidents(nextIncidents);
+      // Notify for newly-arrived active incidents (never on the first load).
+      // The OS channel handles DND; a life-threatening incident overrides it.
+      if (incidentsSeeded.current && permissions.push === "granted") {
+        void notifyNewIncidents(nextIncidents, seenIncidentIds.current);
+      } else {
+        nextIncidents.forEach((incident) =>
+          seenIncidentIds.current.add(incident.id),
+        );
+      }
+      incidentsSeeded.current = true;
       await writeIncidentCache(storage, {
         cachedAt: new Date().toISOString(),
         incidents: nextIncidents,
@@ -441,6 +460,10 @@ export function useDispatcherMobileState() {
     });
     if (key === "push") {
       setPushState(await registerPushToken(nextStatus === "granted"));
+      if (nextStatus === "granted") {
+        // Ask the OS for notification permission (incl. iOS critical alerts).
+        await requestIncidentPermission();
+      }
     }
   }
 
