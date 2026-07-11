@@ -2619,3 +2619,113 @@ textarea {
   /* Keep white-as-inverse-text + white-glass overlays actually light. */
   --nadaa-white: #ffffff;
 }
+
+/* ------------------------------------------------------------------ *
+ * Extra brand watermarks — faint radar rings / flood contours behind
+ * the home bands, footer, and cards. Pseudo-elements carry the opacity
+ * so content stays crisp; content is lifted above with z-index.
+ * ------------------------------------------------------------------ */
+.loop-card,
+.service-card,
+.feature-card,
+.role-card,
+.statement-band,
+.site-footer,
+.cta-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.loop-card::after,
+.service-card::after,
+.feature-card::after,
+.role-card::after {
+  content: "";
+  position: absolute;
+  right: -30px;
+  bottom: -36px;
+  width: 150px;
+  height: 150px;
+  background: url("/patterns/radar-rings.svg") no-repeat center / contain;
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.loop-card > *,
+.service-card > *,
+.feature-card > *,
+.role-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.statement-band::after {
+  content: "";
+  position: absolute;
+  right: -80px;
+  top: -40px;
+  width: clamp(280px, 36vw, 520px);
+  height: clamp(280px, 36vw, 520px);
+  background: url("/patterns/flood-contours.svg") no-repeat center / contain;
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.statement-band > * {
+  position: relative;
+  z-index: 1;
+}
+
+.site-footer::before {
+  content: "";
+  position: absolute;
+  right: -70px;
+  bottom: -90px;
+  width: 320px;
+  height: 320px;
+  background: url("/patterns/radar-rings.svg") no-repeat center / contain;
+  opacity: 0.045;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.site-footer > * {
+  position: relative;
+  z-index: 1;
+}
+
+.cta-card::after {
+  content: "";
+  position: absolute;
+  left: -50px;
+  bottom: -60px;
+  width: 240px;
+  height: 240px;
+  background: url("/patterns/radar-rings-light.svg") no-repeat center / contain;
+  opacity: 0.09;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cta-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .loop-card::after,
+  .service-card::after,
+  .feature-card::after,
+  .role-card::after {
+    transition: transform 240ms ease, opacity 240ms ease;
+  }
+  .loop-card:hover::after,
+  .service-card:hover::after,
+  .feature-card:hover::after,
+  .role-card:hover::after {
+    transform: scale(1.08) rotate(-4deg);
+    opacity: 0.09;
+  }
+}
