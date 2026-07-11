@@ -31,7 +31,7 @@ import {
   metersLabel,
 } from "../utils";
 
-import { CommandSelect, EmptyState, Fact } from "./shared";
+import { CommandSelect, EmptyState, Fact, SkeletonRows } from "./shared";
 
 export function HospitalCapacityPanel({
   facilities,
@@ -130,9 +130,7 @@ export function HospitalCapacityPanel({
           {loadMessage}
         </Alert>
       ) : null}
-      {loadState === "loading" ? (
-        <LinearProgress className="feed-progress" />
-      ) : null}
+      {loadState === "loading" ? <SkeletonRows /> : null}
       <Grid container spacing={1.5} className="capacity-filters">
         <Grid size={{ xs: 12, md: 3 }}>
           <CommandSelect

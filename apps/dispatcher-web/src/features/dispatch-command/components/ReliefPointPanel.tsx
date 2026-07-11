@@ -4,7 +4,6 @@ import {
   Button,
   Chip,
   Grid,
-  LinearProgress,
   Paper,
   Stack,
   Typography,
@@ -17,7 +16,7 @@ import type { ReliefPointRecord } from "@nadaa/shared-types";
 
 import type { CapacityLoadState } from "../types";
 
-import { EmptyState } from "./shared";
+import { EmptyState, SkeletonRows } from "./shared";
 
 export function ReliefPointPanel({
   loadMessage,
@@ -90,7 +89,7 @@ export function ReliefPointPanel({
         </Stack>
       </Stack>
       {loadState === "loading" ? (
-        <LinearProgress />
+        <SkeletonRows />
       ) : loadState === "fallback" || loadState === "empty" ? (
         <Alert severity={loadState === "empty" ? "info" : "warning"}>
           {loadMessage}

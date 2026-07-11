@@ -5,7 +5,6 @@ import {
   Button,
   Chip,
   Grid,
-  LinearProgress,
   Paper,
   Stack,
   Typography,
@@ -30,7 +29,7 @@ import {
   SHELTER_API_BASE,
 } from "@/app/config";
 import { PageBanner } from "../components/PageBanner";
-import { PageHeader, Reveal, RoutePlanner } from "../components";
+import { PageHeader, Reveal, RoutePlanner, SkeletonRows } from "../components";
 import { areaPresets } from "../data";
 import type { RiskState, ShelterState } from "../types";
 import {
@@ -250,7 +249,7 @@ function ShelterResources() {
               ) : null}
               <Stack spacing={1.25}>
                 {shelterState.status === "loading" ? (
-                  <LinearProgress className="feed-progress" />
+                  <SkeletonRows />
                 ) : shelterSupport && shelterSupport.shelters.length > 0 ? (
                   shelterSupport.shelters.map((shelter) => (
                     <Paper
@@ -320,7 +319,7 @@ function ShelterResources() {
               />
               <Stack spacing={1.25}>
                 {shelterState.status === "loading" ? (
-                  <LinearProgress className="feed-progress" />
+                  <SkeletonRows />
                 ) : reliefPoints && reliefPoints.reliefPoints.length > 0 ? (
                   reliefPoints.reliefPoints.map((point) => (
                     <Paper
@@ -397,7 +396,7 @@ function ShelterResources() {
               />
               <Stack spacing={1.25}>
                 {shelterState.status === "loading" ? (
-                  <LinearProgress className="feed-progress" />
+                  <SkeletonRows />
                 ) : shelterSupport &&
                   shelterSupport.recoverySupport.length > 0 ? (
                   shelterSupport.recoverySupport.map((support) => (
@@ -462,7 +461,7 @@ function ShelterResources() {
               />
               <Stack spacing={1.25}>
                 {riskState.status === "loading" ? (
-                  <LinearProgress className="feed-progress" />
+                  <SkeletonRows />
                 ) : riskState.status === "error" ? (
                   <Alert severity="error" className="warning-alert">
                     {riskState.message}

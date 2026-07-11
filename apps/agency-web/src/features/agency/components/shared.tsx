@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Stack,
   Typography,
 } from "@mui/material";
@@ -24,6 +23,26 @@ import type { IncidentRecord } from "@nadaa/shared-types";
 import { hazardLabel, severityLabel } from "../data";
 import { mapHazardRole, mapSeverityRole } from "../utils";
 
+/**
+ * Loading skeleton — shimmering placeholder rows shown while content loads,
+ * in place of a progress bar or spinner.
+ */
+export function SkeletonRows({
+  rows = 3,
+  height = 46,
+}: {
+  rows?: number;
+  height?: number;
+}) {
+  return (
+    <Stack aria-hidden spacing={1.25} sx={{ my: 1 }}>
+      {Array.from({ length: rows }).map((_, index) => (
+        <div className="nadaa-skeleton" key={index} style={{ height }} />
+      ))}
+    </Stack>
+  );
+}
+
 export function LoadingState({ message }: { message?: string }) {
   return (
     <Box
@@ -36,7 +55,7 @@ export function LoadingState({ message }: { message?: string }) {
       <Stack spacing={2} sx={{
         alignItems: "center"
       }}>
-        <CircularProgress />
+        <SkeletonRows rows={4} />
         <Typography sx={{
           color: "text.secondary"
         }}>{message ?? "Loading"}</Typography>

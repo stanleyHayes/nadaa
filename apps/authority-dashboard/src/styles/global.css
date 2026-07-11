@@ -2408,3 +2408,32 @@ body {
     transition: none;
   }
 }
+
+/* Skeleton placeholder shimmer for content that is loading. */
+.nadaa-skeleton {
+  height: 46px;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    var(--nadaa-mist) 25%,
+    color-mix(in srgb, var(--nadaa-navy) 7%, var(--nadaa-mist)) 37%,
+    var(--nadaa-mist) 63%
+  );
+  background-size: 400% 100%;
+  animation: nadaa-shimmer 1.4s ease infinite;
+}
+
+@keyframes nadaa-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nadaa-skeleton {
+    animation: none;
+  }
+}

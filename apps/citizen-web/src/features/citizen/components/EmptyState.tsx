@@ -55,3 +55,23 @@ export function EmptyState({
     </Stack>
   );
 }
+
+/**
+ * Loading skeleton — shimmering placeholder rows shown while content loads,
+ * in place of a progress bar or spinner.
+ */
+export function SkeletonRows({
+  rows = 3,
+  height = 46,
+}: {
+  rows?: number;
+  height?: number;
+}) {
+  return (
+    <Stack aria-hidden spacing={1.25} sx={{ my: 1 }}>
+      {Array.from({ length: rows }).map((_, index) => (
+        <div className="nadaa-skeleton" key={index} style={{ height }} />
+      ))}
+    </Stack>
+  );
+}

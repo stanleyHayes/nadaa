@@ -8,7 +8,6 @@ import {
   DialogTitle,
   Grid,
   IconButton,
-  LinearProgress,
   MenuItem,
   Stack,
   Table,
@@ -36,6 +35,7 @@ import {
   IncidentMap,
   PrivacyChip,
   SeverityChip,
+  SkeletonRows,
 } from "../shared";
 import { IncidentDetailPanel } from "../IncidentDetailPanel";
 import { SectionCard } from "../primitives";
@@ -140,9 +140,7 @@ export function IncidentsView({ data }: { data: DispatchData }) {
           </Button>
         </Stack>
       </Stack>
-      {loadState === "loading" ? (
-        <LinearProgress className="feed-progress" />
-      ) : null}
+      {loadState === "loading" ? <SkeletonRows /> : null}
       <SectionCard title="Filters" eyebrow="Narrow the queue" icon={Filter}>
         <Grid container spacing={1.5}>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>

@@ -10,7 +10,6 @@ import {
   Alert,
   Button,
   Chip,
-  LinearProgress,
   Paper,
   Stack,
   Typography,
@@ -29,6 +28,7 @@ import {
   EmptyState,
   PageHeader,
   Reveal,
+  SkeletonRows,
   type DataTableColumn,
   type DataTableFilter,
   type DetailField,
@@ -336,7 +336,7 @@ function AlertsFeed() {
           />
 
           {alertFeedState.status === "loading" ? (
-            <LinearProgress className="feed-progress" />
+            <SkeletonRows />
           ) : null}
           {alertFeedState.status === "error" ? (
             <Alert severity="error" className="warning-alert">

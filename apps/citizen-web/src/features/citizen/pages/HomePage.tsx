@@ -5,7 +5,6 @@ import {
   Button,
   Chip,
   Grid,
-  LinearProgress,
   Paper,
   Stack,
   TextField,
@@ -50,6 +49,7 @@ import {
   PageHeader,
   Reveal,
   RiskMap,
+  SkeletonRows,
   type RiskMapMarker,
 } from "../components";
 import { PageBanner } from "../components/PageBanner";
@@ -468,7 +468,7 @@ export function HomePage() {
               {!risk ? (
                 <Grid size={{ xs: 12 }}>
                   {riskState.status === "loading" ? (
-                    <LinearProgress className="feed-progress" />
+                    <SkeletonRows />
                   ) : (
                     <Alert severity="error" className="warning-alert">
                       Couldn't reach the risk service. Check your area again to

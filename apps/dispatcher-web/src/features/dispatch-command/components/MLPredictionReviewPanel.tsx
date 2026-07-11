@@ -38,7 +38,7 @@ import {
   severityLabel,
 } from "../utils";
 
-import { Fact, PredictionReviewMap, SeverityChip } from "./shared";
+import { Fact, PredictionReviewMap, SeverityChip, SkeletonRows } from "./shared";
 
 export function MLPredictionReviewPanel({
   busy,
@@ -135,9 +135,7 @@ export function MLPredictionReviewPanel({
           {loadMessage}
         </Alert>
       ) : null}
-      {loadState === "loading" ? (
-        <LinearProgress className="feed-progress" />
-      ) : null}
+      {loadState === "loading" ? <SkeletonRows /> : null}
       <PredictionReviewMap
         predictions={predictions}
         selectedPredictionId={selectedPredictionId}

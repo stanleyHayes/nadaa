@@ -10,7 +10,6 @@ import {
   Divider,
   Grid,
   IconButton,
-  LinearProgress,
   MenuItem,
   Paper,
   Stack,
@@ -38,7 +37,7 @@ import {
 import { nadaaBrand } from "@nadaa/brand";
 import { DAMAGE_CLAIM_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
-import { CommandSelect, EmptyState, Fact } from "./shared";
+import { CommandSelect, EmptyState, Fact, SkeletonRows } from "./shared";
 
 type DamageClaimStatus = "draft" | "submitted" | "closed";
 type DamageClaimVerificationStatus = "pending" | "verified" | "rejected";
@@ -445,7 +444,7 @@ export default function DamageClaimsPanel() {
         </Alert>
       ) : null}
       {loadState === "loading" ? (
-        <LinearProgress className="feed-progress" />
+        <SkeletonRows />
       ) : null}
       {claims.length ? (
         <>

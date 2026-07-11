@@ -11,7 +11,6 @@ import {
   FormControl,
   Grid,
   InputLabel,
-  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -36,6 +35,7 @@ import type {
 } from "@nadaa/shared-types";
 import { CAMPAIGN_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
+import { SkeletonRows } from "./shared";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -311,7 +311,7 @@ export default function CampaignManagerPanel() {
         </Alert>
       ) : null}
       {loadState === "loading" ? (
-        <LinearProgress className="feed-progress" />
+        <SkeletonRows />
       ) : null}
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12, sm: 4 }}>

@@ -42,7 +42,7 @@ import {
   triageConfidenceLabel,
 } from "../utils";
 
-import { EmptyState, Fact } from "./shared";
+import { EmptyState, Fact, SkeletonRows } from "./shared";
 
 export function AITriageSuggestionPanel({
   busy,
@@ -142,9 +142,7 @@ export function AITriageSuggestionPanel({
           {loadMessage}
         </Alert>
       ) : null}
-      {loadState === "loading" ? (
-        <LinearProgress className="feed-progress" />
-      ) : null}
+      {loadState === "loading" ? <SkeletonRows /> : null}
       {suggestion ? (
         <Stack spacing={1.5}>
           <Alert severity="info" icon={<ShieldAlert size={18} />}>
