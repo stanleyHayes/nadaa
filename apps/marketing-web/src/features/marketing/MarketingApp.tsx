@@ -3,6 +3,7 @@ import { SiteLayout } from "./components/SiteLayout";
 import { ContactPage } from "./pages/ContactPage";
 import { HomePage } from "./pages/HomePage";
 import { HowItWorksPage } from "./pages/HowItWorksPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { PlatformsPage } from "./pages/PlatformsPage";
 import { SignupPage } from "./pages/SignupPage";
 import { TrustPage } from "./pages/TrustPage";
@@ -18,7 +19,7 @@ export default function MarketingApp() {
           <Route element={<TrustPage />} path="trust" />
           <Route element={<SignupPage />} path="signup" />
           <Route element={<ContactPage />} path="contact" />
-          <Route element={<HomePage />} path="*" />
+          <Route element={<NotFoundPage />} path="*" />
         </Route>
       </Routes>
     </BrowserRouter>

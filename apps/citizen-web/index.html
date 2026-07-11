@@ -75,9 +75,77 @@
       ]
     }
     </script>
+    <style>
+      #nadaa-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: #0d1b3d;
+        color: #fff;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      #nadaa-splash img {
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
+        filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.4));
+        animation: nadaa-splash-pulse 1.8s ease-in-out infinite;
+      }
+      #nadaa-splash .nadaa-splash__word {
+        margin: 6px 0 0;
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+      }
+      #nadaa-splash .nadaa-splash__slogan {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #8ea6dc;
+      }
+      #nadaa-splash .nadaa-splash__bar {
+        margin-top: 10px;
+        width: 180px;
+        height: 4px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+        overflow: hidden;
+      }
+      #nadaa-splash .nadaa-splash__bar > i {
+        display: block;
+        width: 40%;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #f4c20d, #118d4e);
+        animation: nadaa-splash-slide 1.15s ease-in-out infinite;
+      }
+      @keyframes nadaa-splash-pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.06); opacity: 0.85; }
+      }
+      @keyframes nadaa-splash-slide {
+        0% { transform: translateX(-120%); }
+        100% { transform: translateX(320%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #nadaa-splash img { animation: none; }
+        #nadaa-splash .nadaa-splash__bar > i { width: 100%; animation: none; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="nadaa-splash" role="status" aria-label="Loading NADAA">
+        <img src="/brand/nadaa-logo.png" alt="" width="96" height="96" />
+        <p class="nadaa-splash__word">NADAA</p>
+        <p class="nadaa-splash__slogan">Be Aware. Be Prepared. Be Safe.</p>
+        <span class="nadaa-splash__bar"><i></i></span>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

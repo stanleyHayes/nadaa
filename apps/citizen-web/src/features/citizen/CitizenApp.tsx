@@ -15,6 +15,7 @@ import { AlertsPage } from "./pages/AlertsPage";
 import { CommunityPage } from "./pages/CommunityPage";
 import { GuidesPage } from "./pages/GuidesPage";
 import { HomePage } from "./pages/HomePage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { ReportPage } from "./pages/ReportPage";
 import { SheltersPage } from "./pages/SheltersPage";
 
@@ -45,7 +46,7 @@ export default function CitizenApp() {
               <Route element={<AccountNotifications />} path="notifications" />
               <Route element={<AccountSettings />} path="settings" />
             </Route>
-            <Route element={<HomePage />} path="*" />
+            <Route element={<NotFoundPage />} path="*" />
           </Route>
         </Routes>
       </BrowserRouter>
