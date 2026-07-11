@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useCitizenSession } from "../session";
+import {
+  playAlertTone,
+  quietHoursActive,
+  severityRank,
+  shouldPlayAlertSound,
+} from "../alertSound";
 import {
   Alert,
   Button,
@@ -187,6 +194,11 @@ function AlertsFeed() {
   const [detailAlert, setDetailAlert] = useState<CitizenAlertFeedItem | null>(
     null,
   );
+  const { preferences } = useCitizenSession();
+  // Track which alerts we've already seen so a chime only fires for genuinely
+  // new warnings, never on the first load.
+  const seenAlertIds = useRef<Set<string>>(new Set());
+  const seededRef = useRef(false);
 
   const currentAlertCount = useMemo(
     () => alertFeed.filter((alert) => alert.status === "current").length,
@@ -250,6 +262,28 @@ function AlertsFeed() {
 
       const payload = (await response.json()) as CitizenAlertFeedResponse;
       setAlertFeed(payload.alerts);
+
+      // Sound a warning tone for newly-arrived alerts. Quiet Hours (DND) silence
+      // everything below level 5; an emergency (level 5) alert always sounds.
+      const fresh = payload.alerts.filter(
+        (alert) => !seenAlertIds.current.has(alert.id),
+      );
+      fresh.forEach((alert) => seenAlertIds.current.add(alert.id));
+      if (seededRef.current && fresh.length > 0) {
+        const loudest = fresh.reduce((max, alert) =>
+          severityRank(alert.severity) > severityRank(max.severity) ? alert : max,
+        );
+        if (
+          shouldPlayAlertSound(loudest.severity, {
+            soundEnabled: preferences.soundAlerts ?? true,
+            quietHoursActive: quietHoursActive(preferences.quietHours),
+          })
+        ) {
+          playAlertTone(loudest.severity);
+        }
+      }
+      seededRef.current = true;
+
       setAlertFeedState({
         status: "idle",
         message: `Alert feed updated ${formatDateTime(payload.generatedAt)}.`,

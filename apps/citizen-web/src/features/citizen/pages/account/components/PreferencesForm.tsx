@@ -35,6 +35,9 @@ export function PreferencesForm({
   );
   const [channels, setChannels] = useState(preferences.alertChannels);
   const [quietHours, setQuietHours] = useState(preferences.quietHours);
+  const [soundAlerts, setSoundAlerts] = useState(
+    preferences.soundAlerts ?? true,
+  );
   const [saved, setSaved] = useState(false);
 
   const dirty = () => setSaved(false);
@@ -46,6 +49,7 @@ export function PreferencesForm({
       regionOfInterest,
       alertChannels: channels,
       quietHours,
+      soundAlerts,
     });
     setSaved(true);
   };
@@ -159,6 +163,27 @@ export function PreferencesForm({
         </FormGroup>
       </div>
       <Divider />
+      <div>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={soundAlerts}
+              onChange={(event) => {
+                setSoundAlerts(event.target.checked);
+                dirty();
+              }}
+            />
+          }
+          label="Sound alerts (audible warning tone)"
+        />
+        <Typography
+          variant="body2"
+          sx={{ color: "text.secondary", mt: 0.25 }}
+        >
+          Play a warning tone when a new alert arrives. Emergency (level 5)
+          alerts always sound, even during quiet hours.
+        </Typography>
+      </div>
       <div>
         <FormControlLabel
           control={

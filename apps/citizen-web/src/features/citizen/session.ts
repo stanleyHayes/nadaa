@@ -64,6 +64,11 @@ export type CitizenPreferences = {
   /** Region the citizen wants to watch for alerts (defaults to their region). */
   regionOfInterest: string;
   quietHours: QuietHours;
+  /**
+   * Master toggle for audible alert tones. When off, nothing sounds. When on,
+   * Quiet Hours silence everything except level-5 (emergency) alerts.
+   */
+  soundAlerts?: boolean;
 };
 
 export type NotificationCategory = "alert" | "report" | "shelter" | "system";
@@ -197,6 +202,7 @@ function defaultPreferences(session: CitizenSession | null): CitizenPreferences 
     alertChannels: { sms: true, email: false, push: true },
     regionOfInterest: session?.region ?? "Greater Accra",
     quietHours: { enabled: false, start: "22:00", end: "06:00" },
+    soundAlerts: true,
   };
 }
 
