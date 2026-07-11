@@ -3,6 +3,7 @@ import { nadaaBrand } from "@nadaa/brand";
 import {
   ActionButton,
   Card,
+  EmptyState,
   ListItem,
   Metric,
   ScreenHeading,
@@ -95,9 +96,11 @@ export function QueueScreen({ actions, state }: DispatcherScreenProps) {
           {state.filteredIncidents.length} incidents
         </Text>
         {state.filteredIncidents.length === 0 ? (
-          <Text style={stylesBody}>
-            No incidents match the current filters.
-          </Text>
+          <EmptyState
+            description="No incidents match the current filters. Adjust or clear them to see the queue."
+            icon="inbox"
+            title="No incidents"
+          />
         ) : (
           state.filteredIncidents.map((incident) => (
             <ListItem

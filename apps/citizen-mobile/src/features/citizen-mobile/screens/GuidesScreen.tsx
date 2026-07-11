@@ -1,6 +1,11 @@
 import { Text, View } from "react-native";
 import { mobileTheme } from "../../../app/theme";
-import { Card, ScreenHeading, StatusPill } from "../../../ui/components";
+import {
+  Card,
+  EmptyState,
+  ScreenHeading,
+  StatusPill,
+} from "../../../ui/components";
 import type { CitizenScreenProps } from "./types";
 
 export function GuidesScreen({ state }: CitizenScreenProps) {
@@ -15,7 +20,14 @@ export function GuidesScreen({ state }: CitizenScreenProps) {
           Saved guidance is available even when data service is interrupted.
         </Text>
       </Card>
-      {state.guides.map((guide) => (
+      {state.guides.length === 0 ? (
+        <EmptyState
+          description="No guides are saved yet. Reconnect to download offline guidance."
+          icon="book-open"
+          title="No guides yet"
+        />
+      ) : (
+        state.guides.map((guide) => (
         <Card key={guide.id}>
           <View style={stylesRow}>
             <View style={stylesGrow}>
@@ -31,7 +43,8 @@ export function GuidesScreen({ state }: CitizenScreenProps) {
           </View>
           <Text style={stylesBody}>{guide.body}</Text>
         </Card>
-      ))}
+        ))
+      )}
     </View>
   );
 }

@@ -248,6 +248,34 @@ const hazardIconMap: Record<string, string> = {
 };
 
 const styles = StyleSheet.create({
+  emptyState: {
+    alignItems: "center",
+    gap: mobileTheme.spacing.sm,
+    paddingVertical: mobileTheme.spacing.xl,
+    paddingHorizontal: mobileTheme.spacing.md,
+  },
+  emptyIcon: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: hexToRgba(mobileTheme.colors.navy, 0.08),
+  },
+  emptyTitle: {
+    color: mobileTheme.colors.navy,
+    fontFamily: mobileTheme.font.bold,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  emptyDescription: {
+    color: mobileTheme.colors.muted,
+    fontFamily: mobileTheme.font.regular,
+    fontSize: 14,
+    lineHeight: 20,
+    maxWidth: 300,
+    textAlign: "center",
+  },
   actionButton: {
     alignItems: "center",
     borderRadius: mobileTheme.radius.md,
@@ -440,5 +468,27 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
 });
+
+export function EmptyState({
+  icon = "inbox",
+  title,
+  description,
+}: {
+  icon?: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIcon}>
+        <Feather color={mobileTheme.colors.navy} name={icon} size={26} />
+      </View>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      {description ? (
+        <Text style={styles.emptyDescription}>{description}</Text>
+      ) : null}
+    </View>
+  );
+}
 
 export const uiStyles = styles;

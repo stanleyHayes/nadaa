@@ -2,6 +2,7 @@ import { Text, View } from "react-native";
 import { mobileTheme } from "../../../app/theme";
 import {
   Card,
+  EmptyState,
   HazardBadge,
   ScreenHeading,
   SegmentedControl,
@@ -24,7 +25,18 @@ export function AlertsScreen({ actions, state }: CitizenScreenProps) {
         ]}
         value={state.alertView}
       />
-      {state.visibleAlerts.map((alert) => (
+      {state.visibleAlerts.length === 0 ? (
+        <EmptyState
+          description={
+            state.alertView === "current"
+              ? "There are no current warnings for your area right now. You're all clear."
+              : "No alerts match this view yet."
+          }
+          icon="bell"
+          title="No alerts to show"
+        />
+      ) : (
+        state.visibleAlerts.map((alert) => (
         <Card
           key={alert.id}
           tone={alert.status === "current" ? "danger" : "plain"}
@@ -46,7 +58,8 @@ export function AlertsScreen({ actions, state }: CitizenScreenProps) {
           <Text style={stylesBody}>{alert.message}</Text>
           <Text style={stylesAction}>{alert.recommendedAction}</Text>
         </Card>
-      ))}
+        ))
+      )}
     </View>
   );
 }

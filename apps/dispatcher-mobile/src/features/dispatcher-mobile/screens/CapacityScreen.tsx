@@ -3,6 +3,7 @@ import {
   ActionButton,
   CapacityBadge,
   Card,
+  EmptyState,
   ListItem,
   Metric,
   ScreenHeading,
@@ -83,9 +84,11 @@ export function CapacityScreen({ actions, state }: DispatcherScreenProps) {
               {state.filteredCapacity.length} facilities
             </Text>
             {state.filteredCapacity.length === 0 ? (
-              <Text style={stylesBody}>
-                No facilities match the current filters.
-              </Text>
+              <EmptyState
+                description="No facilities match the current filters."
+                icon="activity"
+                title="No facilities"
+              />
             ) : (
               state.filteredCapacity.map((facility) => (
                 <ListItem key={facility.id}>
