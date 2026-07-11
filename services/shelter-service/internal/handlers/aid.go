@@ -239,7 +239,7 @@ func parseAidRequestFilter(w http.ResponseWriter, r *http.Request) (models.AidRe
 		return filter, false
 	}
 	if filter.IncludePrivate {
-		if _, ok := requireAuthority(w, r, utils.ShelterUpdateRoles); !ok {
+		if _, ok := requireAuthority(w, r, utils.AidRequestViewRoles); !ok {
 			return filter, false
 		}
 	}

@@ -44,6 +44,19 @@ var ShelterDeleteRoles = map[string]bool{
 	"agency_admin": true,
 }
 
+// AidRequestViewRoles lists roles allowed to LIST aid requests including private
+// (PII-bearing) ones. Viewing is broader than writing: agency responders in the
+// field need to see who needs aid to coordinate relief, even though reviewing or
+// editing a request stays limited to ShelterUpdateRoles.
+var AidRequestViewRoles = map[string]bool{
+	"system_admin":     true,
+	"agency_admin":     true,
+	"nadmo_officer":    true,
+	"district_officer": true,
+	"dispatcher":       true,
+	"responder":        true,
+}
+
 // AllowedShelterStatuses lists supported shelter statuses.
 var AllowedShelterStatuses = map[string]bool{
 	"open":    true,
