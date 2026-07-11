@@ -169,8 +169,6 @@ services/<service>/
 | `integration-service`  | Contract-first adapters for weather, hydrology, road closures, hospital capacity, utility outages, incident/alert sync.           | `POST /api/v1/integrations/observations`, `POST /api/v1/integrations/road-closures/imports`                                                                         |
 | `road-closure-service` | Road closure list/create/update and adapter-import.                                                                               | `GET /api/v1/road-closures`, `POST /api/v1/road-closures`                                                                                                           |
 
-> **Note:** `dispatch-service` is currently a placeholder directory and is not implemented as a separate service. Dispatch workflows live in `dispatcher-web` and `incident-service`.
-
 ### Graceful shutdown
 
 Every service uses an `http.Server` with:

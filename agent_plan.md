@@ -326,7 +326,6 @@ A feature is done only when:
   - `services/incident-service`
   - `services/alert-service`
   - `services/risk-service`
-  - `services/dispatch-service`
   - `services/notification-service`
   - `services/integration-service`
   - `services/ml-service`

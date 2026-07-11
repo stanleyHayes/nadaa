@@ -677,7 +677,6 @@ ghana-emergency-platform/
     incident-service/
     alert-service/
     risk-service/
-    dispatch-service/
     notification-service/
     integration-service/
     ml-service/

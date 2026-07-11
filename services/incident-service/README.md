@@ -103,4 +103,4 @@ pnpm smoke:incident-merge
 
 ## Notes
 
-The current implementation uses an in-memory store to lock in the public API contract, validation behavior, duplicate candidate baseline, duplicate merge contract, incident workflow contract, abuse review contract, agency assignment contract, and timeline event shape. PostGIS persistence, media upload storage, and dispatch-service extraction land in later stories.
+The current implementation uses an in-memory store to lock in the public API contract, validation behavior, duplicate candidate baseline, duplicate merge contract, incident workflow contract, abuse review contract, agency assignment contract, and timeline event shape. PostGIS persistence and media upload storage land in later stories. Dispatch workflows (assignment, timelines, response status) are served by this service and the dispatcher apps; there is no separate dispatch-service.

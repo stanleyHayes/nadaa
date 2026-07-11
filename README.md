@@ -24,7 +24,6 @@ services/
   alert-service/
   risk-service/
   guide-service/
-  dispatch-service/
   notification-service/
   integration-service/
   ml-service/
