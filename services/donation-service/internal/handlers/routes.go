@@ -20,5 +20,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/pledges", s.listPledgesHandler)
 	mux.HandleFunc("PATCH /api/v1/pledges/{id}", s.updatePledgeHandler)
 	mux.HandleFunc("POST /api/v1/aid-requests/{id}/allocate", s.allocatePledgeHandler)
+	mux.HandleFunc("GET /api/v1/donations", s.listDonationsHandler)
+	mux.HandleFunc("POST /api/v1/donations", s.createDonationHandler)
+	mux.HandleFunc("GET /api/v1/donations/{reference}", s.getDonationHandler)
+	mux.HandleFunc("POST /api/v1/webhooks/paystack", s.paystackWebhookHandler)
 	return s.withMiddleware(mux)
 }

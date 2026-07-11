@@ -20,7 +20,8 @@ const serviceName = "donation-service"
 func main() {
 	cfg := config.Load()
 	s := store.NewMemoryStore(time.Now().UTC())
-	srv := handlers.NewServer(s, time.Now, cfg)
+	payments := handlers.BuildPaymentProvider(cfg.Payment)
+	srv := handlers.NewServer(s, payments, time.Now, cfg)
 
 	httpServer := &http.Server{
 		Addr:         cfg.Addr,
@@ -31,7 +32,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("%s listening on %s", serviceName, cfg.Addr)
+		log.Printf("%s listening on %s paymentProvider=%s", serviceName, cfg.Addr, payments.Name())
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("server error: %v", err)
 		}

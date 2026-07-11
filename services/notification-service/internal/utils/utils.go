@@ -146,6 +146,10 @@ func ProviderName(provider models.NotificationProvider) string {
 		return "mock_" + provider.Channel
 	case models.DisabledProvider:
 		return provider.Channel + "_disabled"
+	case models.ArkeselSMSProvider:
+		return "arkesel_sms"
+	case models.ExpoPushProvider:
+		return "expo_push"
 	default:
 		return fmt.Sprintf("%T", provider)
 	}

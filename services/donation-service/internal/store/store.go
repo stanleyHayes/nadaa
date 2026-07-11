@@ -26,16 +26,23 @@ type Store interface {
 	ListPledges(filter models.PledgeFilter) []models.Pledge
 	UpdatePledge(id string, request models.UpdatePledgeRequest, updatedBy string, now time.Time) (models.Pledge, string, string)
 	AllocatePledge(aidRequestID string, request models.AllocateRequest, updatedBy string, now time.Time) (models.Pledge, string, string)
+	CreateDonation(input models.CreateDonationInput, now time.Time) models.Donation
+	GetDonationByReference(reference string) (models.Donation, bool)
+	SetDonationProviderRef(reference, providerRef string, now time.Time) (models.Donation, bool)
+	MarkDonationPaid(reference, channel, providerRef string, now time.Time) (models.Donation, bool)
+	MarkDonationFailed(reference, failureCode string, now time.Time) (models.Donation, bool)
+	ListDonations(filter models.DonationFilter) []models.Donation
 }
 
 // MemoryStore is an in-memory implementation of Store.
 type MemoryStore struct {
-	mu       sync.RWMutex
-	seq      int
-	donors   []models.Donor
-	catalog  []models.AidCatalogItem
-	requests []models.AidRequest
-	pledges  []models.Pledge
+	mu        sync.RWMutex
+	seq       int
+	donors    []models.Donor
+	catalog   []models.AidCatalogItem
+	requests  []models.AidRequest
+	pledges   []models.Pledge
+	donations []models.Donation
 }
 
 type seqHolder struct {
@@ -612,6 +619,131 @@ func priorityRank(priority string) int {
 	default:
 		return 4
 	}
+}
+
+// CreateDonation persists a new pending donation and assigns its id/reference.
+func (m *MemoryStore) CreateDonation(input models.CreateDonationInput, now time.Time) models.Donation {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	donation := models.Donation{
+		ID:          fmt.Sprintf("donation_%03d", m.nextSeq()),
+		Reference:   m.generateRef("GIFT", now),
+		DonorName:   input.DonorName,
+		Email:       input.Email,
+		AmountMinor: input.AmountMinor,
+		Currency:    input.Currency,
+		Status:      "pending",
+		Provider:    input.Provider,
+		Campaign:    input.Campaign,
+		Message:     input.Message,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	m.donations = append(m.donations, donation)
+	return donation
+}
+
+// GetDonationByReference returns the donation with the given reference.
+func (m *MemoryStore) GetDonationByReference(reference string) (models.Donation, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, donation := range m.donations {
+		if donation.Reference == reference {
+			return donation, true
+		}
+	}
+	return models.Donation{}, false
+}
+
+// SetDonationProviderRef records the gateway reference returned at init time.
+func (m *MemoryStore) SetDonationProviderRef(reference, providerRef string, now time.Time) (models.Donation, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for i := range m.donations {
+		if m.donations[i].Reference != reference {
+			continue
+		}
+		if providerRef != "" {
+			m.donations[i].ProviderRef = providerRef
+		}
+		m.donations[i].UpdatedAt = now
+		return m.donations[i], true
+	}
+	return models.Donation{}, false
+}
+
+// MarkDonationPaid transitions a donation to paid. It is idempotent: a donation
+// already paid is returned unchanged so replayed webhooks cannot double-credit.
+func (m *MemoryStore) MarkDonationPaid(reference, channel, providerRef string, now time.Time) (models.Donation, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for i := range m.donations {
+		if m.donations[i].Reference != reference {
+			continue
+		}
+		if m.donations[i].Status == "paid" {
+			return m.donations[i], true
+		}
+		m.donations[i].Status = "paid"
+		m.donations[i].FailureCode = ""
+		if channel != "" {
+			m.donations[i].Channel = channel
+		}
+		if providerRef != "" {
+			m.donations[i].ProviderRef = providerRef
+		}
+		paidAt := now
+		m.donations[i].PaidAt = &paidAt
+		m.donations[i].UpdatedAt = now
+		return m.donations[i], true
+	}
+	return models.Donation{}, false
+}
+
+// MarkDonationFailed transitions a donation to failed. It never overrides a
+// donation that has already been paid.
+func (m *MemoryStore) MarkDonationFailed(reference, failureCode string, now time.Time) (models.Donation, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for i := range m.donations {
+		if m.donations[i].Reference != reference {
+			continue
+		}
+		if m.donations[i].Status == "paid" {
+			return m.donations[i], true
+		}
+		m.donations[i].Status = "failed"
+		m.donations[i].FailureCode = failureCode
+		m.donations[i].UpdatedAt = now
+		return m.donations[i], true
+	}
+	return models.Donation{}, false
+}
+
+// ListDonations returns donations matching the filter, newest first.
+func (m *MemoryStore) ListDonations(filter models.DonationFilter) []models.Donation {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	donations := make([]models.Donation, 0)
+	for _, donation := range m.donations {
+		if filter.Status != "" && donation.Status != filter.Status {
+			continue
+		}
+		if filter.Campaign != "" && donation.Campaign != filter.Campaign {
+			continue
+		}
+		donations = append(donations, donation)
+	}
+	sort.Slice(donations, func(i, j int) bool {
+		return donations[i].CreatedAt.After(donations[j].CreatedAt)
+	})
+	return donations
 }
 
 func copyDonors(source []models.Donor) []models.Donor {

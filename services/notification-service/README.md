@@ -32,12 +32,48 @@ The notification service owns the citizen alert feed, push/SMS provider abstract
 }
 ```
 
-Development providers are mock providers by default:
+### Delivery providers (dependency injection)
 
-- `push` uses `mock_push`.
-- `sms` uses `mock_sms`.
-- Set `NADAA_SMS_ENABLED=false` to log SMS attempts as `skipped`.
-- Set `NADAA_PUSH_ENABLED=false` to log push attempts as `skipped`.
+Each channel resolves a `models.NotificationProvider` through the
+`handlers.BuildProviders` seam, so a real backend can be swapped in per channel
+purely through configuration. Every channel **defaults to the sandbox (mock)
+provider** so the platform runs end-to-end before real credentials arrive, and
+selection **fails safe**: choosing a real provider without its credentials
+disables that channel with a clear reason rather than silently mocking a live
+selection or crashing (mirroring the cell-broadcast default).
+
+| Channel | `NADAA_*_PROVIDER` | Options | Default |
+| --- | --- | --- | --- |
+| SMS | `NADAA_SMS_PROVIDER` | `sandbox`, `arkesel`, `disabled` | `sandbox` |
+| Push | `NADAA_PUSH_PROVIDER` | `sandbox`, `expo`, `disabled` | `sandbox` |
+| Voice | `NADAA_VOICE_PROVIDER` | `sandbox`, `disabled` (`arkesel` reserved) | `sandbox` |
+
+The legacy `NADAA_SMS_ENABLED` / `NADAA_PUSH_ENABLED` / `NADAA_VOICE_ENABLED`
+flags still work — setting one to `false` forces that channel to `disabled`.
+
+**Arkesel (SMS)** — the confirmed value-for-money SMS backend for Ghana (direct
+MTN / Telecel / AirtelTigo routes). Select with `NADAA_SMS_PROVIDER=arkesel` and set:
+
+- `NADAA_ARKESEL_API_KEY` — the account API key (required; missing key disables the channel).
+- `NADAA_ARKESEL_SENDER` — the approved sender id (default `NADAA`).
+- `NADAA_ARKESEL_BASE_URL` — override the API host (default `https://sms.arkesel.com`).
+
+**Expo (push)** — the value-for-money push backend for the Expo mobile apps
+(free, delivers to APNs + FCM behind one token). Select with
+`NADAA_PUSH_PROVIDER=expo`. Optionally set `NADAA_EXPO_ACCESS_TOKEN` (enhanced
+push security) and `NADAA_EXPO_BASE_URL` (override, default `https://exp.host`).
+
+**Voice** — the provider research recommends **Arkesel Voice** as the
+value-for-money choice for Ghana (GHS 0.15/min, per-second, answered-only, with
+Twi/Hausa/Ewe text-to-speech — roughly 40× cheaper than Twilio), with Africa's
+Talking Voice as the fallback if DTMF-over-API must be proven on day one. The
+live Arkesel Voice path is not wired yet (its campaign/DTMF API needs a paid
+pilot), so `voice` stays on `sandbox`; selecting `arkesel` disables the channel
+with a clear reason until it is integrated.
+
+Real providers are fail-safe: a `dryRun` request never touches the network
+(recorded `simulated`), a missing phone/push token is `skipped`, and an upstream
+error is `failed` with the provider's reason — never a silent success.
 
 Delivery attempts are stored in the in-memory log for the MVP service and represented in the core database schema by `notification_delivery_logs`.
 

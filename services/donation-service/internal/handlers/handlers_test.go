@@ -16,7 +16,7 @@ import (
 func newTestServer() *Server {
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
 	cfg := &config.Config{Addr: ":8100", AllowedOrigins: nil}
-	return NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
+	return NewServer(store.NewMemoryStore(now), models.SandboxPaymentProvider{}, func() time.Time { return now }, cfg)
 }
 
 func TestHealthz(t *testing.T) {

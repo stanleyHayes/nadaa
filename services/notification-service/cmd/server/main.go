@@ -25,7 +25,7 @@ func main() {
 	s := store.NewMemoryStore(now)
 	alertClient := client.NewAlertServiceClient(utils.EnvOrDefault("NADAA_ALERT_SERVICE_URL", "http://localhost:8089/api/v1"))
 	incidentClient := client.NewIncidentServiceClient(os.Getenv("NADAA_INCIDENT_SERVICE_URL"))
-	providers := handlers.ProvidersFromEnv()
+	providers := handlers.BuildProviders(cfg.Providers)
 	cellBroadcast := handlers.CellBroadcastAdapterFromMode(cfg.CellBroadcastMode)
 	srv := handlers.NewServer(s, alertClient, incidentClient, providers, cellBroadcast, func() time.Time { return time.Now().UTC() }, cfg)
 

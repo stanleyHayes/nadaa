@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -115,6 +116,12 @@ func ValidEmail(value string) bool {
 		return false
 	}
 	return strings.Contains(value, "@") && !UnsafeText(value)
+}
+
+// MajorToMinor converts a major-unit amount (e.g. GHS) to the integer minor
+// unit (pesewas) payment gateways expect, rounding to the nearest minor unit.
+func MajorToMinor(amount float64) int64 {
+	return int64(math.Round(amount * 100))
 }
 
 // ValidDecimal returns true if value parses as a non-negative decimal number.
