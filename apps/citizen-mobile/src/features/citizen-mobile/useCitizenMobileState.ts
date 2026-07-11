@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   AreaRiskResponse,
   CitizenAlertFeedItem,
@@ -45,6 +45,11 @@ import {
   writeVolunteerTasks,
 } from "./offline";
 import { nextPermissionStatus, permissionMessage } from "./permissions";
+import {
+  configureAlertNotifications,
+  notifyNewAlerts,
+  requestAlertPermission,
+} from "./alertNotifications";
 import type {
   AlertView,
   MobileLoadState,
@@ -100,8 +105,12 @@ export function useCitizenMobileState() {
   const [volunteerTasks, setVolunteerTasks] =
     useState<VolunteerTaskRecord[]>(sampleVolunteerTasks);
 
+  const seenAlertIds = useRef<Set<string>>(new Set());
+  const alertsSeeded = useRef(false);
+
   useEffect(() => {
     void hydrate();
+    void configureAlertNotifications();
   }, []);
 
   const visibleAlerts = useMemo(
@@ -161,6 +170,17 @@ export function useCitizenMobileState() {
         ]);
       setRisk(nextRisk);
       setAlerts(nextAlerts);
+      // Notify for newly-arrived current alerts (never on the first load).
+      // The OS notification channel handles Do-Not-Disturb; a level-5 emergency
+      // overrides it. Seed seen ids when we can't/shouldn't notify.
+      if (alertsSeeded.current && permissions.push === "granted") {
+        void notifyNewAlerts(nextAlerts, seenAlertIds.current);
+      } else {
+        nextAlerts
+          .filter((alert) => alert.status === "current")
+          .forEach((alert) => seenAlertIds.current.add(alert.id));
+      }
+      alertsSeeded.current = true;
       setGuides(nextGuides);
       setShelters(nextShelters);
       setVolunteerTasks(nextTasks);
@@ -329,6 +349,10 @@ export function useCitizenMobileState() {
     });
     if (key === "push") {
       setPushState(await registerPushToken(nextStatus === "granted"));
+      if (nextStatus === "granted") {
+        // Ask the OS for notification permission (incl. iOS critical alerts).
+        await requestAlertPermission();
+      }
     }
   }
 

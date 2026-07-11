@@ -27,6 +27,7 @@ declare module "react" {
   export function useState<Value>(
     initial: Value | (() => Value),
   ): [Value, (next: Value | ((current: Value) => Value)) => void];
+  export function useRef<Value>(initial: Value): { current: Value };
 }
 
 declare module "react/jsx-runtime" {
@@ -42,6 +43,10 @@ declare module "react-native" {
   export type TextStyle = Record<string, unknown>;
   export type ImageStyle = Record<string, unknown>;
   export type StyleProp<T> = T | T[] | null | undefined | unknown;
+  export const Platform: {
+    OS: "android" | "ios" | "web" | string;
+    select: <T>(spec: Record<string, T>) => T | undefined;
+  };
 
   export const SafeAreaView: ComponentType<{
     children?: ReactNode;
@@ -117,4 +122,65 @@ declare module "@expo/vector-icons/Feather" {
     size?: number;
   }>;
   export default Feather;
+}
+
+declare module "expo-notifications" {
+  export enum AndroidImportance {
+    MIN = 1,
+    LOW = 2,
+    DEFAULT = 3,
+    HIGH = 4,
+    MAX = 5,
+  }
+  export enum AndroidNotificationVisibility {
+    SECRET = -1,
+    PRIVATE = 0,
+    PUBLIC = 1,
+  }
+  export type NotificationPermissionsStatus = {
+    granted: boolean;
+    status: "granted" | "denied" | "undetermined";
+  };
+  export function setNotificationHandler(handler: {
+    handleNotification: () => Promise<{
+      shouldShowAlert?: boolean;
+      shouldShowBanner?: boolean;
+      shouldShowList?: boolean;
+      shouldPlaySound?: boolean;
+      shouldSetBadge?: boolean;
+    }>;
+  }): void;
+  export function getPermissionsAsync(): Promise<NotificationPermissionsStatus>;
+  export function requestPermissionsAsync(request?: {
+    ios?: {
+      allowAlert?: boolean;
+      allowSound?: boolean;
+      allowBadge?: boolean;
+      allowCriticalAlerts?: boolean;
+    };
+  }): Promise<NotificationPermissionsStatus>;
+  export function setNotificationChannelAsync(
+    channelId: string,
+    channel: {
+      name: string;
+      importance: AndroidImportance;
+      sound?: string | null;
+      bypassDnd?: boolean;
+      lockscreenVisibility?: AndroidNotificationVisibility;
+      vibrationPattern?: number[];
+      lightColor?: string;
+      enableVibrate?: boolean;
+    },
+  ): Promise<unknown>;
+  export function scheduleNotificationAsync(request: {
+    content: {
+      title: string;
+      body?: string;
+      sound?: boolean | string;
+      badge?: number;
+      interruptionLevel?: "active" | "critical" | "passive" | "timeSensitive";
+      data?: Record<string, unknown>;
+    };
+    trigger: null | { channelId?: string };
+  }): Promise<string>;
 }
