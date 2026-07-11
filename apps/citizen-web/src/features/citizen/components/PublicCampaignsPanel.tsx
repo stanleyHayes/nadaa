@@ -21,7 +21,7 @@ import { nadaaBrand } from "@nadaa/brand";
 import type { Campaign, CampaignContentBlock } from "@nadaa/shared-types";
 import { CAMPAIGN_API_BASE } from "@/app/config";
 import { hazardOptions } from "../data";
-import { SkeletonRows } from "./EmptyState";
+import { EmptyState, SkeletonRows } from "./EmptyState";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -220,9 +220,11 @@ export default function PublicCampaignsPanel() {
           ))}
         </Stack>
       ) : (
-        <Alert severity="info" className="warning-alert">
-          No active preparedness campaigns match your filters.
-        </Alert>
+        <EmptyState
+          icon={Megaphone}
+          title="No campaigns match"
+          description="No active preparedness campaigns match your filters. Try clearing them."
+        />
       )}
       <Dialog
         open={selectedCampaign !== null}

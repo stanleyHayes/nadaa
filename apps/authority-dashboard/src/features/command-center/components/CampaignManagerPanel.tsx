@@ -35,7 +35,7 @@ import type {
 } from "@nadaa/shared-types";
 import { CAMPAIGN_API_BASE } from "@/app/config";
 import { authorityHeaders } from "@/app/session";
-import { SkeletonRows } from "./shared";
+import { EmptyState, SkeletonRows } from "./shared";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -436,9 +436,10 @@ export default function CampaignManagerPanel() {
           </TableBody>
         </Table>
       ) : (
-        <Alert severity="info" className="warning-alert">
-          No campaigns match this filter.
-        </Alert>
+        <EmptyState
+          title="No campaigns"
+          detail="No campaigns match this filter. Adjust or clear the filters to see more."
+        />
       )}
       <Dialog
         open={dialogOpen}
