@@ -22,6 +22,7 @@ import {
   PostureRow,
   SectionCard,
 } from "../primitives";
+import { DonutChart, ProgressRing } from "../charts";
 
 function coverageTone(pct: number): "green" | "gold" | "red" {
   if (pct >= 90) {
@@ -52,6 +53,15 @@ export function OverviewView({
   const activeSources = dataSources.filter(
     (source) => source.status === "pilot" || source.status === "production",
   ).length;
+
+  const agencyActive = agencies.filter((a) => a.status === "active").length;
+  const agencyPilot = agencies.filter((a) => a.status === "pilot").length;
+  const agencyOther = agencies.length - agencyActive - agencyPilot;
+  const agencyMix = [
+    { label: "Active", value: agencyActive, color: "var(--nadaa-green)" },
+    { label: "Pilot", value: agencyPilot, color: "var(--nadaa-gold)" },
+    { label: "Other", value: agencyOther, color: "var(--nadaa-slate)" },
+  ];
 
   const coverageBoard = [...agencies].sort(
     (a, b) => a.mfaCoverage - b.mfaCoverage,
@@ -152,6 +162,45 @@ export function OverviewView({
           ) : null}
         </Stack>
       </SectionCard>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <SectionCard
+            title="Agency mix"
+            eyebrow="By registration status"
+            icon={Building2}
+            accent="navy"
+          >
+            <DonutChart
+              data={agencyMix}
+              centerValue={agencies.length}
+              centerLabel="agencies"
+            />
+          </SectionCard>
+        </Grid>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <SectionCard
+            title="MFA coverage"
+            eyebrow="Authority sign-in security"
+            icon={ShieldCheck}
+            accent="green"
+          >
+            <Stack
+              direction="row"
+              spacing={2.5}
+              sx={{ alignItems: "center", flexWrap: "wrap" }}
+            >
+              <ProgressRing
+                value={mfaCoverage}
+                color="var(--nadaa-green)"
+                label="enrolled"
+              />
+              <span className="cc-shelter-row__figure">
+                {mfaReady} of {users.length} users
+              </span>
+            </Stack>
+          </SectionCard>
+        </Grid>
+      </Grid>
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 7 }}>
           <SectionCard

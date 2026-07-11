@@ -4,13 +4,16 @@ import {
   ArrowRight,
   Building2,
   ClipboardList,
+  Gauge,
   HandHeart,
   PackageCheck,
+  PieChart,
   ShieldAlert,
   Truck,
 } from "lucide-react";
 import type { AgencyData } from "../../useAgencyData";
 import type { ViewId } from "../../navigation";
+import { DonutChart, ProgressRing } from "../charts";
 import {
   CapacityMeter,
   Eyebrow,
@@ -74,6 +77,34 @@ export function OverviewView({
     (sum, facility) => sum + facility.availableBeds,
     0,
   );
+
+  const occupancyTone = utilizationTone(utilization);
+  const occupancyColor =
+    occupancyTone === "red"
+      ? "var(--nadaa-red)"
+      : occupancyTone === "gold"
+        ? "var(--nadaa-gold)"
+        : "var(--nadaa-green)";
+
+  const shelterStatusData = [
+    {
+      label: "Open",
+      value: shelters.filter((shelter) => shelter.status === "open").length,
+      color: "var(--nadaa-green)",
+    },
+    {
+      label: "Full",
+      value: shelters.filter((shelter) => shelter.status === "full").length,
+      color: "var(--nadaa-red)",
+    },
+    {
+      label: "Other",
+      value: shelters.filter(
+        (shelter) => shelter.status !== "open" && shelter.status !== "full",
+      ).length,
+      color: "var(--nadaa-slate)",
+    },
+  ];
 
   const feedLabel =
     incidentLoadState === "ready"
@@ -258,6 +289,50 @@ export function OverviewView({
                 Aid & donations
               </Button>
             </Stack>
+          </SectionCard>
+        </Grid>
+      </Grid>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <SectionCard
+            title="Shelter occupancy"
+            eyebrow="Live utilisation"
+            icon={Gauge}
+            accent="green"
+          >
+            <Stack
+              direction="row"
+              spacing={2.5}
+              sx={{ alignItems: "center", flexWrap: "wrap" }}
+            >
+              <ProgressRing
+                value={utilization}
+                color={occupancyColor}
+                label="occupied"
+              />
+              <Stack spacing={0.5}>
+                <span className="cc-pipeline__value">
+                  {totalOccupancy}/{totalCapacity}
+                </span>
+                <span className="cc-pipeline__label">
+                  occupied of total capacity
+                </span>
+              </Stack>
+            </Stack>
+          </SectionCard>
+        </Grid>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <SectionCard
+            title="Shelter status"
+            eyebrow="Availability mix"
+            icon={PieChart}
+            accent="navy"
+          >
+            <DonutChart
+              data={shelterStatusData}
+              centerValue={shelters.length}
+              centerLabel="shelters"
+            />
           </SectionCard>
         </Grid>
       </Grid>

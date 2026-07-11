@@ -19,6 +19,7 @@ import {
   TriageLadder,
 } from "../primitives";
 import { StatusLine } from "../shared";
+import { DonutChart, ProgressRing } from "../charts";
 
 function utilizationTone(pct: number): "green" | "gold" | "red" {
   if (pct >= 90) {
@@ -66,6 +67,12 @@ export function OverviewView({
   const priorityReview = incidents.filter(
     (incident) => incident.priorityReview,
   ).length;
+  const resolvedClosed = incidents.filter(
+    (incident) =>
+      incident.status === "contained" ||
+      incident.status === "recovery_ongoing" ||
+      incident.status === "closed",
+  ).length;
 
   const pendingAlerts = alerts.filter(
     (alert) => alert.status === "draft" || alert.status === "submitted",
@@ -85,6 +92,19 @@ export function OverviewView({
     (sum, facility) => sum + facility.totalBeds,
     0,
   );
+  const occupiedBeds = totalBeds - availableBeds;
+  const bedUtilization =
+    totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+
+  const responseStatusData = [
+    { label: "New / review", value: newReports, color: "var(--nadaa-gold)" },
+    { label: "En route / on scene", value: enRoute, color: "var(--nadaa-navy)" },
+    {
+      label: "Resolved / closed",
+      value: resolvedClosed,
+      color: "var(--nadaa-green)",
+    },
+  ];
 
   const mlNeedsReview = mlPredictions.filter(
     (prediction) => prediction.reviewStatus === "needs_review",
@@ -283,6 +303,53 @@ export function OverviewView({
               {topFacilities.length === 0 ? (
                 <p className="cc-muted-note">No hospital capacity is loaded yet.</p>
               ) : null}
+            </Stack>
+          </SectionCard>
+        </Grid>
+      </Grid>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <SectionCard
+            title="Response status"
+            eyebrow="Incidents by stage"
+            icon={Truck}
+            accent="red"
+          >
+            <DonutChart
+              data={responseStatusData}
+              centerValue={active.length}
+              centerLabel="active"
+            />
+          </SectionCard>
+        </Grid>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <SectionCard
+            title="Hospital occupancy"
+            eyebrow="Bed utilisation"
+            icon={HeartPulse}
+            accent="green"
+          >
+            <Stack
+              direction="row"
+              spacing={2.5}
+              sx={{ alignItems: "center", flexWrap: "wrap" }}
+            >
+              <ProgressRing
+                value={bedUtilization}
+                color={`var(--nadaa-${utilizationTone(bedUtilization)})`}
+                label="occupied"
+              />
+              <Stack spacing={0.5}>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                  {occupiedBeds.toLocaleString()} / {totalBeds.toLocaleString()}
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  beds occupied across {hospitalFacilities.length} sites
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  {availableBeds.toLocaleString()} beds still available
+                </Typography>
+              </Stack>
             </Stack>
           </SectionCard>
         </Grid>
