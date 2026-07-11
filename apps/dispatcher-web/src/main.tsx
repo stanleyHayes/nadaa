@@ -6,7 +6,11 @@ import "@fontsource/outfit/800.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { installUnauthorizedRedirect } from "./app/authGuard";
+import { signOutDispatcher } from "./app/session";
 import "./styles/global.css";
+
+installUnauthorizedRedirect(signOutDispatcher);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
