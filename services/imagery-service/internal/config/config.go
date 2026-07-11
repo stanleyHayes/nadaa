@@ -2,7 +2,9 @@
 package config
 
 import (
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/stanleyHayes/nadaa/services/imagery-service/internal/utils"
 )
@@ -25,9 +27,28 @@ func Load() *Config {
 		retentionDays = DefaultRetentionDays
 	}
 	return &Config{
-		Addr:           utils.EnvOrDefault("PORT", ":8099"),
+		Addr:           resolveListenAddr("", ":8099"),
 		StoragePath:    utils.EnvOrDefault("IMAGERY_STORAGE_PATH", "./uploads"),
 		RetentionDays:  retentionDays,
 		AllowedOrigins: utils.AllowedOriginsFromEnv(),
 	}
+}
+
+// resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare
+// number like "10000"), normalizing it to ":PORT", then a service-specific
+// address override, then the default. This lets the service bind the port the
+// host expects while preserving local defaults.
+func resolveListenAddr(addrKey, fallback string) string {
+	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
+		if strings.HasPrefix(port, ":") {
+			return port
+		}
+		return ":" + port
+	}
+	if addrKey != "" {
+		if value := strings.TrimSpace(os.Getenv(addrKey)); value != "" {
+			return value
+		}
+	}
+	return fallback
 }

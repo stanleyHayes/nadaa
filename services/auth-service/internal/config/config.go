@@ -10,15 +10,15 @@ import (
 
 // Config holds auth-service configuration loaded from the environment.
 type Config struct {
-	Addr                   string
-	AllowedOrigins         map[string]bool
-	TokenSecret            string
-	MockOTP                string
-	ExposeDevOTP           bool
+	Addr           string
+	AllowedOrigins map[string]bool
+	TokenSecret    string
+	MockOTP        string
+	ExposeDevOTP   bool
 	// AllowMockActorHeaders lets agency endpoints accept the shared X-NADAA-*
 	// actor headers instead of a verified session token. Demo/dev only — it
 	// trusts client-supplied role headers, so it must stay false in production.
-	AllowMockActorHeaders bool
+	AllowMockActorHeaders  bool
 	BootstrapAdminEmail    string
 	BootstrapAdminPassword string
 	BootstrapAdminPhone    string
@@ -29,7 +29,7 @@ type Config struct {
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:                   envOrDefault("NADAA_AUTH_ADDR", ":8080"),
+		Addr:                   resolveListenAddr("NADAA_AUTH_ADDR", ":8080"),
 		AllowedOrigins:         utils.AllowedOriginsFromEnv(),
 		TokenSecret:            envOrDefault("NADAA_AUTH_TOKEN_SECRET", InsecureTokenSecret),
 		MockOTP:                strings.TrimSpace(os.Getenv("NADAA_AUTH_MOCK_OTP")),
@@ -63,6 +63,25 @@ func (c *Config) Validate() error {
 		return errors.New("NADAA_AUTH_TOKEN_SECRET must be at least 32 bytes; set NADAA_AUTH_ALLOW_INSECURE_SECRET=true to bypass for local development")
 	}
 	return nil
+}
+
+// resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare
+// number like "10000"), normalizing it to ":PORT", then a service-specific
+// address override, then the default. This lets the service bind the port the
+// host expects while preserving local defaults.
+func resolveListenAddr(addrKey, fallback string) string {
+	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
+		if strings.HasPrefix(port, ":") {
+			return port
+		}
+		return ":" + port
+	}
+	if addrKey != "" {
+		if value := strings.TrimSpace(os.Getenv(addrKey)); value != "" {
+			return value
+		}
+	}
+	return fallback
 }
 
 func envOrDefault(key, fallback string) string {

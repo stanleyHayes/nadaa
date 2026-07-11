@@ -1,0 +1,303 @@
+# NADAA — Render Blueprint (backend)
+#
+# Deploys the 18 Go microservices as Docker web services. The 6 Vite frontends
+# deploy separately on Vercel (see docs/deployment/render-vercel.md). Every
+# service is stdlib-only Go with an in-memory store, so no database is required
+# for the MVP (data resets on redeploy).
+#
+# Ports: each service binds Render's injected $PORT (see resolveListenAddr in
+# each service's config). Region is frankfurt (closest Render region to Ghana);
+# change if you prefer another. Plan is starter; see the deploy doc for costs
+# and the free-tier trade-off.
+#
+# Secrets (Arkesel, Paystack, auth token, inter-service URLs) are sync:false or
+# generateValue — they are set in the Render dashboard, never committed. Until an
+# Arkesel/Paystack key is supplied, notification + donation stay in sandbox mode.
+
+envVarGroups:
+  - name: nadaa-web-origins
+    envVars:
+      # Comma-separated Vercel frontend origins allowed to call the APIs (CORS).
+      # Replace "*" with the deployed Vercel domains once the frontends exist,
+      # e.g. https://nadaa-citizen.vercel.app,https://nadaa-authority.vercel.app
+      - key: NADAA_ALLOWED_ORIGINS
+        value: "*"
+
+services:
+  - name: nadaa-alert-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/alert-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+
+  - name: nadaa-auth-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/auth-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      # Signs every citizen/agency bearer token. Required: the service refuses
+      # to start with a weak/placeholder secret. Render generates a strong one.
+      - key: NADAA_AUTH_TOKEN_SECRET
+        generateValue: true
+      # Production hardening — never trust client role headers, never expose OTPs.
+      - key: NADAA_AUTH_ALLOW_MOCK_ACTORS
+        value: "false"
+      - key: NADAA_AUTH_EXPOSE_DEV_OTP
+        value: "false"
+      # Optional: seed the first system admin. Set these in the dashboard to
+      # bootstrap login, then unset. Leave blank to skip bootstrapping.
+      - key: NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE
+        sync: false
+
+  - name: nadaa-risk-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/risk-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      # ml-service base URL for flood scoring; empty falls back to local scoring.
+      # Set to the deployed ml-service URL (its internal or public Render URL).
+      - key: NADAA_ML_API_URL
+        sync: false
+
+  - name: nadaa-incident-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/incident-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+
+  - name: nadaa-guide-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/guide-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+
+  - name: nadaa-integration-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/integration-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      # road-closure-service base URL for closure imports.
+      - key: NADAA_ROAD_CLOSURE_SERVICE_URL
+        sync: false
+
+  - name: nadaa-ml-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/ml-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      # Model artifact directory is baked into the image by the Dockerfile
+      # (ENV NADAA_ML_MODEL_DIR=/app/data/flood-risk/models); no override needed.
+
+  - name: nadaa-notification-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/notification-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      # Upstream services (optional enrichment; fixtures used if unreachable).
+      - key: NADAA_ALERT_SERVICE_URL
+        sync: false
+      - key: NADAA_INCIDENT_SERVICE_URL
+        sync: false
+      # SMS via Arkesel. Set NADAA_SMS_PROVIDER=arkesel + the key to go live;
+      # stays in sandbox (mock) until then.
+      - key: NADAA_ARKESEL_API_KEY
+        sync: false
+      # Optional Expo push access token (push works without it).
+      - key: NADAA_EXPO_ACCESS_TOKEN
+        sync: false
+
+  - name: nadaa-shelter-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/shelter-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+
+  - name: nadaa-road-closure-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/road-closure-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+
+  - name: nadaa-route-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/route-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      # Planner enrichment sources (optional; local fallbacks if unset).
+      - key: RISK_SERVICE_URL
+        sync: false
+      - key: ROAD_CLOSURE_SERVICE_URL
+        sync: false
+      - key: SHELTER_SERVICE_URL
+        sync: false
+
+  - name: nadaa-school-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/school-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      - key: RISK_SERVICE_URL
+        sync: false
+
+  - name: nadaa-damage-claim-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/damage-claim-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      - key: INCIDENT_SERVICE_URL
+        sync: false
+
+  - name: nadaa-donation-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/donation-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      # Payments via Paystack. Set NADAA_PAYMENT_PROVIDER=paystack + the key to
+      # go live; stays in sandbox until then.
+      - key: NADAA_PAYSTACK_SECRET_KEY
+        sync: false
+      - key: NADAA_PAYSTACK_CALLBACK_URL
+        sync: false
+
+  - name: nadaa-missing-person-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/missing-person-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+
+  - name: nadaa-imagery-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/imagery-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      # Uploads write to the container's ephemeral filesystem and are lost on
+      # redeploy. Attach a Render disk mounted here for durable storage.
+      - key: IMAGERY_STORAGE_PATH
+        value: /app/uploads
+
+  - name: nadaa-open-data-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/open-data-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins
+      # auth-service base URL (audit-log sink).
+      - key: AUDIT_LOG_SERVICE_URL
+        sync: false
+
+  - name: nadaa-campaign-service
+    type: web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./services/campaign-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - fromGroup: nadaa-web-origins

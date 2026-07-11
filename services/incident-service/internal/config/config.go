@@ -17,19 +17,30 @@ type Config struct {
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:           envOrDefault("NADAA_INCIDENT_ADDR", ":8084"),
+		Addr:           resolveListenAddr("NADAA_INCIDENT_ADDR", ":8084"),
 		RateLimit:      envIntOrDefault("NADAA_INCIDENT_RATE_LIMIT", 60),
 		RateWindowSecs: envIntOrDefault("NADAA_INCIDENT_RATE_WINDOW_SECONDS", 60),
 		AllowedOrigins: allowedOriginsFromEnv(),
 	}
 }
 
-func envOrDefault(key, fallback string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
+// resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare
+// number like "10000"), normalizing it to ":PORT", then a service-specific
+// address override, then the default. This lets the service bind the port the
+// host expects while preserving local defaults.
+func resolveListenAddr(addrKey, fallback string) string {
+	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
+		if strings.HasPrefix(port, ":") {
+			return port
+		}
+		return ":" + port
 	}
-	return value
+	if addrKey != "" {
+		if value := strings.TrimSpace(os.Getenv(addrKey)); value != "" {
+			return value
+		}
+	}
+	return fallback
 }
 
 func envIntOrDefault(key string, fallback int) int {

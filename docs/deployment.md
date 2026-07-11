@@ -2,6 +2,10 @@
 
 This document defines local, staging, and production deployment expectations for NADAA.
 
+> **Hosting the live app?** For the concrete Render (backend) + Vercel (frontend)
+> setup — the `render.yaml` Blueprint, per-app `vercel.json`, env-var mapping, and
+> deploy order — see [Render + Vercel deploy guide](render-vercel-deploy.md).
+
 ## Local Development
 
 Start local data services:
