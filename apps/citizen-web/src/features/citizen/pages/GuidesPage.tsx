@@ -8,6 +8,11 @@ import {
   FormControl,
   Grid,
   InputLabel,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   MenuItem,
   Paper,
   Select,
@@ -17,11 +22,13 @@ import {
 import {
   BookOpen,
   CheckCircle2,
+  ChevronRight,
   Languages,
   Loader2,
   Phone,
   RefreshCw,
   WifiOff,
+  X,
 } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
@@ -88,6 +95,9 @@ export function GuidesPage() {
     status: "loading",
     message: "Loading guides",
   });
+  const [selectedGuide, setSelectedGuide] = useState<
+    EmergencyGuideRecord | undefined
+  >();
 
   const visibleGuides = useMemo(
     () => filterGuides(guides, guideFilters),
@@ -346,10 +356,36 @@ export function GuidesPage() {
                   variant="outlined"
                   className="guide-list-row"
                   key={guide.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedGuide(guide)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelectedGuide(guide);
+                    }
+                  }}
+                  aria-label={`Read guide: ${guide.title}`}
+                  sx={{
+                    cursor: "pointer",
+                    transition: "border-color 0.15s ease, transform 0.15s ease",
+                    "&:hover": {
+                      borderColor: "success.main",
+                      transform: "translateY(-1px)",
+                    },
+                    "&:focus-visible": {
+                      outline: "2px solid var(--nadaa-green)",
+                      outlineOffset: "2px",
+                    },
+                  }}
                 >
-                  <Stack direction="row" spacing={1.25}>
+                  <Stack
+                    direction="row"
+                    spacing={1.25}
+                    sx={{ alignItems: "center" }}
+                  >
                     <CheckCircle2 size={18} color={nadaaBrand.colors.green} />
-                    <Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Stack
                         direction="row"
                         spacing={0.75}
@@ -371,10 +407,98 @@ export function GuidesPage() {
                         {hazardLabel(guide.hazardType)}
                       </Typography>
                     </Box>
+                    <ChevronRight
+                      size={18}
+                      style={{ opacity: 0.5, flexShrink: 0 }}
+                      aria-hidden="true"
+                    />
                   </Stack>
                 </Paper>
               ))}
             </Stack>
+
+            <Dialog
+              open={Boolean(selectedGuide)}
+              onClose={() => setSelectedGuide(undefined)}
+              fullWidth
+              maxWidth="sm"
+              scroll="paper"
+              aria-labelledby="guide-detail-title"
+            >
+              {selectedGuide ? (
+                <>
+                  <DialogTitle
+                    id="guide-detail-title"
+                    sx={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: 2,
+                    }}
+                  >
+                    <span>{selectedGuide.title}</span>
+                    <IconButton
+                      aria-label="Close guide"
+                      onClick={() => setSelectedGuide(undefined)}
+                      size="small"
+                    >
+                      <X size={18} />
+                    </IconButton>
+                  </DialogTitle>
+                  <DialogContent dividers>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ flexWrap: "wrap", mb: 1.75, gap: 0.75 }}
+                    >
+                      <Chip
+                        size="small"
+                        color="success"
+                        label={guideStageLabel(selectedGuide.stage)}
+                      />
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={hazardLabel(selectedGuide.hazardType)}
+                      />
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={guideLanguageLabel(selectedGuide.language)}
+                      />
+                      {selectedGuide.offlineAvailable ? (
+                        <Chip size="small" label="Offline" />
+                      ) : null}
+                    </Stack>
+                    <Typography
+                      variant="body1"
+                      sx={{ whiteSpace: "pre-line", lineHeight: 1.7 }}
+                    >
+                      {selectedGuide.body}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ display: "block", mt: 2, color: "text.secondary" }}
+                    >
+                      Updated {formatDateTime(selectedGuide.updatedAt)}
+                    </Typography>
+                  </DialogContent>
+                  <DialogActions>
+                    <Button onClick={() => setSelectedGuide(undefined)}>
+                      Close
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="error"
+                      startIcon={<Phone size={18} />}
+                      href="tel:112"
+                    >
+                      Call 112
+                    </Button>
+                  </DialogActions>
+                </>
+              ) : null}
+            </Dialog>
           </Paper>
         </Reveal>
       </div>
