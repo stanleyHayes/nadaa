@@ -22,7 +22,10 @@ export function Reveal({
   const { ref, inView } = useInView<HTMLDivElement>();
   const style: CSSProperties | undefined =
     delay > 0 || styleProp
-      ? { ...styleProp, ...(delay > 0 ? { transitionDelay: `${delay}ms` } : {}) }
+      ? {
+          ...styleProp,
+          ...(delay > 0 ? { transitionDelay: `${delay}ms` } : {}),
+        }
       : undefined;
   const classes = [
     "reveal",

@@ -1,9 +1,4 @@
-import {
-  Accessibility,
-  Landmark,
-  Lock,
-  ShieldCheck,
-} from "lucide-react";
+import { Accessibility, Landmark, Lock, ShieldCheck } from "lucide-react";
 import { PageBanner } from "../components/PageBanner";
 import { Reveal } from "../components/Reveal";
 import { SourcesDock } from "../components/SourcesDock";

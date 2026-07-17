@@ -81,6 +81,27 @@ export function useParallax<T extends HTMLElement>(factor = 0.18) {
   return ref;
 }
 
+/** Reports the user's reduced-motion preference, kept in sync live. */
+export function usePrefersReducedMotion() {
+  const [prefers, setPrefers] = useState(prefersReducedMotion);
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return;
+    }
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setPrefers(query.matches);
+    onChange();
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  return prefers;
+}
+
 /** Animate a number from 0 to target once `active` becomes true. */
 export function useCountUp(target: number, active: boolean, durationMs = 1400) {
   const [value, setValue] = useState(0);

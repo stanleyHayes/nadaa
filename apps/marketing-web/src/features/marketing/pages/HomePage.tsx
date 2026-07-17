@@ -12,9 +12,17 @@ import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { nadaaBrand } from "@nadaa/brand";
 import { marketingLinks } from "@/app/config";
+import { CursorSpotlight } from "../components/CursorSpotlight";
+import { Magnetic } from "../components/Magnetic";
+import { Marquee } from "../components/Marquee";
 import { Reveal } from "../components/Reveal";
+import { RotatingWords } from "../components/RotatingWords";
+import { ScrambleText } from "../components/ScrambleText";
+import { SplitReveal } from "../components/SplitReveal";
 import { StatBand } from "../components/StatBand";
 import {
+  heroHazards,
+  heroMarqueeItems,
   heroMetrics,
   platformPositioning,
   responseLoop,
@@ -38,19 +46,31 @@ export function HomePage() {
       <section aria-labelledby="hero-title" className="hero-section">
         <div className="hero-media" ref={parallaxRef} />
         <div className="hero-shade" />
+        <div aria-hidden="true" className="hero-aurora" />
+        <div aria-hidden="true" className="hero-noise" />
+        <CursorSpotlight />
         <div className="hero-content">
           <p className="eyebrow">One nation. One platform. One response.</p>
-          <h1 id="hero-title">{nadaaBrand.name}</h1>
+          <h1 className="hero-title" id="hero-title">
+            <SplitReveal mode="letters" stepMs={70} text={nadaaBrand.name} />
+          </h1>
           <p className="hero-subtitle">
-            Ghana's National Disaster Alert and Response Platform — early
-            warnings, risk checks, incident reporting, command coordination, and
-            recovery, in six Ghanaian languages.
+            <SplitReveal
+              delayMs={260}
+              stepMs={34}
+              text="Ghana's National Disaster Alert and Response Platform — early warnings, risk checks, incident reporting, command coordination, and recovery, in six Ghanaian languages."
+            />
+          </p>
+          <p className="hero-hazards">
+            Live early warnings for <RotatingWords words={heroHazards} />
           </p>
           <div className="hero-actions">
-            <Link className="primary-action" to="/signup">
-              Sign up as a citizen
-              <ChevronRight aria-hidden="true" size={18} />
-            </Link>
+            <Magnetic>
+              <Link className="primary-action" to="/signup">
+                Sign up as a citizen
+                <ChevronRight aria-hidden="true" size={18} />
+              </Link>
+            </Magnetic>
             <Link className="secondary-action" to="/platforms">
               Explore platforms
             </Link>
@@ -65,6 +85,8 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      <Marquee ariaLabel="Platform capabilities" items={heroMarqueeItems} />
 
       <section className="statement-band" aria-label="Platform mission">
         <div>
@@ -165,13 +187,15 @@ export function HomePage() {
               </p>
             </div>
             <div className="cta-actions">
-              <Link className="primary-action" to="/signup">
-                Sign up as a citizen
-                <ChevronRight aria-hidden="true" size={18} />
-              </Link>
+              <Magnetic>
+                <Link className="primary-action" to="/signup">
+                  Sign up as a citizen
+                  <ChevronRight aria-hidden="true" size={18} />
+                </Link>
+              </Magnetic>
               <a className="ghost-action" href={marketingLinks.emergencyPhone}>
                 <PhoneCall aria-hidden="true" size={17} />
-                Emergency? Call 112
+                Emergency? Call <ScrambleText text="112" />
               </a>
             </div>
           </div>

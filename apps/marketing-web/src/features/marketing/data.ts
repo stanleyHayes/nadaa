@@ -15,6 +15,30 @@ export const heroMetrics = [
   { label: "Coordinated roles", value: "5" },
 ] as const;
 
+/** Hazards cycled in the home hero rotating-words line. */
+export const heroHazards = [
+  "floods",
+  "fires",
+  "road crashes",
+  "storms",
+  "disease outbreaks",
+  "tidal waves",
+] as const;
+
+/** Capability keywords for the home marquee strip. */
+export const heroMarqueeItems = [
+  "Flood & fire risk scoring",
+  "SMS + USSD alerts",
+  "WhatsApp reporting",
+  "Voice call warnings",
+  "Cell broadcast",
+  "Six Ghanaian languages",
+  "112 emergency line",
+  "Offline safety guides",
+  "Shelter & hospital mapping",
+  "Human-approved alerts",
+] as const;
+
 export const coreFeatures = [
   ...featurePillars,
   {
