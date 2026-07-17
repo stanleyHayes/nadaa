@@ -148,6 +148,11 @@ func (s *Server) reviewVoiceAlertHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) deliverVoiceAlertHandler(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireAuthority(w, r, deliveryRoles)
+	if !ok {
+		return
+	}
+
 	id := utils.NormalizeID(r.PathValue("id"))
 	if id == "" {
 		utils.LogWarn("voice alert delivery rejected", "code", "missing_voice_asset_id", "path", r.URL.Path)
@@ -188,14 +193,30 @@ func (s *Server) deliverVoiceAlertHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	now := s.now()
+	alerts, _ := s.listCitizenAlerts(r.Context(), models.AlertFeedFilters{Status: "all"}, now)
+	alert, alertFound := findAlert(alerts, asset.AlertID)
+	if !alertFound {
+		utils.LogWarn("voice alert delivery rejected", "voiceAssetId", id, "alertId", asset.AlertID, "code", "alert_not_found", "availableAlerts", len(alerts))
+		utils.WriteError(w, http.StatusNotFound, "alert_not_found", "the underlying alert was not found in the citizen feed")
+		return
+	}
+	if alert.Status == "expired" {
+		utils.LogWarn("voice alert delivery rejected", "voiceAssetId", id, "alertId", asset.AlertID, "code", "alert_not_deliverable", "status", alert.Status)
+		utils.WriteError(w, http.StatusConflict, "alert_not_deliverable", "voice alerts can only be delivered for current or upcoming alerts")
+		return
+	}
+
 	utils.LogInfo(
 		"voice alert delivery requested",
 		"voiceAssetId", asset.ID,
 		"alertId", asset.AlertID,
 		"recipientCount", len(request.Recipients),
 		"dryRun", request.DryRun,
+		"actorId", actor.ActorUserID,
+		"actorRole", actor.ActorRole,
 	)
-	attempts := s.store.CreateVoiceDeliveryAttempts(r.Context(), asset, request, s.providers, s.now())
+	attempts := s.store.CreateVoiceDeliveryAttempts(r.Context(), asset, request, s.providers, now)
 	utils.LogInfo("voice alert delivery attempts created", "voiceAssetId", asset.ID, "alertId", asset.AlertID, "attemptCount", len(attempts))
 	utils.WriteJSON(w, http.StatusAccepted, models.VoiceDeliveryResponse{Attempts: attempts})
 }

@@ -60,12 +60,22 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (isDevelopmentEnv() && isLocalOrigin(origin)) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
+}
+
+// isDevelopmentEnv reports whether the service runs in a local development
+// environment, where localhost origins are tolerated alongside the allowlist.
+func isDevelopmentEnv() bool {
+	return os.Getenv("NADAA_ENV") == "development"
+}
+
+func isLocalOrigin(origin string) bool {
+	return strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:")
 }
 
 // EnvOrDefault returns the value of key or fallback if unset.

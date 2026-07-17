@@ -14,6 +14,26 @@ export const commandRoles: AgencyUserRole[] = [
   "dispatcher",
 ];
 
+/**
+ * Roles alert-service allows to approve or reject submitted alerts. Mirrors
+ * ApprovalRoles in services/alert-service/internal/utils/utils.go — the server
+ * enforces this; the console hides actions the server would reject.
+ */
+export const alertApprovalRoles: AgencyUserRole[] = [
+  "system_admin",
+  "agency_admin",
+  "nadmo_officer",
+];
+
+/**
+ * Roles alert-service allows to perform an emergency override. Mirrors
+ * OverrideRoles in services/alert-service/internal/utils/utils.go.
+ */
+export const alertOverrideRoles: AgencyUserRole[] = [
+  "system_admin",
+  "nadmo_officer",
+];
+
 export type DispatcherSession = {
   id: string;
   name: string;
@@ -32,6 +52,10 @@ export type DispatcherSession = {
   mfaEnabled?: boolean;
   /** ISO timestamp of the previous successful sign-in. */
   lastLoginAt?: string;
+  /** Bearer token returned by auth-service agency login. */
+  accessToken?: string;
+  /** ISO expiry of the access token (12h TTL from auth-service). */
+  tokenExpiresAt?: string;
 };
 
 /** Patch accepted by {@link updateDispatcherProfile}. */
@@ -179,7 +203,7 @@ function readStoredSession(): DispatcherSession | null {
       return null;
     }
     const role = parsed.role as AgencyUserRole;
-    return normalizeSession({
+    const session = normalizeSession({
       id: parsed.id,
       name: parsed.name ?? roleLabels[role],
       role,
@@ -195,7 +219,21 @@ function readStoredSession(): DispatcherSession | null {
         typeof parsed.mfaEnabled === "boolean" ? parsed.mfaEnabled : undefined,
       lastLoginAt:
         typeof parsed.lastLoginAt === "string" ? parsed.lastLoginAt : undefined,
+      accessToken:
+        typeof parsed.accessToken === "string" ? parsed.accessToken : undefined,
+      tokenExpiresAt:
+        typeof parsed.tokenExpiresAt === "string"
+          ? parsed.tokenExpiresAt
+          : undefined,
     });
+    // An expired token cannot authorize anything; force a fresh sign-in.
+    if (
+      session.tokenExpiresAt &&
+      new Date(session.tokenExpiresAt).getTime() <= Date.now()
+    ) {
+      return null;
+    }
+    return session;
   } catch {
     return null;
   }
@@ -431,6 +469,12 @@ export function dispatcherHeaders() {
   const session = currentSession ?? fallbackSession;
   return {
     "Content-Type": "application/json",
+    // Real bearer auth; services require this for every authority endpoint.
+    ...(session.accessToken
+      ? { Authorization: `Bearer ${session.accessToken}` }
+      : {}),
+    // Mock-actor headers are honored only by dev services running with
+    // NADAA_AUTH_ALLOW_MOCK_ACTORS=true; they mirror the token user.
     "X-NADAA-Actor-ID": session.id,
     "X-NADAA-Actor-Role": session.role,
     "X-NADAA-Agency-ID": session.agencyId,

@@ -95,7 +95,9 @@ export function ProfileScreen({ actions, state }: DispatcherScreenProps) {
         <Text style={stylesBody}>{state.pushState.status}</Text>
         {state.pushState.status === "registered" ? (
           <Text style={stylesMuted}>Token: {state.pushState.token}</Text>
-        ) : null}
+        ) : (
+          <Text style={stylesMuted}>{state.pushState.message}</Text>
+        )}
       </Card>
 
       <Card>

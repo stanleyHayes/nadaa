@@ -91,11 +91,46 @@ var (
 			"false_report": true,
 		},
 	}
+	// allowedVolunteerTaskTransitions guards volunteer task status changes.
+	// completed and cancelled are terminal; needs_escalation may resume the
+	// operational flow once the safety concern is reviewed.
+	allowedVolunteerTaskTransitions = map[string]map[string]bool{
+		"assigned": {
+			"accepted":         true,
+			"cancelled":        true,
+			"needs_escalation": true,
+		},
+		"accepted": {
+			"en_route":         true,
+			"on_scene":         true,
+			"cancelled":        true,
+			"needs_escalation": true,
+		},
+		"en_route": {
+			"on_scene":         true,
+			"cancelled":        true,
+			"needs_escalation": true,
+		},
+		"on_scene": {
+			"completed":        true,
+			"cancelled":        true,
+			"needs_escalation": true,
+		},
+		"needs_escalation": {
+			"accepted":  true,
+			"en_route":  true,
+			"on_scene":  true,
+			"completed": true,
+			"cancelled": true,
+		},
+	}
 )
 
 // Store is the persistence interface for incident data.
 type Store interface {
 	CreateIncident(request models.CreateIncidentRequest, now time.Time) models.IncidentRecord
+	CreateIncidentWithMedia(request models.CreateIncidentRequest, now time.Time) (models.IncidentRecord, error)
+	GetIncident(id string) (models.IncidentRecord, bool)
 	ListIncidents(assignedAgencyID string) []models.IncidentRecord
 	DuplicateReview(id string) (models.DuplicateReviewResponse, string, string)
 	ListAudit(limit int) []models.AuditEvent
@@ -107,8 +142,10 @@ type Store interface {
 	AssignIncident(id string, request models.AssignmentRequest, ctx models.AuthorityContext, now time.Time) (models.IncidentRecord, string, string)
 	RegisterVolunteer(request models.RegisterVolunteerRequest, now time.Time) models.VolunteerProfile
 	ListVolunteers(status, district string) []models.VolunteerProfile
+	VolunteerByID(id string) (models.VolunteerProfile, bool)
 	VerifyVolunteer(id string, request models.VerifyVolunteerRequest, ctx models.AuthorityContext, now time.Time) (models.VolunteerProfile, string, string)
 	ListVolunteerTasks(volunteerID string) ([]models.VolunteerTaskRecord, string, string)
+	VolunteerTaskByID(id string) (models.VolunteerTaskRecord, bool)
 	AssignVolunteerTask(incidentID string, request models.VolunteerTaskRequest, ctx models.AuthorityContext, now time.Time) (models.VolunteerTaskRecord, string, string)
 	UpdateVolunteerTaskStatus(taskID string, request models.VolunteerTaskStatusRequest, now time.Time) (models.VolunteerTaskRecord, string, string)
 	AddVolunteerObservation(taskID string, request models.VolunteerObservationRequest, now time.Time) (models.VolunteerTaskRecord, string, string)
@@ -148,7 +185,34 @@ func NewMemoryStore() Store {
 func (m *MemoryStore) CreateIncident(request models.CreateIncidentRequest, now time.Time) models.IncidentRecord {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.createIncidentLocked(request, now)
+}
 
+// CreateIncidentWithMedia validates media references, creates the incident,
+// and links the media under a single lock so concurrent reports cannot claim
+// the same media references.
+func (m *MemoryStore) CreateIncidentWithMedia(request models.CreateIncidentRequest, now time.Time) (models.IncidentRecord, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if err := m.validateMediaReferencesLocked(request.Media); err != nil {
+		return models.IncidentRecord{}, err
+	}
+	record := m.createIncidentLocked(request, now)
+	m.linkMediaToIncidentLocked(record.ID, record.Media, now)
+	return record, nil
+}
+
+// GetIncident returns a single incident by id.
+func (m *MemoryStore) GetIncident(id string) (models.IncidentRecord, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	incident, ok := m.incidents[id]
+	return incident, ok
+}
+
+func (m *MemoryStore) createIncidentLocked(request models.CreateIncidentRequest, now time.Time) models.IncidentRecord {
 	m.sequence++
 	reference := fmt.Sprintf("INC-%06d", m.sequence)
 	timestamp := now.UTC()
@@ -456,6 +520,9 @@ func (m *MemoryStore) MergeIncidents(primaryID string, request models.MergeIncid
 		if duplicate.Status == "closed" || duplicate.Status == "false_report" {
 			return models.MergeIncidentsResponse{}, "invalid_merge", fmt.Sprintf("duplicate incident %s is terminal", duplicate.Reference)
 		}
+		if duplicate.Status == "verified" || hasActiveAssignment(duplicate) {
+			return models.MergeIncidentsResponse{}, "invalid_merge", fmt.Sprintf("duplicate incident %s is verified or assigned to an agency and cannot be force-closed by a merge", duplicate.Reference)
+		}
 		if _, ok := duplicateCandidateBetween(primary, duplicate); !ok {
 			return models.MergeIncidentsResponse{}, "invalid_duplicate", fmt.Sprintf("incident %s is not a duplicate candidate for %s", duplicate.Reference, primary.Reference)
 		}
@@ -484,6 +551,8 @@ func (m *MemoryStore) MergeIncidents(primaryID string, request models.MergeIncid
 		duplicate.ResolutionNotes = request.Note
 		duplicate.ClosedAt = &timestamp
 		duplicate.UpdatedAt = timestamp
+		duplicate.Assignments = []models.IncidentAssignment{}
+		duplicate.AbuseReviewRequired = false
 		duplicate.DuplicateCandidates = filterDuplicateCandidates(duplicate.DuplicateCandidates, map[string]bool{primary.ID: true})
 		duplicate.Timeline = append(duplicate.Timeline, newTimelineEvent("incident.merged_into", "Merged into "+primary.Reference, ctx, map[string]string{
 			"primaryIncidentId": primary.ID,
@@ -674,6 +743,15 @@ func (m *MemoryStore) ListVolunteers(status string, district string) []models.Vo
 	return volunteers
 }
 
+// VolunteerByID returns a single volunteer profile by id.
+func (m *MemoryStore) VolunteerByID(id string) (models.VolunteerProfile, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	volunteer, ok := m.volunteers[id]
+	return volunteer, ok
+}
+
 // VerifyVolunteer updates a volunteer's verification status.
 func (m *MemoryStore) VerifyVolunteer(id string, request models.VerifyVolunteerRequest, ctx models.AuthorityContext, now time.Time) (models.VolunteerProfile, string, string) {
 	m.mu.Lock()
@@ -724,6 +802,15 @@ func (m *MemoryStore) ListVolunteerTasks(volunteerID string) ([]models.Volunteer
 		return tasks[i].UpdatedAt.After(tasks[j].UpdatedAt)
 	})
 	return tasks, "", ""
+}
+
+// VolunteerTaskByID returns a single volunteer task by id.
+func (m *MemoryStore) VolunteerTaskByID(id string) (models.VolunteerTaskRecord, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	task, ok := m.volunteerTasks[id]
+	return task, ok
 }
 
 // AssignVolunteerTask assigns a task to a verified volunteer.
@@ -802,6 +889,9 @@ func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.Vo
 	if task.VolunteerID != request.VolunteerID {
 		return models.VolunteerTaskRecord{}, "forbidden", "volunteer can update only their own tasks"
 	}
+	if !allowedVolunteerTaskTransitions[task.Status][request.Status] {
+		return models.VolunteerTaskRecord{}, "invalid_transition", fmt.Sprintf("cannot move volunteer task from %s to %s", task.Status, request.Status)
+	}
 	incident, ok := m.incidents[task.IncidentID]
 	if !ok {
 		return models.VolunteerTaskRecord{}, "not_found", "linked incident was not found"
@@ -809,6 +899,7 @@ func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.Vo
 
 	before := snapshotIncident(incident)
 	timestamp := now.UTC()
+	escalationNewlyRequested := !task.EscalationRequired && (request.Status == "needs_escalation" || request.SafetyStatus == "unsafe" || request.SafetyStatus == "needs_authority")
 	task.Status = request.Status
 	task.UpdatedAt = timestamp
 	if request.Status == "accepted" && task.AcceptedAt == nil {
@@ -817,7 +908,7 @@ func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.Vo
 	if request.Status == "completed" {
 		task.CompletedAt = &timestamp
 	}
-	if request.Status == "needs_escalation" || request.SafetyStatus == "unsafe" || request.SafetyStatus == "needs_authority" {
+	if escalationNewlyRequested {
 		task.EscalationRequired = true
 	}
 	update := models.VolunteerTaskUpdate{
@@ -827,7 +918,7 @@ func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.Vo
 		Note:                request.Note,
 		SafetyStatus:        request.SafetyStatus,
 		Location:            request.Location,
-		EscalationRequested: task.EscalationRequired,
+		EscalationRequested: escalationNewlyRequested,
 		CreatedBy:           request.VolunteerID,
 		CreatedAt:           timestamp,
 	}
@@ -841,7 +932,7 @@ func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.Vo
 		"status":       request.Status,
 		"safetyStatus": request.SafetyStatus,
 	}, timestamp))
-	if task.EscalationRequired {
+	if escalationNewlyRequested {
 		incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_escalation", "Volunteer requested authority escalation", actor, map[string]string{
 			"taskId":       task.ID,
 			"volunteerId":  request.VolunteerID,
@@ -873,7 +964,8 @@ func (m *MemoryStore) AddVolunteerObservation(taskID string, request models.Volu
 
 	before := snapshotIncident(incident)
 	timestamp := now.UTC()
-	if request.EscalationRequested || request.SafetyStatus == "unsafe" || request.SafetyStatus == "needs_authority" {
+	escalationNewlyRequested := !task.EscalationRequired && (request.EscalationRequested || request.SafetyStatus == "unsafe" || request.SafetyStatus == "needs_authority")
+	if escalationNewlyRequested {
 		task.EscalationRequired = true
 		task.Status = "needs_escalation"
 	}
@@ -885,6 +977,7 @@ func (m *MemoryStore) AddVolunteerObservation(taskID string, request models.Volu
 		SafetyStatus:        request.SafetyStatus,
 		Location:            request.Location,
 		EscalationRequested: request.EscalationRequested,
+		Media:               append([]string{}, request.Media...),
 		CreatedBy:           request.VolunteerID,
 		CreatedAt:           timestamp,
 	}
@@ -899,7 +992,7 @@ func (m *MemoryStore) AddVolunteerObservation(taskID string, request models.Volu
 		"safetyStatus": request.SafetyStatus,
 		"mediaCount":   strconv.Itoa(len(request.Media)),
 	}, timestamp))
-	if task.EscalationRequired {
+	if escalationNewlyRequested {
 		incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_escalation", "Volunteer observation requires authority review", actor, map[string]string{
 			"taskId":       task.ID,
 			"volunteerId":  request.VolunteerID,
@@ -965,7 +1058,10 @@ var (
 func (m *MemoryStore) ValidateMediaReferences(mediaIDs []string) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+	return m.validateMediaReferencesLocked(mediaIDs)
+}
 
+func (m *MemoryStore) validateMediaReferencesLocked(mediaIDs []string) error {
 	seen := map[string]bool{}
 	for _, mediaID := range mediaIDs {
 		if seen[mediaID] {
@@ -988,7 +1084,10 @@ func (m *MemoryStore) ValidateMediaReferences(mediaIDs []string) error {
 func (m *MemoryStore) LinkMediaToIncident(incidentID string, mediaIDs []string, now time.Time) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.linkMediaToIncidentLocked(incidentID, mediaIDs, now)
+}
 
+func (m *MemoryStore) linkMediaToIncidentLocked(incidentID string, mediaIDs []string, now time.Time) {
 	linkedAt := now.UTC()
 	for _, mediaID := range mediaIDs {
 		record := m.media[mediaID]
@@ -1114,7 +1213,10 @@ func (m *MemoryStore) abuseSignalsLocked(record models.IncidentRecord) []models.
 }
 
 func scoreDuplicateCandidate(record models.IncidentRecord, existing models.IncidentRecord) (models.DuplicateCandidate, bool) {
-	if record.ID == existing.ID || record.Type != existing.Type || existing.Status == "false_report" {
+	if record.ID == existing.ID || record.Type != existing.Type {
+		return models.DuplicateCandidate{}, false
+	}
+	if existing.MergedIntoID != "" || existing.Status == "closed" || existing.Status == "false_report" {
 		return models.DuplicateCandidate{}, false
 	}
 
@@ -1392,6 +1494,15 @@ func reportedByFor(request models.CreateIncidentRequest) *models.ReporterRef {
 func incidentAssignedToAgency(incident models.IncidentRecord, agencyID string) bool {
 	for _, assignment := range incident.Assignments {
 		if assignment.AgencyID == agencyID && assignment.Status == "active" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasActiveAssignment(incident models.IncidentRecord) bool {
+	for _, assignment := range incident.Assignments {
+		if assignment.Status == "active" {
 			return true
 		}
 	}

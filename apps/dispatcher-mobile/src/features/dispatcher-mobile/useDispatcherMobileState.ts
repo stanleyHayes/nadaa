@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AppState } from "react-native";
 import type {
   HospitalCapacityRecord,
   IncidentRecord,
@@ -54,6 +55,7 @@ import type {
 } from "./types";
 
 const storage = createMemoryStorage();
+const QUEUE_POLL_INTERVAL_MS = 30_000;
 
 export function useDispatcherMobileState() {
   const [capacity, setCapacity] = useState<HospitalCapacityRecord[]>([]);
@@ -93,10 +95,55 @@ export function useDispatcherMobileState() {
 
   const seenIncidentIds = useRef<Set<string>>(new Set());
   const incidentsSeeded = useRef(false);
+  // Refs mirror the latest state so the foreground poller (a mount-once
+  // interval) never reads a stale session, permission, or selection closure.
+  const sessionRef = useRef(session);
+  const permissionsRef = useRef(permissions);
+  const selectedIncidentIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    void hydrate();
-    void configureIncidentNotifications();
+    sessionRef.current = session;
+    permissionsRef.current = permissions;
+  });
+
+  useEffect(() => {
+    void hydrate().catch(() => undefined);
+    void configureIncidentNotifications().catch(() => undefined);
+  }, []);
+
+  // Poll the queue while the app is foregrounded so a newly-arrived
+  // life-threatening incident notifies without waiting for a manual refresh.
+  useEffect(() => {
+    const poll = () => {
+      void refreshQueue().catch(() => undefined);
+    };
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const startPolling = () => {
+      if (interval == null) {
+        interval = setInterval(poll, QUEUE_POLL_INTERVAL_MS);
+      }
+    };
+    const stopPolling = () => {
+      if (interval != null) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        poll();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    });
+    if (AppState.currentState === "active") {
+      startPolling();
+    }
+    return () => {
+      stopPolling();
+      subscription.remove();
+    };
   }, []);
 
   const selectedIncident = useMemo(
@@ -182,6 +229,7 @@ export function useDispatcherMobileState() {
       ]);
     setSession(savedSession);
     setIncidents(incidentCache.incidents as IncidentRecord[]);
+    selectedIncidentIdRef.current = savedIncidentId;
     setSelectedIncidentId(savedIncidentId);
     setCapacity(capacityCache.facilities as HospitalCapacityRecord[]);
     setLoadState({
@@ -190,14 +238,20 @@ export function useDispatcherMobileState() {
     });
   }
 
-  async function refreshQueue() {
+  async function refreshQueue(sessionOverride?: DispatcherSession) {
+    // Callers that just changed the session (login) pass it in; everyone else
+    // — including the foreground poller — reads the latest via the ref.
+    const activeSession = sessionOverride ?? sessionRef.current;
     setLoadState({ status: "loading", message: "Refreshing incident queue" });
     try {
-      const nextIncidents = await fetchIncidentQueue(session);
+      const nextIncidents = await fetchIncidentQueue(activeSession);
       setIncidents(nextIncidents);
       // Notify for newly-arrived active incidents (never on the first load).
       // The OS channel handles DND; a life-threatening incident overrides it.
-      if (incidentsSeeded.current && permissions.push === "granted") {
+      if (
+        incidentsSeeded.current &&
+        permissionsRef.current.push === "granted"
+      ) {
         void notifyNewIncidents(nextIncidents, seenIncidentIds.current).catch(
           () => undefined,
         );
@@ -227,6 +281,7 @@ export function useDispatcherMobileState() {
   }
 
   async function selectIncident(id: string | null) {
+    selectedIncidentIdRef.current = id;
     setSelectedIncidentId(id);
     await writeSelectedIncidentId(storage, id);
     if (id == null) {
@@ -243,10 +298,15 @@ export function useDispatcherMobileState() {
     setLoadState({ status: "loading", message: "Loading nearby capacity" });
     try {
       const response = await fetchHospitalCapacity(
-        session,
+        sessionRef.current,
         incident.location.lat,
         incident.location.lng,
       );
+      // A different incident was selected while loading — ignore this
+      // response so rapid selection cannot mix up another incident's capacity.
+      if (selectedIncidentIdRef.current !== incident.id) {
+        return;
+      }
       setCapacity(response.facilities);
       await writeCapacityCache(storage, {
         cachedAt: response.generatedAt,
@@ -257,6 +317,9 @@ export function useDispatcherMobileState() {
         message: `${response.facilities.length} facilities nearby.`,
       });
     } catch (error) {
+      if (selectedIncidentIdRef.current !== incident.id) {
+        return;
+      }
       setLoadState({
         status: "offline",
         message:
@@ -383,19 +446,22 @@ export function useDispatcherMobileState() {
         agencyId: response.user.agency?.id ?? fixtureDispatcherSession.agencyId,
         agencyName:
           response.user.agency?.name ?? fixtureDispatcherSession.agencyName,
-        mfaCompleted: true,
+        mfaCompleted: response.user.mfaEnabled,
         role: response.user.role,
         userId: response.user.id,
         userName: response.user.name,
       };
       setSession(nextSession);
+      sessionRef.current = nextSession;
       await writeSession(storage, nextSession);
       setAuthForm({ email: "", mfaCode: "", password: "" });
       setLoadState({
         status: "success",
         message: `Signed in as ${nextSession.userName}.`,
       });
-      await refreshQueue();
+      // Refresh with the NEW session — the state closure still holds the
+      // pre-login (fixture) session at this point.
+      await refreshQueue(nextSession);
     } catch (error) {
       setLoadState({
         status: "error",
@@ -453,18 +519,15 @@ export function useDispatcherMobileState() {
   }
 
   async function togglePermission(key: keyof DispatcherPermissionState) {
-    const nextStatus = nextPermissionStatus(permissions[key]);
-    const nextPermissions = { ...permissions, [key]: nextStatus };
-    setPermissions(nextPermissions);
-    setLoadState({
-      status: nextStatus === "granted" ? "success" : "idle",
-      message: permissionMessage(key, nextStatus),
-    });
     if (key === "push") {
-      // Pin the permission to the REAL OS answer, not just the in-app toggle —
-      // otherwise notifications are scheduled but silently dropped.
-      let granted = nextStatus === "granted";
-      if (granted) {
+      // Tapping while granted turns the in-app toggle off. Any other tap is an
+      // attempt to enable and must ALWAYS consult the OS — a user who
+      // re-enabled notifications in OS Settings must not stay "denied" in-app.
+      const enabling = permissions.push !== "granted";
+      let granted = false;
+      if (enabling) {
+        // requestIncidentPermission checks getPermissionsAsync() first and
+        // only prompts when the OS has not already granted.
         granted = await requestIncidentPermission();
       }
       const resolved = granted ? "granted" : "denied";
@@ -474,7 +537,15 @@ export function useDispatcherMobileState() {
         message: permissionMessage("push", resolved),
       });
       setPushState(await registerPushToken(granted));
+      return;
     }
+    const nextStatus = nextPermissionStatus(permissions[key]);
+    const nextPermissions = { ...permissions, [key]: nextStatus };
+    setPermissions(nextPermissions);
+    setLoadState({
+      status: nextStatus === "granted" ? "success" : "idle",
+      message: permissionMessage(key, nextStatus),
+    });
   }
 
   function setStatusForTransition(status: IncidentStatus) {

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/stanleyHayes/nadaa/services/damage-claim-service/internal/models"
@@ -35,9 +34,12 @@ func WriteError(w http.ResponseWriter, status int, code, message string) {
 
 // WithCORS wraps a handler with security and CORS headers.
 func WithCORS(allowedOrigins map[string]bool, next http.Handler) http.Handler {
+	// Localhost/127.0.0.1 origins bypass the configured allowlist only in
+	// development; in every other environment the allowlist is authoritative.
+	allowLocalhost := strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_ENV")), "development")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applySecurityHeaders(w)
-		applyCORSHeaders(w, r, allowedOrigins)
+		applyCORSHeaders(w, r, allowedOrigins, allowLocalhost)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -55,13 +57,14 @@ func applySecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 }
 
-func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool) {
+func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool, allowLocalhost bool) {
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
 	if len(allowedOrigins) == 0 {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		localhostOrigin := strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:")
+		if allowedOrigins[origin] || (allowLocalhost && localhostOrigin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
@@ -126,10 +129,20 @@ func ValidEmail(value string) bool {
 	return emailRegex.MatchString(value)
 }
 
+// decimalPattern matches a plain base-10 decimal: digits with an optional
+// fractional part. It rejects NaN, Inf, hex, and scientific notation, all of
+// which strconv.ParseFloat would otherwise accept.
+var decimalPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
+
 // ValidDecimal reports whether value is a valid base-10 decimal.
 func ValidDecimal(value string) bool {
-	_, err := strconv.ParseFloat(value, 64)
-	return err == nil
+	return decimalPattern.MatchString(value)
+}
+
+// SafeLogValue strips CR/LF from user-controlled values before they are
+// written to logs, preventing forged log lines.
+func SafeLogValue(value string) string {
+	return strings.NewReplacer("\n", " ", "\r", " ").Replace(value)
 }
 
 // StatusForCode maps internal error codes to HTTP status codes.

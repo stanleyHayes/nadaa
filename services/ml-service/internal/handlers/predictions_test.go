@@ -109,3 +109,17 @@ func postPrediction(t *testing.T, srv *server, payload models.PredictionRequest)
 	}
 	return result
 }
+
+func TestPredictionLogIDsUniqueWithinSameSecond(t *testing.T) {
+	srv := newTestServer(t)
+	// The test clock is fixed, so both requests hit the same cell in the same second.
+	first := postPrediction(t, srv, models.PredictionRequest{Location: models.Coordinates{Lat: 5.5600, Lng: -0.2000}})
+	second := postPrediction(t, srv, models.PredictionRequest{Location: models.Coordinates{Lat: 5.5600, Lng: -0.2000}})
+
+	if first.Log.ID == "" || second.Log.ID == "" {
+		t.Fatal("expected prediction log IDs")
+	}
+	if first.Log.ID == second.Log.ID {
+		t.Fatalf("expected unique prediction log IDs, both were %s", first.Log.ID)
+	}
+}

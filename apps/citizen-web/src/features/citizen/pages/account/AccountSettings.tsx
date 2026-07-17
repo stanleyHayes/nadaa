@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Paper, Stack, Tab, Tabs } from "@mui/material";
+import { Alert, Box, Paper, Stack, Tab, Tabs } from "@mui/material";
 import { ShieldCheck, SlidersHorizontal, UserCog } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
@@ -88,6 +88,10 @@ export function AccountSettings() {
         >
           {active === 1 ? (
             <Stack spacing={3}>
+              <Alert severity="info" className="warning-alert">
+                Preview — these security controls store preferences on this
+                device only; no backend enforces them yet.
+              </Alert>
               <MfaCard />
               <PasswordForm />
             </Stack>

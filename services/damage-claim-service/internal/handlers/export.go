@@ -24,14 +24,16 @@ func (s *Server) exportClaimHandler(w http.ResponseWriter, r *http.Request) {
 		format = "csv"
 	}
 	if format != "csv" && format != "pdf" {
-		log.Printf("WARN damage-claim-service claim_export invalid_format id=%s actor=%s format=%s", r.PathValue("id"), ctx.ActorUserID, format)
+		// #nosec G706 -- path value and format are sanitized with utils.SafeLogValue.
+		log.Printf("WARN damage-claim-service claim_export invalid_format id=%s actor=%s format=%s", utils.SafeLogValue(r.PathValue("id")), ctx.ActorUserID, utils.SafeLogValue(format))
 		utils.WriteError(w, http.StatusBadRequest, "invalid_format", "format must be csv or pdf")
 		return
 	}
 
 	claim, ok := s.store.Get(r.PathValue("id"))
 	if !ok {
-		log.Printf("WARN damage-claim-service claim_export not_found id=%s actor=%s", r.PathValue("id"), ctx.ActorUserID)
+		// #nosec G706 -- path value is sanitized with utils.SafeLogValue.
+		log.Printf("WARN damage-claim-service claim_export not_found id=%s actor=%s", utils.SafeLogValue(r.PathValue("id")), ctx.ActorUserID)
 		utils.WriteError(w, http.StatusNotFound, "not_found", "claim was not found")
 		return
 	}
@@ -42,7 +44,8 @@ func (s *Server) exportClaimHandler(w http.ResponseWriter, r *http.Request) {
 	case "pdf":
 		writeClaimPDF(w, claim)
 	}
-	log.Printf("INFO damage-claim-service claim_export completed id=%s reference=%s format=%s actor=%s", claim.ID, claim.Reference, format, ctx.ActorUserID)
+	// #nosec G706 -- format is sanitized with utils.SafeLogValue.
+	log.Printf("INFO damage-claim-service claim_export completed id=%s reference=%s format=%s actor=%s", claim.ID, claim.Reference, utils.SafeLogValue(format), ctx.ActorUserID)
 }
 
 func writeClaimCSV(w http.ResponseWriter, claim models.DamageClaimRecord) {
@@ -52,24 +55,39 @@ func writeClaimCSV(w http.ResponseWriter, claim models.DamageClaimRecord) {
 
 	writer := csv.NewWriter(w)
 	_ = writer.Write([]string{"Field", "Value"})
-	_ = writer.Write([]string{"Reference", claim.Reference})
-	_ = writer.Write([]string{"IncidentReference", claim.IncidentReference})
-	_ = writer.Write([]string{"ReporterName", claim.Reporter.Name})
-	_ = writer.Write([]string{"ReporterPhone", claim.Reporter.Phone})
-	_ = writer.Write([]string{"ReporterEmail", claim.Reporter.Email})
-	_ = writer.Write([]string{"DamageType", claim.DamageType})
-	_ = writer.Write([]string{"DamageDescription", claim.DamageDescription})
-	_ = writer.Write([]string{"EstimatedLossAmount", claim.EstimatedLossAmount})
-	_ = writer.Write([]string{"VerificationStatus", claim.VerificationStatus})
-	_ = writer.Write([]string{"VerifiedBy", claim.VerifiedBy})
-	_ = writer.Write([]string{"VerificationNotes", claim.VerificationNotes})
-	_ = writer.Write([]string{"Status", claim.Status})
-	_ = writer.Write([]string{"LocationAddress", claim.Location.Address})
+	_ = writer.Write([]string{"Reference", csvCell(claim.Reference)})
+	_ = writer.Write([]string{"IncidentReference", csvCell(claim.IncidentReference)})
+	_ = writer.Write([]string{"ReporterName", csvCell(claim.Reporter.Name)})
+	_ = writer.Write([]string{"ReporterPhone", csvCell(claim.Reporter.Phone)})
+	_ = writer.Write([]string{"ReporterEmail", csvCell(claim.Reporter.Email)})
+	_ = writer.Write([]string{"DamageType", csvCell(claim.DamageType)})
+	_ = writer.Write([]string{"DamageDescription", csvCell(claim.DamageDescription)})
+	_ = writer.Write([]string{"EstimatedLossAmount", csvCell(claim.EstimatedLossAmount)})
+	_ = writer.Write([]string{"VerificationStatus", csvCell(claim.VerificationStatus)})
+	_ = writer.Write([]string{"VerifiedBy", csvCell(claim.VerifiedBy)})
+	_ = writer.Write([]string{"VerificationNotes", csvCell(claim.VerificationNotes)})
+	_ = writer.Write([]string{"Status", csvCell(claim.Status)})
+	_ = writer.Write([]string{"LocationAddress", csvCell(claim.Location.Address)})
 	_ = writer.Write([]string{"LocationLat", fmt.Sprintf("%f", claim.Location.Lat)})
 	_ = writer.Write([]string{"LocationLng", fmt.Sprintf("%f", claim.Location.Lng)})
 	_ = writer.Write([]string{"CreatedAt", claim.CreatedAt.Format(time.RFC3339)})
 	_ = writer.Write([]string{"UpdatedAt", claim.UpdatedAt.Format(time.RFC3339)})
 	writer.Flush()
+}
+
+// csvCell neutralizes CSV formula injection: spreadsheet apps execute cells
+// whose first character is =, +, -, or @, so a leading single quote forces the
+// value to be treated as text.
+func csvCell(value string) string {
+	if value == "" {
+		return value
+	}
+	switch value[0] {
+	case '=', '+', '-', '@':
+		return "'" + value
+	default:
+		return value
+	}
 }
 
 func writeClaimPDF(w http.ResponseWriter, claim models.DamageClaimRecord) {
@@ -139,16 +157,16 @@ func buildClaimPDF(claim models.DamageClaimRecord) []byte {
 
 	xrefOffset := buf.Len()
 	buf.WriteString("xref\n")
-	buf.WriteString(fmt.Sprintf("0 %d\n", len(objOffsets)+1))
+	_, _ = fmt.Fprintf(&buf, "0 %d\n", len(objOffsets)+1)
 	buf.WriteString("0000000000 65535 f \n")
 	for _, offset := range objOffsets {
-		buf.WriteString(fmt.Sprintf("%010d 00000 n \n", offset))
+		_, _ = fmt.Fprintf(&buf, "%010d 00000 n \n", offset)
 	}
 
 	buf.WriteString("trailer\n")
-	buf.WriteString(fmt.Sprintf("<< /Size %d /Root 1 0 R >>\n", len(objOffsets)+1))
+	_, _ = fmt.Fprintf(&buf, "<< /Size %d /Root 1 0 R >>\n", len(objOffsets)+1)
 	buf.WriteString("startxref\n")
-	buf.WriteString(fmt.Sprintf("%d\n", xrefOffset))
+	_, _ = fmt.Fprintf(&buf, "%d\n", xrefOffset)
 	buf.WriteString("%%EOF\n")
 
 	return buf.Bytes()

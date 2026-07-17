@@ -14,6 +14,12 @@ type Config struct {
 	ShelterServiceURL     string
 	RiskServiceURL        string
 	AllowedOrigins        map[string]bool
+	// TokenSecret verifies nadaa.<payload>.<sig> bearer tokens issued by
+	// auth-service (NADAA_AUTH_TOKEN_SECRET).
+	TokenSecret string
+	// AllowMockActors honors legacy X-NADAA-Actor-* headers for local dev and
+	// smoke tests (NADAA_AUTH_ALLOW_MOCK_ACTORS=true); off by default.
+	AllowMockActors bool
 }
 
 // Load reads configuration from environment variables.
@@ -24,6 +30,8 @@ func Load() *Config {
 		ShelterServiceURL:     utils.EnvOrDefault("SHELTER_SERVICE_URL", "http://localhost:8093"),
 		RiskServiceURL:        utils.EnvOrDefault("RISK_SERVICE_URL", "http://localhost:8082"),
 		AllowedOrigins:        utils.AllowedOriginsFromEnv(),
+		TokenSecret:           os.Getenv("NADAA_AUTH_TOKEN_SECRET"),
+		AllowMockActors:       os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
 	}
 }
 

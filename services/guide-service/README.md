@@ -13,7 +13,7 @@ Current NADAA-060 endpoints:
 
 - `hazard` - any NADAA hazard type, such as `flood`, `fire`, `road_crash`, `electrical_hazard`, `disease_outbreak`, or `other`.
 - `stage` - `before`, `during`, `after`, or `recovery`.
-- `language` - defaults to `en`; if a requested language has no exact match, the service falls back to English for the same filters.
+- `language` - defaults to `en`; requested-language guides are returned together with English fillers for any `(hazard, stage)` group that has no guide in the requested language.
 - `offline` - `true` or `false`, filtering by offline availability.
 
 The starter fixtures cover floods, fire safety, road crash response, electrical hazard safety, disease prevention, safe evacuation, emergency bag checklist, family emergency planning, and contacting 112. General preparedness topics use hazard type `other`.

@@ -2,15 +2,10 @@ import { useSyncExternalStore } from "react";
 import type { AgencyUserRole } from "@nadaa/shared-types";
 
 /**
- * Roles allowed to reach the governance console. Kept in sync with the
- * feature-level RBAC gate (`features/administration/rbac.ts`); the sign-in
- * screen only offers these roles and the gate re-checks on every render.
+ * Governance-console session. Identity (including role) always comes from the
+ * auth-service agency login response; the bearer token is persisted beside it
+ * so `adminHeaders` can authorize every governance API call.
  */
-export const adminSignInRoles: AgencyUserRole[] = [
-  "system_admin",
-  "agency_admin",
-];
-
 export type AdminSession = {
   id: string;
   name: string;
@@ -18,6 +13,10 @@ export type AdminSession = {
   agencyId: string;
   agency: string;
   mfaCompleted: boolean;
+  /** Bearer token issued by `POST /auth/agency/login` (12h TTL). */
+  accessToken: string;
+  /** ISO timestamp when {@link AdminSession.accessToken} expires. */
+  tokenExpiresAt?: string;
   /** Work email; derived from the display name when not supplied. */
   email?: string;
   /** Operating unit within the agency. */
@@ -34,12 +33,6 @@ export type AdminSession = {
 export type AdminProfilePatch = {
   name?: string;
   department?: string;
-};
-
-/** Result of the mock {@link changeAdminPassword} action. */
-export type PasswordChangeResult = {
-  ok: boolean;
-  message: string;
 };
 
 /**
@@ -61,12 +54,12 @@ export type AdminSessionState = {
   updateProfile: (patch: AdminProfilePatch) => void;
   updatePreferences: (patch: Partial<AdminAccountPreferences>) => void;
   setMfaEnabled: (enabled: boolean) => void;
-  changePassword: (current: string, next: string) => PasswordChangeResult;
 };
 
 /**
- * Default agency identity per admin role. Used to pre-fill the sign-in screen;
- * a live deployment would resolve this from the directory service.
+ * Default agency identity per admin role. Only used as a display fallback when
+ * a stored session predates a field; the sign-in flow always takes the agency
+ * from the auth-service profile.
  */
 export const agencyByRole: Record<AgencyUserRole, string> = {
   system_admin: "NADMO National Operations",
@@ -140,20 +133,6 @@ function normalizeSession(base: AdminSession): AdminSession {
   };
 }
 
-/**
- * Fallback identity used only for request headers if a call somehow fires
- * before an admin signs in. The UI never renders governance surfaces without
- * an authenticated session, so this keeps API clients resilient in dev.
- */
-const fallbackSession: AdminSession = normalizeSession({
-  id: "usr_system_admin",
-  name: "NADAA System Admin",
-  role: "system_admin",
-  agencyId: DEFAULT_AGENCY_ID,
-  agency: "NADMO National Operations",
-  mfaCompleted: true,
-});
-
 function readStoredSession(): AdminSession | null {
   if (typeof window === "undefined") {
     return null;
@@ -167,7 +146,9 @@ function readStoredSession(): AdminSession | null {
     if (
       !parsed ||
       typeof parsed.id !== "string" ||
-      typeof parsed.role !== "string"
+      typeof parsed.role !== "string" ||
+      typeof parsed.accessToken !== "string" ||
+      !parsed.accessToken
     ) {
       return null;
     }
@@ -179,6 +160,11 @@ function readStoredSession(): AdminSession | null {
       agencyId: parsed.agencyId ?? DEFAULT_AGENCY_ID,
       agency: parsed.agency ?? agencyByRole[role] ?? "NADAA",
       mfaCompleted: Boolean(parsed.mfaCompleted),
+      accessToken: parsed.accessToken,
+      tokenExpiresAt:
+        typeof parsed.tokenExpiresAt === "string"
+          ? parsed.tokenExpiresAt
+          : undefined,
       email: typeof parsed.email === "string" ? parsed.email : undefined,
       department:
         typeof parsed.department === "string" ? parsed.department : undefined,
@@ -352,7 +338,7 @@ export function updateAdminPreferences(
 /**
  * Toggle whether an authenticator is enrolled. This never clears the current
  * session's completed-MFA gate, so disabling never locks the admin out mid
- * session. TODO: wire to real profile/password/MFA API.
+ * session. TODO: wire to real profile/MFA API.
  */
 export function setAdminMfaEnabled(enabled: boolean) {
   if (!currentSession) {
@@ -361,35 +347,6 @@ export function setAdminMfaEnabled(enabled: boolean) {
   currentSession = { ...currentSession, mfaEnabled: enabled };
   persist(currentSession);
   emit();
-}
-
-/**
- * Mock password change. Validates locally and returns a result; there is no
- * backend in this build. TODO: wire to real profile/password/MFA API.
- */
-export function changeAdminPassword(
-  current: string,
-  next: string,
-): PasswordChangeResult {
-  if (!current.trim()) {
-    return { ok: false, message: "Enter your current password." };
-  }
-  if (next.length < 8) {
-    return {
-      ok: false,
-      message: "New password must be at least 8 characters.",
-    };
-  }
-  if (next === current) {
-    return {
-      ok: false,
-      message: "New password must be different from your current password.",
-    };
-  }
-  return {
-    ok: true,
-    message: "Password updated. Use it the next time you sign in.",
-  };
 }
 
 /**
@@ -409,19 +366,29 @@ export function useAdminSession(): AdminSessionState {
     updateProfile: updateAdminProfile,
     updatePreferences: updateAdminPreferences,
     setMfaEnabled: setAdminMfaEnabled,
-    changePassword: changeAdminPassword,
   };
 }
 
+/**
+ * Headers for governance API calls. The bearer token from agency login is the
+ * credential every NADAA service now requires; the X-NADAA actor headers ride
+ * along only for local dev, where services may run with
+ * NADAA_AUTH_ALLOW_MOCK_ACTORS=true. Without a signed-in session there is no
+ * token and no identity to send.
+ */
 export function adminHeaders() {
-  const session = currentSession ?? fallbackSession;
-  return {
-    Authorization: `Bearer local-admin-token`,
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-NADAA-Actor-ID": session.id,
-    "X-NADAA-Actor-Role": session.role,
-    "X-NADAA-Agency-ID": session.agencyId,
-    "X-NADAA-MFA-Completed": session.mfaCompleted ? "true" : "false",
     "X-NADAA-Request-ID": `admin-web-${Date.now()}`,
   };
+  const session = currentSession;
+  if (!session) {
+    return headers;
+  }
+  headers.Authorization = `Bearer ${session.accessToken}`;
+  headers["X-NADAA-Actor-ID"] = session.id;
+  headers["X-NADAA-Actor-Role"] = session.role;
+  headers["X-NADAA-Agency-ID"] = session.agencyId;
+  headers["X-NADAA-MFA-Completed"] = session.mfaCompleted ? "true" : "false";
+  return headers;
 }

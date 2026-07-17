@@ -505,3 +505,216 @@ func decodeResponse(t *testing.T, response *httptest.ResponseRecorder, target an
 		t.Fatalf("decode response: %v", err)
 	}
 }
+
+func TestRequestCitizenOTPIssuesFreshChallenge(t *testing.T) {
+	srv := newTestServer()
+	register := httptest.NewRecorder()
+	srv.registerCitizenHandler(register, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/register", jsonBody(models.RegisterCitizenRequest{
+		Name:  "Ama Mensah",
+		Phone: "+233200000000",
+	})))
+	if register.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d", http.StatusCreated, register.Code)
+	}
+
+	// Consume the registration challenge so the re-issued one is required.
+	firstLogin := httptest.NewRecorder()
+	srv.loginCitizenHandler(firstLogin, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/login", jsonBody(models.LoginCitizenRequest{
+		Phone: "+233200000000",
+		OTP:   "123456",
+	})))
+	if firstLogin.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, firstLogin.Code)
+	}
+
+	requestOTP := httptest.NewRecorder()
+	srv.requestCitizenOTPHandler(requestOTP, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/login/otp", jsonBody(models.RequestCitizenOTPRequest{
+		Phone: "+233200000000",
+	})))
+	if requestOTP.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, requestOTP.Code, requestOTP.Body.String())
+	}
+
+	var otpPayload models.RequestCitizenOTPResponse
+	decodeResponse(t, requestOTP, &otpPayload)
+	if otpPayload.ChallengeID == "" || otpPayload.Phone != "+233200000000" || otpPayload.DevOTP != "123456" {
+		t.Fatalf("unexpected otp request payload: %#v", otpPayload)
+	}
+
+	secondLogin := httptest.NewRecorder()
+	srv.loginCitizenHandler(secondLogin, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/login", jsonBody(models.LoginCitizenRequest{
+		Phone: "+233200000000",
+		OTP:   "123456",
+	})))
+	if secondLogin.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, secondLogin.Code, secondLogin.Body.String())
+	}
+	if !hasAuditAction(srv, "auth.citizen_login.otp_requested") {
+		t.Fatal("expected otp request audit event")
+	}
+}
+
+func TestRequestCitizenOTPRejectsUnknownPhone(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	srv.requestCitizenOTPHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/login/otp", jsonBody(models.RequestCitizenOTPRequest{
+		Phone: "+233200000099",
+	})))
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, response.Code)
+	}
+}
+
+func TestVerifyOTPLocksOutAfterRepeatedFailures(t *testing.T) {
+	srv := newTestServer()
+	register := httptest.NewRecorder()
+	srv.registerCitizenHandler(register, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/register", jsonBody(models.RegisterCitizenRequest{
+		Name:  "Ama Mensah",
+		Phone: "+233200000000",
+	})))
+	if register.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d", http.StatusCreated, register.Code)
+	}
+
+	for attempt := range 5 {
+		login := httptest.NewRecorder()
+		srv.loginCitizenHandler(login, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/login", jsonBody(models.LoginCitizenRequest{
+			Phone: "+233200000000",
+			OTP:   "000000",
+		})))
+		if login.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: expected status %d, got %d", attempt+1, http.StatusUnauthorized, login.Code)
+		}
+	}
+
+	// Even the correct code is rejected while the phone is locked out.
+	locked := httptest.NewRecorder()
+	srv.loginCitizenHandler(locked, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/login", jsonBody(models.LoginCitizenRequest{
+		Phone: "+233200000000",
+		OTP:   "123456",
+	})))
+	if locked.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected status %d after lockout, got %d", http.StatusTooManyRequests, locked.Code)
+	}
+}
+
+func TestAgencyLoginLocksOutAfterRepeatedFailures(t *testing.T) {
+	srv := newTestServer()
+	seedVerifiedAgencyUser(t, srv, models.RoleDispatcher, "dispatcher@nadaa.local", "+233200000002")
+
+	for attempt := range 5 {
+		login := httptest.NewRecorder()
+		srv.loginAgencyHandler(login, httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/login", jsonBody(models.LoginAgencyRequest{
+			Email:    "dispatcher@nadaa.local",
+			Password: "wrong-password",
+		})))
+		if login.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: expected status %d, got %d", attempt+1, http.StatusUnauthorized, login.Code)
+		}
+	}
+
+	locked := httptest.NewRecorder()
+	srv.loginAgencyHandler(locked, httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/login", jsonBody(models.LoginAgencyRequest{
+		Email:    "dispatcher@nadaa.local",
+		Password: "Password123!",
+		MFACode:  "123456",
+	})))
+	if locked.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected status %d after lockout, got %d", http.StatusTooManyRequests, locked.Code)
+	}
+}
+
+func TestVerifyAgencyMFALocksOutAfterRepeatedFailures(t *testing.T) {
+	srv := newTestServer()
+	password := "Password123!"
+	profile, err := srv.store.CreateAgencyUser(models.CreateAgencyUserRequest{
+		Name:     "Dispatcher One",
+		Email:    "dispatcher@nadaa.local",
+		Phone:    "+233200000002",
+		AgencyID: models.DefaultAgencyID,
+		Role:     models.RoleDispatcher,
+	}, password, srv.now())
+	if err != nil {
+		t.Fatalf("seed agency user: %v", err)
+	}
+	if _, err := srv.store.StartAgencyMFASetup(profile.ID, "dispatcher@nadaa.local", password, utils.NewMFASecret(), "123456", srv.now()); err != nil {
+		t.Fatalf("seed MFA setup: %v", err)
+	}
+
+	for attempt := range 5 {
+		verify := httptest.NewRecorder()
+		verifyRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency-users/"+profile.ID+"/mfa/verify", jsonBody(models.AgencyMFAVerifyRequest{
+			Email:             "dispatcher@nadaa.local",
+			TemporaryPassword: password,
+			Code:              "000000",
+		}))
+		verifyRequest.SetPathValue("id", profile.ID)
+		srv.verifyAgencyMFAHandler(verify, verifyRequest)
+		if verify.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: expected status %d, got %d", attempt+1, http.StatusUnauthorized, verify.Code)
+		}
+	}
+
+	locked := httptest.NewRecorder()
+	lockedRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency-users/"+profile.ID+"/mfa/verify", jsonBody(models.AgencyMFAVerifyRequest{
+		Email:             "dispatcher@nadaa.local",
+		TemporaryPassword: password,
+		Code:              "123456",
+	}))
+	lockedRequest.SetPathValue("id", profile.ID)
+	srv.verifyAgencyMFAHandler(locked, lockedRequest)
+	if locked.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected status %d after lockout, got %d", http.StatusTooManyRequests, locked.Code)
+	}
+}
+
+func TestAgencyTokenIncludesDistrictClaim(t *testing.T) {
+	srv := newTestServer()
+	_, token := seedVerifiedAgencyUser(t, srv, models.RoleDispatcher, "dispatcher@nadaa.local", "+233200000002")
+
+	claims, err := srv.verifyToken(token)
+	if err != nil {
+		t.Fatalf("verify token: %v", err)
+	}
+	if claims.District != "Accra Metropolitan" {
+		t.Fatalf("expected district claim from agency record, got %q", claims.District)
+	}
+	if claims.AgencyID != models.DefaultAgencyID || !claims.MFA {
+		t.Fatalf("unexpected agency claims: %#v", claims)
+	}
+}
+
+func TestListAgenciesRequiresSystemAdmin(t *testing.T) {
+	srv := newTestServer()
+	_, adminToken := seedVerifiedAgencyUser(t, srv, models.RoleSystemAdmin, "admin@nadaa.local", "+233200000001")
+	_, dispatcherToken := seedVerifiedAgencyUser(t, srv, models.RoleDispatcher, "dispatcher@nadaa.local", "+233200000002")
+
+	unauthenticated := httptest.NewRecorder()
+	srv.listAgenciesHandler(unauthenticated, httptest.NewRequest(http.MethodGet, "/api/v1/auth/agencies", nil))
+	if unauthenticated.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, unauthenticated.Code)
+	}
+
+	forbidden := httptest.NewRecorder()
+	forbiddenRequest := httptest.NewRequest(http.MethodGet, "/api/v1/auth/agencies", nil)
+	forbiddenRequest.Header.Set("Authorization", "Bearer "+dispatcherToken)
+	srv.listAgenciesHandler(forbidden, forbiddenRequest)
+	if forbidden.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, forbidden.Code)
+	}
+
+	list := httptest.NewRecorder()
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/auth/agencies", nil)
+	listRequest.Header.Set("Authorization", "Bearer "+adminToken)
+	srv.listAgenciesHandler(list, listRequest)
+	if list.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, list.Code, list.Body.String())
+	}
+
+	var payload models.AgencyListResponse
+	decodeResponse(t, list, &payload)
+	if len(payload.Agencies) != 1 || payload.Agencies[0].ID != models.DefaultAgencyID || payload.Agencies[0].District != "Accra Metropolitan" {
+		t.Fatalf("unexpected agencies payload: %#v", payload.Agencies)
+	}
+}

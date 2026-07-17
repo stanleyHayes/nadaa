@@ -10,7 +10,6 @@ import type {
   AdminAccountPreferences,
   AdminProfilePatch,
   AdminSession,
-  PasswordChangeResult,
 } from "@/app/session";
 import { ProfileTab } from "./ProfileTab";
 import { SecurityTab } from "./SecurityTab";
@@ -42,7 +41,6 @@ export type AccountSettingsProps = {
   onUpdateProfile: (patch: AdminProfilePatch) => void;
   onUpdatePreferences: (patch: Partial<AdminAccountPreferences>) => void;
   onSetMfaEnabled: (enabled: boolean) => void;
-  onChangePassword: (current: string, next: string) => PasswordChangeResult;
 };
 
 export function AccountSettings({
@@ -53,7 +51,6 @@ export function AccountSettings({
   onUpdateProfile,
   onUpdatePreferences,
   onSetMfaEnabled,
-  onChangePassword,
 }: AccountSettingsProps) {
   return (
     <Box sx={{ maxWidth: 1120, mx: "auto" }}>
@@ -184,11 +181,7 @@ export function AccountSettings({
           />
         ) : null}
         {tab === "security" ? (
-          <SecurityTab
-            user={user}
-            onSetMfaEnabled={onSetMfaEnabled}
-            onChangePassword={onChangePassword}
-          />
+          <SecurityTab user={user} onSetMfaEnabled={onSetMfaEnabled} />
         ) : null}
         {tab === "notifications" ? (
           <NotificationsTab

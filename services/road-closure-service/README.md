@@ -19,7 +19,7 @@ The service listens on `:8095` by default. Override with `NADAA_ROAD_CLOSURE_ADD
 - `PATCH /api/v1/road-closures/{id}`
 - `POST /api/v1/road-closures/imports/adapter`
 
-Authority endpoints require `X-NADAA-Actor-ID`, `X-NADAA-Actor-Role`, `X-NADAA-Agency-ID`, `X-NADAA-MFA-Completed`, and `X-NADAA-Request-ID`. Allowed roles for create/update/import: `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`.
+Authority endpoints require an `Authorization: Bearer nadaa.<payload>.<sig>` token issued by auth-service, verified with `NADAA_AUTH_TOKEN_SECRET`; the actor id, role, agency, district, and MFA flag are taken from the verified claims. For local development and smoke tests, setting `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` makes the service honor legacy `X-NADAA-Actor-ID`, `X-NADAA-Actor-Role`, `X-NADAA-Agency-ID`, `X-NADAA-Actor-District`, and `X-NADAA-MFA-Completed` headers instead. Allowed roles for create/update/import: `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`.
 
 ## Geometry
 

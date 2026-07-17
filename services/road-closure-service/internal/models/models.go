@@ -99,8 +99,23 @@ type AuthorityContext struct {
 	ActorUserID   string
 	ActorAgencyID string
 	ActorRole     string
+	ActorDistrict string
 	MFACompleted  bool
 	RequestID     string
+}
+
+// TokenClaims mirrors the claims auth-service signs into bearer tokens. It is
+// duplicated here because auth-service is a separate Go module.
+type TokenClaims struct {
+	UserID    string `json:"sub"`
+	UserType  string `json:"typ"`
+	Phone     string `json:"phone,omitempty"`
+	Email     string `json:"email,omitempty"`
+	Role      string `json:"role"`
+	AgencyID  string `json:"agencyId,omitempty"`
+	District  string `json:"district,omitempty"`
+	MFA       bool   `json:"mfa,omitempty"`
+	ExpiresAt int64  `json:"exp"`
 }
 
 // APIError is the standard error response envelope.

@@ -12,6 +12,10 @@ import (
 )
 
 func (s *Server) ussdWebhookHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.requireWebhookSecret(w, r, "ussd") {
+		return
+	}
+
 	var request models.USSDWebhookRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
 		utils.LogWarn("ussd webhook rejected", "code", "invalid_json", "error", err)
@@ -24,6 +28,7 @@ func (s *Server) ussdWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	request.Provider = utils.ProviderOrDefault(request.Provider, "ussd_sandbox")
 	request.ProfileID = utils.NormalizeID(request.ProfileID)
 	request.ProviderError = strings.TrimSpace(request.ProviderError)
+	request.ProviderMessageID = utils.NormalizeID(request.ProviderMessageID)
 
 	utils.LogInfo(
 		"ussd webhook received",
@@ -301,24 +306,36 @@ func (s *Server) handleUSSDReport(ctx context.Context, request models.USSDWebhoo
 		"phoneRef", phoneRef,
 		"hazard", hazard,
 		"urgency", urgency,
-		"hasCoordinates", request.Location != nil,
+		"hasCoordinates", location != nil,
 		"locationLabel", utils.LogTextSummary(locationLabel),
 		"linkedProfile", linkedProfile,
 	)
-	report := s.store.CreateAccessReport(models.InclusiveAccessReport{
-		Channel:       "ussd",
-		Type:          hazard,
-		Urgency:       urgency,
-		Description:   fmt.Sprintf("USSD emergency report: %s with %s urgency. Location note: %s.", hazard, urgency, locationLabel),
-		Location:      location,
-		LocationLabel: locationLabel,
-		PhoneRef:      phoneRef,
-		ProfileID:     utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-		LinkedProfile: linkedProfile,
-		Status:        "queued",
-		CreatedAt:     now,
+	report, created := s.store.CreateAccessReport(models.InclusiveAccessReport{
+		Channel:           "ussd",
+		Provider:          request.Provider,
+		ProviderMessageID: request.ProviderMessageID,
+		Type:              hazard,
+		Urgency:           urgency,
+		Description:       fmt.Sprintf("USSD emergency report: %s with %s urgency. Location note: %s.", hazard, urgency, locationLabel),
+		Location:          location,
+		LocationLabel:     locationLabel,
+		PhoneRef:          phoneRef,
+		ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
+		LinkedProfile:     linkedProfile,
+		Status:            "queued",
+		CreatedAt:         now,
 	})
-	report = s.submitInclusiveReport(ctx, report, request.Phone, request.ProfileID, linkedProfile)
+	if created {
+		report = s.submitInclusiveReport(ctx, report, request.Phone, request.ProfileID, linkedProfile)
+	} else {
+		utils.LogInfo(
+			"ussd report webhook deduplicated",
+			"sessionId", request.SessionID,
+			"phoneRef", phoneRef,
+			"reportId", report.ID,
+			"providerMessageId", request.ProviderMessageID,
+		)
+	}
 	utils.LogInfo(
 		"ussd report flow completed",
 		"sessionId", request.SessionID,

@@ -126,7 +126,7 @@ func TestArkeselSMSProviderSkipsMissingPhone(t *testing.T) {
 	}
 }
 
-func TestExpoPushProviderDelivers(t *testing.T) {
+func TestExpoPushProviderRecordsSentNotDelivered(t *testing.T) {
 	var gotAuth, gotPath, gotBody string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
@@ -141,8 +141,8 @@ func TestExpoPushProviderDelivers(t *testing.T) {
 	provider := NewExpoPushProvider("push-token-secret", server.URL, server.Client())
 	result := provider.Send(context.Background(), testMessage(false, "", "ExponentPushToken[abc]"))
 
-	if result.Status != "delivered" {
-		t.Fatalf("status = %q, want delivered (reason %q)", result.Status, result.Reason)
+	if result.Status != "sent" {
+		t.Fatalf("status = %q, want sent: an ok ticket only means Expo accepted the push (reason %q)", result.Status, result.Reason)
 	}
 	if result.Provider != "expo_push" {
 		t.Errorf("provider = %q, want expo_push", result.Provider)

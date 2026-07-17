@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,10 +30,24 @@ type MemoryStore struct {
 
 // NewMemoryStore creates an in-memory store seeded with fixture data.
 func NewMemoryStore(now time.Time) Store {
+	closures := seedClosures(now)
 	return &MemoryStore{
-		closureCounter: 2,
-		closures:       seedClosures(now),
+		closureCounter: maxClosureIDSuffix(closures),
+		closures:       closures,
 	}
+}
+
+// maxClosureIDSuffix returns the highest numeric suffix across seeded closure
+// IDs (e.g. road_closure_003 -> 3) so generated IDs never collide with seeds.
+func maxClosureIDSuffix(closures []models.RoadClosureRecord) int {
+	maxSuffix := 0
+	for _, closure := range closures {
+		suffix, err := strconv.Atoi(strings.TrimPrefix(closure.ID, "road_closure_"))
+		if err == nil && suffix > maxSuffix {
+			maxSuffix = suffix
+		}
+	}
+	return maxSuffix
 }
 
 // ListClosures returns closures matching the provided filter.
@@ -149,6 +164,9 @@ func (m *MemoryStore) UpdateClosure(id string, request models.UpdateRoadClosureR
 		}
 		if request.DetourNote != "" {
 			next.DetourNote = request.DetourNote
+		}
+		if next.ValidTo != nil && next.ValidTo.Before(next.ValidFrom) {
+			return models.RoadClosureRecord{}, "invalid_valid_to", "validTo must be after validFrom"
 		}
 		next.UpdatedBy = ctx.ActorUserID
 		next.UpdatedAt = now

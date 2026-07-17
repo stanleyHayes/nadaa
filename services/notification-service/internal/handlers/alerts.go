@@ -93,6 +93,11 @@ func (s *Server) listAlertsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deliverAlertHandler(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireAuthority(w, r, deliveryRoles)
+	if !ok {
+		return
+	}
+
 	id := utils.NormalizeID(r.PathValue("id"))
 	if id == "" {
 		utils.LogWarn("alert delivery rejected", "code", "missing_alert_id", "path", r.URL.Path)
@@ -116,6 +121,8 @@ func (s *Server) deliverAlertHandler(w http.ResponseWriter, r *http.Request) {
 		"recipientRef", utils.RecipientRef(request, utils.PreferredRecipientChannel(request.Channels)),
 		"dryRun", request.DryRun,
 		"language", request.Language,
+		"actorId", actor.ActorUserID,
+		"actorRole", actor.ActorRole,
 	)
 
 	if code, message := validateDeliveryRequest(request); code != "" {
@@ -130,6 +137,11 @@ func (s *Server) deliverAlertHandler(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		utils.LogWarn("alert delivery rejected", "alertId", id, "code", "alert_not_found", "availableAlerts", len(alerts))
 		utils.WriteError(w, http.StatusNotFound, "alert_not_found", "alert was not found in the citizen feed")
+		return
+	}
+	if alert.Status == "expired" {
+		utils.LogWarn("alert delivery rejected", "alertId", id, "code", "alert_not_deliverable", "status", alert.Status)
+		utils.WriteError(w, http.StatusConflict, "alert_not_deliverable", "alerts can only be delivered while current or upcoming")
 		return
 	}
 

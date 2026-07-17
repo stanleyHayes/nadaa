@@ -5,7 +5,6 @@ import {
   Button,
   IconButton,
   InputAdornment,
-  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -23,36 +22,13 @@ import {
   Truck,
 } from "lucide-react";
 import { OtpInput } from "./OtpInput";
-import type { AgencyUserRole } from "@nadaa/shared-types";
+import type { LoginAgencyResponse } from "@nadaa/shared-types";
+import { AUTH_API_BASE } from "@/app/config";
 import {
-  agencyByRole,
   agencyRoles,
-  roleLabels,
   signInAgency,
   type AgencySession,
 } from "@/app/session";
-
-const DEFAULT_AGENCY_ID = "00000000-0000-0000-0000-000000000101";
-
-function cap(word: string) {
-  return word ? word[0].toUpperCase() + word.slice(1) : word;
-}
-
-function displayName(identifier: string, role: AgencyUserRole) {
-  const trimmed = identifier.trim();
-  if (!trimmed) {
-    return roleLabels[role];
-  }
-  if (trimmed.includes("@")) {
-    return (trimmed
-      .split("@")[0]
-      .split(/[._-]+/)
-      .filter(Boolean)
-      .map(cap)
-      .join(" ") || roleLabels[role]);
-  }
-  return trimmed;
-}
 
 const assurances = [
   {
@@ -72,34 +48,123 @@ const assurances = [
   },
 ];
 
+/** Read the structured `{error: {code, message}}` body the services return. */
+async function readAuthError(
+  response: Response,
+): Promise<{ code: string; message: string }> {
+  try {
+    const body = (await response.json()) as {
+      error?: { code?: string; message?: string };
+    };
+    return {
+      code: body.error?.code ?? "",
+      message:
+        body.error?.message ?? `Sign-in failed (${response.status}).`,
+    };
+  } catch {
+    return { code: "", message: `Sign-in failed (${response.status}).` };
+  }
+}
+
 export function SignInScreen() {
   const [step, setStep] = useState<"credentials" | "mfa">("credentials");
-  const [identifier, setIdentifier] = useState("responder.accra@nadaa.gov.gh");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<AgencyUserRole>("responder");
-  const [agency, setAgency] = useState(agencyByRole.responder);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const onRoleChange = (nextRole: AgencyUserRole) => {
-    setRole(nextRole);
-    setAgency(agencyByRole[nextRole]);
+  const completeSignIn = (payload: LoginAgencyResponse) => {
+    const { user } = payload;
+    if (!agencyRoles.includes(user.role)) {
+      setError("Your account role is not permitted on the agency console.");
+      return;
+    }
+    if (!user.mfaEnabled) {
+      // A token without the MFA claim is rejected by every authority
+      // endpoint, so there is no usable session to enter with.
+      setError(
+        "MFA is not enabled on this account. Contact your agency administrator to complete enrollment.",
+      );
+      return;
+    }
+    const session: AgencySession = {
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      agencyId: user.agency.id,
+      agency: user.agency.name,
+      district: user.agency.district,
+      token: payload.accessToken,
+      mfaCompleted: true,
+      email: user.email,
+      mfaEnabled: user.mfaEnabled,
+      lastLoginAt: new Date().toISOString(),
+    };
+    signInAgency(session);
+  };
+
+  const handleAuthFailure = (status: number, code: string, message: string) => {
+    if (status === 401 && code === "mfa_required") {
+      setError("");
+      setStep("mfa");
+      return;
+    }
+    if (status === 403 && code === "mfa_setup_required") {
+      setError(
+        "MFA setup is required for this account. Contact your agency administrator to complete enrollment, then sign in.",
+      );
+      return;
+    }
+    if (status === 429) {
+      setError("Too many failed attempts. Wait a few minutes and try again.");
+      return;
+    }
+    if (status === 401) {
+      setError("Invalid email, password, or authenticator code.");
+      return;
+    }
+    setError(message);
+  };
+
+  const submitLogin = async (mfaCode: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`${AUTH_API_BASE}/auth/agency/login`, {
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          mfaCode,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      if (response.ok) {
+        completeSignIn((await response.json()) as LoginAgencyResponse);
+        return;
+      }
+      const failure = await readAuthError(response);
+      handleAuthFailure(response.status, failure.code, failure.message);
+    } catch {
+      setError("Could not reach the sign-in service. Check your connection.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const submitCredentials = (event: FormEvent) => {
     event.preventDefault();
-    if (!identifier.trim()) {
-      setError("Enter your actor ID or agency email.");
+    if (!email.trim()) {
+      setError("Enter your agency email.");
       return;
     }
-    if (password.length < 6) {
+    if (!password) {
       setError("Enter your password to continue.");
       return;
     }
-    setError("");
-    setStep("mfa");
+    void submitLogin("");
   };
 
   const submitMfa = (event: FormEvent) => {
@@ -108,20 +173,7 @@ export function SignInScreen() {
       setError("Enter the 6-digit code from your authenticator.");
       return;
     }
-    setError("");
-    setBusy(true);
-    const trimmed = identifier.trim();
-    const session: AgencySession = {
-      id: trimmed || `usr_${role}`,
-      name: displayName(trimmed, role),
-      role,
-      agencyId: DEFAULT_AGENCY_ID,
-      agency: agency.trim() || agencyByRole[role],
-      district: "Accra Metropolitan",
-      token: `agency-${role}-${Date.now()}`,
-      mfaCompleted: true,
-    };
-    window.setTimeout(() => signInAgency(session), 500);
+    void submitLogin(code);
   };
 
   return (
@@ -205,9 +257,9 @@ export function SignInScreen() {
               </Typography>
 
               <TextField
-                label="Actor ID or agency email"
-                value={identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
+                label="Agency email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 fullWidth
                 autoComplete="username"
                 autoFocus
@@ -258,42 +310,26 @@ export function SignInScreen() {
                 }}
               />
 
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <TextField
-                  select
-                  label="Agency role"
-                  value={role}
-                  onChange={(event) =>
-                    onRoleChange(event.target.value as AgencyUserRole)
-                  }
-                  fullWidth
-                >
-                  {agencyRoles.map((option) => (
-                    <MenuItem value={option} key={option}>
-                      {roleLabels[option]}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  label="Agency"
-                  value={agency}
-                  onChange={(event) => setAgency(event.target.value)}
-                  fullWidth
-                />
-              </Stack>
-
               <Button
                 type="submit"
                 variant="contained"
                 size="large"
-                endIcon={<ArrowRight size={18} />}
+                disabled={busy}
+                endIcon={
+                  busy ? (
+                    <Loader2 size={18} className="spin-icon" />
+                  ) : (
+                    <ArrowRight size={18} />
+                  )
+                }
                 className="cc-auth__submit"
               >
-                Continue
+                {busy ? "Signing in" : "Continue"}
               </Button>
 
               <p className="cc-auth__hint">
-                Demo desk: any password (6+ characters) and any 6-digit code.
+                Access is limited to enrolled agency accounts. Your agency
+                administrator provisions credentials and MFA.
               </p>
             </form>
           ) : (
@@ -304,9 +340,8 @@ export function SignInScreen() {
               <Typography className="cc-auth__lede" sx={{
                 color: "text.secondary"
               }}>
-                Enter the 6-digit code for{" "}
-                <strong>{displayName(identifier, role)}</strong> at{" "}
-                {agency || agencyByRole[role]}.
+                Enter the 6-digit authenticator code for{" "}
+                <strong>{email.trim()}</strong>.
               </Typography>
 
               <Box>

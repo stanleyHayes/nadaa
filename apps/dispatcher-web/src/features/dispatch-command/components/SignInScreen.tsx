@@ -5,8 +5,6 @@ import {
   Button,
   IconButton,
   InputAdornment,
-  MenuItem,
-  Stack,
   TextField,
   Typography,
 } from "@mui/material";
@@ -22,35 +20,65 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { OtpInput } from "./OtpInput";
-import type { AgencyUserRole } from "@nadaa/shared-types";
+import type {
+  LoginAgencyRequest,
+  LoginAgencyResponse,
+} from "@nadaa/shared-types";
+import { AUTH_API_BASE } from "@/app/config";
 import {
-  agencyByRole,
   commandRoles,
   roleLabels,
   signInDispatcher,
   type DispatcherSession,
 } from "@/app/session";
 
-const DEFAULT_AGENCY_ID = "00000000-0000-0000-0000-000000000101";
+const DEFAULT_DISTRICT = "Accra Metropolitan";
 
-function cap(word: string) {
-  return word ? word[0].toUpperCase() + word.slice(1) : word;
+type AuthErrorBody = { error?: { code?: string; message?: string } };
+
+/** auth-service error carrying the machine-readable code from the body. */
+class LoginError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
-function displayName(identifier: string, role: AgencyUserRole) {
-  const trimmed = identifier.trim();
-  if (!trimmed) {
-    return roleLabels[role];
+async function loginAgency(
+  request: LoginAgencyRequest,
+): Promise<LoginAgencyResponse> {
+  const response = await fetch(`${AUTH_API_BASE}/auth/agency/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    const body = (await response
+      .json()
+      .catch(() => null)) as AuthErrorBody | null;
+    throw new LoginError(
+      response.status,
+      body?.error?.code ?? "",
+      body?.error?.message ?? "",
+    );
   }
-  if (trimmed.includes("@")) {
-    return (trimmed
-      .split("@")[0]
-      .split(/[._-]+/)
-      .filter(Boolean)
-      .map(cap)
-      .join(" ") || roleLabels[role]);
+  return (await response.json()) as LoginAgencyResponse;
+}
+
+function loginErrorMessage(error: LoginError): string {
+  if (error.code === "mfa_setup_required") {
+    return "MFA must be set up on this account before sign-in. Contact your agency administrator to complete enrolment.";
   }
-  return trimmed;
+  if (error.code === "too_many_attempts") {
+    return "Too many failed attempts. This account is temporarily locked — try again later.";
+  }
+  if (error.code === "invalid_credentials") {
+    return "Email, password, or authenticator code is incorrect.";
+  }
+  return error.message || "Sign-in failed. Try again.";
 }
 
 const assurances = [
@@ -73,35 +101,74 @@ const assurances = [
 
 export function SignInScreen() {
   const [step, setStep] = useState<"credentials" | "mfa">("credentials");
-  const [identifier, setIdentifier] = useState("dispatch.accra@nadaa.gov.gh");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<AgencyUserRole>("dispatcher");
-  const [agency, setAgency] = useState(agencyByRole.dispatcher);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const onRoleChange = (nextRole: AgencyUserRole) => {
-    setRole(nextRole);
-    setAgency(agencyByRole[nextRole]);
-  };
-
-  const submitCredentials = (event: FormEvent) => {
-    event.preventDefault();
-    if (!identifier.trim()) {
-      setError("Enter your actor ID or agency email.");
+  const completeSignIn = (payload: LoginAgencyResponse) => {
+    const { user } = payload;
+    if (!commandRoles.includes(user.role)) {
+      setError(
+        `The ${roleLabels[user.role]} role does not have dispatch console access.`,
+      );
       return;
     }
-    if (password.length < 6) {
+    const session: DispatcherSession = {
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      agencyId: user.agency.id,
+      agency: user.agency.name,
+      district: user.agency.district || DEFAULT_DISTRICT,
+      mfaCompleted: true,
+      email: user.email,
+      mfaEnabled: user.mfaEnabled,
+      lastLoginAt: new Date().toISOString(),
+      accessToken: payload.accessToken,
+      tokenExpiresAt: payload.expiresAt,
+    };
+    signInDispatcher(session);
+  };
+
+  const submitCredentials = async (event: FormEvent) => {
+    event.preventDefault();
+    const trimmedEmail = email.trim();
+    if (!/^\S+@\S+$/.test(trimmedEmail)) {
+      setError("Enter your agency email.");
+      return;
+    }
+    if (!password) {
       setError("Enter your password to continue.");
       return;
     }
     setError("");
-    setStep("mfa");
+    setBusy(true);
+    try {
+      // First attempt without a code: the service answers 401 mfa_required
+      // when the account has an authenticator enrolled.
+      const payload = await loginAgency({ email: trimmedEmail, password });
+      completeSignIn(payload);
+    } catch (loginError) {
+      if (loginError instanceof LoginError) {
+        if (loginError.status === 401 && loginError.code === "mfa_required") {
+          setStep("mfa");
+          return;
+        }
+        setError(loginErrorMessage(loginError));
+      } else {
+        setError(
+          "Auth service unavailable. Check your connection and try again.",
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const submitMfa = (event: FormEvent) => {
+  const submitMfa = async (event: FormEvent) => {
     event.preventDefault();
     if (!/^\d{6}$/.test(code)) {
       setError("Enter the 6-digit code from your authenticator.");
@@ -109,17 +176,24 @@ export function SignInScreen() {
     }
     setError("");
     setBusy(true);
-    const trimmed = identifier.trim();
-    const session: DispatcherSession = {
-      id: trimmed || `usr_${role}`,
-      name: displayName(trimmed, role),
-      role,
-      agencyId: DEFAULT_AGENCY_ID,
-      agency: agency.trim() || agencyByRole[role],
-      district: "Accra Metropolitan",
-      mfaCompleted: true,
-    };
-    window.setTimeout(() => signInDispatcher(session), 500);
+    try {
+      const payload = await loginAgency({
+        email: email.trim(),
+        password,
+        mfaCode: code,
+      });
+      completeSignIn(payload);
+    } catch (loginError) {
+      if (loginError instanceof LoginError) {
+        setError(loginErrorMessage(loginError));
+      } else {
+        setError(
+          "Auth service unavailable. Check your connection and try again.",
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -201,9 +275,9 @@ export function SignInScreen() {
               </Typography>
 
               <TextField
-                label="Actor ID or agency email"
-                value={identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
+                label="Agency email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 fullWidth
                 autoComplete="username"
                 autoFocus
@@ -254,42 +328,26 @@ export function SignInScreen() {
                 }}
               />
 
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <TextField
-                  select
-                  label="Dispatch role"
-                  value={role}
-                  onChange={(event) =>
-                    onRoleChange(event.target.value as AgencyUserRole)
-                  }
-                  fullWidth
-                >
-                  {commandRoles.map((option) => (
-                    <MenuItem value={option} key={option}>
-                      {roleLabels[option]}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  label="Agency"
-                  value={agency}
-                  onChange={(event) => setAgency(event.target.value)}
-                  fullWidth
-                />
-              </Stack>
-
               <Button
                 type="submit"
                 variant="contained"
                 size="large"
-                endIcon={<ArrowRight size={18} />}
+                disabled={busy}
+                endIcon={
+                  busy ? (
+                    <Loader2 size={18} className="spin-icon" />
+                  ) : (
+                    <ArrowRight size={18} />
+                  )
+                }
                 className="cc-auth__submit"
               >
-                Continue
+                {busy ? "Checking" : "Continue"}
               </Button>
 
               <p className="cc-auth__hint">
-                Demo desk: any password (6+ characters) and any 6-digit code.
+                Access is provisioned by your agency administrator and requires
+                an authenticator app.
               </p>
             </form>
           ) : (
@@ -300,9 +358,7 @@ export function SignInScreen() {
               <Typography className="cc-auth__lede" sx={{
                 color: "text.secondary"
               }}>
-                Enter the 6-digit code for{" "}
-                <strong>{displayName(identifier, role)}</strong> at{" "}
-                {agency || agencyByRole[role]}.
+                Enter the 6-digit code for <strong>{email.trim()}</strong>.
               </Typography>
 
               <Box>

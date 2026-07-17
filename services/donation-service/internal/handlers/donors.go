@@ -23,7 +23,7 @@ var allowedDonorStatuses = map[string]bool{
 }
 
 func (s *Server) listDonorsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
@@ -33,13 +33,13 @@ func (s *Server) listDonorsHandler(w http.ResponseWriter, r *http.Request) {
 		Query: strings.TrimSpace(strings.ToLower(r.URL.Query().Get("q"))),
 	}
 	if filter.Type != "" && !allowedDonorTypes[filter.Type] {
-		log.Printf("WARN donation-service donor_list invalid_type actor=%s type=%s", ctx.ActorUserID, filter.Type)
+		log.Printf("WARN donation-service donor_list invalid_type actor=%s type=%s", utils.LogSafe(ctx.ActorUserID), utils.LogSafe(filter.Type)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_type", "type must be individual, organization, ngo, government, or other")
 		return
 	}
 
 	donors := s.store.ListDonors(filter)
-	log.Printf("INFO donation-service donor_list count=%d actor=%s type=%s q=%t", len(donors), ctx.ActorUserID, filter.Type, filter.Query != "")
+	log.Printf("INFO donation-service donor_list count=%d actor=%s type=%s q=%t", len(donors), utils.LogSafe(ctx.ActorUserID), utils.LogSafe(filter.Type), filter.Query != "") // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 	utils.WriteJSON(w, http.StatusOK, models.DonorListResponse{Donors: donors, GeneratedAt: s.now().UTC()})
 }
 
@@ -59,7 +59,7 @@ func (s *Server) createDonorHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createdBy := "public"
-	if ctx, ok := authorityContextFromRequest(r); ok {
+	if ctx, ok := s.authorityContextFromRequest(r); ok {
 		createdBy = ctx.ActorUserID
 	}
 
@@ -69,7 +69,7 @@ func (s *Server) createDonorHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getDonorHandler(w http.ResponseWriter, r *http.Request) {
-	if _, ok := requireAuthority(w, r); !ok {
+	if _, ok := s.requireAuthority(w, r); !ok {
 		return
 	}
 
@@ -82,7 +82,7 @@ func (s *Server) getDonorHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateDonorHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
@@ -103,7 +103,7 @@ func (s *Server) updateDonorHandler(w http.ResponseWriter, r *http.Request) {
 
 	donor, code, message := s.store.UpdateDonor(r.PathValue("id"), normalized, ctx.ActorUserID, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN donation-service donor_update failed id=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		log.Printf("WARN donation-service donor_update failed id=%s actor=%s code=%s", utils.LogSafe(r.PathValue("id")), utils.LogSafe(ctx.ActorUserID), utils.LogSafe(code)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}

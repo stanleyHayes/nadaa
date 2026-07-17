@@ -259,6 +259,7 @@ type VolunteerTaskUpdate struct {
 	SafetyStatus        string       `json:"safetyStatus"`
 	Location            *Coordinates `json:"location,omitempty"`
 	EscalationRequested bool         `json:"escalationRequested"`
+	Media               []string     `json:"media,omitempty"`
 	CreatedBy           string       `json:"createdBy"`
 	CreatedAt           time.Time    `json:"createdAt"`
 }
@@ -404,6 +405,7 @@ type AuthorityContext struct {
 	ActorUserID   string
 	ActorAgencyID string
 	ActorRole     string
+	ActorDistrict string
 	MFACompleted  bool
 	RequestID     string
 }

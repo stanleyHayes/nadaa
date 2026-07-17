@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/stanleyHayes/nadaa/services/integration-service/internal/models"
@@ -60,7 +61,7 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+	if allowedOrigins[origin] || (isDevelopmentEnv() && (strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:"))) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
@@ -113,6 +114,49 @@ func DefaultImportAdapterID(adapterID string) string {
 		return "mock-weather-hydrology-adapter"
 	}
 	return adapterID
+}
+
+// SanitizeLogValue strips line breaks so user-controlled values cannot forge log lines.
+func SanitizeLogValue(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' {
+			return -1
+		}
+		return r
+	}, value)
+}
+
+// ValidateWKTLineString validates a LINESTRING WKT string, returning an error code and message.
+// It mirrors the road-closure-service adapter validation so invalid geometry is rejected locally.
+func ValidateWKTLineString(value string) (string, string) {
+	trimmed := strings.TrimSpace(value)
+	prefix := "LINESTRING("
+	if !strings.HasPrefix(strings.ToUpper(trimmed), prefix) || !strings.HasSuffix(trimmed, ")") {
+		return "invalid_geometry", "geometry must be a LINESTRING(...)"
+	}
+	parts := strings.Split(trimmed[len(prefix):len(trimmed)-1], ",")
+	if len(parts) < 2 {
+		return "invalid_geometry", "LineString must contain at least two coordinates"
+	}
+	for _, part := range parts {
+		nums := strings.Fields(strings.TrimSpace(part))
+		if len(nums) != 2 {
+			return "invalid_geometry", "each LINESTRING coordinate must have two numbers"
+		}
+		lng, err1 := strconv.ParseFloat(nums[0], 64)
+		lat, err2 := strconv.ParseFloat(nums[1], 64)
+		if err1 != nil || err2 != nil {
+			return "invalid_geometry", "LINESTRING coordinates must be valid decimal numbers"
+		}
+		if lng < -180 || lng > 180 || lat < -90 || lat > 90 {
+			return "invalid_geometry", "coordinates must be valid WGS84 longitude and latitude"
+		}
+	}
+	return "", ""
+}
+
+func isDevelopmentEnv() bool {
+	return NormalizeQueryValue(os.Getenv("NADAA_ENV")) == "development"
 }
 
 // PluralSuffix returns an "s" suffix for counts other than one.

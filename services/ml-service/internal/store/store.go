@@ -27,16 +27,27 @@ type Store interface {
 	CompareScenarios(req models.CompareScenarioRequest, now time.Time) []models.ScenarioResult
 }
 
+const (
+	// maxSimulationDurationHours bounds a simulation window, consistent with
+	// the forecast compare endpoint's 1..168 hour window.
+	maxSimulationDurationHours = 168
+	// maxSimulationSteps caps the computed frame count so a tiny time step
+	// cannot exhaust memory.
+	maxSimulationSteps = 500
+)
+
 // MemoryStore is an in-memory implementation of Store seeded from fixture files.
 type MemoryStore struct {
-	model        models.ModelArtifact
-	predictions  []models.StoredPrediction
-	logs         []models.PredictionLog
-	features     []FeatureRow
-	simulations  []models.SimulationRun
-	simulationMu sync.Mutex
-	cvCache      *cvResultCache
-	mu           sync.Mutex
+	model             models.ModelArtifact
+	predictions       []models.StoredPrediction
+	logs              []models.PredictionLog
+	logCounter        int
+	features          []FeatureRow
+	simulations       []models.SimulationRun
+	simulationCounter int
+	simulationMu      sync.Mutex
+	cvCache           *cvResultCache
+	mu                sync.Mutex
 }
 
 // NewMemoryStore creates an in-memory store seeded from model artifacts in modelDir.
@@ -86,7 +97,6 @@ func (m *MemoryStore) Predict(req models.PredictionRequest, now time.Time) (mode
 	}
 
 	logEntry := models.PredictionLog{
-		ID:                     fmt.Sprintf("ml_log_%s_%s", now.Format("20060102150405"), utils.SanitizeID(prediction.CellID)),
 		PredictionID:           prediction.ID,
 		ModelVersion:           prediction.ModelVersion,
 		InputFeatureSetVersion: prediction.InputFeatureSetVersion,
@@ -100,6 +110,8 @@ func (m *MemoryStore) Predict(req models.PredictionRequest, now time.Time) (mode
 	}
 
 	m.mu.Lock()
+	m.logCounter++
+	logEntry.ID = fmt.Sprintf("ml_log_%s_%s_%06d", now.Format("20060102150405"), utils.SanitizeID(prediction.CellID), m.logCounter)
 	m.logs = append(m.logs, logEntry)
 	m.mu.Unlock()
 
@@ -164,15 +176,18 @@ func (m *MemoryStore) CreateSimulationJob(req models.CreateSimulationRequest, no
 	if req.DurationHours <= 0 {
 		req.DurationHours = 6
 	}
+	if req.DurationHours > maxSimulationDurationHours {
+		return models.SimulationRun{}, fmt.Errorf("durationHours must be between 1 and %d", maxSimulationDurationHours)
+	}
 	if req.TimeStepHours <= 0 {
 		req.TimeStepHours = 1
 	}
 	if req.TimeStepHours > req.DurationHours {
 		req.TimeStepHours = req.DurationHours
 	}
-
-	id := "sim_" + now.Format("20060102150405")
-	reference := fmt.Sprintf("FS-%s-%05d", now.Format("2006"), len(m.simulations)+1)
+	if steps := req.DurationHours / req.TimeStepHours; steps > maxSimulationSteps {
+		return models.SimulationRun{}, fmt.Errorf("durationHours and timeStepHours must yield at most %d steps", maxSimulationSteps)
+	}
 
 	scenario := models.SimulationScenario{
 		DurationHours: req.DurationHours,
@@ -186,8 +201,6 @@ func (m *MemoryStore) CreateSimulationJob(req models.CreateSimulationRequest, no
 	}
 
 	run := models.SimulationRun{
-		ID:                id,
-		Reference:         reference,
 		Name:              strings.TrimSpace(req.Name),
 		Status:            "running",
 		Scenario:          scenario,
@@ -204,7 +217,12 @@ func (m *MemoryStore) CreateSimulationJob(req models.CreateSimulationRequest, no
 		},
 	}
 
+	// Mint the ID and reference and append under the lock so same-second jobs
+	// never collide and the completion update below cannot clobber another run.
 	m.simulationMu.Lock()
+	m.simulationCounter++
+	run.ID = fmt.Sprintf("sim_%s_%06d", now.Format("20060102150405"), m.simulationCounter)
+	run.Reference = fmt.Sprintf("FS-%s-%05d", now.Format("2006"), len(m.simulations)+1)
 	m.simulations = append(m.simulations, run)
 	m.simulationMu.Unlock()
 

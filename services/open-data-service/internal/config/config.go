@@ -14,6 +14,9 @@ type Config struct {
 	AllowedOrigins         map[string]bool
 	RateLimitRequests      int
 	RateLimitWindowSeconds int
+	AuthTokenSecret        string
+	AllowMockActors        bool
+	TrustProxyHeaders      bool
 }
 
 // Load reads configuration from environment variables.
@@ -24,6 +27,9 @@ func Load() *Config {
 		AllowedOrigins:         utils.AllowedOriginsFromEnv(),
 		RateLimitRequests:      utils.EnvOrDefaultInt("RATE_LIMIT_REQUESTS", 10),
 		RateLimitWindowSeconds: utils.EnvOrDefaultInt("RATE_LIMIT_WINDOW_SECONDS", 60),
+		AuthTokenSecret:        os.Getenv("NADAA_AUTH_TOKEN_SECRET"),
+		AllowMockActors:        os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
+		TrustProxyHeaders:      os.Getenv("NADAA_TRUST_PROXY_HEADERS") == "true",
 	}
 }
 

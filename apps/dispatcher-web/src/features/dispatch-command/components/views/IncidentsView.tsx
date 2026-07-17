@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Box,
@@ -90,10 +90,13 @@ export function IncidentsView({ data }: { data: DispatchData }) {
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const openIncident = (incidentId: string) => {
-    setSelectedIncidentId(incidentId);
-    setDetailOpen(true);
-  };
+  const openIncident = useCallback(
+    (incidentId: string) => {
+      setSelectedIncidentId(incidentId);
+      setDetailOpen(true);
+    },
+    [setSelectedIncidentId],
+  );
 
   const closeDetail = () => setDetailOpen(false);
 

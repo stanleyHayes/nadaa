@@ -299,6 +299,7 @@ func seedAidRequests(now time.Time) []models.AidRequest {
 			NeededBy:              now.Add(48 * time.Hour),
 			Visibility:            "partners_only",
 			SourceReliefPointID:   "relief_madina_mixed_001",
+			AgencyID:              "00000000-0000-0000-0000-000000000204",
 			CreatedBy:             "usr_relief_fixture",
 			CreatedAt:             now,
 			UpdatedAt:             now,

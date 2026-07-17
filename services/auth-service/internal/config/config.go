@@ -47,11 +47,25 @@ func Load() *Config {
 // repository, so any build shipping with it can have its bearer tokens forged.
 const InsecureTokenSecret = "dev-secret-change-me"
 
-// Validate fails closed on an unsafe token-signing secret. An empty, placeholder,
-// or too-short secret is only allowed when NADAA_AUTH_ALLOW_INSECURE_SECRET=true
-// (the same opt-in shape as mock actor headers), so production never silently
-// signs tokens with a publicly-known key.
+// Validate fails closed on unsafe configuration. Development-only relaxations
+// (mock actor headers, exposed dev OTPs, a fixed mock OTP) are rejected unless
+// NADAA_ENV=development, and an empty, placeholder, or too-short token secret
+// is only allowed when NADAA_AUTH_ALLOW_INSECURE_SECRET=true, so production
+// never silently signs tokens with a publicly-known key or trusts forged
+// identity headers.
 func (c *Config) Validate() error {
+	if !utils.IsDevelopment() {
+		if c.AllowMockActorHeaders {
+			return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+		}
+		if c.ExposeDevOTP {
+			return errors.New("NADAA_AUTH_EXPOSE_DEV_OTP is only allowed when NADAA_ENV=development")
+		}
+		if strings.TrimSpace(c.MockOTP) != "" {
+			return errors.New("NADAA_AUTH_MOCK_OTP is only allowed when NADAA_ENV=development")
+		}
+	}
+
 	if os.Getenv("NADAA_AUTH_ALLOW_INSECURE_SECRET") == "true" {
 		return nil
 	}

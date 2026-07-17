@@ -121,11 +121,13 @@ type AuditEvent struct {
 	CreatedAt     time.Time      `json:"createdAt"`
 }
 
-// AuthorityContext captures the authenticated authority actor from request headers.
+// AuthorityContext captures the authenticated authority actor from a verified
+// bearer token, or from request headers when mock actors are allowed.
 type AuthorityContext struct {
 	ActorUserID   string
 	ActorAgencyID string
 	ActorRole     string
+	ActorDistrict string
 	MFACompleted  bool
 	RequestID     string
 }

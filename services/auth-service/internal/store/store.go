@@ -3,6 +3,8 @@ package store
 import (
 	"errors"
 	"log"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,25 +17,42 @@ import (
 var (
 	ErrDuplicatePhone     = errors.New("duplicate phone")
 	ErrDuplicateEmail     = errors.New("duplicate email")
+	ErrUnknownPhone       = errors.New("unknown phone")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrInvalidToken       = errors.New("invalid token")
 	ErrInvalidRole        = errors.New("invalid role")
 	ErrMFAAlreadyEnabled  = errors.New("mfa already enabled")
 	ErrMFARequired        = errors.New("mfa required")
 	ErrMFASetupRequired   = errors.New("mfa setup required")
+	ErrTooManyAttempts    = errors.New("too many attempts")
 	ErrUnknownAgency      = errors.New("unknown agency")
 )
+
+// Brute-force protection: after maxFailedAttempts consecutive failures on a
+// credential path, the account key locks for attemptLockout.
+const (
+	maxFailedAttempts = 5
+	attemptLockout    = 15 * time.Minute
+)
+
+// failedAttemptLog tracks consecutive credential failures for one account key.
+type failedAttemptLog struct {
+	count       int
+	lockedUntil time.Time
+}
 
 // Store is the persistence interface for auth data.
 type Store interface {
 	RegisterCitizen(request models.RegisterCitizenRequest, code string, now time.Time) (models.CitizenProfile, models.OTPChallenge, error)
+	RequestCitizenOTP(phone string, code string, now time.Time) (models.CitizenProfile, models.OTPChallenge, error)
 	VerifyOTP(phone string, code string, now time.Time) (models.CitizenProfile, error)
 	ProfileByID(id string) (models.CitizenProfile, bool)
 	CreateAgencyUser(request models.CreateAgencyUserRequest, temporaryPassword string, now time.Time) (models.AgencyUserProfile, error)
 	StartAgencyMFASetup(userID string, email string, temporaryPassword string, secret string, code string, now time.Time) (models.MFAChallenge, error)
 	VerifyAgencyMFA(userID string, email string, temporaryPassword string, code string, now time.Time) (models.AgencyUserProfile, error)
-	LoginAgencyUser(email string, password string, mfaCode string) (models.AgencyUserProfile, error)
+	LoginAgencyUser(email string, password string, mfaCode string, now time.Time) (models.AgencyUserProfile, error)
 	AgencyProfileByID(id string) (models.AgencyUserProfile, bool)
+	ListAgencies() []models.AgencySummary
 	AppendAuditLog(record models.AuditLogRecord) models.AuditLogRecord
 	ListAuditLogs(limit int) []models.AuditLogRecord
 }
@@ -49,10 +68,14 @@ type MemoryStore struct {
 	agencyUsersByPhone  map[string]string
 	challenges          map[string]models.OTPChallenge
 	mfaChallengesByUser map[string]models.MFAChallenge
+	failedAttempts      map[string]*failedAttemptLog
 	auditLogs           []models.AuditLogRecord
 }
 
-// NewMemoryStore creates an in-memory store seeded with fixture data.
+// NewMemoryStore creates an in-memory store seeded with fixture data. When
+// bootstrap admin credentials are configured but seeding fails, the process
+// exits: running without the expected admin (or with partially applied
+// credentials) leaves operators locked out of a freshly deployed environment.
 func NewMemoryStore(now time.Time, cfg *config.Config) Store {
 	m := &MemoryStore{
 		usersByID:           map[string]models.CitizenProfile{},
@@ -63,6 +86,7 @@ func NewMemoryStore(now time.Time, cfg *config.Config) Store {
 		agencyUsersByPhone:  map[string]string{},
 		challenges:          map[string]models.OTPChallenge{},
 		mfaChallengesByUser: map[string]models.MFAChallenge{},
+		failedAttempts:      map[string]*failedAttemptLog{},
 		auditLogs:           []models.AuditLogRecord{},
 	}
 	m.agenciesByID[models.DefaultAgencyID] = models.AgencyRecord{
@@ -77,7 +101,7 @@ func NewMemoryStore(now time.Time, cfg *config.Config) Store {
 	}
 
 	if err := seedBootstrapAgencyAdmin(m, cfg, now); err != nil {
-		log.Printf("warning: failed to seed bootstrap agency admin: %v", err)
+		log.Fatalf("failed to seed bootstrap agency admin: %v", err)
 	}
 	return m
 }
@@ -116,6 +140,28 @@ func (m *MemoryStore) RegisterCitizen(request models.RegisterCitizenRequest, cod
 	m.challenges[profile.Phone] = challenge
 
 	return profile, challenge, nil
+}
+
+// RequestCitizenOTP issues a fresh login challenge for an already-registered
+// citizen phone, replacing any outstanding challenge for that phone.
+func (m *MemoryStore) RequestCitizenOTP(phone string, code string, now time.Time) (models.CitizenProfile, models.OTPChallenge, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	userID, exists := m.usersByPhone[phone]
+	if !exists {
+		return models.CitizenProfile{}, models.OTPChallenge{}, ErrUnknownPhone
+	}
+
+	challenge := models.OTPChallenge{
+		ID:        utils.NewID("otp"),
+		Phone:     phone,
+		Code:      code,
+		ExpiresAt: now.Add(10 * time.Minute).UTC(),
+	}
+	m.challenges[phone] = challenge
+
+	return m.usersByID[userID], challenge, nil
 }
 
 // CreateAgencyUser creates a new authority user with a temporary password.
@@ -193,17 +239,27 @@ func (m *MemoryStore) VerifyAgencyMFA(userID string, email string, temporaryPass
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	attemptKey := "agency-mfa:" + email
+	if m.lockedOut(attemptKey, now) {
+		return models.AgencyUserProfile{}, ErrTooManyAttempts
+	}
+
 	user, agency, err := m.authorityUserByCredentials(userID, email, temporaryPassword)
 	if err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			m.recordFailure(attemptKey, now)
+		}
 		return models.AgencyUserProfile{}, err
 	}
 
 	challenge, exists := m.mfaChallengesByUser[user.ID]
-	if !exists || challenge.Code != code || now.After(challenge.ExpiresAt) {
+	if !exists || !utils.SecureCompare(challenge.Code, code) || now.After(challenge.ExpiresAt) {
+		m.recordFailure(attemptKey, now)
 		return models.AgencyUserProfile{}, ErrInvalidCredentials
 	}
 
 	delete(m.mfaChallengesByUser, user.ID)
+	m.resetFailures(attemptKey)
 	user.MFAEnabled = true
 	user.MFACode = code
 	user.UpdatedAt = now.UTC()
@@ -227,17 +283,24 @@ func (m *MemoryStore) enableAgencyMFA(userID string, code string, now time.Time)
 }
 
 // LoginAgencyUser authenticates an authority user.
-func (m *MemoryStore) LoginAgencyUser(email string, password string, mfaCode string) (models.AgencyUserProfile, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+func (m *MemoryStore) LoginAgencyUser(email string, password string, mfaCode string, now time.Time) (models.AgencyUserProfile, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	attemptKey := "agency-login:" + email
+	if m.lockedOut(attemptKey, now) {
+		return models.AgencyUserProfile{}, ErrTooManyAttempts
+	}
 
 	userID, exists := m.agencyUsersByEmail[email]
 	if !exists {
+		m.recordFailure(attemptKey, now)
 		return models.AgencyUserProfile{}, ErrInvalidCredentials
 	}
 
 	user := m.agencyUsersByID[userID]
-	if user.PasswordHash != utils.HashCredential(password) {
+	if !utils.VerifyCredential(password, user.PasswordHash) {
+		m.recordFailure(attemptKey, now)
 		return models.AgencyUserProfile{}, ErrInvalidCredentials
 	}
 	if user.MFARequired && !user.MFAEnabled {
@@ -246,7 +309,8 @@ func (m *MemoryStore) LoginAgencyUser(email string, password string, mfaCode str
 	if user.MFARequired && mfaCode == "" {
 		return models.AgencyUserProfile{}, ErrMFARequired
 	}
-	if user.MFARequired && user.MFACode != mfaCode {
+	if user.MFARequired && !utils.SecureCompare(user.MFACode, mfaCode) {
+		m.recordFailure(attemptKey, now)
 		return models.AgencyUserProfile{}, ErrInvalidCredentials
 	}
 
@@ -255,12 +319,13 @@ func (m *MemoryStore) LoginAgencyUser(email string, password string, mfaCode str
 		return models.AgencyUserProfile{}, ErrUnknownAgency
 	}
 
+	m.resetFailures(attemptKey)
 	return utils.AgencyProfileFromUser(user, agency), nil
 }
 
 func (m *MemoryStore) authorityUserByCredentials(userID string, email string, password string) (models.AgencyUser, models.AgencyRecord, error) {
 	user, exists := m.agencyUsersByID[userID]
-	if !exists || user.Email != email || user.PasswordHash != utils.HashCredential(password) {
+	if !exists || user.Email != email || !utils.VerifyCredential(password, user.PasswordHash) {
 		return models.AgencyUser{}, models.AgencyRecord{}, ErrInvalidCredentials
 	}
 
@@ -277,18 +342,58 @@ func (m *MemoryStore) VerifyOTP(phone string, code string, now time.Time) (model
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	attemptKey := "citizen-otp:" + phone
+	if m.lockedOut(attemptKey, now) {
+		return models.CitizenProfile{}, ErrTooManyAttempts
+	}
+
 	userID, exists := m.usersByPhone[phone]
 	if !exists {
+		m.recordFailure(attemptKey, now)
 		return models.CitizenProfile{}, ErrInvalidCredentials
 	}
 
 	challenge, exists := m.challenges[phone]
-	if !exists || challenge.Code != code || now.After(challenge.ExpiresAt) {
+	if !exists || !utils.SecureCompare(challenge.Code, code) || now.After(challenge.ExpiresAt) {
+		m.recordFailure(attemptKey, now)
 		return models.CitizenProfile{}, ErrInvalidCredentials
 	}
 
 	delete(m.challenges, phone)
+	m.resetFailures(attemptKey)
 	return m.usersByID[userID], nil
+}
+
+// lockedOut reports whether the attempt key is inside an active lockout
+// window. Callers must hold the lock.
+func (m *MemoryStore) lockedOut(key string, now time.Time) bool {
+	attempts, exists := m.failedAttempts[key]
+	return exists && attempts.lockedUntil.After(now)
+}
+
+// recordFailure increments the consecutive-failure counter for the key and
+// starts a lockout window once the threshold is reached. An expired lockout
+// resets the counter so a legitimate user gets a fresh set of attempts.
+// Callers must hold the lock.
+func (m *MemoryStore) recordFailure(key string, now time.Time) {
+	attempts, exists := m.failedAttempts[key]
+	if !exists {
+		attempts = &failedAttemptLog{}
+		m.failedAttempts[key] = attempts
+	}
+	if attempts.count >= maxFailedAttempts && !attempts.lockedUntil.After(now) {
+		attempts.count = 0
+	}
+	attempts.count++
+	if attempts.count >= maxFailedAttempts {
+		attempts.lockedUntil = now.Add(attemptLockout)
+	}
+}
+
+// resetFailures clears the failure counter for the key after a successful
+// verification. Callers must hold the lock.
+func (m *MemoryStore) resetFailures(key string) {
+	delete(m.failedAttempts, key)
 }
 
 // ProfileByID returns a citizen profile by ID.
@@ -316,6 +421,23 @@ func (m *MemoryStore) AgencyProfileByID(id string) (models.AgencyUserProfile, bo
 	}
 
 	return utils.AgencyProfileFromUser(user, agency), true
+}
+
+// ListAgencies returns the agency directory, sorted by name for a stable
+// response order.
+func (m *MemoryStore) ListAgencies() []models.AgencySummary {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	agencies := make([]models.AgencySummary, 0, len(m.agenciesByID))
+	for _, agency := range m.agenciesByID {
+		agencies = append(agencies, utils.AgencySummaryFromRecord(agency))
+	}
+	slices.SortFunc(agencies, func(a, b models.AgencySummary) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	return agencies
 }
 
 // AppendAuditLog records an audit event.

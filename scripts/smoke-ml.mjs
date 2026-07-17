@@ -1,10 +1,19 @@
+// Expects an externally started ml-service (see scripts/dev-dashboard-backends.sh).
+// ml-service gates every non-health endpoint when NADAA_INTERNAL_SERVICE_TOKEN
+// is configured, so send the shared service token on every call.
 const baseURL =
   process.env.ML_API_URL?.trim() || "http://127.0.0.1:8094/api/v1";
+
+const serviceTokenHeaders = {
+  "X-NADAA-Service-Token":
+    process.env.NADAA_INTERNAL_SERVICE_TOKEN || "dev-internal-service-token",
+};
 
 const predictionResponse = await fetch(`${baseURL}/ml/flood/predictions`, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
+    ...serviceTokenHeaders,
   },
   body: JSON.stringify({
     location: { lat: 5.56, lng: -0.2 },
@@ -50,7 +59,9 @@ console.log(
   `ML prediction OK ${prediction.modelVersion} ${prediction.severity}`,
 );
 
-const logsResponse = await fetch(`${baseURL}/ml/prediction-logs`);
+const logsResponse = await fetch(`${baseURL}/ml/prediction-logs`, {
+  headers: serviceTokenHeaders,
+});
 if (!logsResponse.ok) {
   throw new Error(
     `ML log smoke failed: ${logsResponse.status} ${logsResponse.statusText}`,

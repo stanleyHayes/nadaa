@@ -53,15 +53,23 @@ function readInitialView(): ViewId {
   if (typeof window === "undefined") {
     return DEFAULT_VIEW;
   }
-  const stored = window.localStorage.getItem(VIEW_KEY);
-  return isViewId(stored) ? stored : DEFAULT_VIEW;
+  try {
+    const stored = window.localStorage.getItem(VIEW_KEY);
+    return isViewId(stored) ? stored : DEFAULT_VIEW;
+  } catch {
+    return DEFAULT_VIEW;
+  }
 }
 
 function readInitialCollapsed(): boolean {
   if (typeof window === "undefined") {
     return false;
   }
-  return window.localStorage.getItem(COLLAPSE_KEY) === "true";
+  try {
+    return window.localStorage.getItem(COLLAPSE_KEY) === "true";
+  } catch {
+    return false;
+  }
 }
 
 export function DispatchCommandShell({
@@ -214,7 +222,7 @@ export function DispatchCommandShell({
       case "ml-review":
         return <MLReviewView data={data} />;
       case "alerts":
-        return <AlertsView data={data} />;
+        return <AlertsView data={data} session={session} />;
       case "capacity":
         return <CapacityView data={data} />;
       case "settings":

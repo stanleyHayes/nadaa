@@ -48,12 +48,12 @@ func (s *Server) listAidRequestsHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	requests := s.store.ListAidRequests(filter)
-	log.Printf("INFO donation-service aid_request_list count=%d status=%s category=%s region=%s priority=%s", len(requests), filter.Status, filter.Category, filter.Region, filter.Priority)
+	log.Printf("INFO donation-service aid_request_list count=%d status=%s category=%s region=%s priority=%s", len(requests), utils.LogSafe(filter.Status), utils.LogSafe(filter.Category), utils.LogSafe(filter.Region), utils.LogSafe(filter.Priority)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 	utils.WriteJSON(w, http.StatusOK, models.AidRequestListResponse{Requests: requests, GeneratedAt: s.now().UTC()})
 }
 
 func (s *Server) createAidRequestHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
@@ -87,7 +87,7 @@ func (s *Server) getAidRequestHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateAidRequestHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
@@ -108,7 +108,7 @@ func (s *Server) updateAidRequestHandler(w http.ResponseWriter, r *http.Request)
 
 	req, code, message := s.store.UpdateAidRequest(r.PathValue("id"), normalized, ctx.ActorUserID, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN donation-service aid_request_update failed id=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		log.Printf("WARN donation-service aid_request_update failed id=%s actor=%s code=%s", utils.LogSafe(r.PathValue("id")), utils.LogSafe(ctx.ActorUserID), utils.LogSafe(code)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}

@@ -12,5 +12,6 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/open-data/requests", s.createRequestHandler)
 	mux.HandleFunc("GET /api/v1/open-data/requests", s.listRequestsHandler)
 	mux.HandleFunc("POST /api/v1/open-data/requests/{id}/approve", s.approveRequestHandler)
+	mux.HandleFunc("GET /api/v1/open-data/audit", s.listAuditEventsHandler)
 	return s.withMiddleware(mux)
 }

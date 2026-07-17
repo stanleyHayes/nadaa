@@ -7,6 +7,7 @@ Current NADAA-030/NADAA-033/NADAA-041/NADAA-042/NADAA-043/NADAA-091 endpoints:
 - `GET /healthz`
 - `POST /api/v1/incidents`
 - `GET /api/v1/incidents`
+- `GET /api/v1/incidents/{id}`
 - `GET /api/v1/incidents/{id}/duplicates`
 - `POST /api/v1/incidents/{id}/verify`
 - `PATCH /api/v1/incidents/{id}/status`
@@ -17,9 +18,11 @@ Current NADAA-030/NADAA-033/NADAA-041/NADAA-042/NADAA-043/NADAA-091 endpoints:
 - `POST /api/v1/media/uploads`
 - `GET /api/v1/media`
 
-## Verification And Status Workflow
+## Authentication
 
-Authority workflow endpoints use explicit local-development headers:
+Authority endpoints require a signed NADAA bearer token (`Authorization: Bearer nadaa.<payload>.<sig>`) issued by auth-service and verified with the shared `NADAA_AUTH_TOKEN_SECRET`. The actor context (user id, role, agency id, district, MFA) comes from verified token claims only.
+
+For local development and smoke tests, the legacy `X-NADAA-*` actor headers below are honored only when `NADAA_AUTH_ALLOW_MOCK_ACTORS=true`:
 
 - `X-NADAA-Actor-ID`
 - `X-NADAA-Actor-Role`
@@ -27,7 +30,11 @@ Authority workflow endpoints use explicit local-development headers:
 - `X-NADAA-MFA-Completed: true`
 - `X-NADAA-Request-ID`
 
-`POST /api/v1/incidents/{id}/verify` moves `reported` or `under_review` incidents to `verified`, stores verifier metadata, and records an `incident.verified` audit event. Verification roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`.
+Volunteer task endpoints (`GET /api/v1/volunteers/{id}/tasks`, `PATCH /api/v1/volunteer-tasks/{id}/status`, `POST /api/v1/volunteer-tasks/{id}/observations`) accept either a verified agency token or a verified citizen token whose `sub` matches the volunteer's registered `citizenUserId`.
+
+## Verification And Status Workflow
+
+`POST /api/v1/incidents/{id}/verify` moves `reported` or `under_review` incidents to `verified`, stores verifier metadata, and records an `incident.verified` audit event. Verification roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. `PATCH /api/v1/incidents/{id}/status` rejects transitions to `verified` for other workflow roles (for example `responder`).
 
 `PATCH /api/v1/incidents/{id}/status` supports `reported`, `under_review`, `verified`, `assigned`, `response_en_route`, `on_scene`, `contained`, `recovery_ongoing`, `closed`, and `false_report`. The service enforces valid transitions, treats `closed` and `false_report` as terminal, and requires `resolutionNotes` for `closed` and `false_report`.
 
@@ -39,9 +46,11 @@ Authority workflow endpoints use explicit local-development headers:
 
 `GET /api/v1/incidents/audit?limit=50` returns latest incident workflow audit events with before/after snapshots for `system_admin`, `agency_admin`, and `nadmo_officer`.
 
+`GET /api/v1/incidents/{id}` returns a single incident with the same privacy split as the list: reporter identity and contact are hidden unless the caller holds a reporter-contact role and the reporter granted contact permission.
+
 ## Media Upload Flow
 
-`POST /api/v1/media/uploads` creates private media metadata and returns a controlled development upload target. Incident reports can reference returned media IDs. Known media IDs are marked `linked` when the incident is created.
+`POST /api/v1/media/uploads` creates private media metadata and returns a controlled development upload target. Incident reports can reference returned media IDs. Known media IDs are marked `linked` when the incident is created. `GET /api/v1/media` lists media metadata and requires an authority reader role.
 
 Supported content types and limits:
 
@@ -77,9 +86,17 @@ go run .
 
 The service listens on `:8084` by default. Override with `NADAA_INCIDENT_ADDR`.
 
+Other environment variables:
+
+- `NADAA_AUTH_TOKEN_SECRET` — shared HMAC secret used to verify NADAA bearer tokens; when empty, authority requests are rejected unless mock actors are enabled.
+- `NADAA_INTERNAL_SERVICE_TOKEN` — shared service-to-service token; when set, a matching `X-NADAA-Service-Token` header grants read-only incident access (no reporter contact disclosure); when unset the header is ignored.
+- `NADAA_AUTH_ALLOW_MOCK_ACTORS`, default `false` — when `true`, honor legacy `X-NADAA-Actor-*` headers (local development and smoke tests only).
+- `NADAA_TRUST_PROXY_HEADERS`, default `false` — when `true`, rate limiting uses `X-Forwarded-For`/`X-Real-Ip` (only set behind a trusted reverse proxy).
+- `NADAA_ENV` — when `development`, localhost origins are allowed alongside the `NADAA_ALLOWED_ORIGINS` allowlist.
+
 ## Rate Limiting
 
-The starter service uses an in-memory per-client limiter.
+The starter service uses an in-memory per-client limiter keyed by client IP (proxy headers only when trusted). Upload initiation shares the limiter with incident creation.
 
 Environment variables:
 

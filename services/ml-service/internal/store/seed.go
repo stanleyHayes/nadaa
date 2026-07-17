@@ -22,7 +22,15 @@ type FeatureRow struct {
 }
 
 // loadPredictionStore seeds a MemoryStore from model and fixture artifacts.
+// It fails closed when the model directory's integrity manifest is missing or
+// does not match, unless NADAA_ML_SKIP_INTEGRITY_CHECK=true.
 func loadPredictionStore(modelDir string) (*MemoryStore, error) {
+	if integrityCheckSkipped() {
+		logIntegritySkip()
+	} else if err := verifyModelIntegrity(modelDir); err != nil {
+		return nil, fmt.Errorf("model integrity check failed: %w", err)
+	}
+
 	modelPath := filepath.Join(modelDir, "baseline-logistic.v1.json")
 	predictionPath := filepath.Join(modelDir, "sample-predictions.v1.json")
 

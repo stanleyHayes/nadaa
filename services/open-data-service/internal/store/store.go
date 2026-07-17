@@ -20,6 +20,8 @@ type Store interface {
 	UpdateRequest(req models.OpenDataRequest) models.OpenDataRequest
 	RecordDownload(datasetID, format, ip string, now time.Time) models.DatasetDownload
 	GetDownload(id string) (models.DatasetDownload, bool)
+	RecordAuditEvent(event models.AuditEvent) models.AuditEvent
+	ListAuditEvents() []models.AuditEvent
 }
 
 // MemoryStore is an in-memory implementation of Store.
@@ -30,6 +32,8 @@ type MemoryStore struct {
 	downloads      map[string]models.DatasetDownload
 	requests       map[string]models.OpenDataRequest
 	requestCounter int
+	auditEvents    []models.AuditEvent
+	auditCounter   int
 }
 
 // NewMemoryStore creates an in-memory store seeded with sample datasets.
@@ -128,7 +132,9 @@ func (m *MemoryStore) UpdateRequest(req models.OpenDataRequest) models.OpenDataR
 	return req
 }
 
-// RecordDownload creates a download record and returns it.
+// RecordDownload creates a download record and returns it. The URL points at
+// the real download endpoint; no checksum is fabricated for an artifact whose
+// bytes this service does not hold.
 func (m *MemoryStore) RecordDownload(datasetID, format, ip string, now time.Time) models.DatasetDownload {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -139,7 +145,6 @@ func (m *MemoryStore) RecordDownload(datasetID, format, ip string, now time.Time
 		Format:    format,
 		URL:       "/api/v1/open-data/datasets/" + datasetID + "/download?format=" + format,
 		Size:      estimateSize(datasetID, format),
-		Checksum:  "sha256:" + generateChecksum(datasetID, format, now),
 		CreatedAt: now,
 	}
 	m.downloads[download.ID] = download
@@ -152,4 +157,26 @@ func (m *MemoryStore) GetDownload(id string) (models.DatasetDownload, bool) {
 	defer m.mu.RUnlock()
 	download, ok := m.downloads[id]
 	return download, ok
+}
+
+// RecordAuditEvent appends an audit event to the local audit list and returns
+// the persisted record. The ID is assigned under the lock.
+func (m *MemoryStore) RecordAuditEvent(event models.AuditEvent) models.AuditEvent {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.auditCounter++
+	event.ID = fmt.Sprintf("audit_%06d", m.auditCounter)
+	m.auditEvents = append(m.auditEvents, event)
+	return event
+}
+
+// ListAuditEvents returns the locally persisted audit events in record order.
+func (m *MemoryStore) ListAuditEvents() []models.AuditEvent {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := make([]models.AuditEvent, len(m.auditEvents))
+	copy(out, m.auditEvents)
+	return out
 }

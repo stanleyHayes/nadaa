@@ -1,4 +1,4 @@
-import { type ChangeEvent } from "react";
+import { type ChangeEvent, useState } from "react";
 import {
   Alert,
   Button,
@@ -8,17 +8,19 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import { KeyRound, UserPlus, X } from "lucide-react";
+import { Check, Copy, KeyRound, UserPlus, X } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type {
   AdminActionResult,
   AdminUserFormState,
+  CreatedUserCredentials,
   ManagedAgency,
   ManagedAgencyUser,
 } from "../types";
@@ -26,10 +28,58 @@ import { formatDateTime, roleLabel, roleOptions } from "../utils";
 import { EmptyState, SectionHeader } from "./shared";
 import { DataTable } from "./DataTable";
 
+/** Read-only field with a copy-to-clipboard action for one-time credentials. */
+function CopyableCredential({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <TextField
+      label={label}
+      value={value}
+      size="small"
+      fullWidth
+      helperText={copied ? "Copied to clipboard." : " "}
+      slotProps={{
+        input: {
+          readOnly: true,
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                aria-label={`Copy ${label.toLowerCase()}`}
+                size="small"
+                onClick={() => void copy()}
+              >
+                {copied ? <Check size={16} /> : <Copy size={16} />}
+              </IconButton>
+            </InputAdornment>
+          ),
+        }
+      }}
+    />
+  );
+}
+
 export function UserManagementPanel({
   actionResult,
   agencies,
   busy,
+  createdCredentials,
   form,
   onClose,
   onFormChange,
@@ -44,6 +94,7 @@ export function UserManagementPanel({
   busy: boolean;
   open: boolean;
   actionResult?: AdminActionResult;
+  createdCredentials?: CreatedUserCredentials | null;
   onClose: () => void;
   onFormChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -190,110 +241,150 @@ export function UserManagementPanel({
             gap: 1,
           }}
         >
-          Provision authority access
+          {createdCredentials
+            ? "User created — save these credentials"
+            : "Provision authority access"}
           <IconButton aria-label="Close" size="small" onClick={onClose}>
             <X size={18} />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={1.5} sx={{ mt: 1 }}>
-            {actionResult && actionResult.severity !== "success" ? (
-              <Alert severity={actionResult.severity}>
-                {actionResult.message}
-              </Alert>
-            ) : null}
-            <TextField
-              id="user-name"
-              name="name"
-              label="Full name"
-              size="small"
-              required
-              value={form.name}
-              onChange={onFormChange}
-              error={nameInvalid}
-              slotProps={{
-                htmlInput: { "aria-invalid": nameInvalid }
-              }}
-            />
-            <TextField
-              id="user-email"
-              name="email"
-              label="Email"
-              type="email"
-              size="small"
-              required
-              value={form.email}
-              onChange={onFormChange}
-              error={emailInvalid}
-              slotProps={{
-                htmlInput: { "aria-invalid": emailInvalid }
-              }}
-            />
-            <TextField
-              id="user-phone"
-              name="phone"
-              label="Phone"
-              type="tel"
-              size="small"
-              required
-              value={form.phone}
-              onChange={onFormChange}
-              error={phoneInvalid}
-              slotProps={{
-                htmlInput: { "aria-invalid": phoneInvalid }
-              }}
-            />
-            <TextField
-              select
-              id="user-agency"
-              name="agencyId"
-              label="Agency"
-              size="small"
-              required
-              value={form.agencyId}
-              onChange={onSelectChange}
-              error={agencyInvalid}
-              slotProps={{
-                htmlInput: { "aria-invalid": agencyInvalid }
-              }}
-            >
-              {agencies.map((agency) => (
-                <MenuItem key={agency.id} value={agency.id}>
-                  {agency.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              id="user-role"
-              name="role"
-              label="Role"
-              size="small"
-              required
-              value={form.role}
-              onChange={onSelectChange}
-            >
-              {roleOptions.map((role) => (
-                <MenuItem key={role} value={role}>
-                  {roleLabel(role)}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<UserPlus size={18} />}
-            disabled={busy}
-            onClick={onSubmit}
-          >
-            {busy ? "Creating" : "Create user"}
-          </Button>
-        </DialogActions>
+        {createdCredentials ? (
+          <>
+            <DialogContent dividers>
+              <Stack spacing={1.5} sx={{ mt: 1 }}>
+                <Alert severity="success">
+                  {createdCredentials.name} ({createdCredentials.email}) was
+                  provisioned. They need the details below to complete MFA
+                  setup and sign in.
+                </Alert>
+                <Alert severity="warning">
+                  The temporary password is shown once and cannot be retrieved
+                  again. Copy it now and share it through a secure channel.
+                </Alert>
+                <CopyableCredential
+                  label="Account user ID"
+                  value={createdCredentials.userId}
+                />
+                <CopyableCredential
+                  label="Temporary password"
+                  value={createdCredentials.temporaryPassword}
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="contained" onClick={onClose}>
+                Done
+              </Button>
+            </DialogActions>
+          </>
+        ) : (
+          <>
+            <DialogContent dividers>
+              <Stack spacing={1.5} sx={{ mt: 1 }}>
+                {actionResult && actionResult.severity !== "success" ? (
+                  <Alert severity={actionResult.severity}>
+                    {actionResult.message}
+                  </Alert>
+                ) : null}
+                <TextField
+                  id="user-name"
+                  name="name"
+                  label="Full name"
+                  size="small"
+                  required
+                  value={form.name}
+                  onChange={onFormChange}
+                  error={nameInvalid}
+                  slotProps={{
+                    htmlInput: { "aria-invalid": nameInvalid }
+                  }}
+                />
+                <TextField
+                  id="user-email"
+                  name="email"
+                  label="Email"
+                  type="email"
+                  size="small"
+                  required
+                  value={form.email}
+                  onChange={onFormChange}
+                  error={emailInvalid}
+                  slotProps={{
+                    htmlInput: { "aria-invalid": emailInvalid }
+                  }}
+                />
+                <TextField
+                  id="user-phone"
+                  name="phone"
+                  label="Phone"
+                  type="tel"
+                  size="small"
+                  required
+                  value={form.phone}
+                  onChange={onFormChange}
+                  error={phoneInvalid}
+                  slotProps={{
+                    htmlInput: { "aria-invalid": phoneInvalid }
+                  }}
+                />
+                <TextField
+                  select
+                  id="user-agency"
+                  name="agencyId"
+                  label="Agency"
+                  size="small"
+                  required
+                  value={form.agencyId}
+                  onChange={onSelectChange}
+                  error={agencyInvalid}
+                  helperText={
+                    agencies.length
+                      ? " "
+                      : "Loading the agency directory requires a system admin session."
+                  }
+                  slotProps={{
+                    htmlInput: { "aria-invalid": agencyInvalid }
+                  }}
+                >
+                  {agencies.map((agency) => (
+                    <MenuItem key={agency.id} value={agency.id}>
+                      {agency.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  id="user-role"
+                  name="role"
+                  label="Role"
+                  size="small"
+                  required
+                  value={form.role}
+                  onChange={onSelectChange}
+                >
+                  {roleOptions.map((role) => (
+                    <MenuItem key={role} value={role}>
+                      {roleLabel(role)}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={onClose} disabled={busy}>
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<UserPlus size={18} />}
+                disabled={busy}
+                onClick={onSubmit}
+              >
+                {busy ? "Creating" : "Create user"}
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
     </Paper>
   );

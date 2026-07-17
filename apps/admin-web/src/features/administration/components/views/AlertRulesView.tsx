@@ -20,7 +20,7 @@ export function AlertRulesView({ data }: { data: AdminData }) {
       ) : data.alertRules.length ? (
         <AlertRulePanel rules={data.alertRules} />
       ) : data.loadState === "error" ? (
-        <ErrorState message={data.loadMessage} />
+        <ErrorState message={data.loadMessage} onRetry={data.refresh} />
       ) : (
         <EmptyState
           title="No alert rules"

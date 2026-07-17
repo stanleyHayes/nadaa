@@ -11,9 +11,12 @@ import (
 
 // Config holds ml-service configuration loaded from the environment.
 type Config struct {
-	Addr           string
-	ModelDir       string
-	AllowedOrigins map[string]bool
+	Addr                 string
+	ModelDir             string
+	AllowedOrigins       map[string]bool
+	TokenSecret          []byte
+	InternalServiceToken string
+	AllowMockActors      bool
 }
 
 const defaultBindAddr = ":8094"
@@ -26,9 +29,12 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		Addr:           resolveListenAddr("NADAA_ML_ADDR", defaultBindAddr),
-		ModelDir:       modelDir,
-		AllowedOrigins: allowedOriginsFromEnv(),
+		Addr:                 resolveListenAddr("NADAA_ML_ADDR", defaultBindAddr),
+		ModelDir:             modelDir,
+		AllowedOrigins:       allowedOriginsFromEnv(),
+		TokenSecret:          []byte(strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET"))),
+		InternalServiceToken: strings.TrimSpace(os.Getenv("NADAA_INTERNAL_SERVICE_TOKEN")),
+		AllowMockActors:      strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")), "true"),
 	}, nil
 }
 

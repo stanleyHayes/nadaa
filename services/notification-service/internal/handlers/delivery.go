@@ -9,6 +9,7 @@ import (
 
 var allowedDeliveryStatuses = map[string]bool{
 	"queued":    true,
+	"sent":      true,
 	"delivered": true,
 	"failed":    true,
 	"skipped":   true,
@@ -39,7 +40,7 @@ func parseLogFilters(r *http.Request) (models.LogFilters, string, string) {
 		return models.LogFilters{}, "invalid_channel", "channel must be push, sms, voice, or cell_broadcast"
 	}
 	if filters.Status != "" && !allowedDeliveryStatuses[filters.Status] {
-		return models.LogFilters{}, "invalid_status", "status must be queued, delivered, failed, or skipped"
+		return models.LogFilters{}, "invalid_status", "status must be queued, sent, delivered, failed, or skipped"
 	}
 	return filters, "", ""
 }

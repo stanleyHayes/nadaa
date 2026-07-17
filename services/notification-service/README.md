@@ -113,6 +113,35 @@ Every dispatch is written to the unified delivery log as channel `cell_broadcast
 [docs/runbooks/cell-broadcast-compliance.md](../../docs/runbooks/cell-broadcast-compliance.md)
 for the compliance and operational runbook.
 
+### Authority and webhook authentication
+
+The delivery endpoints that spend real money or emit mass alerts require a
+verified authority actor (bearer token issued by auth-service, MFA completed,
+allowed role):
+
+- `POST /api/v1/notifications/alerts/{id}/deliver`
+- `POST /api/v1/notifications/voice-alerts/{id}/deliver`
+- `POST /api/v1/notifications/cell-broadcasts/{id}/review` (reviewer is the
+  verified actor; any `reviewer` string in the request body is ignored)
+- `POST /api/v1/notifications/cell-broadcasts/{id}/deliver`
+
+Configuration:
+
+- `NADAA_AUTH_TOKEN_SECRET` — HMAC secret verifying `nadaa.<payload>.<sig>`
+  bearer tokens. Empty secret → authority requests are rejected with 401.
+- `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` — local development and smoke tests only:
+  honors legacy `X-NADAA-Actor-ID` / `X-NADAA-Agency-ID` / `X-NADAA-Actor-Role` /
+  `X-NADAA-MFA-Completed` headers when no bearer token is present.
+
+The inbound provider webhooks (`POST /api/v1/notifications/ussd`,
+`/sms/inbound`, `/whatsapp/inbound`, `/whatsapp/webhook`) stay public by default
+for local development; setting `NADAA_SMS_WEBHOOK_SECRET`,
+`NADAA_USSD_WEBHOOK_SECRET`, or `NADAA_WHATSAPP_WEBHOOK_SECRET` makes the
+matching webhook require the same value in the `X-NADAA-Webhook-Secret` header
+(constant-time comparison, 401 otherwise). Channels without a configured secret
+log a one-time WARN at startup. (`NADAA_VOICE_WEBHOOK_SECRET` is read for
+symmetry; no voice webhook route exists yet.)
+
 ## Local Development
 
 ```bash

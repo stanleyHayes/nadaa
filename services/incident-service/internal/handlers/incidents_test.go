@@ -938,3 +938,436 @@ func TestListIncidentAuditRequiresApproverRole(t *testing.T) {
 		t.Fatalf("expected one incident audit log, got %#v", payload)
 	}
 }
+
+func TestCreateIncidentInvalidDescriptionReturnsDescriptionCode(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.Description = "bad"
+
+	response := httptest.NewRecorder()
+	srv.createIncidentHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_description" {
+		t.Fatalf("expected invalid_description error code, got %q", payload.Error.Code)
+	}
+}
+
+func TestCreateIncidentRejectsUnsafeReporterIdentifiers(t *testing.T) {
+	srv := newTestServer()
+
+	for name, reporter := range map[string]models.ReporterRef{
+		"unsafe user id": {UserID: "bad user!"},
+		"unsafe phone":   {UserID: "usr_001", Phone: "+233<script>"},
+	} {
+		body := validIncidentRequest()
+		body.Reporter = &reporter
+
+		response := httptest.NewRecorder()
+		srv.createIncidentHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("%s: expected status %d, got %d", name, http.StatusBadRequest, response.Code)
+		}
+		var payload models.APIError
+		decodeResponse(t, response, &payload)
+		if payload.Error.Code != "invalid_reporter" {
+			t.Fatalf("%s: expected invalid_reporter error code, got %q", name, payload.Error.Code)
+		}
+	}
+}
+
+func TestStatusWorkflowRejectsVerifiedForNonVerifierRoles(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPatch,
+		"/api/v1/incidents/"+incident.ID+"/status",
+		jsonBody(models.IncidentStatusRequest{Status: "verified", Note: "Responder attempting verification."}),
+	)
+	request.Header.Set("X-NADAA-Actor-Role", "responder")
+	request.SetPathValue("id", incident.ID)
+	srv.updateIncidentStatusHandler(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, response.Code, response.Body.String())
+	}
+
+	allowed := httptest.NewRecorder()
+	request = authorityRequest(
+		http.MethodPatch,
+		"/api/v1/incidents/"+incident.ID+"/status",
+		jsonBody(models.IncidentStatusRequest{Status: "under_review", Note: "Responder operational update is still allowed."}),
+	)
+	request.Header.Set("X-NADAA-Actor-Role", "responder")
+	request.SetPathValue("id", incident.ID)
+	srv.updateIncidentStatusHandler(allowed, request)
+
+	if allowed.Code != http.StatusOK {
+		t.Fatalf("expected responder under_review status %d, got %d: %s", http.StatusOK, allowed.Code, allowed.Body.String())
+	}
+
+	incidents := srv.store.ListIncidents("")
+	if incidents[0].Status != "under_review" || incidents[0].VerifiedBy != "" {
+		t.Fatalf("expected incident to stay unverified, got %#v", incidents[0])
+	}
+}
+
+func TestMergeRejectsVerifiedDuplicate(t *testing.T) {
+	srv := newTestServer()
+	primary := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Description = "Vehicles are trapped on the same flooded road"
+	body.Reporter = &models.ReporterRef{UserID: "usr_002", Phone: "+233200000002"}
+	duplicate := createIncidentForTest(t, srv, body)
+	verifyIncidentForTest(t, srv, duplicate.ID)
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+primary.ID+"/merge",
+		jsonBody(models.MergeIncidentsRequest{
+			DuplicateIncidentIDs: []string{duplicate.ID},
+			Note:                 "Verified duplicate must not be force-closed.",
+		}),
+	)
+	request.SetPathValue("id", primary.ID)
+	srv.mergeIncidentHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+}
+
+func TestMergeRejectsAssignedDuplicate(t *testing.T) {
+	srv := newTestServer()
+	primary := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Description = "Vehicles are trapped on the same flooded road"
+	body.Reporter = &models.ReporterRef{UserID: "usr_002", Phone: "+233200000002"}
+	duplicate := createIncidentForTest(t, srv, body)
+	verifyIncidentForTest(t, srv, duplicate.ID)
+	assignIncidentForTest(t, srv, duplicate.ID, validAssignmentRequest())
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+primary.ID+"/merge",
+		jsonBody(models.MergeIncidentsRequest{
+			DuplicateIncidentIDs: []string{duplicate.ID},
+			Note:                 "Assigned duplicate must not be force-closed.",
+		}),
+	)
+	request.SetPathValue("id", primary.ID)
+	srv.mergeIncidentHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+
+	incidents := srv.store.ListIncidents("")
+	for _, item := range incidents {
+		if item.ID == duplicate.ID && (item.Status == "closed" || item.MergedIntoID != "") {
+			t.Fatalf("expected assigned duplicate to remain untouched, got %#v", item)
+		}
+	}
+}
+
+func TestMergeClearsAbuseFlagAndAssignmentsOnMergedRecord(t *testing.T) {
+	srv := newTestServer()
+	primary := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Description = "Free money promo click here https://example.test flooded road"
+	body.Reporter = &models.ReporterRef{UserID: "usr_002", Phone: "+233200000002"}
+	duplicate := createIncidentForTest(t, srv, body)
+	if !duplicate.AbuseReviewRequired {
+		t.Fatalf("expected duplicate to require abuse review, got %#v", duplicate)
+	}
+
+	payload := mergeIncidentsForTest(t, srv, primary.ID, models.MergeIncidentsRequest{
+		DuplicateIncidentIDs: []string{duplicate.ID},
+		Note:                 "Same flooded road confirmed from duplicate calls.",
+	})
+
+	if len(payload.MergedIncidents) != 1 {
+		t.Fatalf("expected one merged incident, got %#v", payload.MergedIncidents)
+	}
+	merged := payload.MergedIncidents[0]
+	if merged.AbuseReviewRequired || len(merged.Assignments) != 0 {
+		t.Fatalf("expected merged record to clear abuse flag and assignments, got %#v", merged)
+	}
+}
+
+func TestDuplicateCandidatesSkipClosedIncidents(t *testing.T) {
+	srv := newTestServer()
+	first := createIncidentForTest(t, srv, validIncidentRequest())
+
+	ctx := models.AuthorityContext{ActorUserID: "usr_dispatch", ActorAgencyID: "agc_001", ActorRole: "nadmo_officer", MFACompleted: true}
+	for _, next := range []string{"under_review", "verified", "assigned"} {
+		if _, code, message := srv.store.TransitionIncident(first.ID, next, ctx, models.IncidentWorkflowRequest{Note: "Operational step."}, srv.now()); code != "" {
+			t.Fatalf("expected transition to %s to succeed, got %s: %s", next, code, message)
+		}
+	}
+	if _, code, message := srv.store.TransitionIncident(first.ID, "closed", ctx, models.IncidentWorkflowRequest{
+		Note:            "Response complete.",
+		ResolutionNotes: "Waters receded and the road reopened.",
+	}, srv.now()); code != "" {
+		t.Fatalf("expected close to succeed, got %s: %s", code, message)
+	}
+
+	body := validIncidentRequest()
+	body.Description = "Vehicles are trapped on the same flooded road"
+	body.Reporter = &models.ReporterRef{UserID: "usr_002", Phone: "+233200000002"}
+	second := createIncidentForTest(t, srv, body)
+
+	if len(second.DuplicateCandidates) != 0 {
+		t.Fatalf("expected closed incident to be skipped in duplicate scoring, got %#v", second.DuplicateCandidates)
+	}
+}
+
+func TestGetIncidentByID(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodGet, "/api/v1/incidents/"+incident.ID, nil)
+	request.SetPathValue("id", incident.ID)
+	srv.getIncidentHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload models.IncidentRecord
+	decodeResponse(t, response, &payload)
+	if payload.ID != incident.ID || payload.Reference != incident.Reference {
+		t.Fatalf("expected incident %s, got %#v", incident.ID, payload)
+	}
+	if payload.ReportedBy == nil || payload.ReportedBy.Phone == "" {
+		t.Fatalf("expected dispatcher view to include reporter contact, got %#v", payload.ReportedBy)
+	}
+
+	responderResponse := httptest.NewRecorder()
+	responderRequest := authorityRequest(http.MethodGet, "/api/v1/incidents/"+incident.ID, nil)
+	responderRequest.Header.Set("X-NADAA-Actor-Role", "responder")
+	responderRequest.SetPathValue("id", incident.ID)
+	srv.getIncidentHandler(responderResponse, responderRequest)
+
+	if responderResponse.Code != http.StatusOK {
+		t.Fatalf("expected responder status %d, got %d: %s", http.StatusOK, responderResponse.Code, responderResponse.Body.String())
+	}
+	var responderPayload models.IncidentRecord
+	decodeResponse(t, responderResponse, &responderPayload)
+	if responderPayload.ReportedBy != nil || responderPayload.Privacy.ReporterContactVisible {
+		t.Fatalf("expected responder view to hide reporter identity, got %#v", responderPayload.ReportedBy)
+	}
+}
+
+func TestGetIncidentByIDNotFound(t *testing.T) {
+	srv := newTestServer()
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodGet, "/api/v1/incidents/inc_missing", nil)
+	request.SetPathValue("id", "inc_missing")
+	srv.getIncidentHandler(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, response.Code)
+	}
+}
+
+func TestGetIncidentByIDRequiresAuthority(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/"+incident.ID, nil)
+	request.SetPathValue("id", incident.ID)
+	srv.getIncidentHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestServiceTokenGrantsReadOnlyAccess(t *testing.T) {
+	srv := newServiceTokenTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/"+incident.ID, nil)
+	request.Header.Set(serviceTokenHeader, testInternalServiceToken)
+	request.SetPathValue("id", incident.ID)
+	srv.getIncidentHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected service token status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload models.IncidentRecord
+	decodeResponse(t, response, &payload)
+	if payload.ID != incident.ID || payload.Reference != incident.Reference {
+		t.Fatalf("expected incident %s, got %#v", incident.ID, payload)
+	}
+	if payload.ReportedBy != nil || payload.Privacy.ReporterIdentityVisible || payload.Privacy.ReporterContactVisible {
+		t.Fatalf("expected service token view to hide reporter identity and contact, got %#v", payload.ReportedBy)
+	}
+
+	listResponse := httptest.NewRecorder()
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/incidents", nil)
+	listRequest.Header.Set(serviceTokenHeader, testInternalServiceToken)
+	srv.listIncidentsHandler(listResponse, listRequest)
+
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("expected service token list status %d, got %d: %s", http.StatusOK, listResponse.Code, listResponse.Body.String())
+	}
+}
+
+func TestGetIncidentByIDRejectsWrongServiceToken(t *testing.T) {
+	srv := newServiceTokenTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/"+incident.ID, nil)
+	request.Header.Set(serviceTokenHeader, "wrong-service-token")
+	request.SetPathValue("id", incident.ID)
+	srv.getIncidentHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestGetIncidentByIDIgnoresServiceTokenWhenUnset(t *testing.T) {
+	srv := newTokenOnlyTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/"+incident.ID, nil)
+	request.Header.Set(serviceTokenHeader, testInternalServiceToken)
+	request.SetPathValue("id", incident.ID)
+	srv.getIncidentHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestAuthorityEndpointsAcceptValidBearerToken(t *testing.T) {
+	srv := newTokenOnlyTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	listResponse := httptest.NewRecorder()
+	srv.listIncidentsHandler(listResponse, tokenRequest(http.MethodGet, "/api/v1/incidents", nil, testAuthorityClaims()))
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("expected token list status %d, got %d: %s", http.StatusOK, listResponse.Code, listResponse.Body.String())
+	}
+
+	verifyResponse := httptest.NewRecorder()
+	request := tokenRequest(
+		http.MethodPost,
+		"/api/v1/incidents/"+incident.ID+"/verify",
+		jsonBody(models.IncidentWorkflowRequest{Note: "Verified with a signed token."}),
+		testAuthorityClaims(),
+	)
+	request.SetPathValue("id", incident.ID)
+	srv.verifyIncidentHandler(verifyResponse, request)
+	if verifyResponse.Code != http.StatusOK {
+		t.Fatalf("expected token verify status %d, got %d: %s", http.StatusOK, verifyResponse.Code, verifyResponse.Body.String())
+	}
+
+	var payload models.IncidentRecord
+	decodeResponse(t, verifyResponse, &payload)
+	if payload.VerifiedBy != testAuthorityClaims().UserID {
+		t.Fatalf("expected verifiedBy from token subject, got %#v", payload.VerifiedBy)
+	}
+}
+
+func TestAuthorityEndpointsIgnoreForgedHeadersWhenMockActorsDisabled(t *testing.T) {
+	srv := newTokenOnlyTestServer()
+	createIncidentForTest(t, srv, validIncidentRequest())
+
+	response := httptest.NewRecorder()
+	srv.listIncidentsHandler(response, authorityRequest(http.MethodGet, "/api/v1/incidents", nil))
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusUnauthorized, response.Code, response.Body.String())
+	}
+}
+
+func TestAuthorityEndpointsRejectInvalidAndExpiredTokens(t *testing.T) {
+	srv := newTokenOnlyTestServer()
+	createIncidentForTest(t, srv, validIncidentRequest())
+
+	for name, token := range map[string]string{
+		"wrong signature": signTestToken("another-secret", testAuthorityClaims()),
+		"expired": signTestToken(testTokenSecret, tokenClaims{
+			UserID:    "usr_dispatcher_001",
+			UserType:  "agency",
+			Role:      "nadmo_officer",
+			AgencyID:  "00000000-0000-0000-0000-000000000101",
+			MFA:       true,
+			ExpiresAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
+		}),
+		"malformed": "nadaa.not-a-token",
+	} {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/incidents", nil)
+		request.Header.Set("Authorization", "Bearer "+token)
+		srv.listIncidentsHandler(response, request)
+
+		if response.Code != http.StatusUnauthorized {
+			t.Fatalf("%s: expected status %d, got %d: %s", name, http.StatusUnauthorized, response.Code, response.Body.String())
+		}
+	}
+}
+
+func TestTokenWithoutMFAGetsForbidden(t *testing.T) {
+	srv := newTokenOnlyTestServer()
+	createIncidentForTest(t, srv, validIncidentRequest())
+
+	claims := testAuthorityClaims()
+	claims.MFA = false
+
+	response := httptest.NewRecorder()
+	srv.listIncidentsHandler(response, tokenRequest(http.MethodGet, "/api/v1/incidents", nil, claims))
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, response.Code, response.Body.String())
+	}
+}
+
+func TestRoutesResolveIncidentByIDAndAudit(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+	handler := srv.Routes(nil)
+
+	getResponse := httptest.NewRecorder()
+	getRequest := tokenRequest(http.MethodGet, "/api/v1/incidents/"+incident.ID, nil, testAuthorityClaims())
+	handler.ServeHTTP(getResponse, getRequest)
+	if getResponse.Code != http.StatusOK {
+		t.Fatalf("expected GET by id status %d, got %d: %s", http.StatusOK, getResponse.Code, getResponse.Body.String())
+	}
+	var incidentPayload models.IncidentRecord
+	decodeResponse(t, getResponse, &incidentPayload)
+	if incidentPayload.ID != incident.ID {
+		t.Fatalf("expected incident %s from mux route, got %#v", incident.ID, incidentPayload)
+	}
+
+	auditResponse := httptest.NewRecorder()
+	auditRequest := tokenRequest(http.MethodGet, "/api/v1/incidents/audit", nil, testAuthorityClaims())
+	handler.ServeHTTP(auditResponse, auditRequest)
+	if auditResponse.Code != http.StatusOK {
+		t.Fatalf("expected audit route status %d, got %d: %s", http.StatusOK, auditResponse.Code, auditResponse.Body.String())
+	}
+}

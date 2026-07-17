@@ -97,6 +97,11 @@ func (s *Server) previewCellBroadcastHandler(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) reviewCellBroadcastHandler(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireAuthority(w, r, cellBroadcastReviewRoles)
+	if !ok {
+		return
+	}
+
 	id := utils.NormalizeID(r.PathValue("id"))
 	if id == "" {
 		utils.WriteError(w, http.StatusBadRequest, "missing_cell_broadcast_id", "cell broadcast id is required")
@@ -116,12 +121,8 @@ func (s *Server) reviewCellBroadcastHandler(w http.ResponseWriter, r *http.Reque
 		utils.WriteError(w, http.StatusBadRequest, "invalid_action", "action must be approve or reject")
 		return
 	}
-	request.Reviewer = utils.NormalizeID(request.Reviewer)
-	if request.Reviewer == "" {
-		utils.LogWarn("cell broadcast review rejected", "cellBroadcastId", id, "code", "missing_reviewer")
-		utils.WriteError(w, http.StatusBadRequest, "missing_reviewer", "reviewer is required")
-		return
-	}
+	// The reviewer is the verified authority actor, never a self-declared string.
+	reviewer := actor.ActorUserID
 
 	languages, code, message := normalizeVoiceLanguages(request.Languages)
 	if code != "" {
@@ -133,7 +134,7 @@ func (s *Server) reviewCellBroadcastHandler(w http.ResponseWriter, r *http.Reque
 		languages = nil
 	}
 
-	reviewed, found := s.store.ReviewCellBroadcastMessage(id, action, request.Reviewer, strings.TrimSpace(request.Note), languages, s.now())
+	reviewed, found := s.store.ReviewCellBroadcastMessage(id, action, reviewer, strings.TrimSpace(request.Note), languages, s.now())
 	if !found {
 		utils.LogWarn("cell broadcast review rejected", "cellBroadcastId", id, "code", "cell_broadcast_not_found")
 		utils.WriteError(w, http.StatusNotFound, "cell_broadcast_not_found", "cell broadcast was not found")
@@ -152,6 +153,11 @@ func (s *Server) reviewCellBroadcastHandler(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) deliverCellBroadcastHandler(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireAuthority(w, r, deliveryRoles)
+	if !ok {
+		return
+	}
+
 	id := utils.NormalizeID(r.PathValue("id"))
 	if id == "" {
 		utils.WriteError(w, http.StatusBadRequest, "missing_cell_broadcast_id", "cell broadcast id is required")
@@ -191,6 +197,8 @@ func (s *Server) deliverCellBroadcastHandler(w http.ResponseWriter, r *http.Requ
 		"adapter", s.cellBroadcastAdapter().Name(),
 		"channel", message.Channel.MessageIdentifier,
 		"dryRun", request.DryRun,
+		"actorId", actor.ActorUserID,
+		"actorRole", actor.ActorRole,
 	)
 	dispatches := s.store.CreateCellBroadcastDispatches(r.Context(), message, request, s.cellBroadcastAdapter(), s.now())
 	utils.LogInfo("cell broadcast dispatch completed", "cellBroadcastId", message.ID, "alertId", message.AlertID, "dispatchCount", len(dispatches))

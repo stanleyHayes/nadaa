@@ -215,15 +215,22 @@ Initial expected groups:
 - `JWT_SECRET`
 - `MFA_ISSUER`
 - `NADAA_AUTH_TOKEN_SECRET`
+- `NADAA_AUTH_ALLOW_MOCK_ACTORS`
+- `NADAA_ENV`
+- `NADAA_INTERNAL_SERVICE_TOKEN`
 - `NADAA_ALLOWED_ORIGINS`
 - `NADAA_ALERT_ADDR`
 - `NADAA_NOTIFICATION_ADDR`
 - `NADAA_INCIDENT_SERVICE_URL`
 - `NADAA_SHELTER_ADDR`
 - `NADAA_ALERT_SERVICE_URL`
+- `NADAA_IMAGERY_PUBLIC_BASE_URL`
 - `SMS_PROVIDER`
 - `SMS_API_KEY`
 - `NADAA_SMS_ENABLED`
+- `NADAA_SMS_WEBHOOK_SECRET`
+- `NADAA_USSD_WEBHOOK_SECRET`
+- `NADAA_WHATSAPP_WEBHOOK_SECRET`
 - `WHATSAPP_PROVIDER`
 - `WHATSAPP_API_KEY`
 - `PUSH_PROVIDER`
@@ -238,6 +245,13 @@ Initial expected groups:
 - `NADAA_INTEGRATION_ADDR`
 
 Do not commit real values. Use `.env.example` when a service needs a template. Use `infra/staging/staging.env.example` as the staging environment checklist.
+
+render.yaml shares the auth environment across services through two env var groups so secrets are generated once and stay consistent:
+
+- `nadaa-auth` (attached to every Go service): one generated `NADAA_AUTH_TOKEN_SECRET` — auth-service signs bearer tokens with it and every other service verifies them with the same value — plus `NADAA_AUTH_ALLOW_MOCK_ACTORS=false` (self-asserted `X-NADAA-Actor-*` headers are ignored; local dev scripts set it to `true`) and `NADAA_ENV=production` (disables dev OTPs, sandbox payment auto-verify, and localhost CORS echo).
+- `nadaa-internal-service` (risk-service + ml-service only): one generated `NADAA_INTERNAL_SERVICE_TOKEN`, sent by risk-service as `X-NADAA-Service-Token` on ML calls.
+
+Other per-service notes: imagery-service serves geojson `downloadUrl`s from `NADAA_IMAGERY_PUBLIC_BASE_URL` (falls back to the request host) and writes uploads to `IMAGERY_STORAGE_PATH=/app/uploads`, which the Dockerfile pre-creates for the runtime user — attach a Render disk there for durability. Once `NADAA_SMS_WEBHOOK_SECRET`, `NADAA_USSD_WEBHOOK_SECRET`, or `NADAA_WHATSAPP_WEBHOOK_SECRET` is set, notification-service requires the matching value in the `X-NADAA-Webhook-Secret` header on inbound provider webhooks.
 
 Optional in-memory auth-service bootstrap variables for local/staging fixture environments:
 
@@ -258,13 +272,13 @@ The first-pass GitHub Actions workflows live in `.github/workflows/`.
 - TypeScript type checks.
 - Workspace tests.
 - App and package builds.
-- Go tests for `alert-service`, `auth-service`, `incident-service`, `guide-service`, `integration-service`, `ml-service`, `notification-service`, `risk-service`, and `shelter-service`.
+- Go tests for all 18 services, plus a `golangci-lint` gate per service against the repo-root `.golangci.yml` (pinned to v2.12.2).
 - Docker build validation for marketing web, citizen web, authority dashboard, dispatcher web, admin web, agency web, alert service, auth service, incident service, guide service, integration service, ML service, notification service, risk service, and shelter service images.
 
 `Staging Smoke` runs manually against the GitHub `staging` environment:
 
-- `STAGING_MARKETING_URL` must serve the NADAA Marketing website.
-- `STAGING_CITIZEN_URL` must serve the NADAA Citizen app.
+- `STAGING_MARKETING_URL` must serve the public website (`<title>` begins `NADAA`; the full SEO title is `NADAA — Ghana National Disaster Alert & Response Platform`).
+- `STAGING_CITIZEN_URL` must serve the NADAA Citizen app (`<title>` begins `NADAA Citizen`).
 - `STAGING_AUTHORITY_URL` must serve the NADAA Authority Dashboard.
 - `STAGING_DISPATCHER_URL` must serve the NADAA Dispatch Command app.
 - `STAGING_ADMIN_URL` must serve the NADAA Admin Console app.

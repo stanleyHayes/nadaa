@@ -12,6 +12,10 @@ import (
 )
 
 func (s *Server) whatsappWebhookHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.requireWebhookSecret(w, r, "whatsapp") {
+		return
+	}
+
 	var request models.WhatsAppInboundRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
 		utils.LogWarn("whatsapp webhook rejected", "code", "invalid_json", "error", err)
@@ -24,6 +28,7 @@ func (s *Server) whatsappWebhookHandler(w http.ResponseWriter, r *http.Request) 
 	request.Provider = utils.ProviderOrDefault(request.Provider, "whatsapp_sandbox")
 	request.ProfileID = utils.NormalizeID(request.ProfileID)
 	request.ProviderError = strings.TrimSpace(request.ProviderError)
+	request.ProviderMessageID = utils.NormalizeID(request.ProviderMessageID)
 	request.Media = utils.NormalizeWhatsAppMedia(request.Media)
 
 	utils.LogInfo(
@@ -51,24 +56,63 @@ func (s *Server) whatsappWebhookHandler(w http.ResponseWriter, r *http.Request) 
 	utils.WriteJSON(w, http.StatusAccepted, response)
 }
 
-// handleWhatsAppInbound is a flat command dispatcher: its length is driven by the
-// number of independently-simple WhatsApp commands it routes, not by nested logic.
-//
-//nolint:funlen,maintidx // linear per-command dispatch; splitting would fragment one readable state machine.
+// whatsappDecision captures the outcome of the atomic conversation transition
+// so transcripts, access logs, and the incident handoff can run after the store
+// lock is released. report is set when the transition completed a report; its
+// status and confirmation message are resolved after the handoff.
+type whatsappDecision struct {
+	preState string
+	intent   string
+	status   string
+	message  string
+	report   *models.InclusiveAccessReport
+}
+
 func (s *Server) handleWhatsAppInbound(ctx context.Context, request models.WhatsAppInboundRequest) models.WhatsAppInboundResponse {
 	now := s.now()
 	phoneRef := utils.PhoneRef(request.From)
 	linkedProfile := request.LinkProfile && request.ProfileID != ""
 	language := request.Language
-	conversationKey := utils.WhatsAppConversationKey(phoneRef, request.ProfileID, linkedProfile)
-	conversation := s.store.GetOrCreateWhatsAppConversation(
-		conversationKey,
-		phoneRef,
-		utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-		linkedProfile,
-		language,
-		now,
+	command := utils.SMSCommandName(request.Body)
+	conversationKey := utils.WhatsAppConversationKey(request.From, request.ProfileID, linkedProfile)
+
+	// The alert feed is fetched outside the store lock for the commands that
+	// need it; it never depends on conversation state.
+	var alerts []models.CitizenAlert
+	if command == "ALERT" || command == "ALERTS" || command == "RISK" {
+		alerts, _ = s.listCitizenAlerts(ctx, models.AlertFeedFilters{}, now)
+	}
+
+	seed := models.WhatsAppConversation{
+		Key:            conversationKey,
+		Channel:        "whatsapp",
+		PhoneRef:       phoneRef,
+		ProfileID:      utils.ProfileIDForLog(request.ProfileID, linkedProfile),
+		LinkedProfile:  linkedProfile,
+		Language:       language,
+		Intent:         "main_menu",
+		State:          "idle",
+		StartedAt:      now,
+		UpdatedAt:      now,
+		ExpiresAt:      now.Add(24 * time.Hour),
+		RetentionUntil: utils.WhatsAppRetentionUntil(now),
+	}
+	decision := whatsappDecision{}
+	conversation := s.store.ProcessWhatsAppConversation(conversationKey, seed, now, func(conversation *models.WhatsAppConversation) {
+		decision.preState = conversation.State
+		transitionWhatsAppConversation(conversation, request, command, alerts, now, &decision)
+	})
+	utils.LogInfo(
+		"whatsapp inbound handling started",
+		"conversationId", conversation.ID,
+		"provider", request.Provider,
+		"phoneRef", phoneRef,
+		"command", command,
+		"state", decision.preState,
+		"language", language,
+		"linkedProfile", linkedProfile,
 	)
+
 	inboundTranscript := s.store.CreateWhatsAppTranscript(models.WhatsAppTranscript{
 		ConversationID:    conversation.ID,
 		Provider:          request.Provider,
@@ -78,133 +122,137 @@ func (s *Server) handleWhatsAppInbound(ctx context.Context, request models.Whats
 		LinkedProfile:     linkedProfile,
 		Direction:         "inbound",
 		Intent:            "incoming",
-		State:             conversation.State,
+		State:             decision.preState,
 		MessageSummary:    utils.WhatsAppMessageSummary(request.Body),
 		MediaSummary:      utils.WhatsAppMediaSummary(request.Media),
 		CreatedAt:         now,
 		RetentionUntil:    utils.WhatsAppRetentionUntil(now),
 	})
-	utils.LogInfo(
-		"whatsapp inbound handling started",
-		"conversationId", conversation.ID,
-		"provider", request.Provider,
-		"phoneRef", phoneRef,
-		"command", utils.SMSCommandName(request.Body),
-		"state", conversation.State,
-		"language", language,
-		"linkedProfile", linkedProfile,
-	)
 
-	if request.ProviderError != "" {
-		utils.LogWarn(
-			"whatsapp provider error received",
+	if decision.report != nil {
+		report, created := s.store.CreateAccessReport(*decision.report)
+		if created {
+			utils.LogInfo(
+				"whatsapp report creating access report",
+				"conversationId", conversation.ID,
+				"phoneRef", report.PhoneRef,
+				"hazard", report.Type,
+				"urgency", report.Urgency,
+				"hasCoordinates", report.Location != nil,
+				"locationLabel", utils.LogTextSummary(report.LocationLabel),
+				"linkedProfile", report.LinkedProfile,
+			)
+			report = s.submitInclusiveReport(ctx, report, request.From, request.ProfileID, report.LinkedProfile)
+		} else {
+			utils.LogInfo(
+				"whatsapp report webhook deduplicated",
+				"conversationId", conversation.ID,
+				"phoneRef", report.PhoneRef,
+				"reportId", report.ID,
+				"providerMessageId", request.ProviderMessageID,
+			)
+		}
+		utils.LogInfo(
+			"whatsapp report flow completed",
 			"conversationId", conversation.ID,
-			"provider", request.Provider,
-			"providerMessageId", request.ProviderMessageID,
-			"phoneRef", phoneRef,
-			"errorLength", len(request.ProviderError),
+			"phoneRef", report.PhoneRef,
+			"reportId", report.ID,
+			"status", report.Status,
+			"incidentId", report.IncidentID,
+			"incidentReference", report.IncidentReference,
 		)
-		conversation.Intent = "provider_error"
-		conversation.State = "idle"
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
 		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
 			Channel:           "whatsapp",
 			Provider:          request.Provider,
 			ProviderMessageID: request.ProviderMessageID,
 			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "provider_error",
-			Status:            "failed",
-			ProviderError:     request.ProviderError,
+			PhoneRef:          report.PhoneRef,
+			ProfileID:         report.ProfileID,
+			LinkedProfile:     report.LinkedProfile,
+			Language:          request.Language,
+			Intent:            "report_emergency",
+			Status:            report.Status,
+			IncidentID:        report.IncidentID,
+			IncidentReference: report.IncidentReference,
 			CreatedAt:         now,
 		})
-		return s.whatsappResponse(request, conversation, localizedMessage(language, "provider_error"), log, nil, inboundTranscript.ID, now)
+		message := reportConfirmationMessage(request.Language, report)
+		return s.whatsappResponse(request, conversation, message, log, &report, inboundTranscript.ID, now)
 	}
 
-	command := utils.SMSCommandName(request.Body)
-	if command == "CANCEL" || command == "MENU" || command == "START" || command == "HI" || command == "HELLO" {
-		conversation.Intent = "main_menu"
+	providerError := ""
+	if decision.intent == "provider_error" {
+		providerError = request.ProviderError
+	}
+	log := s.store.CreateAccessLog(models.InclusiveAccessLog{
+		Channel:           "whatsapp",
+		Provider:          request.Provider,
+		ProviderMessageID: request.ProviderMessageID,
+		SessionID:         conversation.ID,
+		PhoneRef:          phoneRef,
+		ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
+		LinkedProfile:     linkedProfile,
+		Language:          language,
+		Intent:            decision.intent,
+		Status:            decision.status,
+		ProviderError:     providerError,
+		CreatedAt:         now,
+	})
+	return s.whatsappResponse(request, conversation, decision.message, log, nil, inboundTranscript.ID, now)
+}
+
+// transitionWhatsAppConversation is the pure WhatsApp state machine. It runs
+// inside the store lock (see ProcessWhatsAppConversation), so it must only
+// mutate the conversation and the decision — no store calls, no network I/O.
+func transitionWhatsAppConversation(conversation *models.WhatsAppConversation, request models.WhatsAppInboundRequest, command string, alerts []models.CitizenAlert, now time.Time, decision *whatsappDecision) {
+	language := request.Language
+	setSummaries := func() {
+		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
+		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
+	}
+	resetIdle := func(intent string) {
+		conversation.Intent = intent
 		conversation.State = "idle"
 		conversation.Hazard = ""
 		conversation.Urgency = ""
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		utils.LogInfo("whatsapp main menu returned", "conversationId", conversation.ID, "phoneRef", phoneRef, "command", command)
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "main_menu",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, whatsappHelpMessage(), log, nil, inboundTranscript.ID, now)
+	}
+
+	if request.ProviderError != "" {
+		resetIdle("provider_error")
+		setSummaries()
+		decision.intent = "provider_error"
+		decision.status = "failed"
+		decision.message = localizedMessage(language, "provider_error")
+		return
+	}
+
+	if command == "CANCEL" || command == "MENU" || command == "START" || command == "HI" || command == "HELLO" {
+		resetIdle("main_menu")
+		setSummaries()
+		decision.intent = "main_menu"
+		decision.status = "handled"
+		decision.message = whatsappHelpMessage()
+		return
 	}
 
 	if conversation.State != "" && conversation.State != "idle" && !utils.IsWhatsAppTopLevelCommand(command) {
-		return s.handleWhatsAppReportConversation(ctx, request, conversation, inboundTranscript.ID, now)
+		transitionWhatsAppReport(conversation, request, now, decision)
+		return
 	}
 
 	switch command {
 	case "ALERT", "ALERTS":
-		alerts, _ := s.listCitizenAlerts(ctx, models.AlertFeedFilters{}, now)
-		conversation.Intent = "current_alerts"
-		conversation.State = "idle"
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		utils.LogInfo("whatsapp alert summary returned", "conversationId", conversation.ID, "phoneRef", phoneRef, "alertCount", len(alerts))
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "current_alerts",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, alertSummaryMessage(language, alerts), log, nil, inboundTranscript.ID, now)
+		resetIdle("current_alerts")
+		setSummaries()
+		decision.intent = "current_alerts"
+		decision.status = "handled"
+		decision.message = alertSummaryMessage(language, alerts)
 	case "RISK":
-		alerts, _ := s.listCitizenAlerts(ctx, models.AlertFeedFilters{}, now)
-		conversation.Intent = "risk_check"
-		conversation.State = "idle"
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		utils.LogInfo("whatsapp risk guidance returned", "conversationId", conversation.ID, "phoneRef", phoneRef, "hasLocation", request.Location != nil, "alertCount", len(alerts))
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "risk_check",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, riskCheckMessage(language, request.Location != nil, alerts), log, nil, inboundTranscript.ID, now)
+		resetIdle("risk_check")
+		setSummaries()
+		decision.intent = "risk_check"
+		decision.status = "handled"
+		decision.message = riskCheckMessage(language, request.Location != nil, alerts)
 	case "GUIDE", "GUIDES":
 		hazard := utils.WhatsAppCommandArg(request.Body, 1)
 		if hazard == "" {
@@ -214,337 +262,128 @@ func (s *Server) handleWhatsAppInbound(ctx context.Context, request models.Whats
 		if !allowedHazards[hazard] {
 			hazard = "flood"
 		}
-		conversation.Intent = "emergency_guides"
-		conversation.State = "idle"
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		utils.LogInfo("whatsapp emergency guide returned", "conversationId", conversation.ID, "phoneRef", phoneRef, "hazard", hazard)
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "emergency_guides",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, emergencyGuideMessage(language, hazard), log, nil, inboundTranscript.ID, now)
+		resetIdle("emergency_guides")
+		setSummaries()
+		decision.intent = "emergency_guides"
+		decision.status = "handled"
+		decision.message = emergencyGuideMessage(language, hazard)
 	case "SHELTER", "SHELTERS":
-		conversation.Intent = "shelter_lookup"
-		conversation.State = "idle"
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		utils.LogInfo("whatsapp shelter guidance returned", "conversationId", conversation.ID, "phoneRef", phoneRef, "language", language)
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "shelter_lookup",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, shelterMessage(language), log, nil, inboundTranscript.ID, now)
+		resetIdle("shelter_lookup")
+		setSummaries()
+		decision.intent = "shelter_lookup"
+		decision.status = "handled"
+		decision.message = shelterMessage(language)
 	case "HELP", "112":
-		conversation.Intent = "guidance_112"
-		conversation.State = "idle"
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		utils.LogInfo("whatsapp 112 guidance returned", "conversationId", conversation.ID, "phoneRef", phoneRef, "language", language)
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "guidance_112",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, guidance112Message(language), log, nil, inboundTranscript.ID, now)
+		resetIdle("guidance_112")
+		setSummaries()
+		decision.intent = "guidance_112"
+		decision.status = "handled"
+		decision.message = guidance112Message(language)
 	case "REPORT":
-		report, ok, usage := parseWhatsAppDirectReport(request, phoneRef, linkedProfile, now)
+		report, ok, usage := parseWhatsAppDirectReport(request, conversation.PhoneRef, conversation.LinkedProfile, now)
 		if ok {
-			return s.completeWhatsAppReport(ctx, request, conversation, report, inboundTranscript.ID, now)
+			resetIdle("report_emergency")
+			setSummaries()
+			decision.intent = "report_emergency"
+			decision.report = &report
+			return
 		}
 		if len(strings.Fields(request.Body)) > 1 {
-			utils.LogWarn("whatsapp report rejected invalid direct usage", "conversationId", conversation.ID, "phoneRef", phoneRef, "command", command)
-			conversation.Intent = "invalid_selection"
-			conversation.State = "idle"
-			conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-			conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-			conversation.UpdatedAt = now
-			conversation = s.store.UpdateWhatsAppConversation(conversation)
-			log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-				Channel:           "whatsapp",
-				Provider:          request.Provider,
-				ProviderMessageID: request.ProviderMessageID,
-				SessionID:         conversation.ID,
-				PhoneRef:          phoneRef,
-				ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-				LinkedProfile:     linkedProfile,
-				Language:          language,
-				Intent:            "invalid_selection",
-				Status:            "handled",
-				CreatedAt:         now,
-			})
-			return s.whatsappResponse(request, conversation, usage, log, nil, inboundTranscript.ID, now)
+			resetIdle("invalid_selection")
+			setSummaries()
+			decision.intent = "invalid_selection"
+			decision.status = "handled"
+			decision.message = usage
+			return
 		}
 		conversation.Intent = "report_emergency"
 		conversation.State = "awaiting_report_hazard"
 		conversation.Hazard = ""
 		conversation.Urgency = ""
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		utils.LogInfo("whatsapp report flow started", "conversationId", conversation.ID, "phoneRef", phoneRef)
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "report_emergency",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, whatsappHazardPrompt(), log, nil, inboundTranscript.ID, now)
+		setSummaries()
+		decision.intent = "report_emergency"
+		decision.status = "handled"
+		decision.message = whatsappHazardPrompt()
 	default:
-		if request.Location != nil || len(request.Media) > 0 {
-			utils.LogWarn("whatsapp location or media received without active report", "conversationId", conversation.ID, "phoneRef", phoneRef, "mediaCount", len(request.Media), "hasLocation", request.Location != nil)
-		} else {
-			utils.LogWarn("whatsapp inbound unknown command", "conversationId", conversation.ID, "phoneRef", phoneRef, "command", command)
-		}
-		conversation.Intent = "invalid_selection"
-		conversation.State = "idle"
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "invalid_selection",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, whatsappHelpMessage(), log, nil, inboundTranscript.ID, now)
+		resetIdle("invalid_selection")
+		setSummaries()
+		decision.intent = "invalid_selection"
+		decision.status = "handled"
+		decision.message = whatsappHelpMessage()
 	}
 }
 
-func (s *Server) handleWhatsAppReportConversation(ctx context.Context, request models.WhatsAppInboundRequest, conversation models.WhatsAppConversation, inboundTranscriptID string, now time.Time) models.WhatsAppInboundResponse {
-	phoneRef := utils.PhoneRef(request.From)
-	linkedProfile := request.LinkProfile && request.ProfileID != ""
-	language := request.Language
+// transitionWhatsAppReport advances an in-progress report conversation. Like
+// transitionWhatsAppConversation it runs inside the store lock and must stay
+// free of store calls and network I/O.
+func transitionWhatsAppReport(conversation *models.WhatsAppConversation, request models.WhatsAppInboundRequest, now time.Time, decision *whatsappDecision) {
+	setSummaries := func() {
+		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
+		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
+	}
+	completeReport := func(details string) {
+		report := buildWhatsAppReport(request, *conversation, conversation.PhoneRef, conversation.LinkedProfile, now, details)
+		conversation.Intent = "report_emergency"
+		conversation.State = "idle"
+		conversation.Hazard = ""
+		conversation.Urgency = ""
+		setSummaries()
+		decision.intent = "report_emergency"
+		decision.report = &report
+	}
 
 	switch conversation.State {
 	case "awaiting_report_hazard":
 		hazard := utils.NormalizeSMSHazard(utils.FirstToken(request.Body))
 		if !allowedHazards[hazard] {
-			utils.LogWarn("whatsapp report rejected invalid hazard", "conversationId", conversation.ID, "phoneRef", phoneRef, "state", conversation.State)
-			log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-				Channel:           "whatsapp",
-				Provider:          request.Provider,
-				ProviderMessageID: request.ProviderMessageID,
-				SessionID:         conversation.ID,
-				PhoneRef:          phoneRef,
-				ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-				LinkedProfile:     linkedProfile,
-				Language:          language,
-				Intent:            "invalid_selection",
-				Status:            "handled",
-				CreatedAt:         now,
-			})
-			return s.whatsappResponse(request, conversation, whatsappHazardPrompt(), log, nil, inboundTranscriptID, now)
+			decision.intent = "invalid_selection"
+			decision.status = "handled"
+			decision.message = whatsappHazardPrompt()
+			return
 		}
 		conversation.Intent = "report_emergency"
 		conversation.State = "awaiting_report_urgency"
 		conversation.Hazard = hazard
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		utils.LogInfo("whatsapp report hazard captured", "conversationId", conversation.ID, "phoneRef", phoneRef, "hazard", hazard)
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "report_emergency",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, whatsappUrgencyPrompt(), log, nil, inboundTranscriptID, now)
+		setSummaries()
+		decision.intent = "report_emergency"
+		decision.status = "handled"
+		decision.message = whatsappUrgencyPrompt()
 	case "awaiting_report_urgency":
 		fields := strings.Fields(request.Body)
 		urgency := utils.NormalizeSMSUrgency(utils.FirstToken(request.Body))
 		if urgency == "" {
-			utils.LogWarn("whatsapp report rejected invalid urgency", "conversationId", conversation.ID, "phoneRef", phoneRef, "hazard", conversation.Hazard)
-			log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-				Channel:           "whatsapp",
-				Provider:          request.Provider,
-				ProviderMessageID: request.ProviderMessageID,
-				SessionID:         conversation.ID,
-				PhoneRef:          phoneRef,
-				ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-				LinkedProfile:     linkedProfile,
-				Language:          language,
-				Intent:            "invalid_selection",
-				Status:            "handled",
-				CreatedAt:         now,
-			})
-			return s.whatsappResponse(request, conversation, whatsappUrgencyPrompt(), log, nil, inboundTranscriptID, now)
+			decision.intent = "invalid_selection"
+			decision.status = "handled"
+			decision.message = whatsappUrgencyPrompt()
+			return
 		}
 		conversation.Intent = "report_emergency"
 		conversation.Urgency = urgency
 		details := strings.TrimSpace(strings.Join(fields[1:], " "))
 		if details != "" || request.Location != nil || len(request.Media) > 0 {
-			report := buildWhatsAppReport(request, conversation, phoneRef, linkedProfile, now, details)
-			return s.completeWhatsAppReport(ctx, request, conversation, report, inboundTranscriptID, now)
+			completeReport(details)
+			return
 		}
 		conversation.State = "awaiting_report_location"
-		conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-		conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		utils.LogInfo("whatsapp report urgency captured", "conversationId", conversation.ID, "phoneRef", phoneRef, "hazard", conversation.Hazard, "urgency", urgency)
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "report_emergency",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, whatsappLocationPrompt(), log, nil, inboundTranscriptID, now)
+		setSummaries()
+		decision.intent = "report_emergency"
+		decision.status = "handled"
+		decision.message = whatsappLocationPrompt()
 	case "awaiting_report_location":
 		if strings.TrimSpace(request.Body) == "" && request.Location == nil && len(request.Media) == 0 {
-			utils.LogWarn("whatsapp report still missing location details", "conversationId", conversation.ID, "phoneRef", phoneRef, "hazard", conversation.Hazard, "urgency", conversation.Urgency)
-			log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-				Channel:           "whatsapp",
-				Provider:          request.Provider,
-				ProviderMessageID: request.ProviderMessageID,
-				SessionID:         conversation.ID,
-				PhoneRef:          phoneRef,
-				ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-				LinkedProfile:     linkedProfile,
-				Language:          language,
-				Intent:            "invalid_selection",
-				Status:            "handled",
-				CreatedAt:         now,
-			})
-			return s.whatsappResponse(request, conversation, whatsappLocationPrompt(), log, nil, inboundTranscriptID, now)
+			decision.intent = "invalid_selection"
+			decision.status = "handled"
+			decision.message = whatsappLocationPrompt()
+			return
 		}
-		report := buildWhatsAppReport(request, conversation, phoneRef, linkedProfile, now, request.Body)
-		return s.completeWhatsAppReport(ctx, request, conversation, report, inboundTranscriptID, now)
+		completeReport(request.Body)
 	default:
-		utils.LogWarn("whatsapp conversation state unknown", "conversationId", conversation.ID, "phoneRef", phoneRef, "state", conversation.State)
 		conversation.Intent = "invalid_selection"
 		conversation.State = "idle"
-		conversation.UpdatedAt = now
-		conversation = s.store.UpdateWhatsAppConversation(conversation)
-		log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-			Channel:           "whatsapp",
-			Provider:          request.Provider,
-			ProviderMessageID: request.ProviderMessageID,
-			SessionID:         conversation.ID,
-			PhoneRef:          phoneRef,
-			ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-			LinkedProfile:     linkedProfile,
-			Language:          language,
-			Intent:            "invalid_selection",
-			Status:            "handled",
-			CreatedAt:         now,
-		})
-		return s.whatsappResponse(request, conversation, whatsappHelpMessage(), log, nil, inboundTranscriptID, now)
+		decision.intent = "invalid_selection"
+		decision.status = "handled"
+		decision.message = whatsappHelpMessage()
 	}
-}
-
-func (s *Server) completeWhatsAppReport(ctx context.Context, request models.WhatsAppInboundRequest, conversation models.WhatsAppConversation, report models.InclusiveAccessReport, inboundTranscriptID string, now time.Time) models.WhatsAppInboundResponse {
-	utils.LogInfo(
-		"whatsapp report creating access report",
-		"conversationId", conversation.ID,
-		"phoneRef", report.PhoneRef,
-		"hazard", report.Type,
-		"urgency", report.Urgency,
-		"hasCoordinates", request.Location != nil,
-		"mediaCount", len(report.Media),
-		"locationLabel", utils.LogTextSummary(report.LocationLabel),
-		"linkedProfile", report.LinkedProfile,
-	)
-	report = s.store.CreateAccessReport(report)
-	report = s.submitInclusiveReport(ctx, report, request.From, request.ProfileID, report.LinkedProfile)
-	conversation.Intent = "report_emergency"
-	conversation.State = "idle"
-	conversation.Hazard = ""
-	conversation.Urgency = ""
-	conversation.LastMessageSummary = utils.WhatsAppMessageSummary(request.Body)
-	conversation.LastMediaSummary = utils.WhatsAppMediaSummary(request.Media)
-	conversation.UpdatedAt = now
-	conversation = s.store.UpdateWhatsAppConversation(conversation)
-	utils.LogInfo(
-		"whatsapp report flow completed",
-		"conversationId", conversation.ID,
-		"phoneRef", report.PhoneRef,
-		"reportId", report.ID,
-		"status", report.Status,
-		"incidentId", report.IncidentID,
-		"incidentReference", report.IncidentReference,
-	)
-
-	log := s.store.CreateAccessLog(models.InclusiveAccessLog{
-		Channel:           "whatsapp",
-		Provider:          request.Provider,
-		ProviderMessageID: request.ProviderMessageID,
-		SessionID:         conversation.ID,
-		PhoneRef:          report.PhoneRef,
-		ProfileID:         report.ProfileID,
-		LinkedProfile:     report.LinkedProfile,
-		Language:          request.Language,
-		Intent:            "report_emergency",
-		Status:            report.Status,
-		IncidentID:        report.IncidentID,
-		IncidentReference: report.IncidentReference,
-		CreatedAt:         now,
-	})
-	message := reportConfirmationMessage(request.Language, report)
-	return s.whatsappResponse(request, conversation, message, log, &report, inboundTranscriptID, now)
 }
 
 func (s *Server) whatsappResponse(request models.WhatsAppInboundRequest, conversation models.WhatsAppConversation, message string, accessLog models.InclusiveAccessLog, report *models.InclusiveAccessReport, inboundTranscriptID string, now time.Time) models.WhatsAppInboundResponse {
@@ -616,20 +455,35 @@ func buildWhatsAppReport(request models.WhatsAppInboundRequest, conversation mod
 		description = fmt.Sprintf("WhatsApp emergency report: %s with %s urgency. Details: %s.", conversation.Hazard, conversation.Urgency, details)
 	}
 	if len(mediaRefs) > 0 {
-		description = fmt.Sprintf("%s Media attachments received: %d.", description, len(mediaRefs))
+		description = fmt.Sprintf("%s Media attachments received: %d (%s).", description, len(mediaRefs), mediaRefsText(mediaRefs))
 	}
+	// Media refs are folded into the description as text instead of the Media
+	// field: incident-service only accepts media registered through its own
+	// upload endpoint and rejects anything else with a 400.
 	return models.InclusiveAccessReport{
-		Channel:       "whatsapp",
-		Type:          conversation.Hazard,
-		Urgency:       conversation.Urgency,
-		Description:   description,
-		Location:      location,
-		LocationLabel: locationLabel,
-		PhoneRef:      phoneRef,
-		ProfileID:     utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-		LinkedProfile: linkedProfile,
-		Status:        "queued",
-		Media:         mediaRefs,
-		CreatedAt:     now,
+		Channel:           "whatsapp",
+		Provider:          request.Provider,
+		ProviderMessageID: request.ProviderMessageID,
+		Type:              conversation.Hazard,
+		Urgency:           conversation.Urgency,
+		Description:       description,
+		Location:          location,
+		LocationLabel:     locationLabel,
+		PhoneRef:          phoneRef,
+		ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
+		LinkedProfile:     linkedProfile,
+		Status:            "queued",
+		CreatedAt:         now,
 	}
+}
+
+// mediaRefsText renders unregistered media references as bounded description
+// text so long provider URLs cannot push the description past incident-service
+// validation limits.
+func mediaRefsText(refs []string) string {
+	text := strings.Join(refs, ", ")
+	if len(text) > 500 {
+		text = text[:500] + "..."
+	}
+	return text
 }

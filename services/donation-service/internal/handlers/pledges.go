@@ -16,11 +16,21 @@ var allowedPledgeStatuses = map[string]bool{
 }
 
 func (s *Server) listRequestPledgesHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := s.requireAuthority(w, r)
+	if !ok {
+		return
+	}
+
 	pledges := s.store.ListPledgesForRequest(r.PathValue("id"))
-	log.Printf("INFO donation-service pledge_list_for_request aidRequestId=%s count=%d", r.PathValue("id"), len(pledges))
+	log.Printf("INFO donation-service pledge_list_for_request aidRequestId=%s count=%d actor=%s", utils.LogSafe(r.PathValue("id")), len(pledges), utils.LogSafe(ctx.ActorUserID)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 	utils.WriteJSON(w, http.StatusOK, models.PledgeListResponse{Pledges: pledges, GeneratedAt: s.now().UTC()})
 }
 
+// createPledgeHandler records a pledge against an aid request. The pledge must
+// be bound to a registered donor identity: donorId must reference an existing
+// donor and contactEmail must match that donor's registered email
+// (case-insensitively), so unauthenticated callers cannot corrupt
+// aid-fulfillment state with fake pledges.
 func (s *Server) createPledgeHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.CreatePledgeRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
@@ -36,9 +46,21 @@ func (s *Server) createPledgeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	donor, found := s.store.GetDonor(normalized.DonorID)
+	if !found {
+		log.Printf("WARN donation-service pledge_create unknown_donor aidRequestId=%s", utils.LogSafe(r.PathValue("id"))) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
+		utils.WriteError(w, http.StatusForbidden, "donor_not_registered", "donorId must reference a registered donor")
+		return
+	}
+	if !strings.EqualFold(normalized.ContactEmail, donor.ContactEmail) {
+		log.Printf("WARN donation-service pledge_create email_mismatch aidRequestId=%s donorId=%s", utils.LogSafe(r.PathValue("id")), utils.LogSafe(normalized.DonorID)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
+		utils.WriteError(w, http.StatusForbidden, "donor_email_mismatch", "contactEmail must match the donor's registered email")
+		return
+	}
+
 	pledge, code, message := s.store.CreatePledge(r.PathValue("id"), normalized, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN donation-service pledge_create failed aidRequestId=%s code=%s", r.PathValue("id"), code)
+		log.Printf("WARN donation-service pledge_create failed aidRequestId=%s code=%s", utils.LogSafe(r.PathValue("id")), utils.LogSafe(code)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
@@ -47,25 +69,25 @@ func (s *Server) createPledgeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listPledgesHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
 
 	filter := models.PledgeFilter{Status: utils.NormalizeToken(r.URL.Query().Get("status"))}
 	if filter.Status != "" && !allowedPledgeStatuses[filter.Status] {
-		log.Printf("WARN donation-service pledge_list invalid_status actor=%s status=%s", ctx.ActorUserID, filter.Status)
+		log.Printf("WARN donation-service pledge_list invalid_status actor=%s status=%s", utils.LogSafe(ctx.ActorUserID), utils.LogSafe(filter.Status)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_status", "status must be pledged, delivered, or cancelled")
 		return
 	}
 
 	pledges := s.store.ListPledges(filter)
-	log.Printf("INFO donation-service pledge_list count=%d actor=%s status=%s", len(pledges), ctx.ActorUserID, filter.Status)
+	log.Printf("INFO donation-service pledge_list count=%d actor=%s status=%s", len(pledges), utils.LogSafe(ctx.ActorUserID), utils.LogSafe(filter.Status)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 	utils.WriteJSON(w, http.StatusOK, models.PledgeListResponse{Pledges: pledges, GeneratedAt: s.now().UTC()})
 }
 
 func (s *Server) updatePledgeHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
@@ -86,7 +108,7 @@ func (s *Server) updatePledgeHandler(w http.ResponseWriter, r *http.Request) {
 
 	pledge, code, message := s.store.UpdatePledge(r.PathValue("id"), normalized, ctx.ActorUserID, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN donation-service pledge_update failed id=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		log.Printf("WARN donation-service pledge_update failed id=%s actor=%s code=%s", utils.LogSafe(r.PathValue("id")), utils.LogSafe(ctx.ActorUserID), utils.LogSafe(code)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
@@ -95,7 +117,7 @@ func (s *Server) updatePledgeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) allocatePledgeHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
@@ -116,7 +138,7 @@ func (s *Server) allocatePledgeHandler(w http.ResponseWriter, r *http.Request) {
 
 	pledge, code, message := s.store.AllocatePledge(r.PathValue("id"), normalized, ctx.ActorUserID, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN donation-service pledge_allocate failed aidRequestId=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		log.Printf("WARN donation-service pledge_allocate failed aidRequestId=%s actor=%s code=%s", utils.LogSafe(r.PathValue("id")), utils.LogSafe(ctx.ActorUserID), utils.LogSafe(code)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}

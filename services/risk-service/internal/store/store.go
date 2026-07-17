@@ -68,7 +68,7 @@ func (m *MemoryStore) AreaRisk(location models.Coordinates) models.RiskResponse 
 		Risks:              risks,
 		NearestShelters:    m.nearestShelters(location),
 		NearbyFacilities:   m.nearbyFacilities(location),
-		RecommendedActions: utils.RecommendedActions(overall, risks[0].Level),
+		RecommendedActions: utils.RecommendedActions(overall, utils.RisksFloodLevel(risks)),
 	}
 }
 

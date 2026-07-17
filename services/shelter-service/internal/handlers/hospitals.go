@@ -25,7 +25,7 @@ func (s *server) listHospitalCapacityHandler(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *server) updateHospitalCapacityHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}
@@ -56,7 +56,7 @@ func (s *server) updateHospitalCapacityHandler(w http.ResponseWriter, r *http.Re
 }
 
 func (s *server) importHospitalCapacityFixtureHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}

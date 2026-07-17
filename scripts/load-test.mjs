@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 // NADAA-170 national-scale load harness.
 //
-// Drives closed-loop read load against the endpoints that dominate a national
-// flood event — report intake, alert delivery, dashboard/geospatial maps, and
-// the notification queue — and reports throughput, latency percentiles, and
-// error rate per scenario against a per-profile SLO budget.
+// Drives closed-loop read load against the public endpoints that dominate a
+// national flood event — citizens checking area risk while reports spike,
+// alert delivery, dashboard/geospatial maps, and the notification queue — and
+// reports throughput, latency percentiles, and error rate per scenario against
+// a per-profile SLO budget. Every scenario URL must be publicly readable:
+// authority feeds require a verified bearer token, so hitting them here would
+// measure 401s, not load.
 //
 // Read-only by design so it is safe to run repeatedly against a live instance.
 // Usage:
 //   LOAD_PROFILE=baseline|elevated|surge node scripts/load-test.mjs
 // Optional overrides: LOAD_DURATION_MS, LOAD_CONCURRENCY, LOAD_STRICT=true,
-// and the per-service *_API_URL variables shared with the smoke scripts.
+// LOAD_ALLOW_UNREACHABLE=true to skip scenarios whose service is down (by
+// default an unreachable scenario fails the run), and the per-service
+// *_API_URL variables shared with the smoke scripts.
 
 const PROFILES = {
   // concurrency + duration model the closed-loop demand; the budgets are the
@@ -51,10 +56,12 @@ const profile = {
   durationMs: Number(process.env.LOAD_DURATION_MS) || base.durationMs,
 };
 const strict = process.env.LOAD_STRICT?.trim() === "true";
+// Unreachable scenarios fail the run by default; LOAD_ALLOW_UNREACHABLE=true
+// opts back into skipping them (LOAD_STRICT still fails them).
+const allowUnreachable =
+  process.env.LOAD_ALLOW_UNREACHABLE?.trim() === "true" && !strict;
 
 const services = {
-  incident:
-    process.env.INCIDENT_API_URL?.trim() || "http://127.0.0.1:8084/api/v1",
   notification:
     process.env.NOTIFICATION_API_URL?.trim() || "http://127.0.0.1:8090/api/v1",
   risk: process.env.RISK_API_URL?.trim() || "http://127.0.0.1:8081/api/v1",
@@ -64,9 +71,11 @@ const services = {
 
 const scenarios = [
   {
+    // The incident list feed is authority-only; the public read that spikes
+    // alongside report intake is citizens checking risk for their area.
     key: "report_spike",
-    label: "Report spike — incident intake feed",
-    urls: [`${services.incident}/incidents`],
+    label: "Report spike — public area-risk lookups",
+    urls: [`${services.risk}/risk?lat=5.5600&lng=-0.1870`],
   },
   {
     key: "alert_delivery",
@@ -192,7 +201,7 @@ if (unreachable > 0 && unreachable === results.length) {
   console.error(
     `\nAll ${unreachable} scenarios unreachable. Start the services (see docs/deployment.md) or set the *_API_URL env vars.`,
   );
-  process.exit(strict ? 1 : 2);
+  process.exit(allowUnreachable ? 2 : 1);
 }
 if (failed > 0) {
   console.error(
@@ -200,8 +209,10 @@ if (failed > 0) {
   );
   process.exit(1);
 }
-if (unreachable > 0 && strict) {
-  console.error(`\n${unreachable} scenario(s) unreachable under LOAD_STRICT.`);
+if (unreachable > 0 && !allowUnreachable) {
+  console.error(
+    `\n${unreachable} scenario(s) unreachable — start the services, set the *_API_URL env vars, or opt out with LOAD_ALLOW_UNREACHABLE=true.`,
+  );
   process.exit(1);
 }
 console.log(

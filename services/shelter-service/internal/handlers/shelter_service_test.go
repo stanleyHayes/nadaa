@@ -2,19 +2,40 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/csv"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/stanleyHayes/nadaa/services/shelter-service/internal/config"
 	"github.com/stanleyHayes/nadaa/services/shelter-service/internal/models"
 	"github.com/stanleyHayes/nadaa/services/shelter-service/internal/store"
 )
 
 func newTestServer() *server {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
-	return &server{store: store.NewMemoryStore(now), now: func() time.Time { return now }}
+	return &server{
+		store:  store.NewMemoryStore(now),
+		now:    func() time.Time { return now },
+		config: &config.Config{AllowMockActors: true},
+	}
+}
+
+// newTokenTestServer builds a server that only accepts verified bearer tokens
+// (mock actor headers disabled), signed with the given secret.
+func newTokenTestServer(secret string) *server {
+	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+	return &server{
+		store:  store.NewMemoryStore(now),
+		now:    func() time.Time { return now },
+		config: &config.Config{TokenSecret: secret},
+	}
 }
 
 func TestNearbySheltersReturnsSortedSheltersAndRecoverySupport(t *testing.T) {
@@ -215,10 +236,37 @@ func TestUpdateHospitalCapacity(t *testing.T) {
 	if payload.Facility.AvailableBeds != 18 ||
 		payload.Facility.ICUBedsAvailable != 2 ||
 		payload.Facility.EmergencyCapacity != "limited" ||
-		payload.Facility.Source != "manual" ||
+		payload.Facility.Source != "fixture" ||
+		payload.Facility.SourceRef != "hospital-capacity-feed" ||
 		payload.Facility.UpdatedBy != "usr_shelter_operator" ||
 		payload.Facility.Stale {
-		t.Fatalf("expected manual hospital update metadata, got %#v", payload.Facility)
+		t.Fatalf("expected hospital update with preserved provenance, got %#v", payload.Facility)
+	}
+}
+
+func TestUpdateHospitalCapacityOverwritesSourceOnlyWhenProvided(t *testing.T) {
+	srv := newTestServer()
+	availableBeds := 20
+	body := models.HospitalCapacityUpdateRequest{
+		AvailableBeds: &availableBeds,
+		Source:        "manual",
+		SourceRef:     "desk-call-123",
+	}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPatch, "/api/v1/hospitals/hospital_001/capacity", jsonBody(body))
+	request.SetPathValue("id", "hospital_001")
+
+	srv.updateHospitalCapacityHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload models.HospitalCapacityUpdateResponse
+	decodeResponse(t, response, &payload)
+	if payload.Facility.Source != "manual" || payload.Facility.SourceRef != "desk-call-123" {
+		t.Fatalf("expected provided provenance to be stored, got %#v", payload.Facility)
 	}
 }
 
@@ -591,6 +639,433 @@ func TestDeleteAidRequestNotFound(t *testing.T) {
 	}
 }
 
+func TestAidRequestIDsDoNotCollideAfterDelete(t *testing.T) {
+	srv := newTestServer()
+	createBody := models.CreateAidRequestRequest{
+		Title:                 "Water for displaced households",
+		Category:              "water",
+		Priority:              "high",
+		Location:              models.Coordinates{Lat: 5.560, Lng: -0.200},
+		ReceivingOrganization: "AMA Central Food Distribution",
+		QuantityNeeded:        100,
+		QuantityUnit:          "bottles",
+		Description:           "Bottled water for households displaced by flooding.",
+		NeededBy:              srv.now().Add(24 * time.Hour),
+	}
+
+	firstResponse := httptest.NewRecorder()
+	srv.createAidRequestHandler(firstResponse, authorityRequest(http.MethodPost, "/api/v1/aid-requests", jsonBody(createBody)))
+	if firstResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, firstResponse.Code, firstResponse.Body.String())
+	}
+	var first models.AidRequest
+	decodeResponse(t, firstResponse, &first)
+
+	deleteResponse := httptest.NewRecorder()
+	deleteRequest := adminRequest(http.MethodDelete, "/api/v1/aid-requests/"+first.ID, nil)
+	deleteRequest.SetPathValue("id", first.ID)
+	srv.deleteAidRequestHandler(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, deleteResponse.Code)
+	}
+
+	secondResponse := httptest.NewRecorder()
+	srv.createAidRequestHandler(secondResponse, authorityRequest(http.MethodPost, "/api/v1/aid-requests", jsonBody(createBody)))
+	if secondResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, secondResponse.Code, secondResponse.Body.String())
+	}
+	var second models.AidRequest
+	decodeResponse(t, secondResponse, &second)
+	if first.ID == "" || second.ID == first.ID {
+		t.Fatalf("expected a fresh aid request ID after delete, got first=%s second=%s", first.ID, second.ID)
+	}
+}
+
+func TestReliefPointIDsDoNotCollideAfterDelete(t *testing.T) {
+	srv := newTestServer()
+	createBody := models.CreateReliefPointRequest{
+		Name:     "Collision Test Point",
+		Type:     "food",
+		Location: models.Coordinates{Lat: 5.55, Lng: -0.19},
+	}
+
+	firstResponse := httptest.NewRecorder()
+	srv.createReliefPointHandler(firstResponse, authorityRequest(http.MethodPost, "/api/v1/relief-points", jsonBody(createBody)))
+	if firstResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, firstResponse.Code, firstResponse.Body.String())
+	}
+	var first models.ReliefPoint
+	decodeResponse(t, firstResponse, &first)
+
+	deleteResponse := httptest.NewRecorder()
+	deleteRequest := adminRequest(http.MethodDelete, "/api/v1/relief-points/"+first.ID, nil)
+	deleteRequest.SetPathValue("id", first.ID)
+	srv.deleteReliefPointHandler(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, deleteResponse.Code)
+	}
+
+	secondResponse := httptest.NewRecorder()
+	srv.createReliefPointHandler(secondResponse, authorityRequest(http.MethodPost, "/api/v1/relief-points", jsonBody(createBody)))
+	if secondResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, secondResponse.Code, secondResponse.Body.String())
+	}
+	var second models.ReliefPoint
+	decodeResponse(t, secondResponse, &second)
+	if first.ID == "" || second.ID == first.ID {
+		t.Fatalf("expected a fresh relief point ID after delete, got first=%s second=%s", first.ID, second.ID)
+	}
+}
+
+func TestPrivateAidListRejectsResponderRole(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := agencyRoleRequest(http.MethodGet, "/api/v1/aid-requests?includePrivate=true", nil, "responder", "00000000-0000-0000-0000-000000000204")
+
+	srv.listAidRequestsHandler(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, response.Code, response.Body.String())
+	}
+}
+
+func TestPrivateAidListScopesAgencyRolesToOwnAgency(t *testing.T) {
+	srv := newTestServer()
+
+	ownResponse := httptest.NewRecorder()
+	srv.listAidRequestsHandler(ownResponse, agencyRoleRequest(http.MethodGet, "/api/v1/aid-requests?includePrivate=true", nil, "agency_admin", "00000000-0000-0000-0000-000000000204"))
+	if ownResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, ownResponse.Code, ownResponse.Body.String())
+	}
+	var ownPayload models.AidRequestListResponse
+	decodeResponse(t, ownResponse, &ownPayload)
+	if len(ownPayload.AidRequests) != 2 {
+		t.Fatalf("expected own-agency private request plus the public one, got %#v", ownPayload.AidRequests)
+	}
+
+	otherResponse := httptest.NewRecorder()
+	srv.listAidRequestsHandler(otherResponse, agencyRoleRequest(http.MethodGet, "/api/v1/aid-requests?includePrivate=true", nil, "agency_admin", "00000000-0000-0000-0000-000000000999"))
+	if otherResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, otherResponse.Code, otherResponse.Body.String())
+	}
+	var otherPayload models.AidRequestListResponse
+	decodeResponse(t, otherResponse, &otherPayload)
+	if len(otherPayload.AidRequests) != 1 || otherPayload.AidRequests[0].Visibility != "public" {
+		t.Fatalf("expected only the public aid request for another agency, got %#v", otherPayload.AidRequests)
+	}
+}
+
+func TestPrivateAidListPrivilegedRoleSeesAll(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodGet, "/api/v1/aid-requests?includePrivate=true", nil)
+
+	srv.listAidRequestsHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.AidRequestListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.AidRequests) != 2 {
+		t.Fatalf("expected district_officer to see every aid request, got %#v", payload.AidRequests)
+	}
+}
+
+func TestFulfilledAidRequestReopensWhenPledgeCancelled(t *testing.T) {
+	srv := newTestServer()
+	createBody := models.CreateAidRequestRequest{
+		Title:                 "Blankets for flood shelters",
+		Category:              "shelter",
+		Priority:              "high",
+		Location:              models.Coordinates{Lat: 5.560, Lng: -0.200},
+		ReceivingOrganization: "AMA Central Food Distribution",
+		QuantityNeeded:        60,
+		QuantityUnit:          "blankets",
+		Description:           "Blankets for families staying at the evacuation shelter.",
+		NeededBy:              srv.now().Add(24 * time.Hour),
+		Visibility:            "public",
+	}
+
+	createResponse := httptest.NewRecorder()
+	srv.createAidRequestHandler(createResponse, authorityRequest(http.MethodPost, "/api/v1/aid-requests", jsonBody(createBody)))
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, createResponse.Code, createResponse.Body.String())
+	}
+	var created models.AidRequest
+	decodeResponse(t, createResponse, &created)
+
+	reviewResponse := httptest.NewRecorder()
+	reviewRequest := authorityRequest(http.MethodPatch, "/api/v1/aid-requests/"+created.ID+"/review", jsonBody(models.ReviewAidRequestRequest{
+		Status:        "approved",
+		ApprovalNotes: "Verified receiving desk.",
+	}))
+	reviewRequest.SetPathValue("id", created.ID)
+	srv.reviewAidRequestHandler(reviewResponse, reviewRequest)
+	if reviewResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, reviewResponse.Code, reviewResponse.Body.String())
+	}
+
+	pledgeResponse := httptest.NewRecorder()
+	pledgeRequest := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/"+created.ID+"/pledges", jsonBody(models.CreateAidPledgeRequest{
+		DonorName: "Community Textiles",
+		DonorType: "business",
+		Contact:   "donations@example.org",
+		Quantity:  60,
+		Unit:      "blankets",
+	}))
+	pledgeRequest.SetPathValue("id", created.ID)
+	srv.createAidPledgeHandler(pledgeResponse, pledgeRequest)
+	if pledgeResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, pledgeResponse.Code, pledgeResponse.Body.String())
+	}
+	var pledge models.AidPledge
+	decodeResponse(t, pledgeResponse, &pledge)
+
+	if status := aidRequestStatus(t, srv, created.ID); status != "fulfilled" {
+		t.Fatalf("expected fulfilled aid request after full pledge, got %s", status)
+	}
+
+	cancelResponse := httptest.NewRecorder()
+	cancelRequest := authorityRequest(http.MethodPatch, "/api/v1/aid-requests/"+created.ID+"/pledges/"+pledge.ID+"/review", jsonBody(models.ReviewAidPledgeRequest{
+		Status: "cancelled",
+	}))
+	cancelRequest.SetPathValue("id", created.ID)
+	cancelRequest.SetPathValue("pledgeId", pledge.ID)
+	srv.reviewAidPledgeHandler(cancelResponse, cancelRequest)
+	if cancelResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, cancelResponse.Code, cancelResponse.Body.String())
+	}
+
+	if status := aidRequestStatus(t, srv, created.ID); status != "open" {
+		t.Fatalf("expected aid request to reopen after pledge cancellation, got %s", status)
+	}
+}
+
+func aidRequestStatus(t *testing.T, srv *server, id string) string {
+	t.Helper()
+	response := httptest.NewRecorder()
+	srv.listAidRequestsHandler(response, authorityRequest(http.MethodGet, "/api/v1/aid-requests?includePrivate=true", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.AidRequestListResponse
+	decodeResponse(t, response, &payload)
+	for _, request := range payload.AidRequests {
+		if request.ID == id {
+			return request.Status
+		}
+	}
+	t.Fatalf("aid request %s not found in list", id)
+	return ""
+}
+
+func TestUpdateShelterRejectsCapacityBelowExistingOccupancy(t *testing.T) {
+	srv := newTestServer()
+	capacity := 50
+	body := models.OccupancyUpdateRequest{Capacity: &capacity}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPatch, "/api/v1/shelters/00000000-0000-0000-0000-000000000301/occupancy", jsonBody(body))
+	request.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
+
+	srv.updateShelterOccupancyHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+}
+
+func TestOccupancyOnlyUpdatePreservesClosedStatus(t *testing.T) {
+	srv := newTestServer()
+
+	closeResponse := httptest.NewRecorder()
+	closeRequest := authorityRequest(http.MethodPatch, "/api/v1/shelters/00000000-0000-0000-0000-000000000301/occupancy", jsonBody(models.OccupancyUpdateRequest{Status: "closed"}))
+	closeRequest.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
+	srv.updateShelterOccupancyHandler(closeResponse, closeRequest)
+	if closeResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, closeResponse.Code, closeResponse.Body.String())
+	}
+
+	occupancy := 450
+	occupancyResponse := httptest.NewRecorder()
+	occupancyRequest := authorityRequest(http.MethodPatch, "/api/v1/shelters/00000000-0000-0000-0000-000000000301/occupancy", jsonBody(models.OccupancyUpdateRequest{CurrentOccupancy: &occupancy}))
+	occupancyRequest.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
+	srv.updateShelterOccupancyHandler(occupancyResponse, occupancyRequest)
+	if occupancyResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, occupancyResponse.Code, occupancyResponse.Body.String())
+	}
+
+	var payload models.ShelterUpdateResponse
+	decodeResponse(t, occupancyResponse, &payload)
+	if payload.Shelter.Status != "closed" {
+		t.Fatalf("expected closed status to survive an occupancy-only update, got %#v", payload.Shelter)
+	}
+}
+
+func TestHospitalCapacityFixtureImportSkipsOverbookedRecords(t *testing.T) {
+	srv := newTestServer()
+	body := models.HospitalCapacityImportRequest{
+		Records: []models.HospitalCapacityFixtureRecord{
+			{FacilityID: "hospital_001", AvailableBeds: 900, EmergencyCapacity: "available"},
+			{FacilityID: "hospital_002", AvailableBeds: 100, EmergencyCapacity: "available"},
+		},
+	}
+
+	response := httptest.NewRecorder()
+	srv.importHospitalCapacityFixtureHandler(response, authorityRequest(http.MethodPost, "/api/v1/hospitals/capacity/imports/fixture", jsonBody(body)))
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.HospitalCapacityImportResponse
+	decodeResponse(t, response, &payload)
+	if payload.Imported != 1 || len(payload.Facilities) != 1 || payload.Facilities[0].ID != "hospital_002" {
+		t.Fatalf("expected only the valid record to import, got %#v", payload)
+	}
+
+	listResponse := httptest.NewRecorder()
+	srv.listHospitalCapacityHandler(listResponse, httptest.NewRequest(http.MethodGet, "/api/v1/hospitals/capacity", nil))
+	var listPayload models.HospitalCapacityResponse
+	decodeResponse(t, listResponse, &listPayload)
+	for _, facility := range listPayload.Facilities {
+		if facility.ID == "hospital_001" && facility.AvailableBeds != 46 {
+			t.Fatalf("expected overbooked record to be skipped, got %#v", facility)
+		}
+	}
+}
+
+func TestAidRequestExportEscapesFormulaPrefixes(t *testing.T) {
+	srv := newTestServer()
+	createBody := models.CreateAidRequestRequest{
+		Title:                 "=SUM(1,2) emergency packs",
+		Category:              "food",
+		Priority:              "high",
+		Location:              models.Coordinates{Lat: 5.560, Lng: -0.200},
+		ReceivingOrganization: "Shelter Org, Inc.",
+		QuantityNeeded:        40,
+		QuantityUnit:          "packs",
+		Description:           "Food packs for families at the evacuation shelter.",
+		NeededBy:              srv.now().Add(24 * time.Hour),
+		Visibility:            "public",
+	}
+
+	createResponse := httptest.NewRecorder()
+	srv.createAidRequestHandler(createResponse, authorityRequest(http.MethodPost, "/api/v1/aid-requests", jsonBody(createBody)))
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, createResponse.Code, createResponse.Body.String())
+	}
+
+	exportResponse := httptest.NewRecorder()
+	srv.exportAidRequestsHandler(exportResponse, authorityRequest(http.MethodGet, "/api/v1/aid-requests/report.csv", nil))
+	if exportResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, exportResponse.Code, exportResponse.Body.String())
+	}
+
+	records, err := csv.NewReader(strings.NewReader(exportResponse.Body.String())).ReadAll()
+	if err != nil {
+		t.Fatalf("expected parseable CSV, got %v", err)
+	}
+	if len(records) != 4 || records[0][0] != "id" || records[0][1] != "title" {
+		t.Fatalf("expected header plus three aid request rows, got %#v", records)
+	}
+	found := false
+	for _, record := range records[1:] {
+		if record[1] == "'=SUM(1,2) emergency packs" {
+			found = true
+			if record[6] != "Shelter Org, Inc." {
+				t.Fatalf("expected comma-containing organization to round-trip, got %#v", record)
+			}
+		}
+		if strings.HasPrefix(record[1], "=") || strings.HasPrefix(record[6], "=") {
+			t.Fatalf("expected formula prefixes to be escaped, got %#v", record)
+		}
+	}
+	if !found {
+		t.Fatalf("expected the created aid request row in the export, got %#v", records)
+	}
+}
+
+func TestAuthorityAcceptsValidBearerToken(t *testing.T) {
+	srv := newTokenTestServer("test-secret-key")
+	token := signedToken(t, "test-secret-key", map[string]any{
+		"sub":      "usr_token_operator",
+		"typ":      "agency",
+		"role":     "district_officer",
+		"agencyId": "00000000-0000-0000-0000-000000000204",
+		"mfa":      true,
+		"exp":      srv.now().Add(time.Hour).Unix(),
+	})
+	occupancy := 120
+
+	response := httptest.NewRecorder()
+	request := tokenRequest(http.MethodPatch, "/api/v1/shelters/00000000-0000-0000-0000-000000000301/occupancy", jsonBody(models.OccupancyUpdateRequest{CurrentOccupancy: &occupancy}), token)
+	request.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
+
+	srv.updateShelterOccupancyHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.ShelterUpdateResponse
+	decodeResponse(t, response, &payload)
+	if payload.Shelter.CurrentOccupancy != 120 || payload.Shelter.UpdatedBy != "usr_token_operator" {
+		t.Fatalf("expected token-derived actor on the update, got %#v", payload.Shelter)
+	}
+}
+
+func TestAuthorityIgnoresMockHeadersWhenDisabled(t *testing.T) {
+	srv := newTokenTestServer("test-secret-key")
+	occupancy := 120
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPatch, "/api/v1/shelters/00000000-0000-0000-0000-000000000301/occupancy", jsonBody(models.OccupancyUpdateRequest{CurrentOccupancy: &occupancy}))
+	request.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
+
+	srv.updateShelterOccupancyHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusUnauthorized, response.Code, response.Body.String())
+	}
+}
+
+func TestAuthorityRejectsTamperedAndExpiredTokens(t *testing.T) {
+	srv := newTokenTestServer("test-secret-key")
+	occupancy := 120
+
+	tampered := signedToken(t, "wrong-secret", map[string]any{
+		"sub":      "usr_token_operator",
+		"typ":      "agency",
+		"role":     "district_officer",
+		"agencyId": "00000000-0000-0000-0000-000000000204",
+		"mfa":      true,
+		"exp":      srv.now().Add(time.Hour).Unix(),
+	})
+	tamperedResponse := httptest.NewRecorder()
+	tamperedRequest := tokenRequest(http.MethodPatch, "/api/v1/shelters/00000000-0000-0000-0000-000000000301/occupancy", jsonBody(models.OccupancyUpdateRequest{CurrentOccupancy: &occupancy}), tampered)
+	tamperedRequest.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
+	srv.updateShelterOccupancyHandler(tamperedResponse, tamperedRequest)
+	if tamperedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for a wrongly-signed token, got %d", http.StatusUnauthorized, tamperedResponse.Code)
+	}
+
+	expired := signedToken(t, "test-secret-key", map[string]any{
+		"sub":      "usr_token_operator",
+		"typ":      "agency",
+		"role":     "district_officer",
+		"agencyId": "00000000-0000-0000-0000-000000000204",
+		"mfa":      true,
+		"exp":      srv.now().Add(-time.Hour).Unix(),
+	})
+	expiredResponse := httptest.NewRecorder()
+	expiredRequest := tokenRequest(http.MethodPatch, "/api/v1/shelters/00000000-0000-0000-0000-000000000301/occupancy", jsonBody(models.OccupancyUpdateRequest{CurrentOccupancy: &occupancy}), expired)
+	expiredRequest.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
+	srv.updateShelterOccupancyHandler(expiredResponse, expiredRequest)
+	if expiredResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for an expired token, got %d", http.StatusUnauthorized, expiredResponse.Code)
+	}
+}
+
 func jsonBody(value any) *bytes.Reader {
 	body, err := json.Marshal(value)
 	if err != nil {
@@ -620,6 +1095,39 @@ func adminRequest(method string, target string, body *bytes.Reader) *http.Reques
 	request.Header.Set("X-NADAA-Actor-ID", "usr_shelter_admin")
 	request.Header.Set("X-NADAA-Actor-Role", "system_admin")
 	return request
+}
+
+// agencyRoleRequest authenticates with a specific mock role and agency.
+func agencyRoleRequest(method string, target string, body *bytes.Reader, role, agencyID string) *http.Request {
+	request := authorityRequest(method, target, body)
+	request.Header.Set("X-NADAA-Actor-Role", role)
+	request.Header.Set("X-NADAA-Agency-ID", agencyID)
+	return request
+}
+
+// tokenRequest builds a request carrying a bearer token.
+func tokenRequest(method string, target string, body *bytes.Reader, token string) *http.Request {
+	if body == nil {
+		body = bytes.NewReader(nil)
+	}
+	request := httptest.NewRequest(method, target, body)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer "+token)
+	return request
+}
+
+// signedToken signs test claims with the same nadaa.<payload>.<sig> scheme as
+// auth-service (HMAC-SHA256 over the encoded payload).
+func signedToken(t *testing.T, secret string, claims map[string]any) string {
+	t.Helper()
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatalf("marshal claims: %v", err)
+	}
+	encodedPayload := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(encodedPayload))
+	return "nadaa." + encodedPayload + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func decodeResponse(t *testing.T, response *httptest.ResponseRecorder, target any) {

@@ -9,8 +9,6 @@ import {
   buildFallbackGuides,
   initialReportDraft,
   initialSession,
-  sampleVolunteerProfile,
-  sampleVolunteerTasks,
 } from "./data";
 import type { GuideCachePayload, MobileSession, ReportDraft } from "./types";
 import type {
@@ -23,21 +21,6 @@ export type KeyValueStorage = {
   removeItem(key: string): Promise<void>;
   setItem(key: string, value: string): Promise<void>;
 };
-
-export function createMemoryStorage(seed: Record<string, string> = {}) {
-  const store = new Map(Object.entries(seed));
-  return {
-    async getItem(key: string) {
-      return store.get(key) ?? null;
-    },
-    async removeItem(key: string) {
-      store.delete(key);
-    },
-    async setItem(key: string, value: string) {
-      store.set(key, value);
-    },
-  } satisfies KeyValueStorage;
-}
 
 export async function readGuideCache(
   storage: KeyValueStorage,
@@ -136,10 +119,10 @@ export async function writeSession(
 
 export async function readVolunteerProfile(
   storage: KeyValueStorage,
-): Promise<VolunteerProfile> {
+): Promise<VolunteerProfile | null> {
   const raw = await storage.getItem(VOLUNTEER_PROFILE_KEY);
   if (!raw) {
-    return sampleVolunteerProfile;
+    return null;
   }
   try {
     const payload = JSON.parse(raw) as VolunteerProfile;
@@ -149,7 +132,7 @@ export async function readVolunteerProfile(
   } catch {
     await storage.removeItem(VOLUNTEER_PROFILE_KEY);
   }
-  return sampleVolunteerProfile;
+  return null;
 }
 
 export async function writeVolunteerProfile(
@@ -164,7 +147,7 @@ export async function readVolunteerTasks(
 ): Promise<VolunteerTaskRecord[]> {
   const raw = await storage.getItem(VOLUNTEER_TASKS_KEY);
   if (!raw) {
-    return sampleVolunteerTasks;
+    return [];
   }
   try {
     const payload = JSON.parse(raw) as VolunteerTaskRecord[];
@@ -174,7 +157,7 @@ export async function readVolunteerTasks(
   } catch {
     await storage.removeItem(VOLUNTEER_TASKS_KEY);
   }
-  return sampleVolunteerTasks;
+  return [];
 }
 
 export async function writeVolunteerTasks(

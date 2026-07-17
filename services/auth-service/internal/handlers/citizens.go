@@ -67,6 +67,51 @@ func (s *Server) registerCitizenHandler(w http.ResponseWriter, r *http.Request) 
 	utils.WriteJSON(w, http.StatusCreated, response)
 }
 
+func (s *Server) requestCitizenOTPHandler(w http.ResponseWriter, r *http.Request) {
+	var request models.RequestCitizenOTPRequest
+	if err := utils.DecodeJSON(r, &request); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
+		return
+	}
+
+	request.Phone = utils.NormalizePhone(request.Phone)
+	if !utils.ValidPhone(request.Phone) {
+		utils.WriteError(w, http.StatusBadRequest, "invalid_phone", "phone must be in E.164 format, for example +233200000000")
+		return
+	}
+
+	code, err := s.otp.Generate()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "otp_generation_failed", "could not create login challenge")
+		return
+	}
+
+	profile, challenge, err := s.store.RequestCitizenOTP(request.Phone, code, s.now())
+	if errors.Is(err, store.ErrUnknownPhone) {
+		utils.WriteError(w, http.StatusNotFound, "phone_not_registered", "no citizen account is registered for this phone")
+		return
+	}
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "otp_request_failed", "could not create login challenge")
+		return
+	}
+
+	response := models.RequestCitizenOTPResponse{
+		Phone:       profile.Phone,
+		ChallengeID: challenge.ID,
+		OTPDelivery: "mock",
+	}
+	if s.exposeDevOTP {
+		response.DevOTP = challenge.Code
+	}
+
+	s.recordAudit(r, utils.AuditActorFromCitizen(profile), "auth.citizen_login.otp_requested", models.AuditTarget{Type: "citizen_user", ID: profile.ID}, nil, map[string]any{
+		"challengeId": challenge.ID,
+		"expiresAt":   challenge.ExpiresAt,
+	})
+	utils.WriteJSON(w, http.StatusOK, response)
+}
+
 func (s *Server) loginCitizenHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.LoginCitizenRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
@@ -83,6 +128,13 @@ func (s *Server) loginCitizenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	profile, err := s.store.VerifyOTP(request.Phone, request.OTP, s.now())
+	if errors.Is(err, store.ErrTooManyAttempts) {
+		s.recordAudit(r, models.AuditActor{}, "auth.citizen_login.failed", models.AuditTarget{Type: "citizen_phone", ID: request.Phone}, nil, map[string]any{
+			"reason": "too_many_attempts",
+		})
+		utils.WriteError(w, http.StatusTooManyRequests, "too_many_attempts", "too many failed attempts; try again later")
+		return
+	}
 	if errors.Is(err, store.ErrInvalidCredentials) {
 		s.recordAudit(r, models.AuditActor{}, "auth.citizen_login.failed", models.AuditTarget{Type: "citizen_phone", ID: request.Phone}, nil, map[string]any{
 			"reason": "invalid_credentials",

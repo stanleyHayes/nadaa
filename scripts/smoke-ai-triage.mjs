@@ -1,3 +1,8 @@
+// Expects an externally started incident-service (see scripts/dev-citizen-backends.sh)
+// running with NADAA_ENV=development, NADAA_AUTH_ALLOW_MOCK_ACTORS=true and
+// NADAA_AUTH_TOKEN_SECRET=dev-secret-change-me so the mock X-NADAA-Actor-*
+// headers below are honored. incident-service computes triage suggestions
+// itself; this smoke makes no direct ml-service calls.
 const baseURL =
   process.env.INCIDENT_API_URL?.trim() || "http://127.0.0.1:8084/api/v1";
 

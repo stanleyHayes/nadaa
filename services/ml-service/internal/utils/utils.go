@@ -35,9 +35,12 @@ func WriteError(w http.ResponseWriter, status int, code, message string) {
 
 // WithCORS wraps a handler with security and CORS headers.
 func WithCORS(allowedOrigins map[string]bool, next http.Handler) http.Handler {
+	// The localhost/127.0.0.1 origin exception is a development convenience and
+	// must not weaken a configured allowlist in other environments.
+	devMode := strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_ENV")), "development")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applySecurityHeaders(w)
-		applyCORSHeaders(w, r, allowedOrigins)
+		applyCORSHeaders(w, r, allowedOrigins, devMode)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -56,13 +59,14 @@ func applySecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 }
 
-func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool) {
+func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool, devMode bool) {
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
 	if len(allowedOrigins) == 0 {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		localOrigin := strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:")
+		if allowedOrigins[origin] || (devMode && localOrigin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}

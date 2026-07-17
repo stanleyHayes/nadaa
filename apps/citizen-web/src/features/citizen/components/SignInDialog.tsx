@@ -29,6 +29,10 @@ type SignInDialogProps = {
   open: boolean;
   onClose: () => void;
   onSignIn: (details: Omit<CitizenSession, "since">) => void;
+  /** Why sign-in was requested (e.g. "send your report") when a gated
+   * submission opened the dialog — switches the copy from optional to
+   * required so it does not contradict the submission gate. */
+  context?: string | null;
 };
 
 type SignInErrors = Partial<
@@ -36,12 +40,19 @@ type SignInErrors = Partial<
 >;
 
 /**
- * Optional light sign-in. Mirrors the marketing signup shape (name / +233 phone
- * / region / language / consent) in a split-screen layout: a solid navy brand
+ * Light sign-in. Mirrors the marketing signup shape (name / +233 phone /
+ * region / language / consent) in a split-screen layout: a solid navy brand
  * panel on the left, the form on the right. Purely local — it unlocks saved
- * reports and claims and never blocks any life-safety action.
+ * reports and claims. When `context` is set the dialog was opened by a gated
+ * submission, so the copy says sign-in is required for that action; otherwise
+ * it stays optional and never blocks any life-safety action.
  */
-export function SignInDialog({ open, onClose, onSignIn }: SignInDialogProps) {
+export function SignInDialog({
+  open,
+  onClose,
+  onSignIn,
+  context,
+}: SignInDialogProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("+233 ");
   const [region, setRegion] = useState<string>(signInRegions[0]);
@@ -110,10 +121,13 @@ export function SignInDialog({ open, onClose, onSignIn }: SignInDialogProps) {
             <img alt="" src="/brand/nadaa-logo.png" />
             <strong>{nadaaBrand.name}</strong>
           </span>
-          <h2 id="citizen-signin-title">Save your reports</h2>
+          <h2 id="citizen-signin-title">
+            {context ? "Sign in to continue" : "Save your reports"}
+          </h2>
           <p>
-            Optional. NADAA stays fully usable without signing in — this only
-            keeps a copy of your reports and claims on this device.
+            {context
+              ? `You need to sign in to ${context}. Browsing stays open to everyone — this quick step is stored on this device only.`
+              : "Optional. NADAA stays fully usable without signing in — this only keeps a copy of your reports and claims on this device."}
           </p>
           <ul className="signin-points">
             <li>
@@ -208,8 +222,9 @@ export function SignInDialog({ open, onClose, onSignIn }: SignInDialogProps) {
               className="warning-alert"
               icon={<ShieldCheck />}
             >
-              Sign-in is optional and stored on this device only. Life-safety
-              features never require it.
+              {context
+                ? "Sign-in is required for this submission and is stored on this device only."
+                : "Sign-in is optional and stored on this device only. Life-safety features never require it."}
             </Alert>
             <Button
               type="submit"

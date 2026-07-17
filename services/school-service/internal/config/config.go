@@ -9,9 +9,10 @@ import (
 
 // Config holds school-service configuration loaded from the environment.
 type Config struct {
-	Addr           string
-	RiskServiceURL string
-	AllowedOrigins map[string]bool
+	Addr            string
+	TokenSecret     string
+	AllowMockActors bool
+	AllowedOrigins  map[string]bool
 }
 
 // resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare
@@ -36,8 +37,9 @@ func resolveListenAddr(addrKey, fallback string) string {
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:           resolveListenAddr("", ":8097"),
-		RiskServiceURL: utils.EnvOrDefault("RISK_SERVICE_URL", "http://localhost:8082"),
-		AllowedOrigins: utils.AllowedOriginsFromEnv(),
+		Addr:            resolveListenAddr("", ":8097"),
+		TokenSecret:     utils.EnvOrDefault("NADAA_AUTH_TOKEN_SECRET", ""),
+		AllowMockActors: strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")), "true"),
+		AllowedOrigins:  utils.AllowedOriginsFromEnv(),
 	}
 }

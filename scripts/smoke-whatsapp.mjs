@@ -1,3 +1,7 @@
+// Expects an externally started notification-service (see
+// scripts/dev-citizen-backends.sh). The WhatsApp webhook stays open unless the
+// service is configured with NADAA_WHATSAPP_WEBHOOK_SECRET; dev runs leave it
+// unset so these webhook calls need no auth headers.
 const baseURL =
   process.env.NOTIFICATION_API_URL?.trim() || "http://127.0.0.1:8090/api/v1";
 
@@ -123,7 +127,8 @@ if (
   reportComplete.report.channel !== "whatsapp" ||
   !["queued", "submitted"].includes(reportComplete.report.status) ||
   reportComplete.conversation?.state !== "idle" ||
-  reportComplete.report.media?.[0] !== "wa_smoke_media_001"
+  // Media refs are folded into the description text; report.media stays empty.
+  !reportComplete.report.description?.includes("wa_smoke_media_001")
 ) {
   throw new Error("WhatsApp report did not create a completed report");
 }

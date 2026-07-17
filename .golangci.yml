@@ -34,6 +34,8 @@ linters:
     - interfacebloat # the Store interfaces intentionally expose many domain methods
     - errchkjson # WriteJSON centralizes and logs the json encode error
     - unparam # interface-conformance params (e.g. ctx) are intentionally retained
+    - gomodguard # deprecated since golangci-lint v2.12.0; superseded by gomodguard_v2 (on via default: all)
+    - tagliatelle # Paystack's snake_case JSON tags are the provider contract, not local style drift
   settings:
     gocognit:
       min-complexity: 30
@@ -67,3 +69,11 @@ linters:
           - gosec
           - contextcheck
           - forcetypeassert
+          # httptest.NewRequest without a context is idiomatic in handler tests.
+          - noctx
+      # G120 false positive: r.Body is wrapped in http.MaxBytesReader on the
+      # preceding line, so ParseMultipartForm cannot exhaust memory.
+      - path: internal/handlers/imagery\.go
+        text: "G120"
+        linters:
+          - gosec

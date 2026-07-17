@@ -92,19 +92,19 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.store.ValidateMediaReferences(normalized.Media); errors.Is(err, store.ErrUnknownMedia) {
+	record, err := s.store.CreateIncidentWithMedia(normalized, s.now())
+	switch {
+	case errors.Is(err, store.ErrUnknownMedia):
 		utils.WriteError(w, http.StatusBadRequest, "unknown_media", "media references must be created through the upload initiation endpoint before reporting")
 		return
-	} else if errors.Is(err, store.ErrMediaAlreadyLinked) {
+	case errors.Is(err, store.ErrMediaAlreadyLinked):
 		utils.WriteError(w, http.StatusBadRequest, "media_already_linked", "one or more media references are already linked to another incident")
 		return
-	} else if err != nil {
+	case err != nil:
 		utils.WriteError(w, http.StatusBadRequest, "invalid_media", err.Error())
 		return
 	}
 
-	record := s.store.CreateIncident(normalized, s.now())
-	s.store.LinkMediaToIncident(record.ID, record.Media, s.now())
 	utils.WriteJSON(w, http.StatusCreated, models.CreateIncidentResponse{
 		ID:                  record.ID,
 		Reference:           record.Reference,
@@ -119,7 +119,7 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listIncidentsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, incidentReadRoles)
+	ctx, ok := s.requireAuthority(w, r, incidentReadRoles)
 	if !ok {
 		return
 	}
@@ -136,8 +136,22 @@ func (s *server) listIncidentsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *server) getIncidentHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := s.requireAuthority(w, r, incidentReadRoles)
+	if !ok {
+		return
+	}
+
+	incident, found := s.store.GetIncident(r.PathValue("id"))
+	if !found {
+		utils.WriteError(w, http.StatusNotFound, "not_found", "incident was not found")
+		return
+	}
+	utils.WriteJSON(w, http.StatusOK, sanitizeIncidentForAuthority(incident, ctx))
+}
+
 func (s *server) duplicateReviewHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, incidentReadRoles)
+	ctx, ok := s.requireAuthority(w, r, incidentReadRoles)
 	if !ok {
 		return
 	}
@@ -151,7 +165,7 @@ func (s *server) duplicateReviewHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *server) listIncidentAuditHandler(w http.ResponseWriter, r *http.Request) {
-	if _, ok := requireAuthority(w, r, incidentAuditRoles); !ok {
+	if _, ok := s.requireAuthority(w, r, incidentAuditRoles); !ok {
 		return
 	}
 
@@ -172,7 +186,7 @@ func (s *server) listIncidentAuditHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (s *server) verifyIncidentHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, verificationRoles)
+	ctx, ok := s.requireAuthority(w, r, verificationRoles)
 	if !ok {
 		return
 	}
@@ -197,7 +211,7 @@ func (s *server) verifyIncidentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, statusWorkflowRoles)
+	ctx, ok := s.requireAuthority(w, r, statusWorkflowRoles)
 	if !ok {
 		return
 	}
@@ -211,6 +225,13 @@ func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Requ
 	normalized, code, message := normalizeIncidentStatusRequest(request)
 	if code != "" {
 		utils.WriteError(w, http.StatusBadRequest, code, message)
+		return
+	}
+
+	// Verification is restricted to verifier roles; the status endpoint must
+	// not let broader workflow roles (e.g. responder) verify incidents.
+	if normalized.Status == "verified" && !verificationRoles[ctx.ActorRole] {
+		utils.WriteError(w, http.StatusForbidden, "forbidden", "actor role is not allowed to verify incidents")
 		return
 	}
 
@@ -229,7 +250,7 @@ func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *server) mergeIncidentHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, mergeRoles)
+	ctx, ok := s.requireAuthority(w, r, mergeRoles)
 	if !ok {
 		return
 	}
@@ -255,7 +276,7 @@ func (s *server) mergeIncidentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) reviewAbuseHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, abuseReviewRoles)
+	ctx, ok := s.requireAuthority(w, r, abuseReviewRoles)
 	if !ok {
 		return
 	}
@@ -281,7 +302,7 @@ func (s *server) reviewAbuseHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, assignmentRoles)
+	ctx, ok := s.requireAuthority(w, r, assignmentRoles)
 	if !ok {
 		return
 	}
@@ -307,7 +328,7 @@ func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) suggestTriageHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, incidentReadRoles)
+	ctx, ok := s.requireAuthority(w, r, incidentReadRoles)
 	if !ok {
 		return
 	}
@@ -321,7 +342,7 @@ func (s *server) suggestTriageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) reviewTriageHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, triageReviewRoles)
+	ctx, ok := s.requireAuthority(w, r, triageReviewRoles)
 	if !ok {
 		return
 	}
@@ -362,7 +383,7 @@ func normalizeIncidentRequest(request models.CreateIncidentRequest) (models.Crea
 	}
 
 	if len(request.Description) < 5 || len(request.Description) > 2000 || utils.UnsafeText(request.Description) {
-		request.Description = "invalid_description"
+		request.Type = "invalid_description"
 		return request, errValidation
 	}
 
@@ -388,7 +409,11 @@ func normalizeIncidentRequest(request models.CreateIncidentRequest) (models.Crea
 	if request.Reporter != nil {
 		request.Reporter.UserID = strings.TrimSpace(request.Reporter.UserID)
 		request.Reporter.Phone = strings.TrimSpace(request.Reporter.Phone)
-		if request.Reporter.UserID == "" {
+		if request.Reporter.UserID == "" || !utils.MediaRefPattern.MatchString(request.Reporter.UserID) {
+			request.Type = "invalid_reporter"
+			return request, errValidation
+		}
+		if len(request.Reporter.Phone) > 32 || utils.UnsafeText(request.Reporter.Phone) {
 			request.Type = "invalid_reporter"
 			return request, errValidation
 		}
@@ -611,7 +636,7 @@ func validationMessage(request models.CreateIncidentRequest) string {
 	case "invalid_urgency":
 		return "urgency must be low, moderate, high, or life_threatening"
 	case "invalid_reporter":
-		return "reporter.userId is required when reporter is supplied"
+		return "reporter.userId must be a safe user reference and reporter.phone must be 32 safe characters or fewer"
 	case "too_many_media":
 		return "a report can reference at most 10 media items"
 	case "invalid_media":

@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/stanleyHayes/nadaa/services/school-service/internal/models"
 	"github.com/stanleyHayes/nadaa/services/school-service/internal/utils"
@@ -34,8 +35,13 @@ var allowedRiskLevels = map[string]bool{
 	"emergency": true,
 }
 
+// maxRecordedDateFutureSkew is the small clock-skew tolerance applied when
+// rejecting future drill/readiness dates, so a typo'd date cannot dominate
+// the "latest" readiness and last-drill computations.
+const maxRecordedDateFutureSkew = 24 * time.Hour
+
 func (s *Server) listSchoolsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r, schoolReadRoles)
 	if !ok {
 		return
 	}
@@ -53,12 +59,13 @@ func (s *Server) listSchoolsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	schools := s.store.ListSchools(filter, scopedDistrict(ctx), isSystemAdmin(ctx))
-	log.Printf("INFO school-service list_schools count=%d district=%s query=%s actor=%s role=%s", len(schools), filter.District, filter.Query, ctx.ActorUserID, ctx.ActorRole)
+	// #nosec G706 -- filter and actor values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO school-service list_schools count=%d district=%s query=%s actor=%s role=%s", len(schools), utils.SafeLogValue(filter.District), utils.SafeLogValue(filter.Query), utils.SafeLogValue(ctx.ActorUserID), utils.SafeLogValue(ctx.ActorRole))
 	utils.WriteJSON(w, http.StatusOK, models.SchoolListResponse{Schools: schools, GeneratedAt: s.now().UTC()})
 }
 
 func (s *Server) getSchoolHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r, schoolReadRoles)
 	if !ok {
 		return
 	}
@@ -71,24 +78,27 @@ func (s *Server) getSchoolHandler(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusForbidden, "district_scope_violation", "school is outside your district scope")
 		return
 	}
-	log.Printf("INFO school-service get_school id=%s actor=%s role=%s", school.ID, ctx.ActorUserID, ctx.ActorRole)
+	// #nosec G706 -- actor values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO school-service get_school id=%s actor=%s role=%s", school.ID, utils.SafeLogValue(ctx.ActorUserID), utils.SafeLogValue(ctx.ActorRole))
 	utils.WriteJSON(w, http.StatusOK, models.SchoolDetailResponse{School: school, GeneratedAt: s.now().UTC()})
 }
 
 func (s *Server) createSchoolHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r, schoolWriteRoles)
 	if !ok {
 		return
 	}
 	var request models.CreateSchoolRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN school-service create_school invalid_json actor=%s error=%v", ctx.ActorUserID, err)
+		// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service create_school invalid_json actor=%s error=%v", utils.SafeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 	request, code, message := normalizeCreateSchool(request)
 	if code != "" {
-		log.Printf("WARN school-service create_school validation_failed actor=%s code=%s", ctx.ActorUserID, code)
+		// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service create_school validation_failed actor=%s code=%s", utils.SafeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
@@ -97,24 +107,27 @@ func (s *Server) createSchoolHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	school := s.store.CreateSchool(request, ctx, s.now().UTC())
-	log.Printf("INFO school-service create_school id=%s actor=%s district=%s", school.ID, ctx.ActorUserID, school.District)
+	// #nosec G706 -- actor and district values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO school-service create_school id=%s actor=%s district=%s", school.ID, utils.SafeLogValue(ctx.ActorUserID), utils.SafeLogValue(school.District))
 	utils.WriteJSON(w, http.StatusCreated, school)
 }
 
 func (s *Server) updateSchoolHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r, schoolWriteRoles)
 	if !ok {
 		return
 	}
 	var request models.UpdateSchoolRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN school-service update_school invalid_json actor=%s error=%v", ctx.ActorUserID, err)
+		// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service update_school invalid_json actor=%s error=%v", utils.SafeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 	request, code, message := normalizeUpdateSchool(request)
 	if code != "" {
-		log.Printf("WARN school-service update_school validation_failed actor=%s code=%s", ctx.ActorUserID, code)
+		// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service update_school validation_failed actor=%s code=%s", utils.SafeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
@@ -133,16 +146,18 @@ func (s *Server) updateSchoolHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	school, code, message := s.store.UpdateSchool(r.PathValue("id"), request, ctx, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN school-service update_school failed id=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- path value and actor id are sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service update_school failed id=%s actor=%s code=%s", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO school-service update_school id=%s actor=%s", school.ID, ctx.ActorUserID)
+	// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+	log.Printf("INFO school-service update_school id=%s actor=%s", school.ID, utils.SafeLogValue(ctx.ActorUserID))
 	utils.WriteJSON(w, http.StatusOK, school)
 }
 
 func (s *Server) listDrillsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r, schoolReadRoles)
 	if !ok {
 		return
 	}
@@ -156,12 +171,13 @@ func (s *Server) listDrillsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	drills := s.store.ListDrills(r.PathValue("id"))
-	log.Printf("INFO school-service list_drills schoolId=%s count=%d actor=%s", school.ID, len(drills), ctx.ActorUserID)
+	// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+	log.Printf("INFO school-service list_drills schoolId=%s count=%d actor=%s", school.ID, len(drills), utils.SafeLogValue(ctx.ActorUserID))
 	utils.WriteJSON(w, http.StatusOK, models.DrillListResponse{Drills: drills, GeneratedAt: s.now().UTC()})
 }
 
 func (s *Server) createDrillHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r, schoolWriteRoles)
 	if !ok {
 		return
 	}
@@ -176,28 +192,32 @@ func (s *Server) createDrillHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	var request models.CreateDrillRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN school-service create_drill invalid_json actor=%s error=%v", ctx.ActorUserID, err)
+		// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service create_drill invalid_json actor=%s error=%v", utils.SafeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
-	request, code, message := normalizeCreateDrill(request)
+	request, code, message := normalizeCreateDrill(request, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN school-service create_drill validation_failed actor=%s code=%s", ctx.ActorUserID, code)
+		// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service create_drill validation_failed actor=%s code=%s", utils.SafeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 	drill, code, message := s.store.CreateDrill(r.PathValue("id"), request, ctx, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN school-service create_drill failed schoolId=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- path value and actor id are sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service create_drill failed schoolId=%s actor=%s code=%s", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO school-service create_drill id=%s schoolId=%s actor=%s", drill.ID, drill.SchoolID, ctx.ActorUserID)
+	// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+	log.Printf("INFO school-service create_drill id=%s schoolId=%s actor=%s", drill.ID, drill.SchoolID, utils.SafeLogValue(ctx.ActorUserID))
 	utils.WriteJSON(w, http.StatusCreated, drill)
 }
 
 func (s *Server) getReadinessHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r, schoolReadRoles)
 	if !ok {
 		return
 	}
@@ -211,12 +231,13 @@ func (s *Server) getReadinessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	readiness, ok := s.store.GetLatestReadiness(r.PathValue("id"))
-	log.Printf("INFO school-service get_readiness schoolId=%s found=%t actor=%s", school.ID, ok, ctx.ActorUserID)
+	// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+	log.Printf("INFO school-service get_readiness schoolId=%s found=%t actor=%s", school.ID, ok, utils.SafeLogValue(ctx.ActorUserID))
 	utils.WriteJSON(w, http.StatusOK, models.ReadinessResponse{Readiness: readiness, GeneratedAt: s.now().UTC()})
 }
 
 func (s *Server) createReadinessHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r, schoolWriteRoles)
 	if !ok {
 		return
 	}
@@ -231,23 +252,27 @@ func (s *Server) createReadinessHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	var request models.CreateReadinessRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN school-service create_readiness invalid_json actor=%s error=%v", ctx.ActorUserID, err)
+		// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service create_readiness invalid_json actor=%s error=%v", utils.SafeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
-	request, code, message := normalizeCreateReadiness(request)
+	request, code, message := normalizeCreateReadiness(request, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN school-service create_readiness validation_failed actor=%s code=%s", ctx.ActorUserID, code)
+		// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service create_readiness validation_failed actor=%s code=%s", utils.SafeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 	check, code, message := s.store.CreateReadinessCheck(r.PathValue("id"), request, ctx, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN school-service create_readiness failed schoolId=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- path value and actor id are sanitized with utils.SafeLogValue.
+		log.Printf("WARN school-service create_readiness failed schoolId=%s actor=%s code=%s", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO school-service create_readiness id=%s schoolId=%s actor=%s status=%s", check.ID, check.SchoolID, ctx.ActorUserID, check.OverallStatus)
+	// #nosec G706 -- actor value is sanitized with utils.SafeLogValue.
+	log.Printf("INFO school-service create_readiness id=%s schoolId=%s actor=%s status=%s", check.ID, check.SchoolID, utils.SafeLogValue(ctx.ActorUserID), check.OverallStatus)
 	utils.WriteJSON(w, http.StatusCreated, check)
 }
 
@@ -305,11 +330,17 @@ func normalizeUpdateSchool(request models.UpdateSchoolRequest) (models.UpdateSch
 	return request, "", ""
 }
 
-func normalizeCreateDrill(request models.CreateDrillRequest) (models.CreateDrillRequest, string, string) {
+func normalizeCreateDrill(request models.CreateDrillRequest, now time.Time) (models.CreateDrillRequest, string, string) {
 	request.Type = utils.NormalizeString(request.Type)
 	request.Notes = strings.TrimSpace(request.Notes)
 	if request.Type == "" || !allowedDrillTypes[request.Type] {
 		return request, "invalid_type", "type must be fire, flood, storm, earthquake, lockdown, evacuation, or medical"
+	}
+	if request.Date.IsZero() {
+		return request, "invalid_date", "date is required"
+	}
+	if request.Date.After(now.Add(maxRecordedDateFutureSkew)) {
+		return request, "invalid_date", "date must not be more than 24 hours in the future"
 	}
 	if request.Participants < 0 || request.Participants > 50000 {
 		return request, "invalid_participants", "participants must be between 0 and 50000"
@@ -320,7 +351,7 @@ func normalizeCreateDrill(request models.CreateDrillRequest) (models.CreateDrill
 	return request, "", ""
 }
 
-func normalizeCreateReadiness(request models.CreateReadinessRequest) (models.CreateReadinessRequest, string, string) {
+func normalizeCreateReadiness(request models.CreateReadinessRequest, now time.Time) (models.CreateReadinessRequest, string, string) {
 	request.RiskLevel = utils.NormalizeString(request.RiskLevel)
 	request.OverallStatus = utils.NormalizeString(request.OverallStatus)
 	request.AreaRiskRef = strings.TrimSpace(request.AreaRiskRef)
@@ -332,6 +363,12 @@ func normalizeCreateReadiness(request models.CreateReadinessRequest) (models.Cre
 	}
 	if !allowedRiskLevels[request.RiskLevel] {
 		return request, "invalid_risk_level", "riskLevel must be low, moderate, high, severe, or emergency"
+	}
+	if request.CheckDate.IsZero() {
+		return request, "invalid_check_date", "checkDate is required"
+	}
+	if request.CheckDate.After(now.Add(maxRecordedDateFutureSkew)) {
+		return request, "invalid_check_date", "checkDate must not be more than 24 hours in the future"
 	}
 	if len(request.Notes) > 1000 || utils.UnsafeText(request.Notes) {
 		return request, "invalid_notes", "notes must be 1000 safe characters or fewer"

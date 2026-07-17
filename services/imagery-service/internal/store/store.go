@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +30,7 @@ type MemoryStore struct {
 	mu            sync.RWMutex
 	records       []models.ImageryRecord
 	retentionDays int
+	nextID        int
 }
 
 // NewMemoryStore creates an in-memory store seeded with fixtures.
@@ -36,7 +38,7 @@ func NewMemoryStore(now time.Time, retentionDays int) Store {
 	activeGeometry := json.RawMessage(`{"type":"Polygon","coordinates":[[[-0.21,5.55],[-0.18,5.55],[-0.18,5.58],[-0.21,5.58],[-0.21,5.55]]]}`)
 	expiringGeometry := json.RawMessage(`{"type":"Polygon","coordinates":[[[-0.25,5.60],[-0.22,5.60],[-0.22,5.63],[-0.25,5.63],[-0.25,5.60]]]}`)
 
-	return &MemoryStore{
+	store := &MemoryStore{
 		retentionDays: retentionDays,
 		records: []models.ImageryRecord{
 			{
@@ -78,6 +80,15 @@ func NewMemoryStore(now time.Time, retentionDays int) Store {
 			},
 		},
 	}
+	// Seed the monotonic ID counter above every existing ID so Create never
+	// reuses an ID, even after records are deleted.
+	store.nextID = len(store.records)
+	for _, record := range store.records {
+		if n, err := strconv.Atoi(strings.TrimPrefix(record.ID, "img_")); err == nil && n > store.nextID {
+			store.nextID = n
+		}
+	}
+	return store
 }
 
 // Create inserts a new imagery record.
@@ -85,7 +96,8 @@ func (m *MemoryStore) Create(input models.ImageryUploadInput, fileName, contentT
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	id := fmt.Sprintf("img_%03d", len(m.records)+1)
+	m.nextID++
+	id := fmt.Sprintf("img_%03d", m.nextID)
 	record := models.ImageryRecord{
 		ID:                id,
 		Reference:         "NADAA-IMG-" + id,

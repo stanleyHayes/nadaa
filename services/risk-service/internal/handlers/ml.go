@@ -14,16 +14,18 @@ import (
 )
 
 type mlClient struct {
-	baseURL    string
-	httpClient *http.Client
+	baseURL      string
+	serviceToken string
+	httpClient   *http.Client
 }
 
-func newMLClient(baseURL string, httpClient *http.Client) *mlClient {
+func newMLClient(baseURL, serviceToken string, httpClient *http.Client) *mlClient {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
 	return &mlClient{
-		baseURL: strings.TrimRight(baseURL, "/"),
+		baseURL:      strings.TrimRight(baseURL, "/"),
+		serviceToken: serviceToken,
 		httpClient: &http.Client{
 			Transport:     httpClient.Transport,
 			CheckRedirect: httpClient.CheckRedirect,
@@ -33,7 +35,7 @@ func newMLClient(baseURL string, httpClient *http.Client) *mlClient {
 	}
 }
 
-func (c *mlClient) predict(ctx context.Context, location models.Coordinates) (models.MLPrediction, error) {
+func (c *mlClient) predict(ctx context.Context, location models.Coordinates, authorization string) (models.MLPrediction, error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
@@ -52,6 +54,12 @@ func (c *mlClient) predict(ctx context.Context, location models.Coordinates) (mo
 		return models.MLPrediction{}, err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	if c.serviceToken != "" {
+		request.Header.Set("X-NADAA-Service-Token", c.serviceToken)
+	}
+	if authorization != "" {
+		request.Header.Set("Authorization", authorization)
+	}
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {

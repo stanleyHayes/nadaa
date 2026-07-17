@@ -9,9 +9,12 @@ import (
 
 // Config holds damage-claim-service configuration loaded from the environment.
 type Config struct {
-	Addr               string
-	IncidentServiceURL string
-	AllowedOrigins     map[string]bool
+	Addr                 string
+	IncidentServiceURL   string
+	AllowedOrigins       map[string]bool
+	AuthTokenSecret      string
+	InternalServiceToken string
+	AllowMockActors      bool
 }
 
 // resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare
@@ -36,8 +39,11 @@ func resolveListenAddr(addrKey, fallback string) string {
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:               resolveListenAddr("", ":8098"),
-		IncidentServiceURL: utils.TrimTrailingSlash(utils.EnvOrDefault("INCIDENT_SERVICE_URL", "http://localhost:8081")),
-		AllowedOrigins:     utils.AllowedOriginsFromEnv(),
+		Addr:                 resolveListenAddr("", ":8098"),
+		IncidentServiceURL:   utils.TrimTrailingSlash(utils.EnvOrDefault("INCIDENT_SERVICE_URL", "http://localhost:8084/api/v1")),
+		AllowedOrigins:       utils.AllowedOriginsFromEnv(),
+		AuthTokenSecret:      os.Getenv("NADAA_AUTH_TOKEN_SECRET"),
+		InternalServiceToken: strings.TrimSpace(os.Getenv("NADAA_INTERNAL_SERVICE_TOKEN")),
+		AllowMockActors:      strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")), "true"),
 	}
 }

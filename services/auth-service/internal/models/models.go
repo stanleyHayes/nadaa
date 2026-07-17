@@ -140,6 +140,20 @@ type RegisterCitizenResponse struct {
 	DevOTP      string `json:"devOtp,omitempty"`
 }
 
+// RequestCitizenOTPRequest is the payload requesting a fresh login challenge
+// for an already-registered citizen phone.
+type RequestCitizenOTPRequest struct {
+	Phone string `json:"phone"`
+}
+
+// RequestCitizenOTPResponse is returned after a login challenge is issued.
+type RequestCitizenOTPResponse struct {
+	Phone       string `json:"phone"`
+	ChallengeID string `json:"challengeId"`
+	OTPDelivery string `json:"otpDelivery"`
+	DevOTP      string `json:"devOtp,omitempty"`
+}
+
 // LoginCitizenRequest is the payload for citizen login.
 type LoginCitizenRequest struct {
 	Phone string `json:"phone"`
@@ -213,6 +227,11 @@ type LoginAgencyResponse struct {
 	User        AgencyUserProfile `json:"user"`
 }
 
+// AgencyListResponse is the payload returned when listing the agency directory.
+type AgencyListResponse struct {
+	Agencies []AgencySummary `json:"agencies"`
+}
+
 // AuditLogRecord is a single audit event.
 type AuditLogRecord struct {
 	ID            string         `json:"id"`
@@ -263,6 +282,7 @@ type TokenClaims struct {
 	Email     string `json:"email,omitempty"`
 	Role      string `json:"role"`
 	AgencyID  string `json:"agencyId,omitempty"`
+	District  string `json:"district,omitempty"`
 	MFA       bool   `json:"mfa,omitempty"`
 	ExpiresAt int64  `json:"exp"`
 }

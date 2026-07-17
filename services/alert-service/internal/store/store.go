@@ -96,6 +96,7 @@ func (m *MemoryStore) UpdateAlert(id string, request models.CreateAlertRequest, 
 	alert.ShelterIDs = utils.CompactStrings(request.ShelterIDs)
 	alert.SourcePrediction = utils.NormalizeSourcePrediction(request.SourcePrediction)
 	alert.Status = "draft"
+	alert.SubmittedAt = nil
 	alert.RejectedBy = ""
 	alert.StatusReason = ""
 	alert.RejectedAt = nil
@@ -159,6 +160,8 @@ func (m *MemoryStore) TransitionAlert(id string, nextStatus string, ctx models.A
 		alert.EmergencyOverride = true
 		alert.ApprovedBy = ctx.ActorUserID
 		alert.ApprovedAt = &now
+		alert.RejectedBy = ""
+		alert.RejectedAt = nil
 		alert.StatusReason = strings.TrimSpace(request.Reason)
 		m.appendAuditLocked("alert.emergency_override", ctx, alert.ID, before, utils.SnapshotAlert(alert), now)
 	default:

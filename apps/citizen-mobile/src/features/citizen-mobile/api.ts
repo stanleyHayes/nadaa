@@ -1,5 +1,6 @@
 import type {
   AreaRiskResponse,
+  CitizenAlertFeedItem,
   CitizenAlertFeedResponse,
   CreateIncidentRequest,
   CreateIncidentResponse,
@@ -13,7 +14,9 @@ import type {
   VolunteerTaskRecord,
   VolunteerTaskStatusRequest,
 } from "@nadaa/shared-types";
+import * as Notifications from "expo-notifications";
 import {
+  AUTH_API_BASE,
   GUIDE_API_BASE,
   INCIDENT_API_BASE,
   NOTIFICATION_API_BASE,
@@ -22,18 +25,67 @@ import {
   SHELTER_API_BASE,
 } from "../../app/config";
 import {
-  buildFallbackAlerts,
   buildFallbackGuides,
+  GUEST_PLACEHOLDER_PHONE,
   sampleRisk,
-  sampleShelters,
-  sampleVolunteerProfile,
-  sampleVolunteerTasks,
 } from "./data";
 import type {
+  CitizenLoginResult,
+  CitizenOtpChallenge,
   MobileSession,
   PushRegistrationState,
   ReportDraft,
 } from "./types";
+
+export async function registerCitizen(request: {
+  contactPermission: boolean;
+  name: string;
+  phone: string;
+  preferredLanguage: string;
+}): Promise<CitizenOtpChallenge> {
+  const response = await fetch(`${AUTH_API_BASE}/auth/citizens/register`, {
+    body: JSON.stringify(request),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
+  }
+  return (await response.json()) as CitizenOtpChallenge;
+}
+
+/** Returns null when the phone is not registered yet (404 phone_not_registered). */
+export async function requestCitizenLoginOtp(
+  phone: string,
+): Promise<CitizenOtpChallenge | null> {
+  const response = await fetch(`${AUTH_API_BASE}/auth/citizens/login/otp`, {
+    body: JSON.stringify({ phone }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
+  }
+  return (await response.json()) as CitizenOtpChallenge;
+}
+
+export async function loginCitizen(
+  phone: string,
+  otp: string,
+): Promise<CitizenLoginResult> {
+  const response = await fetch(`${AUTH_API_BASE}/auth/citizens/login`, {
+    body: JSON.stringify({ otp, phone }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
+  }
+  return (await response.json()) as CitizenLoginResult;
+}
 
 export async function fetchAreaRisk(
   lat: number,
@@ -48,19 +100,20 @@ export async function fetchAreaRisk(
   return (await response.json()) as AreaRiskResponse;
 }
 
-export async function fetchAlertFeed() {
-  try {
-    const response = await fetch(
-      `${NOTIFICATION_API_BASE}/notifications/alerts?includeExpired=true`,
-    );
-    if (!response.ok) {
-      throw new Error(await extractAPIError(response));
-    }
-    const payload = (await response.json()) as CitizenAlertFeedResponse;
-    return payload.alerts.length > 0 ? payload.alerts : buildFallbackAlerts();
-  } catch {
-    return buildFallbackAlerts();
+/**
+ * Live alert feed. Never substitutes fixtures: an empty feed returns [] and a
+ * network/HTTP failure throws so the UI can show the offline state. Fixture-
+ * sourced items are filtered out so they can never enter the live path.
+ */
+export async function fetchAlertFeed(): Promise<CitizenAlertFeedItem[]> {
+  const response = await fetch(
+    `${NOTIFICATION_API_BASE}/notifications/alerts?includeExpired=true`,
+  );
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
   }
+  const payload = (await response.json()) as CitizenAlertFeedResponse;
+  return payload.alerts.filter((alert) => alert.source !== "fixture");
 }
 
 export async function fetchGuides(language: string) {
@@ -77,21 +130,23 @@ export async function fetchGuides(language: string) {
   }
 }
 
+/** Nearby shelters are live data only — failures throw so no fixture is shown. */
 export async function fetchNearbyShelters(
   lat: number,
   lng: number,
 ): Promise<NearbyShelterResponse> {
-  try {
-    const response = await fetch(
-      `${SHELTER_API_BASE}/shelters/nearby?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
-    );
-    if (!response.ok) {
-      throw new Error(await extractAPIError(response));
-    }
-    return (await response.json()) as NearbyShelterResponse;
-  } catch {
-    return sampleShelters;
+  const response = await fetch(
+    `${SHELTER_API_BASE}/shelters/nearby?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
+  );
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
   }
+  return (await response.json()) as NearbyShelterResponse;
+}
+
+function isRealPhone(phone: string): boolean {
+  const trimmed = phone.trim();
+  return trimmed.length > 0 && trimmed !== GUEST_PLACEHOLDER_PHONE;
 }
 
 export async function submitIncidentDraft(
@@ -108,9 +163,17 @@ export async function submitIncidentDraft(
     throw new Error("Add a short description before submitting.");
   }
 
+  // Responder follow-up requires a real phone number; the guest placeholder is
+  // never sent as a callback contact.
+  const reporterPhone =
+    !draft.anonymous && draft.contactPermission && isRealPhone(session.phone)
+      ? session.phone.trim()
+      : undefined;
   const payload: CreateIncidentRequest = {
     anonymous: draft.anonymous,
-    contactPermission: draft.anonymous ? false : draft.contactPermission,
+    contactPermission: draft.anonymous
+      ? false
+      : draft.contactPermission && Boolean(reporterPhone),
     description: draft.description.trim(),
     injuriesReported: draft.injuriesReported,
     location: { lat, lng },
@@ -119,7 +182,7 @@ export async function submitIncidentDraft(
     reporter: draft.anonymous
       ? undefined
       : {
-          phone: draft.contactPermission ? session.phone : undefined,
+          phone: reporterPhone,
           userId: session.userId,
         },
     type: draft.hazard,
@@ -137,6 +200,12 @@ export async function submitIncidentDraft(
   return (await response.json()) as CreateIncidentResponse;
 }
 
+/**
+ * Push registration. Acquires the REAL Expo push token. notification-service
+ * has no device-registration endpoint yet, so instead of pretending a sandbox
+ * registration succeeded we report an honest not-configured state — alerts are
+ * still delivered locally on refresh.
+ */
 export async function registerPushToken(
   granted: boolean,
 ): Promise<PushRegistrationState> {
@@ -152,10 +221,20 @@ export async function registerPushToken(
       message: "Allow notifications to receive urgent NADAA warnings.",
     };
   }
+  try {
+    await Notifications.getExpoPushTokenAsync();
+  } catch (error) {
+    return {
+      status: "failed",
+      message: `Could not get an Expo push token: ${
+        error instanceof Error ? error.message : "unknown error"
+      }`,
+    };
+  }
   return {
-    provider: PUSH_PROVIDER,
-    status: "registered",
-    token: `expo_push_${PUSH_PROVIDER}_sandbox`,
+    status: "not_configured",
+    message:
+      "Remote push is not configured on the server yet. Alerts still arrive when you open or refresh the app.",
   };
 }
 
@@ -173,97 +252,73 @@ export async function registerVolunteerProfile(
     region: "Greater Accra",
     skills: ["first aid", "community alerts"],
   };
-  try {
-    const response = await fetch(`${INCIDENT_API_BASE}/volunteers`, {
-      body: JSON.stringify(payload),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-    if (!response.ok) {
-      throw new Error(await extractAPIError(response));
-    }
-    return (await response.json()) as VolunteerProfileResponse;
-  } catch {
-    return { volunteer: sampleVolunteerProfile };
+  const response = await fetch(`${INCIDENT_API_BASE}/volunteers`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
   }
+  return (await response.json()) as VolunteerProfileResponse;
 }
 
 export async function fetchVolunteerTasks(
   volunteerId: string,
+  accessToken?: string,
 ): Promise<VolunteerTaskRecord[]> {
-  try {
-    const response = await fetch(
-      `${INCIDENT_API_BASE}/volunteers/${encodeURIComponent(volunteerId)}/tasks`,
-    );
-    if (!response.ok) {
-      throw new Error(await extractAPIError(response));
-    }
-    const payload = (await response.json()) as VolunteerTaskListResponse;
-    return payload.tasks.length > 0 ? payload.tasks : sampleVolunteerTasks;
-  } catch {
-    return sampleVolunteerTasks;
+  const response = await fetch(
+    `${INCIDENT_API_BASE}/volunteers/${encodeURIComponent(volunteerId)}/tasks`,
+    { headers: bearerHeaders(accessToken) },
+  );
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
   }
+  const payload = (await response.json()) as VolunteerTaskListResponse;
+  return payload.tasks;
 }
 
+/**
+ * Volunteer write-path: errors THROW so the UI can show a retryable error.
+ * Success is only ever reported when the service confirms it.
+ */
 export async function updateVolunteerTaskStatus(
   taskId: string,
   payload: VolunteerTaskStatusRequest,
+  accessToken?: string,
 ): Promise<VolunteerTaskRecord> {
-  try {
-    const response = await fetch(
-      `${INCIDENT_API_BASE}/volunteer-tasks/${encodeURIComponent(taskId)}/status`,
-      {
-        body: JSON.stringify(payload),
-        headers: { "Content-Type": "application/json" },
-        method: "PATCH",
-      },
-    );
-    if (!response.ok) {
-      throw new Error(await extractAPIError(response));
-    }
-    return (await response.json()) as VolunteerTaskRecord;
-  } catch {
-    return {
-      ...sampleVolunteerTasks[0],
-      status: payload.status,
-      updatedAt: new Date().toISOString(),
-    };
+  const response = await fetch(
+    `${INCIDENT_API_BASE}/volunteer-tasks/${encodeURIComponent(taskId)}/status`,
+    {
+      body: JSON.stringify(payload),
+      headers: bearerHeaders(accessToken),
+      method: "PATCH",
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
   }
+  return (await response.json()) as VolunteerTaskRecord;
 }
 
+/** Same contract as updateVolunteerTaskStatus: never fabricate success. */
 export async function submitVolunteerObservation(
   taskId: string,
   payload: VolunteerObservationRequest,
+  accessToken?: string,
 ): Promise<VolunteerTaskRecord> {
-  try {
-    const response = await fetch(
-      `${INCIDENT_API_BASE}/volunteer-tasks/${encodeURIComponent(taskId)}/observations`,
-      {
-        body: JSON.stringify(payload),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      },
-    );
-    if (!response.ok) {
-      throw new Error(await extractAPIError(response));
-    }
-    return (await response.json()) as VolunteerTaskRecord;
-  } catch {
-    return {
-      ...sampleVolunteerTasks[0],
-      escalationRequired:
-        payload.escalationRequested ||
-        payload.safetyStatus === "unsafe" ||
-        payload.safetyStatus === "needs_authority",
-      status:
-        payload.escalationRequested ||
-        payload.safetyStatus === "unsafe" ||
-        payload.safetyStatus === "needs_authority"
-          ? "needs_escalation"
-          : sampleVolunteerTasks[0].status,
-      updatedAt: new Date().toISOString(),
-    };
+  const response = await fetch(
+    `${INCIDENT_API_BASE}/volunteer-tasks/${encodeURIComponent(taskId)}/observations`,
+    {
+      body: JSON.stringify(payload),
+      headers: bearerHeaders(accessToken),
+      method: "POST",
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
   }
+  return (await response.json()) as VolunteerTaskRecord;
 }
 
 export function fallbackRisk() {
@@ -272,6 +327,16 @@ export function fallbackRisk() {
 
 export function filterOfflineGuides(guides: EmergencyGuideRecord[]) {
   return guides.filter((guide) => guide.offlineAvailable);
+}
+
+function bearerHeaders(accessToken?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return headers;
 }
 
 async function extractAPIError(response: Response) {

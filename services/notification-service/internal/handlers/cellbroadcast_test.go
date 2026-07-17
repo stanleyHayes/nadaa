@@ -30,6 +30,7 @@ func createApprovedCellBroadcast(t *testing.T, srv *Server, languages string) mo
 	reviewBody := `{"action":"approve","reviewer":"nadmo_cbs_reviewer","note":"Checked telecom template"}`
 	reviewRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/cell-broadcasts/"+created.Message.ID+"/review", bytes.NewBufferString(reviewBody))
 	reviewRequest.SetPathValue("id", created.Message.ID)
+	withAuthority(reviewRequest)
 	srv.reviewCellBroadcastHandler(reviewResponse, reviewRequest)
 	if reviewResponse.Code != http.StatusOK {
 		t.Fatalf("expected review status %d, got %d: %s", http.StatusOK, reviewResponse.Code, reviewResponse.Body.String())
@@ -79,6 +80,7 @@ func TestCellBroadcastGenerationReviewAndDelivery(t *testing.T) {
 	reviewBody := `{"action":"approve","reviewer":"nadmo_cbs_reviewer"}`
 	reviewRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/cell-broadcasts/"+message.ID+"/review", bytes.NewBufferString(reviewBody))
 	reviewRequest.SetPathValue("id", message.ID)
+	withAuthority(reviewRequest)
 	srv.reviewCellBroadcastHandler(reviewResponse, reviewRequest)
 	if reviewResponse.Code != http.StatusOK {
 		t.Fatalf("expected review status %d, got %d: %s", http.StatusOK, reviewResponse.Code, reviewResponse.Body.String())
@@ -92,6 +94,7 @@ func TestCellBroadcastGenerationReviewAndDelivery(t *testing.T) {
 	deliverResponse := httptest.NewRecorder()
 	deliverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/cell-broadcasts/"+message.ID+"/deliver", bytes.NewBufferString(`{}`))
 	deliverRequest.SetPathValue("id", message.ID)
+	withAuthority(deliverRequest)
 	srv.deliverCellBroadcastHandler(deliverResponse, deliverRequest)
 	if deliverResponse.Code != http.StatusAccepted {
 		t.Fatalf("expected deliver status %d, got %d: %s", http.StatusAccepted, deliverResponse.Code, deliverResponse.Body.String())
@@ -126,6 +129,16 @@ func TestCellBroadcastGenerationReviewAndDelivery(t *testing.T) {
 	}
 }
 
+func TestCellBroadcastReviewerComesFromVerifiedActor(t *testing.T) {
+	srv := newTestServer()
+	// The review request body self-declares a reviewer; the verified authority
+	// actor must win.
+	message := createApprovedCellBroadcast(t, srv, `["en"]`)
+	if message.Reviewer != "usr_test_authority" {
+		t.Fatalf("expected reviewer from the verified actor, got %q", message.Reviewer)
+	}
+}
+
 func TestCellBroadcastDeliveryRequiresApproval(t *testing.T) {
 	srv := newTestServer()
 
@@ -142,6 +155,7 @@ func TestCellBroadcastDeliveryRequiresApproval(t *testing.T) {
 	deliverResponse := httptest.NewRecorder()
 	deliverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/cell-broadcasts/"+created.Message.ID+"/deliver", bytes.NewBufferString(`{}`))
 	deliverRequest.SetPathValue("id", created.Message.ID)
+	withAuthority(deliverRequest)
 	srv.deliverCellBroadcastHandler(deliverResponse, deliverRequest)
 	if deliverResponse.Code != http.StatusConflict {
 		t.Fatalf("expected status %d for unapproved delivery, got %d: %s", http.StatusConflict, deliverResponse.Code, deliverResponse.Body.String())
@@ -155,6 +169,7 @@ func TestCellBroadcastDryRunIsSimulated(t *testing.T) {
 	deliverResponse := httptest.NewRecorder()
 	deliverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/cell-broadcasts/"+message.ID+"/deliver", bytes.NewBufferString(`{"dryRun":true}`))
 	deliverRequest.SetPathValue("id", message.ID)
+	withAuthority(deliverRequest)
 	srv.deliverCellBroadcastHandler(deliverResponse, deliverRequest)
 	if deliverResponse.Code != http.StatusAccepted {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusAccepted, deliverResponse.Code, deliverResponse.Body.String())
@@ -202,13 +217,14 @@ func TestCellBroadcastDisabledAdapterSkips(t *testing.T) {
 		map[string]models.NotificationProvider{},
 		models.DisabledCellBroadcastAdapter{Reason: "telecom cell broadcast path is not configured"},
 		func() time.Time { return now },
-		&config.Config{Addr: ":8090"},
+		&config.Config{Addr: ":8090", AllowMockActors: true},
 	)
 	message := createApprovedCellBroadcast(t, srv, `["en"]`)
 
 	deliverResponse := httptest.NewRecorder()
 	deliverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/cell-broadcasts/"+message.ID+"/deliver", bytes.NewBufferString(`{}`))
 	deliverRequest.SetPathValue("id", message.ID)
+	withAuthority(deliverRequest)
 	srv.deliverCellBroadcastHandler(deliverResponse, deliverRequest)
 	if deliverResponse.Code != http.StatusAccepted {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusAccepted, deliverResponse.Code, deliverResponse.Body.String())

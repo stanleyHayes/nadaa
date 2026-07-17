@@ -259,7 +259,9 @@ func (m *MemoryStore) UpdateDonor(id string, request models.UpdateDonorRequest, 
 		if request.Status != "" {
 			next.Status = request.Status
 		}
-		next.Notes = request.Notes
+		if request.Notes != "" {
+			next.Notes = request.Notes
+		}
 		next.UpdatedAt = now
 		m.donors[index] = next
 		return next, "", ""

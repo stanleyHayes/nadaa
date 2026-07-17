@@ -6,13 +6,19 @@ import type {
 import { AUTH_API_BASE } from "@/app/config";
 import { adminHeaders } from "@/app/session";
 import { handleUnauthorized } from "@/app/http";
-import { fetchAlertRules, fetchAuditLogs, fetchDataSources } from "./api";
+import {
+  fetchAgencies,
+  fetchAlertRules,
+  fetchAuditLogs,
+  fetchDataSources,
+} from "./api";
 import { defaultUserForm } from "./data";
 import type {
   AdminActionResult,
   AdminLoadState,
   AdminUserFormState,
   AlertRuleSummary,
+  CreatedUserCredentials,
   DataSourceSummary,
   ManagedAgency,
   ManagedAgencyUser,
@@ -22,16 +28,17 @@ import { managedUserFromCreateResponse, validateUserForm } from "./utils";
 export type AdminData = ReturnType<typeof useAdminData>;
 
 /**
- * Central governance-console state container. Loads the audit, integration, and
- * alert-rule surfaces the admin views depend on from the live backends so the
- * shell can mount data once and route between views without losing state.
- * Collections start empty; a failed surface stays empty and the console
- * surfaces a concise error state instead of substituting fixture data.
+ * Central governance-console state container. Loads the agency directory and
+ * the audit, integration, and alert-rule surfaces the admin views depend on
+ * from the live backends so the shell can mount data once and route between
+ * views without losing state. Collections start empty; a failed surface stays
+ * empty and the console surfaces a concise error state instead of
+ * substituting fixture data.
  */
 export function useAdminData() {
   const [loadState, setLoadState] = useState<AdminLoadState>("loading");
   const [loadMessage, setLoadMessage] = useState("Loading governance data");
-  const [agencies] = useState<ManagedAgency[]>([]);
+  const [agencies, setAgencies] = useState<ManagedAgency[]>([]);
   const [users, setUsers] = useState<ManagedAgencyUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
   const [dataSources, setDataSources] = useState<DataSourceSummary[]>([]);
@@ -39,22 +46,33 @@ export function useAdminData() {
   const [userForm, setUserForm] = useState<AdminUserFormState>(defaultUserForm);
   const [createBusy, setCreateBusy] = useState(false);
   const [actionResult, setActionResult] = useState<AdminActionResult>();
+  const [createdCredentials, setCreatedCredentials] =
+    useState<CreatedUserCredentials | null>(null);
 
   const refresh = async (signal?: AbortSignal) => {
     setLoadState("loading");
     setLoadMessage("Loading governance data");
 
-    const [auditResult, sourceResult, alertResult] = await Promise.allSettled([
-      fetchAuditLogs(signal),
-      fetchDataSources(signal),
-      fetchAlertRules(signal),
-    ]);
+    const [agencyResult, auditResult, sourceResult, alertResult] =
+      await Promise.allSettled([
+        fetchAgencies(signal),
+        fetchAuditLogs(signal),
+        fetchDataSources(signal),
+        fetchAlertRules(signal),
+      ]);
 
     if (signal?.aborted) {
       return;
     }
 
     let failureCount = 0;
+    if (agencyResult.status === "fulfilled") {
+      setAgencies(agencyResult.value);
+    } else {
+      failureCount += 1;
+      setAgencies([]);
+    }
+
     if (auditResult.status === "fulfilled") {
       setAuditLogs(auditResult.value);
     } else {
@@ -124,10 +142,18 @@ export function useAdminData() {
       const payload = (await response.json()) as CreateAgencyUserResponse;
       setUsers((current) => [managedUserFromCreateResponse(payload), ...current]);
       setUserForm(defaultUserForm);
+      // The temporary password is only returned here, once; hold it for the
+      // success dialog and drop it when the dialog closes.
+      setCreatedCredentials({
+        userId: payload.user.id,
+        name: payload.user.name,
+        email: payload.user.email,
+        temporaryPassword: payload.temporaryPassword,
+      });
       setActionResult({
         severity: "success",
         message:
-          "Authority user created. MFA setup is required before the user can sign in.",
+          "Authority user created. Hand the temporary password to the user — it is shown once and required for MFA setup.",
       });
     } catch {
       setActionResult({
@@ -152,6 +178,8 @@ export function useAdminData() {
     userForm,
     createBusy,
     actionResult,
+    createdCredentials,
+    dismissCreatedCredentials: () => setCreatedCredentials(null),
     onFieldChange,
     createUser,
   };

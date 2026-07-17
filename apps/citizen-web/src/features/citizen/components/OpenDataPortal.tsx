@@ -112,6 +112,11 @@ export function OpenDataPortal() {
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [downloadResult, setDownloadResult] =
     useState<OpenDataDatasetDownloadResponse | null>(null);
+  // Dialog-scoped feedback: validation/API/download failures must render
+  // inside the open dialog — the panel-level Alert only renders when the
+  // catalog load itself failed, so these could never surface there.
+  const [requestError, setRequestError] = useState("");
+  const [downloadError, setDownloadError] = useState("");
 
   const filteredDatasets = useMemo(() => {
     if (category === "all") return datasets;
@@ -151,6 +156,7 @@ export function OpenDataPortal() {
   const openDetail = async (dataset: OpenDataDataset) => {
     setSelectedDataset(dataset);
     setDownloadResult(null);
+    setDownloadError("");
     setRequestResult(null);
     setDetailOpen(true);
     try {
@@ -172,6 +178,7 @@ export function OpenDataPortal() {
       return;
     }
     setDownloadBusy(true);
+    setDownloadError("");
     try {
       const response = await fetch(
         `${OPEN_DATA_API_BASE}/open-data/datasets/${dataset.id}/download?format=${encodeURIComponent(format)}`,
@@ -185,11 +192,17 @@ export function OpenDataPortal() {
     } catch (error) {
       // Surface the real failure instead of fabricating a "ready" result.
       setDownloadResult(null);
-      setFeedback(
+      setDownloadError(
         error instanceof Error && error.message
           ? `Download failed: ${error.message}`
           : "Download failed. Please try again.",
       );
+      // A download started from a list row has no dialog open; open the
+      // detail dialog so the error has somewhere to render.
+      if (!detailOpen) {
+        setSelectedDataset(dataset);
+        setDetailOpen(true);
+      }
     } finally {
       setDownloadBusy(false);
     }
@@ -198,6 +211,7 @@ export function OpenDataPortal() {
   const openRequest = (dataset: OpenDataDataset) => {
     setSelectedDataset(dataset);
     setRequestResult(null);
+    setRequestError("");
     setRequestForm(buildDefaultRequestForm());
     setRequestOpen(true);
   };
@@ -207,19 +221,22 @@ export function OpenDataPortal() {
     if (!selectedDataset) return;
 
     if (requestForm.name.length < 2) {
-      setFeedback("Please enter your full name.");
+      setRequestError("Please enter your full name.");
       return;
     }
     if (requestForm.email.length < 5 || !requestForm.email.includes("@")) {
-      setFeedback("Please enter a valid email address.");
+      setRequestError("Please enter a valid email address.");
       return;
     }
     if (requestForm.purpose.length < 10) {
-      setFeedback("Please describe your purpose in at least 10 characters.");
+      setRequestError(
+        "Please describe your purpose in at least 10 characters.",
+      );
       return;
     }
 
     setRequestBusy(true);
+    setRequestError("");
     try {
       const response = await fetch(`${OPEN_DATA_API_BASE}/open-data/requests`, {
         method: "POST",
@@ -242,7 +259,7 @@ export function OpenDataPortal() {
       setRequestResult(payload);
       setRequestForm(buildDefaultRequestForm());
     } catch (error) {
-      setFeedback(
+      setRequestError(
         error instanceof Error
           ? error.message
           : "Could not submit access request.",
@@ -561,6 +578,12 @@ export function OpenDataPortal() {
                 </Box>
               ) : null}
 
+              {downloadError ? (
+                <Alert severity="error" className="warning-alert">
+                  {downloadError}
+                </Alert>
+              ) : null}
+
               {downloadResult ? (
                 <Alert
                   severity={downloadResult.auditLogged ? "success" : "warning"}
@@ -617,6 +640,11 @@ export function OpenDataPortal() {
               onSubmit={submitRequest}
               noValidate
             >
+              {requestError ? (
+                <Alert severity="error" className="warning-alert">
+                  {requestError}
+                </Alert>
+              ) : null}
               <Typography variant="body2" sx={{
                 color: "text.secondary"
               }}>

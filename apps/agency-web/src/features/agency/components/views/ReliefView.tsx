@@ -12,6 +12,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { PackageCheck, X } from "lucide-react";
+import { canManageShelterResources } from "@/app/session";
 import type { AgencyData } from "../../useAgencyData";
 import { ViewIntro } from "../primitives";
 import {
@@ -25,6 +26,7 @@ import {
 
 export function ReliefView({ data }: { data: AgencyData }) {
   const {
+    session,
     reliefPoints,
     selectedReliefPoint,
     selectedReliefPointId,
@@ -40,6 +42,8 @@ export function ReliefView({ data }: { data: AgencyData }) {
     handleSaveReliefPoint,
     handleNewReliefPoint,
   } = data;
+
+  const canWrite = canManageShelterResources(session);
 
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
@@ -67,13 +71,15 @@ export function ReliefView({ data }: { data: AgencyData }) {
         description="Publish distribution points, update stock, and keep eligibility notes current."
         icon={PackageCheck}
         action={
-          <Button
-            onClick={openCreate}
-            startIcon={<PackageCheck size={18} />}
-            variant="contained"
-          >
-            New point
-          </Button>
+          canWrite ? (
+            <Button
+              onClick={openCreate}
+              startIcon={<PackageCheck size={18} />}
+              variant="contained"
+            >
+              New point
+            </Button>
+          ) : undefined
         }
       />
       {reliefLoadState === "loading" ? (
@@ -133,18 +139,24 @@ export function ReliefView({ data }: { data: AgencyData }) {
         <DialogContent dividers>
           <Stack spacing={2.5}>
             <Stack spacing={2}>
-              <ReliefPointForm
-                form={reliefForm}
-                onChange={setReliefForm}
-                onSubmit={handleSaveReliefPoint}
-                submitLabel={
-                  reliefUpdateState === "loading"
-                    ? "Saving..."
-                    : selectedReliefPoint
-                      ? "Update point"
-                      : "Create point"
-                }
-              />
+              {canWrite ? (
+                <ReliefPointForm
+                  form={reliefForm}
+                  onChange={setReliefForm}
+                  onSubmit={handleSaveReliefPoint}
+                  submitLabel={
+                    reliefUpdateState === "loading"
+                      ? "Saving..."
+                      : selectedReliefPoint
+                        ? "Update point"
+                        : "Create point"
+                  }
+                />
+              ) : (
+                <Alert severity="info">
+                  Your role has read-only access to relief distribution points.
+                </Alert>
+              )}
               {reliefUpdateState === "success" ? (
                 <Alert severity="success">
                   Relief distribution point saved.

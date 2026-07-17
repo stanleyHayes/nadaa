@@ -59,12 +59,23 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (isDevelopmentEnv() && isLocalOrigin(origin)) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
+}
+
+func isLocalOrigin(origin string) bool {
+	return strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:")
+}
+
+// isDevelopmentEnv gates developer conveniences (e.g. localhost CORS echoes)
+// behind NADAA_ENV=development so a configured allowlist is not bypassed in
+// staging or production.
+func isDevelopmentEnv() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_ENV")), "development")
 }
 
 // EnvOrDefault returns the value of key or fallback if unset.
@@ -101,6 +112,17 @@ func NormalizeToken(value string) string {
 func UnsafeText(value string) bool {
 	lower := strings.ToLower(value)
 	return strings.Contains(lower, "<script") || strings.Contains(lower, "javascript:")
+}
+
+// SanitizeLogValue strips line-break characters from user-controlled values
+// so they cannot forge extra log lines.
+func SanitizeLogValue(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' {
+			return -1
+		}
+		return r
+	}, value)
 }
 
 // StatusForCode maps a store error code to an HTTP status code.

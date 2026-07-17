@@ -10,6 +10,9 @@ FROM alpine:3.22
 
 RUN adduser -D -H -u 10001 appuser
 COPY --from=build /out/imagery-service /usr/local/bin/imagery-service
+# Uploads directory (IMAGERY_STORAGE_PATH=/app/uploads) must be writable by
+# appuser or the service crash-loops on MkdirAll at boot.
+RUN mkdir -p /app/uploads && chown appuser /app/uploads
 
 USER appuser
 EXPOSE 8099

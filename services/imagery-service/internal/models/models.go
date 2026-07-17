@@ -75,11 +75,13 @@ type GeoJSONFeature struct {
 	Properties map[string]any  `json:"properties"`
 }
 
-// AuthorityContext holds authenticated authority metadata from request headers.
+// AuthorityContext holds authenticated authority metadata from a verified
+// bearer token (or, in local dev, legacy actor headers).
 type AuthorityContext struct {
 	ActorUserID   string
 	ActorAgencyID string
 	ActorRole     string
+	ActorDistrict string
 	MFACompleted  bool
 	RequestID     string
 }

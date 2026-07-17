@@ -104,10 +104,12 @@ export function HospitalCapacityUpdateForm({
   form,
   onChange,
   onSubmit,
+  submitting = false,
 }: {
   form: HospitalCapacityFormState;
   onChange: (form: HospitalCapacityFormState) => void;
   onSubmit: () => void;
+  submitting?: boolean;
 }) {
   return (
     <Stack spacing={2}>
@@ -166,8 +168,8 @@ export function HospitalCapacityUpdateForm({
         size="small"
         value={form.notes}
       />
-      <Button onClick={onSubmit} variant="contained">
-        Update capacity
+      <Button disabled={submitting} onClick={onSubmit} variant="contained">
+        {submitting ? "Updating..." : "Update capacity"}
       </Button>
     </Stack>
   );

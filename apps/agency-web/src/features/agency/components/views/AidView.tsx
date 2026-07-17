@@ -12,8 +12,10 @@ import {
   useTheme,
 } from "@mui/material";
 import { Download, HandHeart, X } from "lucide-react";
+import { canManageShelterResources } from "@/app/session";
 import type { AgencyData } from "../../useAgencyData";
 import { ViewIntro } from "../primitives";
+import { aidLabel } from "../../utils";
 import {
   AidPledgeList,
   AidRequestCard,
@@ -25,6 +27,7 @@ import {
 
 export function AidView({ data }: { data: AgencyData }) {
   const {
+    session,
     aidRequests,
     selectedAidRequest,
     selectedAidRequestId,
@@ -41,6 +44,8 @@ export function AidView({ data }: { data: AgencyData }) {
     handleNewAidRequest,
     handleAidExport,
   } = data;
+
+  const canWrite = canManageShelterResources(session);
 
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
@@ -68,22 +73,24 @@ export function AidView({ data }: { data: AgencyData }) {
         description="Create verified aid needs, review partner pledges, and export coordination reports without changing incident status."
         icon={HandHeart}
         action={
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-            <Button
-              onClick={handleAidExport}
-              startIcon={<Download size={18} />}
-              variant="outlined"
-            >
-              Export CSV
-            </Button>
-            <Button
-              onClick={openCreate}
-              startIcon={<HandHeart size={18} />}
-              variant="contained"
-            >
-              New aid need
-            </Button>
-          </Stack>
+          canWrite ? (
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Button
+                onClick={handleAidExport}
+                startIcon={<Download size={18} />}
+                variant="outlined"
+              >
+                Export CSV
+              </Button>
+              <Button
+                onClick={openCreate}
+                startIcon={<HandHeart size={18} />}
+                variant="contained"
+              >
+                New aid need
+              </Button>
+            </Stack>
+          ) : undefined
         }
       />
       {aidLoadState === "loading" ? (
@@ -141,15 +148,44 @@ export function AidView({ data }: { data: AgencyData }) {
         <DialogContent dividers>
           <Stack spacing={2.5}>
             <Stack spacing={2}>
-              <AidRequestForm
-                form={aidForm}
-                onChange={setAidForm}
-                onSubmit={handleCreateAidRequest}
-                submitLabel={
-                  aidUpdateState === "loading" ? "Saving..." : "Create for review"
-                }
-              />
               {selectedAidRequest ? (
+                // An existing request is never re-submitted as a create: show
+                // its detail and the review actions instead of the form.
+                <Stack spacing={1}>
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
+                    {aidLabel(selectedAidRequest.category)} ·{" "}
+                    {aidLabel(selectedAidRequest.priority)} priority ·{" "}
+                    {selectedAidRequest.district}
+                  </Typography>
+                  <Typography variant="body2">
+                    {selectedAidRequest.description}
+                  </Typography>
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
+                    {selectedAidRequest.quantityNeeded.toLocaleString("en-GH")}{" "}
+                    {selectedAidRequest.quantityUnit} needed by{" "}
+                    {new Date(selectedAidRequest.neededBy).toLocaleString(
+                      "en-GH",
+                    )}{" "}
+                    · {selectedAidRequest.receivingOrganization}
+                  </Typography>
+                </Stack>
+              ) : (
+                <AidRequestForm
+                  form={aidForm}
+                  onChange={setAidForm}
+                  onSubmit={handleCreateAidRequest}
+                  submitLabel={
+                    aidUpdateState === "loading"
+                      ? "Saving..."
+                      : "Create for review"
+                  }
+                />
+              )}
+              {selectedAidRequest && canWrite ? (
                 <Stack
                   direction="row"
                   sx={{

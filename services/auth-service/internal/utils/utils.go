@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"crypto/pbkdf2"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -103,12 +106,24 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (IsDevelopment() && isLocalOrigin(origin)) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
+}
+
+// isLocalOrigin reports whether origin is a loopback development origin.
+func isLocalOrigin(origin string) bool {
+	return strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:")
+}
+
+// IsDevelopment reports whether the service runs in development mode
+// (NADAA_ENV=development). Development-only relaxations — mock actor headers,
+// mock OTPs, exposed dev OTPs, loopback CORS origins — are gated on this.
+func IsDevelopment() bool {
+	return os.Getenv("NADAA_ENV") == "development"
 }
 
 // AllowedOriginsFromEnv parses NADAA_ALLOWED_ORIGINS into a lookup set.
@@ -307,10 +322,84 @@ func AgencyProfileFromUser(user models.AgencyUser, agency models.AgencyRecord) m
 	}
 }
 
-// HashCredential returns a base64-url SHA-256 hash of a credential.
+// Credential hashing parameters for PBKDF2-SHA256 (RFC 8018). The iteration
+// count follows the OWASP recommendation for PBKDF2-HMAC-SHA256.
+const (
+	credentialHashAlgorithm = "pbkdf2"
+	pbkdf2Iterations        = 210000
+	pbkdf2SaltBytes         = 16
+	pbkdf2KeyBytes          = 32
+)
+
+// HashCredential returns a salted PBKDF2-SHA256 hash of a credential in the
+// format pbkdf2$<iterations>$<salt_b64>$<hash_b64>.
 func HashCredential(value string) string {
+	salt := make([]byte, pbkdf2SaltBytes)
+	if _, err := rand.Read(salt); err != nil {
+		// A failing CSPRNG means the platform entropy source is broken; there
+		// is no safe fallback for credential hashing.
+		panic(fmt.Sprintf("auth: read credential salt: %v", err))
+	}
+
+	key, err := pbkdf2.Key(sha256.New, value, salt, pbkdf2Iterations, pbkdf2KeyBytes)
+	if err != nil {
+		panic(fmt.Sprintf("auth: derive credential hash: %v", err))
+	}
+
+	return fmt.Sprintf("%s$%d$%s$%s",
+		credentialHashAlgorithm,
+		pbkdf2Iterations,
+		base64.RawURLEncoding.EncodeToString(salt),
+		base64.RawURLEncoding.EncodeToString(key),
+	)
+}
+
+// VerifyCredential reports whether value matches a stored credential hash.
+// It verifies pbkdf2$<iterations>$<salt_b64>$<hash_b64> hashes and still
+// accepts the legacy unsalted SHA-256 digests (64-char hex or base64-url) so
+// hashes written by older builds keep working.
+func VerifyCredential(value string, storedHash string) bool {
+	if strings.HasPrefix(storedHash, credentialHashAlgorithm+"$") {
+		parts := strings.Split(storedHash, "$")
+		if len(parts) != 4 {
+			return false
+		}
+		iterations, err := strconv.Atoi(parts[1])
+		if err != nil || iterations <= 0 {
+			return false
+		}
+		salt, err := base64.RawURLEncoding.DecodeString(parts[2])
+		if err != nil {
+			return false
+		}
+		expected, err := base64.RawURLEncoding.DecodeString(parts[3])
+		if err != nil || len(expected) == 0 {
+			return false
+		}
+		derived, err := pbkdf2.Key(sha256.New, value, salt, iterations, len(expected))
+		if err != nil {
+			return false
+		}
+		return subtle.ConstantTimeCompare(derived, expected) == 1
+	}
+
 	sum := sha256.Sum256([]byte(value))
-	return base64.RawURLEncoding.EncodeToString(sum[:])
+	if len(storedHash) == hex.EncodedLen(sha256.Size) {
+		return subtle.ConstantTimeCompare([]byte(storedHash), []byte(hex.EncodeToString(sum[:]))) == 1
+	}
+	return subtle.ConstantTimeCompare([]byte(storedHash), []byte(base64.RawURLEncoding.EncodeToString(sum[:]))) == 1
+}
+
+// SecureCompare compares two credential strings in constant time.
+func SecureCompare(a string, b string) bool {
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+var sixDigitPattern = regexp.MustCompile(`^[0-9]{6}$`)
+
+// ValidSixDigitCode reports whether code is exactly six ASCII digits.
+func ValidSixDigitCode(code string) bool {
+	return sixDigitPattern.MatchString(code)
 }
 
 // NewTemporaryPassword returns a new random temporary password.

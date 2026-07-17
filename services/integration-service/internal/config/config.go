@@ -13,6 +13,7 @@ type Config struct {
 	Addr              string
 	RoadClosureAPIURL string
 	AllowedOrigins    map[string]bool
+	AllowMockActors   bool
 	SchedulerEnabled  bool
 	SchedulerInterval time.Duration
 }
@@ -23,9 +24,17 @@ func Load() *Config {
 		Addr:              resolveListenAddr("NADAA_INTEGRATION_ADDR", ":8088"),
 		RoadClosureAPIURL: strings.TrimRight(utils.EnvOrDefault("NADAA_ROAD_CLOSURE_SERVICE_URL", "http://localhost:8095"), "/"),
 		AllowedOrigins:    utils.AllowedOriginsFromEnv(),
+		AllowMockActors:   mockActorsEnabled(),
 		SchedulerEnabled:  schedulerEnabled(),
 		SchedulerInterval: schedulerInterval(),
 	}
+}
+
+// mockActorsEnabled gates forwarding of legacy X-NADAA-Actor-* headers for local
+// dev and smoke tests; production forwards the caller's bearer token instead.
+func mockActorsEnabled() bool {
+	value := utils.NormalizeQueryValue(utils.EnvOrDefault("NADAA_AUTH_ALLOW_MOCK_ACTORS", ""))
+	return value == "true" || value == "1" || value == "yes"
 }
 
 // resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare

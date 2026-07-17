@@ -18,7 +18,7 @@ func (s *Server) riskHandler(w http.ResponseWriter, r *http.Request) {
 
 	risk := s.store.AreaRisk(location)
 	if s.mlClient != nil {
-		if prediction, err := s.mlClient.predict(r.Context(), location); err != nil {
+		if prediction, err := s.mlClient.predict(r.Context(), location, r.Header.Get("Authorization")); err != nil {
 			log.Printf("ml prediction unavailable: %v", err)
 		} else {
 			risk.MLPrediction = &prediction

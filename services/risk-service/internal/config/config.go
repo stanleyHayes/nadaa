@@ -10,14 +10,17 @@ type Config struct {
 	Addr           string
 	AllowedOrigins map[string]bool
 	MLAPIURL       string
+	// InternalServiceToken authenticates service-to-service calls (empty disables).
+	InternalServiceToken string
 }
 
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:           resolveListenAddr("NADAA_RISK_ADDR", ":8081"),
-		AllowedOrigins: allowedOriginsFromEnv(),
-		MLAPIURL:       strings.TrimSpace(os.Getenv("NADAA_ML_API_URL")),
+		Addr:                 resolveListenAddr("NADAA_RISK_ADDR", ":8081"),
+		AllowedOrigins:       allowedOriginsFromEnv(),
+		MLAPIURL:             strings.TrimSpace(os.Getenv("NADAA_ML_API_URL")),
+		InternalServiceToken: strings.TrimSpace(os.Getenv("NADAA_INTERNAL_SERVICE_TOKEN")),
 	}
 }
 

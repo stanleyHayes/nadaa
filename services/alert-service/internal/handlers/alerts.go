@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) createAlertHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.DraftRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.DraftRoles)
 	if !ok {
 		return
 	}
@@ -45,12 +45,13 @@ func (s *Server) listAlertsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	publicOnly := !hasAuthorityHeaders(r)
+	_, isAuthority := s.authorityContext(r)
+	publicOnly := !isAuthority
 	utils.WriteJSON(w, http.StatusOK, models.AlertListResponse{Alerts: s.store.ListAlerts(status, currentOnly, publicOnly, targetType, targetID, s.now().UTC())})
 }
 
 func (s *Server) updateAlertHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.DraftRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.DraftRoles)
 	if !ok {
 		return
 	}
@@ -75,7 +76,7 @@ func (s *Server) updateAlertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) submitAlertHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.DraftRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.DraftRoles)
 	if !ok {
 		return
 	}
@@ -89,7 +90,7 @@ func (s *Server) submitAlertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) approveAlertHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ApprovalRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ApprovalRoles)
 	if !ok {
 		return
 	}
@@ -109,7 +110,7 @@ func (s *Server) approveAlertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) rejectAlertHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ApprovalRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ApprovalRoles)
 	if !ok {
 		return
 	}
@@ -133,7 +134,7 @@ func (s *Server) rejectAlertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) emergencyOverrideHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.OverrideRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.OverrideRoles)
 	if !ok {
 		return
 	}
@@ -157,7 +158,7 @@ func (s *Server) emergencyOverrideHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) listAuditHandler(w http.ResponseWriter, r *http.Request) {
-	if _, ok := requireAuthority(w, r, utils.ApprovalRoles); !ok {
+	if _, ok := s.requireAuthority(w, r, utils.ApprovalRoles); !ok {
 		return
 	}
 

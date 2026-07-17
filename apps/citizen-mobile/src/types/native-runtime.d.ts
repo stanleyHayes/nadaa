@@ -47,6 +47,10 @@ declare module "react-native" {
     OS: "android" | "ios" | "web" | string;
     select: <T>(spec: Record<string, T>) => T | undefined;
   };
+  export const Linking: {
+    canOpenURL(url: string): Promise<boolean>;
+    openURL(url: string): Promise<unknown>;
+  };
 
   export const SafeAreaView: ComponentType<{
     children?: ReactNode;
@@ -124,6 +128,37 @@ declare module "@expo/vector-icons/Feather" {
   export default Feather;
 }
 
+declare module "@react-native-async-storage/async-storage" {
+  const AsyncStorage: {
+    getItem(key: string): Promise<string | null>;
+    removeItem(key: string): Promise<void>;
+    setItem(key: string, value: string): Promise<void>;
+  };
+  export default AsyncStorage;
+}
+
+declare module "expo-image-picker" {
+  export type MediaPermissionResponse = {
+    canAskAgain?: boolean;
+    granted: boolean;
+    status: "granted" | "denied" | "undetermined";
+  };
+  export function getCameraPermissionsAsync(): Promise<MediaPermissionResponse>;
+  export function requestCameraPermissionsAsync(): Promise<MediaPermissionResponse>;
+  export function getMediaLibraryPermissionsAsync(): Promise<MediaPermissionResponse>;
+  export function requestMediaLibraryPermissionsAsync(): Promise<MediaPermissionResponse>;
+}
+
+declare module "expo-location" {
+  export type LocationPermissionResponse = {
+    canAskAgain?: boolean;
+    granted: boolean;
+    status: "granted" | "denied" | "undetermined";
+  };
+  export function getForegroundPermissionsAsync(): Promise<LocationPermissionResponse>;
+  export function requestForegroundPermissionsAsync(): Promise<LocationPermissionResponse>;
+}
+
 declare module "expo-notifications" {
   export enum AndroidImportance {
     MIN = 1,
@@ -138,6 +173,7 @@ declare module "expo-notifications" {
     PUBLIC = 1,
   }
   export type NotificationPermissionsStatus = {
+    canAskAgain?: boolean;
     granted: boolean;
     status: "granted" | "denied" | "undetermined";
   };
@@ -151,6 +187,9 @@ declare module "expo-notifications" {
     }>;
   }): void;
   export function getPermissionsAsync(): Promise<NotificationPermissionsStatus>;
+  export function getExpoPushTokenAsync(options?: {
+    projectId?: string;
+  }): Promise<{ data: string }>;
   export function requestPermissionsAsync(request?: {
     ios?: {
       allowAlert?: boolean;

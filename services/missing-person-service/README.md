@@ -14,13 +14,27 @@ Privacy-sensitive missing persons workflow for disaster response and family reun
 - `PATCH /api/v1/authority/missing-persons/{id}/close` - close, reunite, mark located, withdraw, duplicate, or deceased.
 - `GET /api/v1/authority/missing-persons/{id}/audit` - authority audit history.
 
-Authority endpoints require:
+## Authority Authentication
+
+Authority endpoints require a verified `Authorization: Bearer nadaa.<payload>.<sig>`
+token issued by auth-service (validated with `NADAA_AUTH_TOKEN_SECRET`). The verified
+claims supply the actor id (`sub`), role, agency id, district, and MFA flag.
+
+For local development and smoke tests, set `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` to honor
+legacy self-asserted headers instead:
 
 - `X-NADAA-Actor-ID`
 - `X-NADAA-Actor-Role`
 - `X-NADAA-Agency-ID`
 - `X-NADAA-MFA-Completed: true`
 - `X-NADAA-Request-ID`
+
+Without a valid token (and without mock actors enabled), authority endpoints return `401`.
+Public endpoints (`POST/GET /api/v1/missing-persons`) stay public. Approving public
+visibility for a record whose reporter declined `consentToPublicShare` requires an
+explicit `"consentOverride": true` in the review payload, which is recorded in the
+audit trail. The localhost CORS exception (when `NADAA_ALLOWED_ORIGINS` is set) only
+applies with `NADAA_ENV=development`.
 
 ## Local Development
 

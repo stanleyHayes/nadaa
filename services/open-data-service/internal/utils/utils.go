@@ -60,7 +60,10 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		// The localhost exception exists for local development only; when an
+		// explicit allowlist is configured outside development it must hold.
+		devMode := os.Getenv("NADAA_ENV") == "development"
+		if allowedOrigins[origin] || (devMode && (strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:"))) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
@@ -109,6 +112,17 @@ func AllowedOriginsFromEnv() map[string]bool {
 // NormalizeString trims and lowercases a value.
 func NormalizeString(value string) string {
 	return strings.TrimSpace(strings.ToLower(value))
+}
+
+// SafeLog strips line-break control characters from user-controlled values so
+// they cannot forge extra log lines (gosec G706).
+func SafeLog(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' {
+			return -1
+		}
+		return r
+	}, value)
 }
 
 // SanitizeEmail trims and lowercases an email address.

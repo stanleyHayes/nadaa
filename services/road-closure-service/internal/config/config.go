@@ -9,8 +9,10 @@ import (
 
 // Config holds road-closure-service configuration loaded from the environment.
 type Config struct {
-	Addr           string
-	AllowedOrigins map[string]bool
+	Addr                  string
+	AllowedOrigins        map[string]bool
+	AuthTokenSecret       string
+	AllowMockActorHeaders bool
 }
 
 // resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare
@@ -37,5 +39,12 @@ func Load() *Config {
 	return &Config{
 		Addr:           resolveListenAddr("NADAA_ROAD_CLOSURE_ADDR", ":8095"),
 		AllowedOrigins: utils.AllowedOriginsFromEnv(),
+		// Shared HMAC key verifying nadaa.<payload>.<sig> tokens from
+		// auth-service. Empty means bearer verification is disabled and
+		// authority requests fail unless mock actor headers are allowed.
+		AuthTokenSecret: strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
+		// Local dev / smoke-test escape hatch: honor legacy X-NADAA-Actor-*
+		// headers instead of a verified bearer token.
+		AllowMockActorHeaders: os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
 	}
 }

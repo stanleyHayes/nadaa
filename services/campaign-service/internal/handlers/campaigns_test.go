@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -14,10 +17,51 @@ import (
 	"github.com/stanleyHayes/nadaa/services/campaign-service/internal/store"
 )
 
+const testTokenSecret = "test-secret-for-unit-tests"
+
+var testNow = time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+
 func newTestServer() *Server {
-	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8103"}
-	return NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
+	cfg := &config.Config{Addr: ":8103", TokenSecret: testTokenSecret, AllowMockActorHeaders: true}
+	return NewServer(store.NewMemoryStore(testNow), func() time.Time { return testNow }, cfg)
+}
+
+// newStrictTestServer disables mock actor headers so only verified bearer
+// tokens authorize authority requests.
+func newStrictTestServer() *Server {
+	cfg := &config.Config{Addr: ":8103", TokenSecret: testTokenSecret}
+	return NewServer(store.NewMemoryStore(testNow), func() time.Time { return testNow }, cfg)
+}
+
+func signTestToken(t *testing.T, claims models.TokenClaims) string {
+	t.Helper()
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatalf("marshal claims: %v", err)
+	}
+	encoded := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, []byte(testTokenSecret))
+	_, _ = mac.Write([]byte(encoded))
+	return "nadaa." + encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func authorityClaims() models.TokenClaims {
+	return models.TokenClaims{
+		UserID:    "usr_campaign_officer",
+		UserType:  "agency",
+		Role:      "nadmo_officer",
+		AgencyID:  "00000000-0000-0000-0000-000000000101",
+		MFA:       true,
+		ExpiresAt: testNow.Add(time.Hour).Unix(),
+	}
+}
+
+func tokenRequest(t *testing.T, method, path string, body io.Reader, token string) *http.Request {
+	t.Helper()
+	request := httptest.NewRequest(method, path, body)
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	return request
 }
 
 func jsonBody(v any) io.Reader {
@@ -394,5 +438,157 @@ func TestUpdateDraftFutureWindowAllowed(t *testing.T) {
 	srv.updateCampaignHandler(upd, updReq)
 	if upd.Code != http.StatusOK {
 		t.Fatalf("updating a draft's future window must 200, got %d: %s", upd.Code, upd.Body.String())
+	}
+}
+
+func TestListCampaignsForbiddenStatusFilterReturns403(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/campaigns?status=draft", nil)
+
+	srv.listCampaignsHandler(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, response.Code)
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "forbidden" {
+		t.Fatalf("expected forbidden error code, got %#v", payload.Error)
+	}
+}
+
+func TestCreateCampaignDefaultsStatusToDraft(t *testing.T) {
+	srv := newTestServer()
+	body := models.CreateCampaignRequest{
+		Title:         "Unstated campaign",
+		HazardType:    "flood",
+		TargetRegions: []string{"Greater Accra"},
+		Languages:     []string{"en"},
+		ContentBlocks: []models.CampaignContentBlock{{Type: "article", Title: "T", Body: "Body content."}},
+		PublishWindow: models.CampaignPublishWindow{
+			StartsAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+			EndsAt:   time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPost, "/api/v1/campaigns", jsonBody(body))
+
+	srv.createCampaignHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	var payload models.CampaignResponse
+	decodeResponse(t, response, &payload)
+	if payload.Campaign.Status != "draft" {
+		t.Fatalf("expected empty status to default to draft, got %#v", payload.Campaign.Status)
+	}
+}
+
+func TestCreateCampaignWithBearerToken(t *testing.T) {
+	srv := newStrictTestServer()
+	token := signTestToken(t, authorityClaims())
+	body := models.CreateCampaignRequest{
+		Title:         "Token-created campaign",
+		HazardType:    "flood",
+		TargetRegions: []string{"Greater Accra"},
+		Languages:     []string{"en"},
+		ContentBlocks: []models.CampaignContentBlock{{Type: "article", Title: "T", Body: "Body content."}},
+		PublishWindow: models.CampaignPublishWindow{
+			StartsAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+			EndsAt:   time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	response := httptest.NewRecorder()
+	request := tokenRequest(t, http.MethodPost, "/api/v1/campaigns", jsonBody(body), token)
+
+	srv.createCampaignHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	var payload models.CampaignResponse
+	decodeResponse(t, response, &payload)
+	if payload.Campaign.CreatedBy != "usr_campaign_officer" {
+		t.Fatalf("expected created-by from verified claims, got %#v", payload.Campaign.CreatedBy)
+	}
+}
+
+func TestBearerTokenAuthoritySeesDrafts(t *testing.T) {
+	srv := newStrictTestServer()
+	token := signTestToken(t, authorityClaims())
+
+	response := httptest.NewRecorder()
+	request := tokenRequest(t, http.MethodGet, "/api/v1/campaigns?status=draft", nil, token)
+
+	srv.listCampaignsHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+}
+
+func TestForgedHeadersRejectedWhenMockActorsOff(t *testing.T) {
+	srv := newStrictTestServer()
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPost, "/api/v1/campaigns", jsonBody(models.CreateCampaignRequest{Title: "Forged"}))
+
+	srv.createCampaignHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+
+	// Forged headers must not widen the public list view either.
+	list := httptest.NewRecorder()
+	listReq := authorityRequest(http.MethodGet, "/api/v1/campaigns?status=draft", nil)
+	srv.listCampaignsHandler(list, listReq)
+	if list.Code != http.StatusForbidden {
+		t.Fatalf("forged authority headers must not include drafts, got %d", list.Code)
+	}
+}
+
+func TestCreateCampaignRejectsInvalidToken(t *testing.T) {
+	srv := newStrictTestServer()
+	response := httptest.NewRecorder()
+	request := tokenRequest(t, http.MethodPost, "/api/v1/campaigns", jsonBody(models.CreateCampaignRequest{Title: "Bad token"}), "nadaa.garbage.signature")
+
+	srv.createCampaignHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_token" {
+		t.Fatalf("expected invalid_token error code, got %#v", payload.Error)
+	}
+}
+
+func TestCreateCampaignRejectsExpiredToken(t *testing.T) {
+	srv := newStrictTestServer()
+	claims := authorityClaims()
+	claims.ExpiresAt = testNow.Add(-time.Hour).Unix()
+	token := signTestToken(t, claims)
+	response := httptest.NewRecorder()
+	request := tokenRequest(t, http.MethodPost, "/api/v1/campaigns", jsonBody(models.CreateCampaignRequest{Title: "Expired"}), token)
+
+	srv.createCampaignHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestPublicListStaysPublicWithoutCredentials(t *testing.T) {
+	srv := newStrictTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/campaigns", nil)
+
+	srv.listCampaignsHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
 	}
 }

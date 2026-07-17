@@ -53,7 +53,12 @@ export function normaliseTint(value: unknown): DarkTint {
 /** Saved mode, or the OS preference on first visit. */
 export function readSavedMode(): ThemeMode {
   if (typeof window === "undefined") return DEFAULT_MODE;
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  let stored: string | null = null;
+  try {
+    stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable (private mode); fall back to the default.
+  }
   if (stored === "light" || stored === "dark") return stored;
   return prefersDarkTheme() ? "dark" : "light";
 }
@@ -61,7 +66,12 @@ export function readSavedMode(): ThemeMode {
 /** Saved tint, or the Ink default. */
 export function readSavedTint(): DarkTint {
   if (typeof window === "undefined") return DEFAULT_TINT;
-  return normaliseTint(window.localStorage.getItem(DARK_TINT_STORAGE_KEY));
+  try {
+    return normaliseTint(window.localStorage.getItem(DARK_TINT_STORAGE_KEY));
+  } catch {
+    // Storage can be unavailable (private mode); fall back to the default.
+    return DEFAULT_TINT;
+  }
 }
 
 /** Reflect the mode onto `<html data-theme>` and `color-scheme`. */

@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/stanleyHayes/nadaa/services/incident-service/internal/models"
+	"github.com/stanleyHayes/nadaa/services/incident-service/internal/store"
 	"github.com/stanleyHayes/nadaa/services/incident-service/internal/utils"
 )
 
@@ -47,15 +49,18 @@ var (
 func (s *server) registerVolunteerHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.RegisterVolunteerRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN incident-service volunteer_register invalid_json remote=%s error=%v", utils.ClientIdentifier(r), err)
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_register invalid_json remote=%s error=%v", utils.SafeLogValue(utils.ClientIdentifier(r)), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
-	log.Printf("INFO incident-service volunteer_register received citizenUserId=%s district=%s community=%s", request.CitizenUserID, request.District, request.Community)
+	// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO incident-service volunteer_register received citizenUserId=%s district=%s community=%s", utils.SafeLogValue(request.CitizenUserID), utils.SafeLogValue(request.District), utils.SafeLogValue(request.Community))
 
 	normalized, code, message := normalizeVolunteerRegistrationRequest(request)
 	if code != "" {
-		log.Printf("WARN incident-service volunteer_register validation_failed citizenUserId=%s code=%s", request.CitizenUserID, code)
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_register validation_failed citizenUserId=%s code=%s", utils.SafeLogValue(request.CitizenUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
@@ -66,76 +71,94 @@ func (s *server) registerVolunteerHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (s *server) listVolunteersHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, assignmentRoles)
+	ctx, ok := s.requireAuthority(w, r, assignmentRoles)
 	if !ok {
 		return
 	}
 	status := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("status")))
 	district := strings.TrimSpace(r.URL.Query().Get("district"))
 	volunteers := s.store.ListVolunteers(status, district)
-	log.Printf("INFO incident-service volunteer_list actor=%s role=%s status=%s district=%s count=%d", ctx.ActorUserID, ctx.ActorRole, status, district, len(volunteers))
+	// #nosec G706 -- actor, role, status, and district are sanitized with utils.SafeLogValue.
+	log.Printf("INFO incident-service volunteer_list actor=%s role=%s status=%s district=%s count=%d", utils.SafeLogValue(ctx.ActorUserID), utils.SafeLogValue(ctx.ActorRole), utils.SafeLogValue(status), utils.SafeLogValue(district), len(volunteers))
 	utils.WriteJSON(w, http.StatusOK, models.VolunteerListResponse{Volunteers: volunteers})
 }
 
 func (s *server) verifyVolunteerHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, assignmentRoles)
+	ctx, ok := s.requireAuthority(w, r, assignmentRoles)
 	if !ok {
 		return
 	}
 
 	var request models.VerifyVolunteerRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN incident-service volunteer_verify invalid_json volunteerId=%s actor=%s error=%v", r.PathValue("id"), ctx.ActorUserID, err)
+		// #nosec G706 -- volunteer id and actor are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_verify invalid_json volunteerId=%s actor=%s error=%v", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 
 	normalized, code, message := normalizeVolunteerVerifyRequest(request)
 	if code != "" {
-		log.Printf("WARN incident-service volunteer_verify validation_failed volunteerId=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- volunteer id and actor are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_verify validation_failed volunteerId=%s actor=%s code=%s", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
 	volunteer, code, message := s.store.VerifyVolunteer(r.PathValue("id"), normalized, ctx, s.now())
 	if code != "" {
-		log.Printf("WARN incident-service volunteer_verify failed volunteerId=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- volunteer id and actor are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_verify failed volunteerId=%s actor=%s code=%s", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, statusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO incident-service volunteer_verify completed volunteerId=%s decision=%s actor=%s", volunteer.ID, normalized.Decision, ctx.ActorUserID)
+	// #nosec G706 -- decision and actor are sanitized with utils.SafeLogValue.
+	log.Printf("INFO incident-service volunteer_verify completed volunteerId=%s decision=%s actor=%s", utils.SafeLogValue(volunteer.ID), utils.SafeLogValue(normalized.Decision), utils.SafeLogValue(ctx.ActorUserID))
 	utils.WriteJSON(w, http.StatusOK, models.VolunteerProfileResponse{Volunteer: volunteer})
 }
 
 func (s *server) listVolunteerTasksHandler(w http.ResponseWriter, r *http.Request) {
 	volunteerID := strings.TrimSpace(r.PathValue("id"))
+	citizenUserID := ""
+	if volunteer, found := s.store.VolunteerByID(volunteerID); found {
+		citizenUserID = volunteer.CitizenUserID
+	}
+	if _, ok := s.requireVolunteerActor(w, r, citizenUserID); !ok {
+		return
+	}
+
 	tasks, code, message := s.store.ListVolunteerTasks(volunteerID)
 	if code != "" {
-		log.Printf("WARN incident-service volunteer_tasks failed volunteerId=%s code=%s", volunteerID, code)
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_tasks failed volunteerId=%s code=%s", utils.SafeLogValue(volunteerID), utils.SafeLogValue(code))
 		utils.WriteError(w, statusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO incident-service volunteer_tasks listed volunteerId=%s count=%d", volunteerID, len(tasks))
+	// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO incident-service volunteer_tasks listed volunteerId=%s count=%d", utils.SafeLogValue(volunteerID), len(tasks))
 	utils.WriteJSON(w, http.StatusOK, models.VolunteerTaskListResponse{Tasks: tasks})
 }
 
 func (s *server) assignVolunteerTaskHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, assignmentRoles)
+	ctx, ok := s.requireAuthority(w, r, assignmentRoles)
 	if !ok {
 		return
 	}
 
 	var request models.VolunteerTaskRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN incident-service volunteer_task_assign invalid_json incidentId=%s actor=%s error=%v", r.PathValue("id"), ctx.ActorUserID, err)
+		// #nosec G706 -- incident id and actor are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_task_assign invalid_json incidentId=%s actor=%s error=%v", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
-	log.Printf("INFO incident-service volunteer_task_assign received incidentId=%s volunteerId=%s type=%s actor=%s", r.PathValue("id"), request.VolunteerID, request.Type, ctx.ActorUserID)
+	// #nosec G706 -- incident id, volunteer id, type, and actor are sanitized with utils.SafeLogValue.
+	log.Printf("INFO incident-service volunteer_task_assign received incidentId=%s volunteerId=%s type=%s actor=%s", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(request.VolunteerID), utils.SafeLogValue(request.Type), utils.SafeLogValue(ctx.ActorUserID))
 
 	normalized, code, message := normalizeVolunteerTaskRequest(request)
 	if code != "" {
-		log.Printf("WARN incident-service volunteer_task_assign validation_failed incidentId=%s volunteerId=%s code=%s", r.PathValue("id"), request.VolunteerID, code)
+		// #nosec G706 -- incident id and volunteer id are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_task_assign validation_failed incidentId=%s volunteerId=%s code=%s", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(request.VolunteerID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
@@ -146,7 +169,8 @@ func (s *server) assignVolunteerTaskHandler(w http.ResponseWriter, r *http.Reque
 		if code == "store_error" {
 			level = "ERROR"
 		}
-		log.Printf("%s incident-service volunteer_task_assign failed incidentId=%s volunteerId=%s code=%s", level, r.PathValue("id"), normalized.VolunteerID, code)
+		// #nosec G706 -- incident id and volunteer id are sanitized with utils.SafeLogValue.
+		log.Printf("%s incident-service volunteer_task_assign failed incidentId=%s volunteerId=%s code=%s", level, utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(normalized.VolunteerID), code)
 		utils.WriteError(w, statusForCode(code), code, message)
 		return
 	}
@@ -155,55 +179,101 @@ func (s *server) assignVolunteerTaskHandler(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *server) updateVolunteerTaskStatusHandler(w http.ResponseWriter, r *http.Request) {
+	taskID := strings.TrimSpace(r.PathValue("id"))
+	if _, ok := s.requireVolunteerActor(w, r, s.volunteerOwnerForTask(taskID)); !ok {
+		return
+	}
+
 	var request models.VolunteerTaskStatusRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN incident-service volunteer_task_status invalid_json taskId=%s error=%v", r.PathValue("id"), err)
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_task_status invalid_json taskId=%s error=%v", utils.SafeLogValue(taskID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
-	log.Printf("INFO incident-service volunteer_task_status received taskId=%s volunteerId=%s status=%s", r.PathValue("id"), request.VolunteerID, request.Status)
+	// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO incident-service volunteer_task_status received taskId=%s volunteerId=%s status=%s", utils.SafeLogValue(taskID), utils.SafeLogValue(request.VolunteerID), utils.SafeLogValue(request.Status))
 
 	normalized, code, message := normalizeVolunteerTaskStatusRequest(request)
 	if code != "" {
-		log.Printf("WARN incident-service volunteer_task_status validation_failed taskId=%s volunteerId=%s code=%s", r.PathValue("id"), request.VolunteerID, code)
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_task_status validation_failed taskId=%s volunteerId=%s code=%s", utils.SafeLogValue(taskID), utils.SafeLogValue(request.VolunteerID), utils.SafeLogValue(code))
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
-	task, code, message := s.store.UpdateVolunteerTaskStatus(r.PathValue("id"), normalized, s.now())
+	task, code, message := s.store.UpdateVolunteerTaskStatus(taskID, normalized, s.now())
 	if code != "" {
-		log.Printf("WARN incident-service volunteer_task_status failed taskId=%s volunteerId=%s code=%s", r.PathValue("id"), normalized.VolunteerID, code)
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_task_status failed taskId=%s volunteerId=%s code=%s", utils.SafeLogValue(taskID), utils.SafeLogValue(normalized.VolunteerID), utils.SafeLogValue(code))
 		utils.WriteError(w, statusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO incident-service volunteer_task_status completed taskId=%s volunteerId=%s status=%s escalation=%t", task.ID, task.VolunteerID, task.Status, task.EscalationRequired)
+	// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO incident-service volunteer_task_status completed taskId=%s volunteerId=%s status=%s escalation=%t", utils.SafeLogValue(task.ID), utils.SafeLogValue(task.VolunteerID), utils.SafeLogValue(task.Status), task.EscalationRequired)
 	utils.WriteJSON(w, http.StatusOK, task)
 }
 
 func (s *server) submitVolunteerObservationHandler(w http.ResponseWriter, r *http.Request) {
+	taskID := strings.TrimSpace(r.PathValue("id"))
+	if _, ok := s.requireVolunteerActor(w, r, s.volunteerOwnerForTask(taskID)); !ok {
+		return
+	}
+
 	var request models.VolunteerObservationRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN incident-service volunteer_observation invalid_json taskId=%s error=%v", r.PathValue("id"), err)
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_observation invalid_json taskId=%s error=%v", utils.SafeLogValue(taskID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
-	log.Printf("INFO incident-service volunteer_observation received taskId=%s volunteerId=%s safetyStatus=%s escalationRequested=%t", r.PathValue("id"), request.VolunteerID, request.SafetyStatus, request.EscalationRequested)
+	// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO incident-service volunteer_observation received taskId=%s volunteerId=%s safetyStatus=%s escalationRequested=%t", utils.SafeLogValue(taskID), utils.SafeLogValue(request.VolunteerID), utils.SafeLogValue(request.SafetyStatus), request.EscalationRequested)
 
 	normalized, code, message := normalizeVolunteerObservationRequest(request)
 	if code != "" {
-		log.Printf("WARN incident-service volunteer_observation validation_failed taskId=%s volunteerId=%s code=%s", r.PathValue("id"), request.VolunteerID, code)
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_observation validation_failed taskId=%s volunteerId=%s code=%s", utils.SafeLogValue(taskID), utils.SafeLogValue(request.VolunteerID), utils.SafeLogValue(code))
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
-	task, code, message := s.store.AddVolunteerObservation(r.PathValue("id"), normalized, s.now())
+	switch err := s.store.ValidateMediaReferences(normalized.Media); {
+	case errors.Is(err, store.ErrUnknownMedia):
+		utils.WriteError(w, http.StatusBadRequest, "unknown_media", "media references must be created through the upload initiation endpoint before reporting")
+		return
+	case errors.Is(err, store.ErrMediaAlreadyLinked):
+		utils.WriteError(w, http.StatusBadRequest, "media_already_linked", "one or more media references are already linked to another incident")
+		return
+	case err != nil:
+		utils.WriteError(w, http.StatusBadRequest, "invalid_media", err.Error())
+		return
+	}
+
+	task, code, message := s.store.AddVolunteerObservation(taskID, normalized, s.now())
 	if code != "" {
-		log.Printf("WARN incident-service volunteer_observation failed taskId=%s volunteerId=%s code=%s", r.PathValue("id"), normalized.VolunteerID, code)
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_observation failed taskId=%s volunteerId=%s code=%s", utils.SafeLogValue(taskID), utils.SafeLogValue(normalized.VolunteerID), utils.SafeLogValue(code))
 		utils.WriteError(w, statusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO incident-service volunteer_observation completed taskId=%s volunteerId=%s escalation=%t updateCount=%d", task.ID, task.VolunteerID, task.EscalationRequired, len(task.Updates))
+	// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO incident-service volunteer_observation completed taskId=%s volunteerId=%s escalation=%t updateCount=%d", utils.SafeLogValue(task.ID), utils.SafeLogValue(task.VolunteerID), task.EscalationRequired, len(task.Updates))
 	utils.WriteJSON(w, http.StatusOK, task)
+}
+
+// volunteerOwnerForTask resolves the registered citizen user id of the
+// volunteer owning a task, used to authorize volunteer self-access.
+func (s *server) volunteerOwnerForTask(taskID string) string {
+	task, found := s.store.VolunteerTaskByID(taskID)
+	if !found {
+		return ""
+	}
+	volunteer, ok := s.store.VolunteerByID(task.VolunteerID)
+	if !ok {
+		return ""
+	}
+	return volunteer.CitizenUserID
 }
 
 func normalizeVolunteerRegistrationRequest(request models.RegisterVolunteerRequest) (models.RegisterVolunteerRequest, string, string) {

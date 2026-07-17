@@ -28,7 +28,7 @@ func (s *server) nearbyReliefPointsHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *server) createReliefPointHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}
@@ -53,7 +53,7 @@ func (s *server) createReliefPointHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (s *server) updateReliefPointHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}
@@ -83,7 +83,7 @@ func (s *server) updateReliefPointHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (s *server) deleteReliefPointHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterDeleteRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterDeleteRoles)
 	if !ok {
 		return
 	}

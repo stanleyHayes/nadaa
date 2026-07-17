@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"math"
 	"net/http"
@@ -45,16 +44,25 @@ var ShelterDeleteRoles = map[string]bool{
 }
 
 // AidRequestViewRoles lists roles allowed to LIST aid requests including private
-// (PII-bearing) ones. Viewing is broader than writing: agency responders in the
-// field need to see who needs aid to coordinate relief, even though reviewing or
-// editing a request stays limited to ShelterUpdateRoles.
+// (PII-bearing) ones. Viewing is broader than writing, but stays limited to
+// verified authority roles: agency roles only see their own agency's private
+// requests (see AidRequestPrivateViewAllRoles), and reviewing or editing a
+// request stays limited to ShelterUpdateRoles.
 var AidRequestViewRoles = map[string]bool{
 	"system_admin":     true,
 	"agency_admin":     true,
 	"nadmo_officer":    true,
 	"district_officer": true,
 	"dispatcher":       true,
-	"responder":        true,
+}
+
+// AidRequestPrivateViewAllRoles lists roles that may see every private aid
+// request regardless of owning agency. All other AidRequestViewRoles are
+// scoped to private requests owned by their own agency.
+var AidRequestPrivateViewAllRoles = map[string]bool{
+	"system_admin":     true,
+	"nadmo_officer":    true,
+	"district_officer": true,
 }
 
 // AllowedShelterStatuses lists supported shelter statuses.
@@ -243,12 +251,23 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (isDevelopmentEnv() && isLocalOrigin(origin)) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
+}
+
+// isLocalOrigin reports whether origin is a loopback dev-server origin. The
+// exception only applies when NADAA_ENV=development so a configured allowlist
+// is not silently bypassed in deployed environments.
+func isLocalOrigin(origin string) bool {
+	return strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:")
+}
+
+func isDevelopmentEnv() bool {
+	return strings.TrimSpace(strings.ToLower(os.Getenv("NADAA_ENV"))) == "development"
 }
 
 // AllowedOriginsFromEnv parses the NADAA_ALLOWED_ORIGINS environment variable.
@@ -457,9 +476,8 @@ func NormalizeHospitalCapacityUpdate(request models.HospitalCapacityUpdateReques
 	if len(request.Notes) > 700 || UnsafeText(request.Notes) {
 		return request, "invalid_notes", "notes must be 700 safe characters or fewer"
 	}
-	if request.Source == "" {
-		request.Source = "manual"
-	}
+	// Source is intentionally not defaulted here: an empty source means "not
+	// provided" so a partial PATCH preserves the stored provenance.
 	if len(request.Source) > 80 || UnsafeText(request.Source) {
 		return request, "invalid_source", "source must be 80 safe characters or fewer"
 	}
@@ -815,12 +833,22 @@ func NormalizeReviewAidPledge(request models.ReviewAidPledgeRequest) (models.Rev
 	return request, "", ""
 }
 
-// FormatNeededByCSV formats a timestamp for CSV export.
-func FormatNeededByCSV(t time.Time) string {
-	return t.Format(time.RFC3339)
+// SafeLogValue strips CR/LF from user-controlled values so they cannot
+// inject forged lines into logs.
+func SafeLogValue(value string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(value, "\r", ""), "\n", "")
 }
 
-// Fprintf is a thin wrapper around fmt.Fprintf to satisfy linters.
-func Fprintf(w http.ResponseWriter, format string, a ...any) (int, error) {
-	return fmt.Fprintf(w, format, a...)
+// CSVSafeCell prefixes a leading spreadsheet formula character with a single
+// quote so exported CSV cells are not evaluated as formulas.
+func CSVSafeCell(value string) string {
+	if value == "" {
+		return value
+	}
+	switch value[0] {
+	case '=', '+', '-', '@':
+		return "'" + value
+	default:
+		return value
+	}
 }

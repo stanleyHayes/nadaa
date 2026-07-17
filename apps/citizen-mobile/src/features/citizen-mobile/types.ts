@@ -59,6 +59,37 @@ export type PushRegistrationState =
 
 export type AlertView = "current" | "expired" | "all";
 
+export type SignInDraft = {
+  challengeId?: string;
+  devOtp?: string;
+  name: string;
+  otp: string;
+  phone: string;
+};
+
+/** OTP challenge returned by auth-service register / login/otp. */
+export type CitizenOtpChallenge = {
+  challengeId: string;
+  devOtp?: string;
+  otpDelivery: string;
+  phone: string;
+  userId?: string;
+};
+
+/** Successful citizen login returned by auth-service. */
+export type CitizenLoginResult = {
+  accessToken: string;
+  expiresAt: string;
+  tokenType: string;
+  user: {
+    contactPermission: boolean;
+    id: string;
+    name: string;
+    phone: string;
+    preferredLanguage: string;
+  };
+};
+
 export type VolunteerObservationDraft = {
   escalationRequested: boolean;
   note: string;

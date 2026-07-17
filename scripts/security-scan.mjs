@@ -17,7 +17,6 @@ const requiredServiceTokens = [
   "Content-Security-Policy",
   "Strict-Transport-Security",
   "Cache-Control",
-  "allowedOriginsFromEnv",
 ];
 
 function record(condition, message) {
@@ -51,25 +50,74 @@ async function listChildDirs(relativePath) {
     .sort();
 }
 
+async function listGoSources(relativePath) {
+  const entries = await readdir(path.join(rootDir, relativePath), {
+    withFileTypes: true,
+  });
+
+  const files = [];
+  for (const entry of entries) {
+    const child = path.join(relativePath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listGoSources(child)));
+    } else if (entry.name.endsWith(".go") && !entry.name.endsWith("_test.go")) {
+      files.push(child);
+    }
+  }
+  return files.sort();
+}
+
 async function checkServiceHttpHardening() {
   const serviceDirs = await listChildDirs("services");
+  const checkedServices = [];
 
   for (const serviceDir of serviceDirs) {
-    const mainPath = path.join(serviceDir, "main.go");
-    if (!(await fileExists(mainPath))) {
+    // Services are multi-package Go modules (cmd/server + internal/...), so
+    // hardening must be checked across the whole internal/ tree.
+    if (!(await fileExists(path.join(serviceDir, "go.mod")))) {
       continue;
     }
 
-    const source = await readRepoFile(mainPath);
+    const goFiles = await listGoSources(path.join(serviceDir, "internal"));
+    const serviceName = path.basename(serviceDir);
+    record(
+      goFiles.length > 0,
+      `${serviceName} has no internal Go sources to check`,
+    );
+    if (goFiles.length === 0) {
+      continue;
+    }
+
+    const sources = await Promise.all(goFiles.map(readRepoFile));
+    const source = sources.join("\n");
+    checkedServices.push(serviceName);
+
     for (const token of requiredServiceTokens) {
-      record(source.includes(token), `${mainPath} is missing ${token}`);
+      record(
+        source.includes(token),
+        `${serviceName} is missing ${token} in internal/`,
+      );
     }
 
     record(
+      source.includes("allowedOriginsFromEnv") ||
+        source.includes("AllowedOriginsFromEnv"),
+      `${serviceName} must parse the CORS allowlist from NADAA_ALLOWED_ORIGINS (allowedOriginsFromEnv)`,
+    );
+
+    record(
       source.includes("Vary") && source.includes("Origin"),
-      `${mainPath} must vary CORS responses by Origin when using an allowlist`,
+      `${serviceName} must vary CORS responses by Origin when using an allowlist`,
     );
   }
+
+  record(
+    checkedServices.length > 0,
+    "no service modules were checked for HTTP hardening",
+  );
+  console.log(
+    `[security-scan] Checked ${checkedServices.length} service module(s): ${checkedServices.join(", ")}`,
+  );
 }
 
 async function checkDockerRuntimeUsers() {
@@ -132,8 +180,24 @@ async function checkSecurityDocsAndCi() {
     "package.json must expose security:scan",
   );
 
-  const ci = await readRepoFile(".github/workflows/ci.yml");
-  record(ci.includes("pnpm security:scan"), "CI must run pnpm security:scan");
+  // The scan step may live in any workflow (it moved from ci.yml to web.yml
+  // when the pipeline split), so search every workflow file.
+  const workflowDir = path.join(rootDir, ".github", "workflows");
+  const workflowFiles = (
+    await readdir(workflowDir, { withFileTypes: true })
+  )
+    .filter((entry) => entry.isFile() && /\.ya?ml$/u.test(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+  const workflows = await Promise.all(
+    workflowFiles.map((name) =>
+      readFile(path.join(workflowDir, name), "utf8"),
+    ),
+  );
+  record(
+    workflows.some((workflow) => workflow.includes("pnpm security:scan")),
+    "CI must run pnpm security:scan",
+  );
 
   const securityReportExists = await fileExists("docs/security-review.md");
   record(securityReportExists, "docs/security-review.md must exist");

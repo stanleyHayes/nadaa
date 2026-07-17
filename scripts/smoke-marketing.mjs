@@ -12,7 +12,8 @@ if (!response.ok) {
 
 const html = await response.text();
 
-if (!html.includes("<title>NADAA Marketing</title>")) {
+// The title carries an SEO suffix after the stable "NADAA —" prefix.
+if (!html.includes("<title>NADAA —")) {
   throw new Error("marketing smoke reached the wrong page");
 }
 

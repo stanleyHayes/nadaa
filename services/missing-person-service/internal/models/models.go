@@ -26,7 +26,7 @@ type MissingPerson struct {
 	ID                string           `json:"id"`
 	Reference         string           `json:"reference"`
 	PersonName        string           `json:"personName"`
-	Age               int              `json:"age,omitempty"`
+	Age               *int             `json:"age,omitempty"`
 	Gender            string           `json:"gender,omitempty"`
 	Description       string           `json:"description"`
 	PhotoURL          string           `json:"photoUrl,omitempty"`
@@ -55,7 +55,7 @@ type PublicMissingPerson struct {
 	ID                string           `json:"id"`
 	Reference         string           `json:"reference"`
 	PersonName        string           `json:"personName"`
-	Age               int              `json:"age,omitempty"`
+	Age               *int             `json:"age,omitempty"`
 	Gender            string           `json:"gender,omitempty"`
 	Description       string           `json:"description"`
 	PhotoURL          string           `json:"photoUrl,omitempty"`
@@ -79,13 +79,30 @@ type MissingPersonAuditEntry struct {
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
-// AuthorityContext holds authenticated authority metadata from request headers.
+// AuthorityContext holds authenticated authority metadata from a verified
+// auth-service token, or from X-NADAA-Actor-* headers when mock actors are
+// explicitly enabled for local development.
 type AuthorityContext struct {
 	ActorUserID   string
 	ActorAgencyID string
 	ActorRole     string
+	ActorDistrict string
 	MFACompleted  bool
 	RequestID     string
+}
+
+// TokenClaims is the signed payload of a NADAA access token issued by
+// auth-service. It mirrors auth-service's claims; keep the JSON tags in sync.
+type TokenClaims struct {
+	UserID    string `json:"sub"`
+	UserType  string `json:"typ"`
+	Phone     string `json:"phone,omitempty"`
+	Email     string `json:"email,omitempty"`
+	Role      string `json:"role"`
+	AgencyID  string `json:"agencyId,omitempty"`
+	District  string `json:"district,omitempty"`
+	MFA       bool   `json:"mfa"`
+	ExpiresAt int64  `json:"exp"`
 }
 
 // APIError is the standard error response envelope.
@@ -120,7 +137,7 @@ type MissingPersonAuditResponse struct {
 // CreateMissingPersonRequest is the public intake payload.
 type CreateMissingPersonRequest struct {
 	PersonName        string           `json:"personName"`
-	Age               int              `json:"age,omitempty"`
+	Age               *int             `json:"age,omitempty"`
 	Gender            string           `json:"gender,omitempty"`
 	Description       string           `json:"description"`
 	PhotoURL          string           `json:"photoUrl,omitempty"`
@@ -136,6 +153,10 @@ type ReviewMissingPersonRequest struct {
 	PublicSummary string `json:"publicSummary,omitempty"`
 	ReviewNotes   string `json:"reviewNotes,omitempty"`
 	Status        string `json:"status,omitempty"`
+	// ConsentOverride explicitly overrides a reporter's declined
+	// consentToPublicShare when approving public visibility; it is recorded
+	// in the audit trail.
+	ConsentOverride bool `json:"consentOverride,omitempty"`
 }
 
 // CloseMissingPersonRequest is the authority closure or reunification payload.

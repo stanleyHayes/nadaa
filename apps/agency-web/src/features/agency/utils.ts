@@ -12,12 +12,15 @@ import type {
   ReliefPointStatus,
   ReliefStockCategory,
   RiskLevel,
+  ShelterRecord,
 } from "@nadaa/shared-types";
 import { incidentTransitionOptions, severityOrder } from "./data";
 import type {
   AidRequestFormState,
+  HospitalCapacityFormState,
   IncidentFilterState,
   ReliefPointFormState,
+  ShelterOccupancyFormState,
 } from "./types";
 
 export function allowedTransitions(status: IncidentStatus) {
@@ -255,5 +258,36 @@ export function aidRequestToForm(
     neededBy: request.neededBy.slice(0, 16),
     visibility: request.visibility,
     sourceReliefPointId: request.sourceReliefPointId ?? "",
+  };
+}
+
+/** Prefill the occupancy dialog from the shelter picked as its target. */
+export function shelterToOccupancyForm(
+  shelter: ShelterRecord,
+): ShelterOccupancyFormState {
+  return {
+    capacity: shelter.capacity.toString(),
+    currentOccupancy: shelter.currentOccupancy.toString(),
+    status: shelter.status,
+    notes: "",
+  };
+}
+
+/** Prefill the capacity dialog from the hospital picked as its target. */
+export function hospitalToCapacityForm(
+  facility: HospitalCapacityRecord,
+): HospitalCapacityFormState {
+  return {
+    totalBeds: facility.totalBeds.toString(),
+    availableBeds: facility.availableBeds.toString(),
+    icuBedsAvailable: facility.icuBedsAvailable.toString(),
+    maternityBedsAvailable: facility.maternityBedsAvailable.toString(),
+    pediatricBedsAvailable: facility.pediatricBedsAvailable.toString(),
+    isolationBedsAvailable: facility.isolationBedsAvailable.toString(),
+    ambulancesAvailable: facility.ambulancesAvailable.toString(),
+    emergencyCapacity: facility.emergencyCapacity,
+    emergencyUnitStatus: facility.emergencyUnitStatus,
+    oxygenAvailable: facility.oxygenAvailable,
+    notes: "",
   };
 }

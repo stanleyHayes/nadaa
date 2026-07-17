@@ -25,15 +25,14 @@ The shelter service owns shelter capacity, nearby shelter lookup, recovery suppo
 - `PATCH /api/v1/hospitals/{id}/capacity`
 - `POST /api/v1/hospitals/capacity/imports/fixture`
 
-Shelter occupancy, relief point create/update, aid request create/review/export, aid pledge review/list, and hospital capacity updates require authority headers:
+Shelter occupancy, relief point create/update, aid request create/review/export, aid pledge review/list, and hospital capacity updates require a verified auth-service bearer token:
 
-- `X-NADAA-Actor-ID`
-- `X-NADAA-Actor-Role`
-- `X-NADAA-Agency-ID`
-- `X-NADAA-MFA-Completed: true`
-- `X-NADAA-Request-ID`
+- `Authorization: Bearer nadaa.<payload>.<sig>` (agency token with `role`, `agencyId`, and `mfa: true` claims)
+- `X-NADAA-Request-ID` (optional, echoed into logs)
 
-Allowed update roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`.
+Token verification uses `NADAA_AUTH_TOKEN_SECRET` (HMAC-SHA256). With no secret configured and no valid token, authority endpoints return `401`. For local development and smoke tests, the legacy mock headers (`X-NADAA-Actor-ID`, `X-NADAA-Actor-Role`, `X-NADAA-Agency-ID`, `X-NADAA-MFA-Completed: true`) are honored only when `NADAA_AUTH_ALLOW_MOCK_ACTORS=true`.
+
+Allowed update roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`. Listing private aid requests (`includePrivate=true`) is scoped: `system_admin`, `nadmo_officer`, and `district_officer` see all; agency roles only see their own agency's private requests.
 
 ## Run
 

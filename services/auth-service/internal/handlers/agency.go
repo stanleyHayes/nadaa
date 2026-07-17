@@ -175,6 +175,13 @@ func (s *Server) verifyAgencyMFAHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	profile, err := s.store.VerifyAgencyMFA(userID, request.Email, request.TemporaryPassword, request.Code, s.now())
+	if errors.Is(err, store.ErrTooManyAttempts) {
+		s.recordAudit(r, models.AuditActor{}, "auth.agency_mfa.verify_failed", models.AuditTarget{Type: "agency_user", ID: userID}, nil, map[string]any{
+			"reason": "too_many_attempts",
+		})
+		utils.WriteError(w, http.StatusTooManyRequests, "too_many_attempts", "too many failed attempts; try again later")
+		return
+	}
 	if errors.Is(err, store.ErrInvalidCredentials) {
 		s.recordAudit(r, models.AuditActor{}, "auth.agency_mfa.verify_failed", models.AuditTarget{Type: "agency_user", ID: userID}, nil, map[string]any{
 			"reason": "invalid_credentials",
@@ -206,7 +213,14 @@ func (s *Server) loginAgencyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile, err := s.store.LoginAgencyUser(request.Email, request.Password, request.MFACode)
+	profile, err := s.store.LoginAgencyUser(request.Email, request.Password, request.MFACode, s.now())
+	if errors.Is(err, store.ErrTooManyAttempts) {
+		s.recordAudit(r, models.AuditActor{}, "auth.agency_login.failed", models.AuditTarget{Type: "agency_email", ID: request.Email}, nil, map[string]any{
+			"reason": "too_many_attempts",
+		})
+		utils.WriteError(w, http.StatusTooManyRequests, "too_many_attempts", "too many failed attempts; try again later")
+		return
+	}
 	if errors.Is(err, store.ErrMFASetupRequired) {
 		s.recordAudit(r, models.AuditActor{}, "auth.agency_login.blocked", models.AuditTarget{Type: "agency_email", ID: request.Email}, nil, map[string]any{
 			"reason": "mfa_setup_required",
@@ -248,5 +262,19 @@ func (s *Server) loginAgencyHandler(w http.ResponseWriter, r *http.Request) {
 		TokenType:   "Bearer",
 		ExpiresAt:   expiresAt,
 		User:        profile,
+	})
+}
+
+func (s *Server) listAgenciesHandler(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireAgencyRole(w, r, models.RoleSystemAdmin)
+	if !ok {
+		return
+	}
+
+	agencies := s.store.ListAgencies()
+	utils.WriteJSON(w, http.StatusOK, models.AgencyListResponse{Agencies: agencies})
+
+	s.recordAudit(r, utils.AuditActorFromAgency(actor), "auth.agencies.listed", models.AuditTarget{Type: "agencies"}, nil, map[string]any{
+		"count": len(agencies),
 	})
 }

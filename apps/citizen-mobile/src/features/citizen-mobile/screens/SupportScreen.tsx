@@ -3,6 +3,8 @@ import { hexToRgba, mobileTheme } from "../../../app/theme";
 import {
   ActionButton,
   Card,
+  EmptyState,
+  Field,
   ScreenHeading,
   StatusPill,
 } from "../../../ui/components";
@@ -15,17 +17,25 @@ export function SupportScreen({ actions, state }: CitizenScreenProps) {
       <ScreenHeading kicker="Shelters and setup" title="Help around you" />
       <Card tone="green">
         <Text style={stylesTitle}>Nearest shelters</Text>
-        {state.shelters.shelters.slice(0, 3).map((shelter) => (
-          <View key={shelter.id} style={stylesListItem}>
-            <View style={stylesGrow}>
-              <Text style={stylesListTitle}>{shelter.name}</Text>
-              <Text style={stylesMuted}>
-                {shelter.status} · {shelter.distanceMeters ?? 0} m
-              </Text>
+        {state.shelters.shelters.length === 0 ? (
+          <EmptyState
+            description="Shelter locations load when you refresh with a connection. In an emergency call 112."
+            icon="map-pin"
+            title="No shelter data yet"
+          />
+        ) : (
+          state.shelters.shelters.slice(0, 3).map((shelter) => (
+            <View key={shelter.id} style={stylesListItem}>
+              <View style={stylesGrow}>
+                <Text style={stylesListTitle}>{shelter.name}</Text>
+                <Text style={stylesMuted}>
+                  {shelter.status} · {shelter.distanceMeters ?? 0} m
+                </Text>
+              </View>
+              <StatusPill label={shelter.contact ?? "112"} tone="green" />
             </View>
-            <StatusPill label={shelter.contact ?? "112"} tone="green" />
-          </View>
-        ))}
+          ))
+        )}
       </Card>
 
       <Card>
@@ -53,18 +63,56 @@ export function SupportScreen({ actions, state }: CitizenScreenProps) {
       </Card>
 
       <Card>
-        <Text style={stylesTitle}>Session</Text>
-        <Text style={stylesMuted}>
-          {state.session.isGuest
-            ? "Guest mode keeps emergency actions available while login is completed."
-            : `Signed in as ${state.session.phone}`}
-        </Text>
-        <ActionButton
-          icon="user-check"
-          label="Use demo citizen session"
-          onPress={() => void actions.updateSessionPhone("+233200000000")}
-          tone="navy"
-        />
+        <Text style={stylesTitle}>Citizen sign-in</Text>
+        {state.session.isGuest ? (
+          <View style={stylesStack}>
+            <Text style={stylesMuted}>
+              Guest mode keeps emergency actions available. Sign in with your
+              phone number to sync reports and volunteer assignments — we send
+              a one-time code.
+            </Text>
+            <Field
+              label="Full name (new accounts)"
+              onChangeText={(name) =>
+                actions.saveSignInDraft({ ...state.signIn, name })
+              }
+              placeholder="Ama Mensah"
+              value={state.signIn.name}
+            />
+            <Field
+              label="Phone"
+              onChangeText={(phone) =>
+                actions.saveSignInDraft({ ...state.signIn, phone })
+              }
+              placeholder="+233201234567"
+              value={state.signIn.phone}
+            />
+            <ActionButton
+              icon="message-circle"
+              label="Send sign-in code"
+              onPress={() => void actions.requestSignInCode()}
+              tone="navy"
+            />
+            <Field
+              label="One-time code"
+              onChangeText={(otp) =>
+                actions.saveSignInDraft({ ...state.signIn, otp })
+              }
+              placeholder="Code from SMS"
+              value={state.signIn.otp}
+            />
+            <ActionButton
+              icon="check-circle"
+              label="Verify and sign in"
+              onPress={() => void actions.verifySignIn()}
+              tone="green"
+            />
+          </View>
+        ) : (
+          <Text style={stylesMuted}>
+            {`Signed in as ${state.session.name} (${state.session.phone}).`}
+          </Text>
+        )}
         <Text style={stylesMuted}>
           Push status:{" "}
           {state.pushState.status === "registered"

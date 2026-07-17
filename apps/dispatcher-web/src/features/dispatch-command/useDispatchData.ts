@@ -26,6 +26,7 @@ import type {
 } from "@nadaa/shared-types";
 import {
   ALERT_API_BASE,
+  FIXTURE_DATA_ENABLED,
   INCIDENT_API_BASE,
   ML_API_BASE,
   ROAD_CLOSURE_API_BASE,
@@ -58,6 +59,7 @@ import type {
   TriageSuggestionReview,
 } from "./types";
 import {
+  alertDatesError,
   alertStatusLabel,
   abuseDecisionLabel,
   assignmentForIncident,
@@ -128,7 +130,7 @@ export function useDispatchData() {
     buildDefaultAlertForm(),
   );
   const [mlPredictions, setMlPredictions] = useState<MLPredictionReview[]>(
-    fallbackMLPredictions,
+    FIXTURE_DATA_ENABLED ? fallbackMLPredictions : [],
   );
   const [mlReviewLoadState, setMlReviewLoadState] =
     useState<MLReviewLoadState>("loading");
@@ -136,7 +138,7 @@ export function useDispatchData() {
     "Loading ML flood predictions",
   );
   const [selectedPredictionId, setSelectedPredictionId] = useState(
-    fallbackMLPredictions[0]?.id ?? "",
+    FIXTURE_DATA_ENABLED ? (fallbackMLPredictions[0]?.id ?? "") : "",
   );
   const [mlDraftBusy, setMlDraftBusy] = useState(false);
   const [mlDraftFeedback, setMlDraftFeedback] = useState("");
@@ -297,11 +299,21 @@ export function useDispatchData() {
         return;
       }
 
-      setMlPredictions(fallbackMLPredictions);
-      setSelectedPredictionId(fallbackMLPredictions[0]?.id ?? "");
-      setMlReviewLoadState("fallback");
+      if (FIXTURE_DATA_ENABLED) {
+        setMlPredictions(fallbackMLPredictions);
+        setSelectedPredictionId(fallbackMLPredictions[0]?.id ?? "");
+        setMlReviewLoadState("fallback");
+        setMlReviewMessage(
+          "ML service unavailable. Showing baseline prediction fixture data (dev only).",
+        );
+        return;
+      }
+
+      setMlPredictions([]);
+      setSelectedPredictionId("");
+      setMlReviewLoadState("error");
       setMlReviewMessage(
-        "ML service unavailable. Showing baseline prediction fixture data.",
+        "ML service unavailable. Live predictions could not be loaded.",
       );
     }
   };
@@ -347,7 +359,7 @@ export function useDispatchData() {
       }
 
       const incident = incidents.find((item) => item.id === incidentId);
-      if (!incident) {
+      if (!incident || !FIXTURE_DATA_ENABLED) {
         setTriageSuggestion(undefined);
         setTriageForm(buildDefaultTriageForm());
         setTriageLoadState("error");
@@ -360,7 +372,7 @@ export function useDispatchData() {
       setTriageForm(buildDefaultTriageForm(fallback));
       setTriageLoadState("fallback");
       setTriageMessage(
-        "Incident triage API unavailable. Showing rule-based suggestion.",
+        "Incident triage API unavailable. Showing rule-based suggestion (dev only).",
       );
     }
   };
@@ -603,15 +615,29 @@ export function useDispatchData() {
       return;
     }
 
-    const fallback = fallbackTriageSuggestion(selectedIncident);
-    setTriageSuggestion(fallback);
-    setTriageForm(buildDefaultTriageForm(fallback));
+    if (FIXTURE_DATA_ENABLED) {
+      const fallback = fallbackTriageSuggestion(selectedIncident);
+      setTriageSuggestion(fallback);
+      setTriageForm(buildDefaultTriageForm(fallback));
+    } else {
+      setTriageSuggestion(undefined);
+      setTriageForm(buildDefaultTriageForm());
+    }
 
     if (selectedIncident.source !== "api") {
-      setTriageLoadState("fallback");
-      setTriageMessage(
-        "Fixture incident: showing the rule-based fixture suggestion. Reviews are not logged for fixture data.",
-      );
+      if (FIXTURE_DATA_ENABLED) {
+        setTriageLoadState("fallback");
+        setTriageMessage(
+          "Fixture incident: showing the rule-based fixture suggestion. Reviews are not logged for fixture data.",
+        );
+      } else {
+        setTriageSuggestion(undefined);
+        setTriageForm(buildDefaultTriageForm());
+        setTriageLoadState("error");
+        setTriageMessage(
+          "Fixture incident data is not available outside development.",
+        );
+      }
     }
 
     const controller = new AbortController();
@@ -1153,6 +1179,14 @@ export function useDispatchData() {
   });
 
   const createAlertDraft = async () => {
+    // Validate the schedule before any request: invalid dates would throw a
+    // RangeError in buildAlertRequest and surface as a fake API failure.
+    const datesError = alertDatesError(alertForm);
+    if (datesError) {
+      setAlertFeedback(datesError);
+      return;
+    }
+
     setAlertBusy(true);
     setAlertFeedback("");
     try {
@@ -1182,6 +1216,15 @@ export function useDispatchData() {
 
   const createAlertDraftFromPrediction = async () => {
     if (!selectedPrediction) {
+      return;
+    }
+
+    // Safety gate: a reviewed draft must never be built from fixture
+    // predictions — only live ML output may drive a real alert draft.
+    if (mlReviewLoadState !== "ready") {
+      setMlDraftFeedback(
+        "Live ML predictions unavailable — a reviewed draft cannot be created from fixture data.",
+      );
       return;
     }
 
@@ -1252,7 +1295,12 @@ export function useDispatchData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`alert API returned ${response.status}`);
+        const errorBody = (await response.json().catch(() => null)) as {
+          error?: { code?: string; message?: string };
+        } | null;
+        throw new Error(
+          errorBody?.error?.message ?? `alert API returned ${response.status}`,
+        );
       }
       const updatedAlert = (await response.json()) as AuthorityAlertRecord;
       setAlerts((current) =>
@@ -1263,7 +1311,11 @@ export function useDispatchData() {
       setAlertLoadState("ready");
       setAlertFeedback(`${alertStatusLabel(updatedAlert.status)} alert saved.`);
     } catch (error) {
-      setAlertFeedback("Alert action needs the alert-service API running.");
+      setAlertFeedback(
+        error instanceof Error && error.message
+          ? error.message
+          : "Alert action needs the alert-service API running.",
+      );
     } finally {
       setAlertBusy(false);
     }

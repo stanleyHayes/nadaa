@@ -23,17 +23,21 @@ function sleep(ms) {
 async function waitForHealth(maxMs = 30000) {
   const deadline = Date.now() + maxMs;
   let lastErr;
+  let lastStatus;
   while (Date.now() < deadline) {
     try {
       const res = await fetch(`${rootURL}/healthz`);
       if (res.ok) return;
+      lastErr = undefined;
+      lastStatus = res.status;
     } catch (err) {
       lastErr = err;
+      lastStatus = undefined;
     }
     await sleep(500);
   }
   throw new Error(
-    `donation-service did not become healthy: ${lastErr?.message}`,
+    `donation-service did not become healthy: ${lastErr ? lastErr.message : `last status ${lastStatus ?? "unknown"}`}`,
   );
 }
 
@@ -45,10 +49,18 @@ async function ensureService() {
     // service is not running; start it below
   }
   console.log("starting donation-service for smoke test...");
-  serviceChild = spawn("go", ["run", "."], {
+  serviceChild = spawn("go", ["run", "./cmd/server"], {
     cwd: serviceDir,
     stdio: "inherit",
     detached: false,
+    env: {
+      ...process.env,
+      // Dev-mode auth wiring: mock X-NADAA-Actor-* headers are honored and the
+      // sandbox provider credits payments only in development.
+      NADAA_ENV: "development",
+      NADAA_AUTH_ALLOW_MOCK_ACTORS: "true",
+      NADAA_AUTH_TOKEN_SECRET: "dev-secret-change-me",
+    },
   });
   serviceChild.on("error", (err) => {
     console.error("failed to start donation-service:", err.message);
@@ -67,7 +79,10 @@ process.on("SIGINT", () => {
   cleanup();
   process.exit(130);
 });
-process.on("SIGTERM", cleanup);
+process.on("SIGTERM", () => {
+  cleanup();
+  process.exit(143);
+});
 
 await ensureService();
 

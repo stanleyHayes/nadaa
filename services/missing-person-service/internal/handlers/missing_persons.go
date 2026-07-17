@@ -43,11 +43,13 @@ func (s *Server) listPublicMissingPersonsHandler(w http.ResponseWriter, r *http.
 		return
 	}
 	records := s.store.ListPublicMissingPersons(filter)
-	log.Printf("INFO missing-person-service public_list count=%d status=%s district=%s queryPresent=%t", len(records), filter.Status, filter.District, filter.Query != "")
+	// #nosec G706 -- filter values are sanitized with utils.SanitizeLogValue.
+	log.Printf("INFO missing-person-service public_list count=%d status=%s district=%s queryPresent=%t", len(records), utils.SanitizeLogValue(filter.Status), utils.SanitizeLogValue(filter.District), filter.Query != "")
 	utils.WriteJSON(w, http.StatusOK, models.PublicMissingPersonListResponse{Records: records, GeneratedAt: s.now().UTC()})
 }
 
 func (s *Server) createMissingPersonHandler(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var request models.CreateMissingPersonRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
 		log.Printf("WARN missing-person-service intake invalid_json error=%v", err)
@@ -75,7 +77,7 @@ func (s *Server) getPublicMissingPersonHandler(w http.ResponseWriter, r *http.Re
 }
 
 func (s *Server) listAuthorityMissingPersonsHandler(w http.ResponseWriter, r *http.Request) {
-	_, ok := requireAuthority(w, r)
+	_, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
@@ -85,12 +87,13 @@ func (s *Server) listAuthorityMissingPersonsHandler(w http.ResponseWriter, r *ht
 		return
 	}
 	records := s.store.ListMissingPersons(filter)
-	log.Printf("INFO missing-person-service authority_list count=%d status=%s district=%s queryPresent=%t", len(records), filter.Status, filter.District, filter.Query != "")
+	// #nosec G706 -- filter values are sanitized with utils.SanitizeLogValue.
+	log.Printf("INFO missing-person-service authority_list count=%d status=%s district=%s queryPresent=%t", len(records), utils.SanitizeLogValue(filter.Status), utils.SanitizeLogValue(filter.District), filter.Query != "")
 	utils.WriteJSON(w, http.StatusOK, models.MissingPersonListResponse{Records: records, GeneratedAt: s.now().UTC()})
 }
 
 func (s *Server) getAuthorityMissingPersonHandler(w http.ResponseWriter, r *http.Request) {
-	_, ok := requireAuthority(w, r)
+	_, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
@@ -103,66 +106,75 @@ func (s *Server) getAuthorityMissingPersonHandler(w http.ResponseWriter, r *http
 }
 
 func (s *Server) reviewMissingPersonHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
 	var request models.ReviewMissingPersonRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN missing-person-service review invalid_json actor=%s error=%v", ctx.ActorUserID, err)
+		// #nosec G706 -- actor id is sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN missing-person-service review invalid_json actor=%s error=%v", utils.SanitizeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 	normalized, code, message := normalizeReviewMissingPerson(request)
 	if code != "" {
-		log.Printf("WARN missing-person-service review validation_failed actor=%s code=%s", ctx.ActorUserID, code)
+		// #nosec G706 -- actor id is sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN missing-person-service review validation_failed actor=%s code=%s", utils.SanitizeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 	record, code, message := s.store.ReviewMissingPerson(r.PathValue("id"), normalized, ctx, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN missing-person-service review failed id=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- path value and actor id are sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN missing-person-service review failed id=%s actor=%s code=%s", utils.SanitizeLogValue(r.PathValue("id")), utils.SanitizeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO missing-person-service review completed id=%s actor=%s reviewStatus=%s visibility=%s status=%s", record.ID, ctx.ActorUserID, record.ReviewStatus, record.PublicVisibility, record.Status)
+	// #nosec G706 -- actor id is sanitized with utils.SanitizeLogValue.
+	log.Printf("INFO missing-person-service review completed id=%s actor=%s reviewStatus=%s visibility=%s status=%s", record.ID, utils.SanitizeLogValue(ctx.ActorUserID), record.ReviewStatus, record.PublicVisibility, record.Status)
 	utils.WriteJSON(w, http.StatusOK, record)
 }
 
 func (s *Server) closeMissingPersonHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
 	var request models.CloseMissingPersonRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN missing-person-service close invalid_json actor=%s error=%v", ctx.ActorUserID, err)
+		// #nosec G706 -- actor id is sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN missing-person-service close invalid_json actor=%s error=%v", utils.SanitizeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 	normalized, code, message := normalizeCloseMissingPerson(request)
 	if code != "" {
-		log.Printf("WARN missing-person-service close validation_failed actor=%s code=%s", ctx.ActorUserID, code)
+		// #nosec G706 -- actor id is sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN missing-person-service close validation_failed actor=%s code=%s", utils.SanitizeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 	record, code, message := s.store.CloseMissingPerson(r.PathValue("id"), normalized, ctx, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN missing-person-service close failed id=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- path value and actor id are sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN missing-person-service close failed id=%s actor=%s code=%s", utils.SanitizeLogValue(r.PathValue("id")), utils.SanitizeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO missing-person-service close completed id=%s actor=%s closureType=%s status=%s", record.ID, ctx.ActorUserID, record.ClosureType, record.Status)
+	// #nosec G706 -- actor id is sanitized with utils.SanitizeLogValue.
+	log.Printf("INFO missing-person-service close completed id=%s actor=%s closureType=%s status=%s", record.ID, utils.SanitizeLogValue(ctx.ActorUserID), record.ClosureType, record.Status)
 	utils.WriteJSON(w, http.StatusOK, record)
 }
 
 func (s *Server) listAuditHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
 	entries := s.store.ListAudit(r.PathValue("id"))
-	log.Printf("INFO missing-person-service audit_list id=%s actor=%s count=%d", r.PathValue("id"), ctx.ActorUserID, len(entries))
+	// #nosec G706 -- path value and actor id are sanitized with utils.SanitizeLogValue.
+	log.Printf("INFO missing-person-service audit_list id=%s actor=%s count=%d", utils.SanitizeLogValue(r.PathValue("id")), utils.SanitizeLogValue(ctx.ActorUserID), len(entries))
 	utils.WriteJSON(w, http.StatusOK, models.MissingPersonAuditResponse{Entries: entries, GeneratedAt: s.now().UTC()})
 }
 
@@ -219,7 +231,7 @@ func validateMissingPersonDetails(request models.CreateMissingPersonRequest) (st
 	if request.PersonName == "" || len(request.PersonName) > 120 || utils.UnsafeText(request.PersonName) {
 		return "invalid_person_name", "personName is required and must be 120 safe characters or fewer"
 	}
-	if request.Age < 0 || request.Age > 120 {
+	if request.Age != nil && (*request.Age < 0 || *request.Age > 120) {
 		return "invalid_age", "age must be between 0 and 120"
 	}
 	if !allowedGenderValues[request.Gender] {
@@ -289,6 +301,9 @@ func normalizeReviewMissingPerson(request models.ReviewMissingPersonRequest) (mo
 	}
 	if request.Status != "" && !allowedStatuses[request.Status] {
 		return request, "invalid_status", "status is not supported"
+	}
+	if request.Decision != "reject" && request.Status != "" && request.Status != "active" && request.Status != "located" {
+		return request, "invalid_status", "status must be active or located when approving a record"
 	}
 	if len(request.PublicSummary) > 500 || utils.UnsafeText(request.PublicSummary) {
 		return request, "invalid_public_summary", "publicSummary must be 500 safe characters or fewer"

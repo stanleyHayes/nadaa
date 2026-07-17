@@ -40,9 +40,12 @@ Sensitive actions require authority authentication, RBAC, MFA where applicable, 
 ## Authority Authentication Baseline
 
 - Agency users must belong to an agency and use one of the authority roles.
-- Agency tokens include user type, role, agency id, and MFA-completed state.
+- Agency users log in via `POST /api/v1/auth/agency/login` (`{email, password, mfaCode}`); auth-service issues 12-hour HMAC-signed bearer tokens (`nadaa.<payload>.<sig>`).
+- Agency tokens include user type, role, agency id, district, and MFA-completed state.
+- Every service verifies the bearer token with the shared `NADAA_AUTH_TOKEN_SECRET`; authority endpoints reject unauthenticated or under-privileged callers.
 - Agency-user creation is limited to `system_admin` and `agency_admin`; agency admins are scoped to their own agency.
 - Agency users cannot log in until MFA setup and verification are complete.
+- Self-asserted `X-NADAA-Actor-*` identity headers are honored only when a service runs with `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` (local development and smoke tests); deployed environments must set it to `false`.
 - Mock MFA is acceptable only for local development and automated tests until the production MFA provider is connected.
 
 ## MVP Controls
@@ -50,7 +53,7 @@ Sensitive actions require authority authentication, RBAC, MFA where applicable, 
 - Role-based access control for authority workflows.
 - MFA for authority users.
 - Audit logs for alert, incident, assignment, status, and admin actions.
-- Starter incident workflow endpoints require explicit authority actor, role, agency, MFA-completed, and request-id headers until shared bearer-token middleware is wired across services.
+- Authority workflow endpoints on every service require a verified auth-service bearer token; self-asserted actor/request-id headers are accepted only in local development (`NADAA_AUTH_ALLOW_MOCK_ACTORS=true`).
 - Explicit contact permission for citizen reports.
 - Anonymous report support where policy allows.
 - Rate limits for public incident intake.
@@ -152,7 +155,7 @@ Use environment variables and deployment secret stores.
 - Alert drafts do not reach citizens until approved.
 - Mass alerts require approval.
 - Emergency override is restricted, audited, and visible in review reports.
-- MVP alert-service write endpoints require authority actor, role, agency, MFA-completed, and request-id headers until shared bearer-token middleware is wired across services.
+- Alert-service write endpoints require a verified authority bearer token with MFA completed (mock actor headers only in local development).
 - Non-system approvers cannot approve their own draft; emergency override is the audited exception path for urgent public warnings.
 - ML predictions can create drafts but cannot publish alerts.
 - Alert expiry is mandatory.

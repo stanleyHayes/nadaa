@@ -22,7 +22,11 @@ func (s *server) createSyncEventHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	event := s.store.CreateSyncEvent(request, time.Now().UTC())
+	event, created := s.store.CreateSyncEvent(request, time.Now().UTC())
+	if !created {
+		utils.WriteJSON(w, http.StatusOK, event)
+		return
+	}
 	utils.WriteJSON(w, http.StatusAccepted, event)
 }
 

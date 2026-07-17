@@ -1,5 +1,6 @@
 import { nadaaBrand, severityRoles, type Severity } from "@nadaa/brand";
 import type {
+  AgencySummary,
   AgencyType,
   AgencyUserRole,
   AlertSeverity,
@@ -158,6 +159,26 @@ export function managedUserFromCreateResponse(
     ...response.user,
     status: "mfa_pending",
     accessScope: `${roleLabel(response.user.role)} access`,
+  };
+}
+
+/**
+ * Project a directory entry onto the governance view model. The directory API
+ * only exposes identity fields, so operational metrics start at zero and the
+ * scope line is derived from the agency type and district rather than
+ * fabricated.
+ */
+export function managedAgencyFromSummary(
+  summary: AgencySummary,
+): ManagedAgency {
+  return {
+    ...summary,
+    status: "active",
+    users: 0,
+    openAssignments: 0,
+    mfaCoverage: 0,
+    dataScope: `${agencyTypeLabel(summary.type)} operations — ${summary.district || summary.region}`,
+    lastAuditAt: "",
   };
 }
 

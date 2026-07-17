@@ -189,12 +189,19 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (isDevelopmentEnv() && (strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:"))) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
+}
+
+// isDevelopmentEnv reports whether the service runs in a development
+// environment; only then may CORS echo localhost/127.0.0.1 origins outside the
+// configured allowlist.
+func isDevelopmentEnv() bool {
+	return strings.TrimSpace(os.Getenv("NADAA_ENV")) == "development"
 }
 
 // EnvOrDefault returns the value of key or fallback if unset.
@@ -466,12 +473,14 @@ func NormalizeGeometry(geometry *models.TargetGeometry) *models.TargetGeometry {
 	}
 }
 
-// NormalizeTargetIDs normalizes and compacts target ids.
+// NormalizeTargetIDs normalizes, compacts, and dedupes target ids.
 func NormalizeTargetIDs(values []string) []string {
 	result := make([]string, 0, len(values))
+	seen := make(map[string]bool, len(values))
 	for _, value := range values {
 		value = NormalizeQueryValue(value)
-		if value != "" {
+		if value != "" && !seen[value] {
+			seen[value] = true
 			result = append(result, value)
 		}
 	}

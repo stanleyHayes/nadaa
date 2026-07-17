@@ -36,14 +36,37 @@ func (m *MemoryStore) ListGuides(ctx context.Context, filters models.GuideFilter
 
 	guides := m.listGuidesLocked(filters)
 
-	if filters.Language != "" && filters.Language != defaultLanguage && len(guides) == 0 {
-		fallbackFilters := filters
-		fallbackFilters.Language = defaultLanguage
-		guides = m.listGuidesLocked(fallbackFilters)
+	if filters.Language != "" && filters.Language != defaultLanguage {
+		guides = append(guides, m.englishFillersLocked(filters, guides)...)
 	}
 
 	sortGuides(guides)
 	return guides
+}
+
+// englishFillersLocked returns English guides for (hazard, stage) groups with
+// no guide in the requested language, while assuming the read lock is held.
+func (m *MemoryStore) englishFillersLocked(filters models.GuideFilters, guides []models.EmergencyGuide) []models.EmergencyGuide {
+	type guideGroup struct {
+		hazard string
+		stage  string
+	}
+	covered := make(map[guideGroup]bool, len(guides))
+	for _, guide := range guides {
+		covered[guideGroup{hazard: guide.HazardType, stage: guide.Stage}] = true
+	}
+
+	fillerFilters := filters
+	fillerFilters.Language = defaultLanguage
+
+	var fillers []models.EmergencyGuide
+	for _, guide := range m.listGuidesLocked(fillerFilters) {
+		if covered[guideGroup{hazard: guide.HazardType, stage: guide.Stage}] {
+			continue
+		}
+		fillers = append(fillers, guide)
+	}
+	return fillers
 }
 
 // listGuidesLocked returns matching guides while assuming the read lock is held.

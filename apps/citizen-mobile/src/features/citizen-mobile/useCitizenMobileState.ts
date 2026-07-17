@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type {
   AreaRiskResponse,
   CitizenAlertFeedItem,
@@ -15,24 +16,26 @@ import {
   fetchGuides,
   fetchNearbyShelters,
   fetchVolunteerTasks,
+  loginCitizen,
+  registerCitizen,
   registerVolunteerProfile,
   registerPushToken,
+  requestCitizenLoginOtp,
   submitIncidentDraft,
   submitVolunteerObservation as submitVolunteerObservationAPI,
   updateVolunteerTaskStatus,
 } from "./api";
 import {
-  buildFallbackAlerts,
   buildFallbackGuides,
+  emptyShelters,
   initialPermissions,
   initialReportDraft,
+  initialSession,
+  initialSignIn,
   mobileAreaPresets,
-  sampleShelters,
-  sampleVolunteerProfile,
-  sampleVolunteerTasks,
 } from "./data";
+import type { KeyValueStorage } from "./offline";
 import {
-  createMemoryStorage,
   readGuideCache,
   readReportDraft,
   readSession,
@@ -44,9 +47,10 @@ import {
   writeVolunteerProfile,
   writeVolunteerTasks,
 } from "./offline";
-import { nextPermissionStatus, permissionMessage } from "./permissions";
+import { permissionMessage, requestOSPermission } from "./permissions";
 import {
   configureAlertNotifications,
+  getAlertPermissionStatus,
   notifyNewAlerts,
   requestAlertPermission,
 } from "./alertNotifications";
@@ -54,17 +58,24 @@ import type {
   AlertView,
   MobileLoadState,
   MobilePermissionState,
+  MobileSession,
   PushRegistrationState,
   ReportDraft,
+  SignInDraft,
   VolunteerObservationDraft,
 } from "./types";
 
-const storage = createMemoryStorage();
+// Drafts, session, guide cache, and volunteer data persist across cold starts.
+const storage: KeyValueStorage = AsyncStorage;
+
+const E164_PHONE = /^\+[1-9]\d{7,14}$/;
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export function useCitizenMobileState() {
-  const [alerts, setAlerts] = useState<CitizenAlertFeedItem[]>(() =>
-    buildFallbackAlerts(),
-  );
+  const [alerts, setAlerts] = useState<CitizenAlertFeedItem[]>([]);
   const [alertView, setAlertView] = useState<AlertView>("current");
   const [guides, setGuides] = useState<EmergencyGuideRecord[]>(() =>
     buildFallbackGuides(),
@@ -83,27 +94,21 @@ export function useCitizenMobileState() {
     useState<ReportDraft>(initialReportDraft);
   const [risk, setRisk] = useState<AreaRiskResponse>(() => fallbackRisk());
   const [selectedArea, setSelectedArea] = useState(mobileAreaPresets[0]);
+  const [session, setSession] = useState<MobileSession>(initialSession);
   const [shelters, setShelters] =
-    useState<NearbyShelterResponse>(sampleShelters);
-  const [session, setSession] = useState({
-    contactPermission: true,
-    isGuest: true,
-    name: "Guest citizen",
-    phone: "+233200000000",
-    preferredLanguage: "en",
-    userId: "usr_mobile_guest",
-  });
+    useState<NearbyShelterResponse>(emptyShelters);
+  const [signIn, setSignIn] = useState<SignInDraft>(initialSignIn);
   const [volunteerObservation, setVolunteerObservation] =
     useState<VolunteerObservationDraft>({
       escalationRequested: false,
       note: "",
       safetyStatus: "safe",
     });
-  const [volunteerProfile, setVolunteerProfile] = useState<VolunteerProfile>(
-    sampleVolunteerProfile,
+  const [volunteerProfile, setVolunteerProfile] =
+    useState<VolunteerProfile | null>(null);
+  const [volunteerTasks, setVolunteerTasks] = useState<VolunteerTaskRecord[]>(
+    [],
   );
-  const [volunteerTasks, setVolunteerTasks] =
-    useState<VolunteerTaskRecord[]>(sampleVolunteerTasks);
 
   const seenAlertIds = useRef<Set<string>>(new Set());
   const alertsSeeded = useRef(false);
@@ -111,6 +116,7 @@ export function useCitizenMobileState() {
   useEffect(() => {
     void hydrate();
     void configureAlertNotifications();
+    void hydratePushPermission();
   }, []);
 
   const visibleAlerts = useMemo(
@@ -157,16 +163,26 @@ export function useCitizenMobileState() {
     });
   }
 
+  // #31: sync the push permission from the OS so a persisted grant keeps
+  // notifications working after an app restart.
+  async function hydratePushPermission() {
+    try {
+      const status = await getAlertPermissionStatus();
+      setPermissions((current) => ({ ...current, push: status }));
+    } catch {
+      // Leave push as "unknown" when the OS status cannot be read.
+    }
+  }
+
   async function refreshAll() {
     setLoadState({ status: "loading", message: "Refreshing citizen mobile" });
     try {
-      const [nextRisk, nextAlerts, nextGuides, nextShelters, nextTasks] =
+      const [nextRisk, nextAlerts, nextGuides, nextShelters] =
         await Promise.all([
           fetchAreaRisk(selectedArea.lat, selectedArea.lng),
           fetchAlertFeed(),
           fetchGuides(session.preferredLanguage),
           fetchNearbyShelters(selectedArea.lat, selectedArea.lng),
-          fetchVolunteerTasks(volunteerProfile.id),
         ]);
       setRisk(nextRisk);
       setAlerts(nextAlerts);
@@ -185,25 +201,31 @@ export function useCitizenMobileState() {
       alertsSeeded.current = true;
       setGuides(nextGuides);
       setShelters(nextShelters);
-      setVolunteerTasks(nextTasks);
+      // Volunteer tasks require a signed-in citizen token; skip without one.
+      if (volunteerProfile && session.accessToken) {
+        const nextTasks = await fetchVolunteerTasks(
+          volunteerProfile.id,
+          session.accessToken,
+        );
+        setVolunteerTasks(nextTasks);
+        await writeVolunteerTasks(storage, nextTasks);
+      }
       await writeGuideCache(storage, {
         cachedAt: new Date().toISOString(),
         guides: nextGuides,
         language: session.preferredLanguage,
       });
-      await writeVolunteerTasks(storage, nextTasks);
       setLoadState({
         status: "success",
-        message:
-          "Alerts, risk, guides, shelters, and volunteer tasks refreshed.",
+        message: "Alerts, risk, guides, and shelters refreshed.",
       });
     } catch (error) {
       setLoadState({
         status: "offline",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Network unavailable. Showing saved content.",
+        message: errorMessage(
+          error,
+          "Network unavailable. Showing saved content.",
+        ),
       });
     }
   }
@@ -228,70 +250,209 @@ export function useCitizenMobileState() {
       await writeReportDraft(storage, reportDraft);
       setLoadState({
         status: "error",
-        message:
-          error instanceof Error
-            ? `${error.message} Draft saved for retry.`
-            : "Could not submit. Draft saved for retry.",
+        message: `${errorMessage(error, "Could not submit.")} Draft saved for retry.`,
       });
     }
   }
 
-  async function updateSessionPhone(phone: string) {
-    const nextSession = { ...session, isGuest: false, phone };
-    setSession(nextSession);
-    await writeSession(storage, nextSession);
+  function saveSignInDraft(nextDraft: SignInDraft) {
+    setSignIn(nextDraft);
+  }
+
+  async function requestSignInCode() {
+    const phone = signIn.phone.trim();
+    if (!E164_PHONE.test(phone)) {
+      setLoadState({
+        status: "error",
+        message:
+          "Enter your phone in international format, for example +233201234567.",
+      });
+      return;
+    }
+    setLoadState({ status: "loading", message: "Sending sign-in code" });
+    try {
+      let challenge = await requestCitizenLoginOtp(phone);
+      if (!challenge) {
+        const name = signIn.name.trim();
+        if (!name) {
+          setLoadState({
+            status: "error",
+            message:
+              "This phone is not registered yet. Enter your name to create a citizen account.",
+          });
+          return;
+        }
+        challenge = await registerCitizen({
+          contactPermission: true,
+          name,
+          phone,
+          preferredLanguage: session.preferredLanguage,
+        });
+      }
+      setSignIn({
+        ...signIn,
+        challengeId: challenge.challengeId,
+        devOtp: challenge.devOtp,
+        phone,
+      });
+      setLoadState({
+        status: "success",
+        message: challenge.devOtp
+          ? `Sign-in code sent via ${challenge.otpDelivery}. Dev code: ${challenge.devOtp}.`
+          : `Sign-in code sent via ${challenge.otpDelivery}.`,
+      });
+    } catch (error) {
+      setLoadState({
+        status: "error",
+        message: errorMessage(error, "Could not send the sign-in code."),
+      });
+    }
+  }
+
+  async function verifySignIn() {
+    const phone = signIn.phone.trim();
+    const otp = signIn.otp.trim();
+    if (!otp) {
+      setLoadState({
+        status: "error",
+        message: "Enter the sign-in code we sent to your phone.",
+      });
+      return;
+    }
+    setLoadState({ status: "loading", message: "Verifying sign-in code" });
+    try {
+      const result = await loginCitizen(phone, otp);
+      const nextSession: MobileSession = {
+        accessToken: result.accessToken,
+        contactPermission: result.user.contactPermission,
+        isGuest: false,
+        name: result.user.name,
+        phone: result.user.phone,
+        preferredLanguage:
+          result.user.preferredLanguage || session.preferredLanguage,
+        userId: result.user.id,
+      };
+      setSession(nextSession);
+      await writeSession(storage, nextSession);
+      setSignIn(initialSignIn);
+      setLoadState({
+        status: "success",
+        message: `Signed in as ${result.user.name}.`,
+      });
+    } catch (error) {
+      setLoadState({
+        status: "error",
+        message: errorMessage(error, "Could not verify the sign-in code."),
+      });
+    }
   }
 
   async function registerVolunteer() {
+    if (!session.accessToken) {
+      setLoadState({
+        status: "error",
+        message:
+          "Sign in with your citizen phone number before registering as a volunteer.",
+      });
+      return;
+    }
     setLoadState({
       status: "loading",
       message: "Registering community volunteer profile",
     });
-    const response = await registerVolunteerProfile(session);
-    setVolunteerProfile(response.volunteer);
-    await writeVolunteerProfile(storage, response.volunteer);
-    const tasks = await fetchVolunteerTasks(response.volunteer.id);
-    setVolunteerTasks(tasks);
-    await writeVolunteerTasks(storage, tasks);
-    setLoadState({
-      status: "success",
-      message: `Volunteer group ready: ${response.volunteer.community}.`,
-    });
+    try {
+      const response = await registerVolunteerProfile(session);
+      setVolunteerProfile(response.volunteer);
+      await writeVolunteerProfile(storage, response.volunteer);
+      const tasks = await fetchVolunteerTasks(
+        response.volunteer.id,
+        session.accessToken,
+      );
+      setVolunteerTasks(tasks);
+      await writeVolunteerTasks(storage, tasks);
+      setLoadState({
+        status: "success",
+        message: `Volunteer group ready: ${response.volunteer.community}.`,
+      });
+    } catch (error) {
+      setLoadState({
+        status: "error",
+        message: `${errorMessage(error, "Could not register the volunteer profile.")} Check your connection and retry.`,
+      });
+    }
   }
 
   async function refreshVolunteerTasks() {
+    if (!volunteerProfile || !session.accessToken) {
+      setLoadState({
+        status: "error",
+        message:
+          "Sign in and register a volunteer profile to load assignments.",
+      });
+      return;
+    }
     setLoadState({ status: "loading", message: "Refreshing volunteer tasks" });
-    const tasks = await fetchVolunteerTasks(volunteerProfile.id);
-    setVolunteerTasks(tasks);
-    await writeVolunteerTasks(storage, tasks);
-    setLoadState({
-      status: "success",
-      message: `${tasks.length} volunteer tasks ready.`,
-    });
+    try {
+      const tasks = await fetchVolunteerTasks(
+        volunteerProfile.id,
+        session.accessToken,
+      );
+      setVolunteerTasks(tasks);
+      await writeVolunteerTasks(storage, tasks);
+      setLoadState({
+        status: "success",
+        message: `${tasks.length} volunteer tasks ready.`,
+      });
+    } catch (error) {
+      setLoadState({
+        status: "error",
+        message: `${errorMessage(error, "Could not load volunteer tasks.")} Check your connection and retry.`,
+      });
+    }
   }
 
   async function updateVolunteerStatus(
     taskId: string,
     status: Exclude<VolunteerTaskStatus, "assigned">,
   ) {
+    if (!volunteerProfile || !session.accessToken) {
+      setLoadState({
+        status: "error",
+        message:
+          "Sign in with your citizen phone number to update volunteer tasks.",
+      });
+      return;
+    }
     setLoadState({
       status: "loading",
       message: `Updating volunteer task to ${status}`,
     });
-    const task = await updateVolunteerTaskStatus(taskId, {
-      note: `Mobile volunteer status update: ${status}`,
-      safetyStatus: status === "needs_escalation" ? "needs_authority" : "safe",
-      status,
-      volunteerId: volunteerProfile.id,
-    });
-    await replaceVolunteerTask(task);
-    setLoadState({
-      status: status === "needs_escalation" ? "offline" : "success",
-      message:
-        status === "needs_escalation"
-          ? "Escalation marked. Call 112 if anyone is in danger."
-          : `Volunteer task updated to ${status}.`,
-    });
+    try {
+      const task = await updateVolunteerTaskStatus(
+        taskId,
+        {
+          note: `Mobile volunteer status update: ${status}`,
+          safetyStatus:
+            status === "needs_escalation" ? "needs_authority" : "safe",
+          status,
+          volunteerId: volunteerProfile.id,
+        },
+        session.accessToken,
+      );
+      await replaceVolunteerTask(task);
+      setLoadState({
+        status: status === "needs_escalation" ? "offline" : "success",
+        message:
+          status === "needs_escalation"
+            ? "Escalation marked. Call 112 if anyone is in danger."
+            : `Volunteer task updated to ${status}.`,
+      });
+    } catch (error) {
+      setLoadState({
+        status: "error",
+        message: `${errorMessage(error, "Could not update the volunteer task.")} Check your connection and retry.`,
+      });
+    }
   }
 
   async function saveVolunteerObservation(
@@ -308,28 +469,47 @@ export function useCitizenMobileState() {
       });
       return;
     }
+    if (!volunteerProfile || !session.accessToken) {
+      setLoadState({
+        status: "error",
+        message:
+          "Sign in with your citizen phone number to submit observations.",
+      });
+      return;
+    }
     setLoadState({
       status: "loading",
       message: "Submitting volunteer observation",
     });
-    const task = await submitVolunteerObservationAPI(taskId, {
-      escalationRequested: volunteerObservation.escalationRequested,
-      observation: volunteerObservation.note.trim(),
-      safetyStatus: volunteerObservation.safetyStatus,
-      volunteerId: volunteerProfile.id,
-    });
-    await replaceVolunteerTask(task);
-    setVolunteerObservation({
-      escalationRequested: false,
-      note: "",
-      safetyStatus: "safe",
-    });
-    setLoadState({
-      status: task.escalationRequired ? "offline" : "success",
-      message: task.escalationRequired
-        ? "Observation submitted with authority escalation."
-        : "Observation submitted.",
-    });
+    try {
+      const task = await submitVolunteerObservationAPI(
+        taskId,
+        {
+          escalationRequested: volunteerObservation.escalationRequested,
+          observation: volunteerObservation.note.trim(),
+          safetyStatus: volunteerObservation.safetyStatus,
+          volunteerId: volunteerProfile.id,
+        },
+        session.accessToken,
+      );
+      await replaceVolunteerTask(task);
+      setVolunteerObservation({
+        escalationRequested: false,
+        note: "",
+        safetyStatus: "safe",
+      });
+      setLoadState({
+        status: task.escalationRequired ? "offline" : "success",
+        message: task.escalationRequired
+          ? "Observation submitted with authority escalation."
+          : "Observation submitted.",
+      });
+    } catch (error) {
+      setLoadState({
+        status: "error",
+        message: `${errorMessage(error, "Could not submit the observation.")} Nothing was sent — check your connection and retry.`,
+      });
+    }
   }
 
   async function replaceVolunteerTask(task: VolunteerTaskRecord) {
@@ -342,20 +522,14 @@ export function useCitizenMobileState() {
   }
 
   async function togglePermission(key: keyof MobilePermissionState) {
-    const nextStatus = nextPermissionStatus(permissions[key]);
-    const nextPermissions = { ...permissions, [key]: nextStatus };
-    setPermissions(nextPermissions);
-    setLoadState({
-      status: nextStatus === "granted" ? "success" : "idle",
-      message: permissionMessage(key, nextStatus),
-    });
     if (key === "push") {
-      // Pin the permission to the REAL OS answer, not just the in-app toggle —
-      // otherwise notifications are scheduled but silently dropped.
-      let granted = nextStatus === "granted";
-      if (granted) {
-        granted = await requestAlertPermission();
-      }
+      // Pin the permission to the REAL OS answer — otherwise notifications are
+      // scheduled but silently dropped.
+      setLoadState({
+        status: "loading",
+        message: "Checking notification permission",
+      });
+      const granted = await requestAlertPermission();
       const resolved = granted ? "granted" : "denied";
       setPermissions((current) => ({ ...current, push: resolved }));
       setLoadState({
@@ -363,7 +537,20 @@ export function useCitizenMobileState() {
         message: permissionMessage("push", resolved),
       });
       setPushState(await registerPushToken(granted));
+      return;
     }
+    // Camera/location/media request the real OS permission and pin the
+    // displayed state to the actual OS answer.
+    setLoadState({
+      status: "loading",
+      message: `Requesting ${key} permission`,
+    });
+    const resolved = await requestOSPermission(key);
+    setPermissions((current) => ({ ...current, [key]: resolved }));
+    setLoadState({
+      status: resolved === "granted" ? "success" : "idle",
+      message: permissionMessage(key, resolved),
+    });
   }
 
   function chooseArea(index: number) {
@@ -377,14 +564,16 @@ export function useCitizenMobileState() {
       refreshAll,
       refreshVolunteerTasks,
       registerVolunteer,
+      requestSignInCode,
       saveDraft,
+      saveSignInDraft,
       saveVolunteerObservation,
       setAlertView,
       submitDraft,
       submitVolunteerObservation,
       togglePermission,
-      updateSessionPhone,
       updateVolunteerStatus,
+      verifySignIn,
     },
     state: {
       activeVolunteerTaskCount,
@@ -401,6 +590,7 @@ export function useCitizenMobileState() {
       selectedArea,
       session,
       shelters,
+      signIn,
       visibleAlerts,
       volunteerObservation,
       volunteerProfile,

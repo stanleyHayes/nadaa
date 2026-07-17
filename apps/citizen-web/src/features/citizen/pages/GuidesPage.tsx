@@ -43,6 +43,7 @@ import {
 } from "../data";
 import type {
   GuideCacheInfo,
+  GuideCachePayload,
   GuideFilters,
   GuideHazardFilter,
   GuideStageFilter,
@@ -73,23 +74,11 @@ export function GuidesPage() {
     stage: "during",
     language: "en",
   });
-  const [guides, setGuides] = useState<EmergencyGuideRecord[]>(() => {
-    const cached = readGuideCache();
-    return cached?.guides ?? [];
-  });
-  const [guideCacheInfo, setGuideCacheInfo] = useState<GuideCacheInfo>(() => {
-    const cached = readGuideCache();
-    return cached
-      ? {
-          cachedAt: cached.cachedAt,
-          source: "cache",
-          language: cached.language,
-        }
-      : {
-          cachedAt: new Date().toISOString(),
-          source: "network",
-          language: "en",
-        };
+  const [guides, setGuides] = useState<EmergencyGuideRecord[]>([]);
+  const [guideCacheInfo, setGuideCacheInfo] = useState<GuideCacheInfo>({
+    cachedAt: new Date().toISOString(),
+    source: "network",
+    language: "en",
   });
   const [guideState, setGuideState] = useState<GuideState>({
     status: "loading",
@@ -109,21 +98,37 @@ export function GuidesPage() {
     [guides],
   );
 
+  // The guide cache read is async (IndexedDB), so the page mounts empty,
+  // hydrates from the cache, then refreshes from the service.
   useEffect(() => {
-    void fetchGuides(guideFilters.language);
+    let cancelled = false;
+    void (async () => {
+      const cached = await readGuideCache();
+      if (!cancelled && cached?.guides.length) {
+        applyCachedGuides(cached);
+      }
+      void fetchGuides(guideFilters.language);
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function applyCachedGuides(cached: GuideCachePayload) {
+    setGuides(cached.guides);
+    setGuideCacheInfo({
+      cachedAt: cached.cachedAt,
+      source: "cache",
+      language: cached.language,
+    });
+  }
+
   async function fetchGuides(language = guideFilters.language) {
     if (!navigator.onLine) {
-      const cached = readGuideCache();
+      const cached = await readGuideCache();
       if (cached?.guides.length) {
-        setGuides(cached.guides);
-        setGuideCacheInfo({
-          cachedAt: cached.cachedAt,
-          source: "cache",
-          language: cached.language,
-        });
+        applyCachedGuides(cached);
         setGuideState({
           status: "offline",
           message: `Offline guide cache ready from ${formatDateTime(cached.cachedAt)}.`,
@@ -151,24 +156,23 @@ export function GuidesPage() {
       }
 
       const payload = (await response.json()) as GuideListResponse;
-      const nextGuides = payload.guides;
+      // The service pads non-English responses with English filler guides;
+      // dedupe by id so a guide never renders twice if the payload overlaps.
+      const nextGuides = Array.from(
+        new Map(payload.guides.map((guide) => [guide.id, guide])).values(),
+      );
       const cachedAt = new Date().toISOString();
       setGuides(nextGuides);
       setGuideCacheInfo({ cachedAt, source: "network", language });
-      writeGuideCache(nextGuides, language, cachedAt);
+      void writeGuideCache(nextGuides, language, cachedAt);
       setGuideState({
         status: "idle",
         message: `Saved ${nextGuides.length} offline guides for ${guideLanguageLabel(language)}.`,
       });
     } catch {
-      const cached = readGuideCache();
+      const cached = await readGuideCache();
       if (cached?.guides.length) {
-        setGuides(cached.guides);
-        setGuideCacheInfo({
-          cachedAt: cached.cachedAt,
-          source: "cache",
-          language: cached.language,
-        });
+        applyCachedGuides(cached);
         setGuideState({
           status: "offline",
           message: `Live guide service unavailable. Using offline cache from ${formatDateTime(cached.cachedAt)}.`,

@@ -7,15 +7,19 @@ import (
 
 // Config holds alert-service configuration loaded from the environment.
 type Config struct {
-	Addr           string
-	AllowedOrigins map[string]bool
+	Addr            string
+	AllowedOrigins  map[string]bool
+	TokenSecret     string
+	AllowMockActors bool
 }
 
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:           resolveListenAddr("NADAA_ALERT_ADDR", ":8089"),
-		AllowedOrigins: allowedOriginsFromEnv(),
+		Addr:            resolveListenAddr("NADAA_ALERT_ADDR", ":8089"),
+		AllowedOrigins:  allowedOriginsFromEnv(),
+		TokenSecret:     strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
+		AllowMockActors: strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")) == "true",
 	}
 }
 

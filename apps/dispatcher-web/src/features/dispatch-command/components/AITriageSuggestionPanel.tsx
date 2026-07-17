@@ -117,7 +117,13 @@ export function AITriageSuggestionPanel({
           <Chip
             size="small"
             label={
-              live ? "Live" : loadState === "loading" ? "Loading" : "Fixture"
+              live
+                ? "Live"
+                : loadState === "loading"
+                  ? "Loading"
+                  : loadState === "error"
+                    ? "Unavailable"
+                    : "Fixture"
             }
             color={live ? "success" : "warning"}
           />

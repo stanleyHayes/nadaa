@@ -1,5 +1,5 @@
 const requiredWebTargets = [
-  ["marketing-web", "STAGING_MARKETING_URL", "NADAA Marketing"],
+  ["marketing-web", "STAGING_MARKETING_URL", "NADAA —"],
   ["citizen-web", "STAGING_CITIZEN_URL", "NADAA Citizen"],
   ["authority-dashboard", "STAGING_AUTHORITY_URL", "NADAA Authority Dashboard"],
   ["dispatcher-web", "STAGING_DISPATCHER_URL", "NADAA Dispatch Command"],
@@ -29,7 +29,8 @@ for (const [name, envKey, expectedTitle] of requiredWebTargets) {
   }
 
   const html = await response.text();
-  if (!html.includes(`<title>${expectedTitle}</title>`)) {
+  // Match a stable title prefix only: apps append SEO suffixes to <title>.
+  if (!html.includes(`<title>${expectedTitle}`)) {
     throw new Error(`${name} staging smoke reached the wrong app at ${url}`);
   }
 

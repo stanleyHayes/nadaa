@@ -17,15 +17,24 @@ Current NADAA-050/NADAA-051 endpoints:
 
 NADAA-073 ML-reviewed drafts use `POST /api/v1/alerts` with optional `sourcePrediction` metadata. The alert is still created as `draft`, and the `alert.created` audit snapshot stores the prediction id, prediction log id, model version, feature set version, probability, severity, confidence, human-review flag, no-auto-publish flag, and review note.
 
-## Authority Headers
+## Authority Authentication
 
-Write and audit endpoints require authority context headers:
+Write and audit endpoints require a verified `Authorization: Bearer nadaa.<payload>.<sig>`
+token issued by auth-service (validated with `NADAA_AUTH_TOKEN_SECRET`). The verified
+claims supply the actor id (`sub`), role, agency id, district, and MFA flag.
+
+For local development and smoke tests, set `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` to honor
+legacy self-asserted headers instead:
 
 - `X-NADAA-Actor-ID`
 - `X-NADAA-Actor-Role`
 - `X-NADAA-Agency-ID`
 - `X-NADAA-MFA-Completed: true`
 - `X-NADAA-Request-ID`
+
+Without a valid token (and without mock actors enabled), authority endpoints return `401`.
+`GET /api/v1/alerts` stays public: requests without a verified authority token receive
+only approved/published alerts with `sourcePrediction` metadata stripped.
 
 Draft/update/submit actions allow `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`.
 

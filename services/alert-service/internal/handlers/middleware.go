@@ -8,7 +8,28 @@ import (
 	"github.com/stanleyHayes/nadaa/services/alert-service/internal/utils"
 )
 
-func requireAuthority(w http.ResponseWriter, r *http.Request, allowedRoles map[string]bool) (models.AuthorityContext, bool) {
+// authorityContext builds the actor context from a verified bearer token. When
+// no bearer token is present, legacy X-NADAA-Actor-* headers are honored only
+// if mock actors are allowed (local development and smoke tests).
+func (s *Server) authorityContext(r *http.Request) (models.AuthorityContext, bool) {
+	if token := bearerToken(r); token != "" {
+		claims, err := verifyToken(token, []byte(s.config.TokenSecret), s.now())
+		if err != nil {
+			return models.AuthorityContext{}, false
+		}
+		return models.AuthorityContext{
+			ActorUserID:   claims.UserID,
+			ActorAgencyID: claims.AgencyID,
+			ActorRole:     utils.NormalizeQueryValue(claims.Role),
+			ActorDistrict: claims.District,
+			MFACompleted:  claims.MFA,
+			RequestID:     strings.TrimSpace(r.Header.Get("X-NADAA-Request-ID")),
+		}, true
+	}
+
+	if !s.config.AllowMockActors {
+		return models.AuthorityContext{}, false
+	}
 	ctx := models.AuthorityContext{
 		ActorUserID:   strings.TrimSpace(r.Header.Get("X-NADAA-Actor-ID")),
 		ActorAgencyID: strings.TrimSpace(r.Header.Get("X-NADAA-Agency-ID")),
@@ -16,9 +37,16 @@ func requireAuthority(w http.ResponseWriter, r *http.Request, allowedRoles map[s
 		MFACompleted:  utils.NormalizeQueryValue(r.Header.Get("X-NADAA-MFA-Completed")) == "true",
 		RequestID:     strings.TrimSpace(r.Header.Get("X-NADAA-Request-ID")),
 	}
-
 	if ctx.ActorUserID == "" || ctx.ActorAgencyID == "" || ctx.ActorRole == "" {
-		utils.WriteError(w, http.StatusUnauthorized, "missing_authority_context", "authority actor id, role, and agency id headers are required")
+		return models.AuthorityContext{}, false
+	}
+	return ctx, true
+}
+
+func (s *Server) requireAuthority(w http.ResponseWriter, r *http.Request, allowedRoles map[string]bool) (models.AuthorityContext, bool) {
+	ctx, ok := s.authorityContext(r)
+	if !ok {
+		utils.WriteError(w, http.StatusUnauthorized, "missing_authority_context", "a valid authority bearer token is required")
 		return models.AuthorityContext{}, false
 	}
 	if !ctx.MFACompleted {
@@ -31,10 +59,4 @@ func requireAuthority(w http.ResponseWriter, r *http.Request, allowedRoles map[s
 	}
 
 	return ctx, true
-}
-
-func hasAuthorityHeaders(r *http.Request) bool {
-	return strings.TrimSpace(r.Header.Get("X-NADAA-Actor-ID")) != "" &&
-		strings.TrimSpace(r.Header.Get("X-NADAA-Actor-Role")) != "" &&
-		strings.TrimSpace(r.Header.Get("X-NADAA-Agency-ID")) != ""
 }

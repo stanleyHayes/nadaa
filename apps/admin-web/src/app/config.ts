@@ -1,5 +1,5 @@
 export const AUTH_API_BASE =
-  import.meta.env.VITE_AUTH_API_URL ?? "http://localhost:8082/api/v1";
+  import.meta.env.VITE_AUTH_API_URL ?? "http://localhost:8080/api/v1";
 
 export const INTEGRATION_API_BASE =
   import.meta.env.VITE_INTEGRATION_API_URL ?? "http://localhost:8088/api/v1";

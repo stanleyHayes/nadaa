@@ -19,7 +19,7 @@ type Store interface {
 	CreateObservationImportJob(request models.ObservationImportRequest, trigger string, now time.Time, attempt int) models.ObservationImportJob
 	ListObservationImportJobs(status string) []models.ObservationImportJob
 	RetryObservationImportJob(jobID string, now time.Time) (models.ObservationImportJob, bool, string)
-	CreateSyncEvent(request models.SyncRequest, now time.Time) models.SyncEvent
+	CreateSyncEvent(request models.SyncRequest, now time.Time) (models.SyncEvent, bool)
 	ListSyncEvents(eventType string) []models.SyncEvent
 	ImportRoadClosure(request models.RoadClosureImportRequest) models.RoadClosureImportRecord
 	ListRoadClosureImports(source string) []models.RoadClosureImportRecord
@@ -33,6 +33,7 @@ type MemoryStore struct {
 	importedObservations []models.ImportedWeatherHydrologyObservation
 	importJobs           []models.ObservationImportJob
 	syncEvents           []models.SyncEvent
+	syncEventSeq         int
 	roadClosureImports   []models.RoadClosureImportRecord
 }
 
@@ -248,25 +249,34 @@ func (m *MemoryStore) RetryObservationImportJob(jobID string, now time.Time) (mo
 	return job, true, ""
 }
 
-// CreateSyncEvent records a new sync event.
-func (m *MemoryStore) CreateSyncEvent(request models.SyncRequest, now time.Time) models.SyncEvent {
+// CreateSyncEvent records a new sync event. It dedupes on the validated
+// correlation ID: a replay returns the existing event with created=false.
+func (m *MemoryStore) CreateSyncEvent(request models.SyncRequest, now time.Time) (models.SyncEvent, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	correlationID := strings.TrimSpace(request.CorrelationID)
+	for _, event := range m.syncEvents {
+		if event.CorrelationID == correlationID {
+			return event, false
+		}
+	}
+
+	m.syncEventSeq++
 	event := models.SyncEvent{
-		ID:              "sync_" + utils.SanitizeID(request.Type) + "_" + utils.SanitizeID(request.SourceID),
+		ID:              fmt.Sprintf("sync_%s_%s_%06d", utils.SanitizeID(request.Type), utils.SanitizeID(request.SourceID), m.syncEventSeq),
 		Type:            request.Type,
 		SourceID:        request.SourceID,
 		Reference:       request.Reference,
 		TargetAgencyIDs: request.TargetAgencyIDs,
-		CorrelationID:   request.CorrelationID,
+		CorrelationID:   correlationID,
 		Status:          "accepted",
 		AdapterID:       adapterIDForSyncType(request.Type),
 		QueuedAt:        now,
 		Retryable:       true,
 	}
 	m.syncEvents = append(m.syncEvents, event)
-	return event
+	return event, true
 }
 
 // ListSyncEvents returns sync events matching the type filter.

@@ -18,7 +18,7 @@ export function AuditView({ data }: { data: AdminData }) {
           <SkeletonRows rows={6} />
         </Paper>
       ) : data.loadState === "error" && data.auditLogs.length === 0 ? (
-        <ErrorState message={data.loadMessage} />
+        <ErrorState message={data.loadMessage} onRetry={data.refresh} />
       ) : (
         <AuditLogPanel logs={data.auditLogs} />
       )}

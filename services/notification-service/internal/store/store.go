@@ -29,10 +29,10 @@ type Store interface {
 	CreateCellBroadcastDispatches(ctx context.Context, message models.CellBroadcastMessage, request models.CellBroadcastDeliveryRequest, adapter models.CellBroadcastAdapter, now time.Time) []models.CellBroadcastDispatch
 	CreateAccessLog(log models.InclusiveAccessLog) models.InclusiveAccessLog
 	ListAccessLogs(filters models.AccessLogFilters) []models.InclusiveAccessLog
-	CreateAccessReport(report models.InclusiveAccessReport) models.InclusiveAccessReport
+	CreateAccessReport(report models.InclusiveAccessReport) (models.InclusiveAccessReport, bool)
+	FindAccessReportByProviderMessage(provider string, providerMessageID string) (models.InclusiveAccessReport, bool)
 	UpdateAccessReport(report models.InclusiveAccessReport)
-	GetOrCreateWhatsAppConversation(key string, phoneRef string, profileID string, linkedProfile bool, language string, now time.Time) models.WhatsAppConversation
-	UpdateWhatsAppConversation(conversation models.WhatsAppConversation) models.WhatsAppConversation
+	ProcessWhatsAppConversation(key string, seed models.WhatsAppConversation, now time.Time, transition func(conversation *models.WhatsAppConversation)) models.WhatsAppConversation
 	CreateWhatsAppTranscript(transcript models.WhatsAppTranscript) models.WhatsAppTranscript
 	WhatsAppTranscripts() []models.WhatsAppTranscript
 }
@@ -95,42 +95,56 @@ func (m *MemoryStore) ListAlerts(filters models.AlertFeedFilters, now time.Time)
 }
 
 // CreateDeliveryAttempts creates and persists delivery attempts for an alert.
+// Provider sends (network I/O) run outside the store mutex so a slow gateway
+// never stalls every other endpoint sharing the store; the lock is only taken
+// to assign IDs and append the results.
 func (m *MemoryStore) CreateDeliveryAttempts(ctx context.Context, alert models.CitizenAlert, request models.DeliveryRequest, providers map[string]models.NotificationProvider, now time.Time) []models.DeliveryAttempt {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	attempts := make([]models.DeliveryAttempt, 0, len(request.Channels))
+	type sendOutcome struct {
+		channel      string
+		recipientRef string
+		result       models.ProviderResult
+	}
+	outcomes := make([]sendOutcome, 0, len(request.Channels))
 	for _, channel := range request.Channels {
 		provider := providers[channel]
 		if provider == nil {
 			utils.LogError("notification provider missing", "alertId", alert.ID, "channel", channel)
 			provider = models.DisabledProvider{Channel: channel, Reason: "provider missing"}
 		}
+		recipientRef := utils.RecipientRef(request, channel)
 		utils.LogInfo(
 			"notification provider send starting",
 			"alertId", alert.ID,
 			"channel", channel,
 			"provider", utils.ProviderName(provider),
-			"recipientRef", utils.RecipientRef(request, channel),
+			"recipientRef", recipientRef,
 			"dryRun", request.DryRun,
 		)
 		result := provider.Send(ctx, models.ProviderMessage{
 			Alert:       alert,
 			Request:     request,
 			Channel:     channel,
-			Recipient:   utils.RecipientRef(request, channel),
+			Recipient:   recipientRef,
 			AttemptedAt: now,
 		})
+		outcomes = append(outcomes, sendOutcome{channel: channel, recipientRef: recipientRef, result: result})
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	attempts := make([]models.DeliveryAttempt, 0, len(outcomes))
+	for _, outcome := range outcomes {
 		attempt := models.DeliveryAttempt{
 			ID:           fmt.Sprintf("delivery_%06d", m.nextLogID),
 			AlertID:      alert.ID,
 			AlertTitle:   alert.Title,
-			Channel:      channel,
-			Provider:     result.Provider,
-			RecipientRef: utils.RecipientRef(request, channel),
-			Status:       result.Status,
-			Reason:       result.Reason,
-			MessageID:    result.MessageID,
+			Channel:      outcome.channel,
+			Provider:     outcome.result.Provider,
+			RecipientRef: outcome.recipientRef,
+			Status:       outcome.result.Status,
+			Reason:       outcome.result.Reason,
+			MessageID:    outcome.result.MessageID,
 			AttemptedAt:  now,
 		}
 		m.nextLogID++
@@ -313,28 +327,37 @@ func (m *MemoryStore) ReviewVoiceAlertAsset(id string, action string, reviewer s
 }
 
 // CreateVoiceDeliveryAttempts creates and persists voice delivery attempts.
+// Provider sends (network I/O, one per recipient) run outside the store mutex
+// so a slow voice gateway never stalls every other endpoint sharing the store;
+// the lock is only taken to assign IDs and append the results.
 func (m *MemoryStore) CreateVoiceDeliveryAttempts(ctx context.Context, asset models.VoiceAlertAsset, request models.VoiceDeliveryRequest, providers map[string]models.NotificationProvider, now time.Time) []models.DeliveryAttempt {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	type sendOutcome struct {
+		recipient    models.VoiceRecipient
+		recipientRef string
+		result       models.ProviderResult
+		audioURL     string
+	}
 
-	attempts := make([]models.DeliveryAttempt, 0, len(request.Recipients))
 	provider := providers["voice"]
 	if provider == nil {
 		utils.LogError("voice notification provider missing", "voiceAssetId", asset.ID, "alertId", asset.AlertID)
 		provider = models.DisabledProvider{Channel: "voice", Reason: "voice provider missing"}
 	}
 
+	outcomes := make([]sendOutcome, 0, len(request.Recipients))
 	for _, recipient := range request.Recipients {
+		recipientRef := utils.VoiceRecipientRef(recipient)
+		outcome := sendOutcome{recipient: recipient, recipientRef: recipientRef}
 		variant, variantFound := voiceVariantForLanguage(asset, recipient.Language)
-		result := models.ProviderResult{}
 		switch {
 		case !variantFound:
-			result = models.ProviderResult{Provider: "voice_asset", Status: "skipped", Reason: "approved language variant is missing"}
-			utils.LogWarn("voice delivery skipped missing variant", "voiceAssetId", asset.ID, "alertId", asset.AlertID, "language", recipient.Language, "recipientRef", utils.VoiceRecipientRef(recipient))
+			outcome.result = models.ProviderResult{Provider: "voice_asset", Status: "skipped", Reason: "approved language variant is missing"}
+			utils.LogWarn("voice delivery skipped missing variant", "voiceAssetId", asset.ID, "alertId", asset.AlertID, "language", recipient.Language, "recipientRef", recipientRef)
 		case variant.ReviewStatus != "approved":
-			result = models.ProviderResult{Provider: "voice_asset", Status: "skipped", Reason: "language variant is not approved"}
-			utils.LogWarn("voice delivery skipped unapproved variant", "voiceAssetId", asset.ID, "alertId", asset.AlertID, "language", recipient.Language, "variantStatus", variant.ReviewStatus, "recipientRef", utils.VoiceRecipientRef(recipient))
+			outcome.result = models.ProviderResult{Provider: "voice_asset", Status: "skipped", Reason: "language variant is not approved"}
+			utils.LogWarn("voice delivery skipped unapproved variant", "voiceAssetId", asset.ID, "alertId", asset.AlertID, "language", recipient.Language, "variantStatus", variant.ReviewStatus, "recipientRef", recipientRef)
 		default:
+			outcome.audioURL = variant.AudioURL
 			deliveryReq := models.DeliveryRequest{
 				AlertID:     asset.AlertID,
 				RecipientID: recipient.RecipientID,
@@ -349,10 +372,10 @@ func (m *MemoryStore) CreateVoiceDeliveryAttempts(ctx context.Context, asset mod
 				"alertId", asset.AlertID,
 				"language", recipient.Language,
 				"provider", utils.ProviderName(provider),
-				"recipientRef", utils.VoiceRecipientRef(recipient),
+				"recipientRef", recipientRef,
 				"dryRun", request.DryRun,
 			)
-			result = provider.Send(ctx, models.ProviderMessage{
+			outcome.result = provider.Send(ctx, models.ProviderMessage{
 				Alert: models.CitizenAlert{
 					ID:          asset.AlertID,
 					Title:       asset.AlertTitle,
@@ -362,27 +385,32 @@ func (m *MemoryStore) CreateVoiceDeliveryAttempts(ctx context.Context, asset mod
 				},
 				Request:     deliveryReq,
 				Channel:     "voice",
-				Recipient:   utils.VoiceRecipientRef(recipient),
+				Recipient:   recipientRef,
 				AttemptedAt: now,
 			})
 		}
+		outcomes = append(outcomes, outcome)
+	}
 
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	attempts := make([]models.DeliveryAttempt, 0, len(outcomes))
+	for _, outcome := range outcomes {
 		attempt := models.DeliveryAttempt{
 			ID:           fmt.Sprintf("delivery_%06d", m.nextLogID),
 			AlertID:      asset.AlertID,
 			AlertTitle:   asset.AlertTitle,
 			Channel:      "voice",
-			Provider:     result.Provider,
-			RecipientRef: utils.VoiceRecipientRef(recipient),
-			Status:       result.Status,
-			Reason:       result.Reason,
-			MessageID:    result.MessageID,
+			Provider:     outcome.result.Provider,
+			RecipientRef: outcome.recipientRef,
+			Status:       outcome.result.Status,
+			Reason:       outcome.result.Reason,
+			MessageID:    outcome.result.MessageID,
 			VoiceAssetID: asset.ID,
-			Language:     recipient.Language,
+			Language:     outcome.recipient.Language,
+			AudioURL:     outcome.audioURL,
 			AttemptedAt:  now,
-		}
-		if variantFound {
-			attempt.AudioURL = variant.AudioURL
 		}
 		m.nextLogID++
 		m.deliveryLogs = append(m.deliveryLogs, attempt)
@@ -447,10 +475,27 @@ func (m *MemoryStore) ListAccessLogs(filters models.AccessLogFilters) []models.I
 	return logs
 }
 
-// CreateAccessReport persists an inclusive access report.
-func (m *MemoryStore) CreateAccessReport(report models.InclusiveAccessReport) models.InclusiveAccessReport {
+// CreateAccessReport persists an inclusive access report. When the report
+// carries a providerMessageId, an existing report for the same
+// (provider, providerMessageId) is returned instead so provider webhook
+// retries never create duplicate incidents; the bool reports whether a new
+// report was actually created.
+func (m *MemoryStore) CreateAccessReport(report models.InclusiveAccessReport) (models.InclusiveAccessReport, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if existing, ok := m.findAccessReportByProviderMessageLocked(report.Provider, report.ProviderMessageID); ok {
+		utils.LogInfo(
+			"inclusive access report deduplicated",
+			"reportId", existing.ID,
+			"channel", existing.Channel,
+			"provider", existing.Provider,
+			"providerMessageId", existing.ProviderMessageID,
+			"status", existing.Status,
+			"incidentId", existing.IncidentID,
+		)
+		return existing, false
+	}
 
 	report.ID = fmt.Sprintf("access_report_%06d", m.nextAccessReportID)
 	m.nextAccessReportID++
@@ -465,7 +510,28 @@ func (m *MemoryStore) CreateAccessReport(report models.InclusiveAccessReport) mo
 		"phoneRef", report.PhoneRef,
 		"linkedProfile", report.LinkedProfile,
 	)
-	return report
+	return report, true
+}
+
+// FindAccessReportByProviderMessage returns the report previously created for a
+// (provider, providerMessageId) pair, if any.
+func (m *MemoryStore) FindAccessReportByProviderMessage(provider string, providerMessageID string) (models.InclusiveAccessReport, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.findAccessReportByProviderMessageLocked(provider, providerMessageID)
+}
+
+func (m *MemoryStore) findAccessReportByProviderMessageLocked(provider string, providerMessageID string) (models.InclusiveAccessReport, bool) {
+	if providerMessageID == "" {
+		return models.InclusiveAccessReport{}, false
+	}
+	for _, existing := range m.accessReports {
+		if existing.ProviderMessageID != "" && existing.ProviderMessageID == providerMessageID && existing.Provider == provider {
+			return existing, true
+		}
+	}
+	return models.InclusiveAccessReport{}, false
 }
 
 // UpdateAccessReport updates an existing inclusive access report.
@@ -497,22 +563,49 @@ func (m *MemoryStore) UpdateAccessReport(report models.InclusiveAccessReport) {
 	)
 }
 
-// GetOrCreateWhatsAppConversation returns an existing conversation or creates one.
-func (m *MemoryStore) GetOrCreateWhatsAppConversation(key string, phoneRef string, profileID string, linkedProfile bool, language string, now time.Time) models.WhatsAppConversation {
+// ProcessWhatsAppConversation atomically loads (or creates) the conversation
+// for key, resets an expired conversation to a fresh idle state, refreshes the
+// resume metadata, applies transition, and persists the result — all under a
+// single lock so concurrent webhooks for the same phone can never interleave a
+// read-modify-write. transition must be pure in-memory logic: no network I/O
+// and no calls back into the store.
+func (m *MemoryStore) ProcessWhatsAppConversation(key string, seed models.WhatsAppConversation, now time.Time, transition func(conversation *models.WhatsAppConversation)) models.WhatsAppConversation {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.whatsappConversations == nil {
 		m.whatsappConversations = map[string]models.WhatsAppConversation{}
 	}
-	if conversation, ok := m.whatsappConversations[key]; ok {
-		conversation.ProfileID = profileID
-		conversation.LinkedProfile = linkedProfile
-		conversation.Language = language
-		conversation.UpdatedAt = now
-		conversation.ExpiresAt = now.Add(24 * time.Hour)
-		conversation.RetentionUntil = utils.WhatsAppRetentionUntil(now)
-		m.whatsappConversations[key] = conversation
+
+	conversation, exists := m.whatsappConversations[key]
+	if !exists {
+		conversation = seed
+		conversation.ID = fmt.Sprintf("whatsapp_%06d", m.nextWhatsAppConversationID)
+		m.nextWhatsAppConversationID++
+		utils.LogInfo(
+			"whatsapp conversation created",
+			"conversationId", conversation.ID,
+			"phoneRef", conversation.PhoneRef,
+			"linkedProfile", conversation.LinkedProfile,
+			"retentionUntil", conversation.RetentionUntil,
+		)
+	} else {
+		if !conversation.ExpiresAt.After(now) {
+			utils.LogInfo(
+				"whatsapp conversation expired; resetting to idle",
+				"conversationId", conversation.ID,
+				"phoneRef", conversation.PhoneRef,
+				"state", conversation.State,
+				"intent", conversation.Intent,
+			)
+			conversation.Intent = "main_menu"
+			conversation.State = "idle"
+			conversation.Hazard = ""
+			conversation.Urgency = ""
+		}
+		conversation.ProfileID = seed.ProfileID
+		conversation.LinkedProfile = seed.LinkedProfile
+		conversation.Language = seed.Language
 		utils.LogInfo(
 			"whatsapp conversation resumed",
 			"conversationId", conversation.ID,
@@ -520,46 +613,14 @@ func (m *MemoryStore) GetOrCreateWhatsAppConversation(key string, phoneRef strin
 			"state", conversation.State,
 			"intent", conversation.Intent,
 		)
-		return conversation
 	}
+	conversation.ExpiresAt = now.Add(24 * time.Hour)
+	conversation.RetentionUntil = utils.WhatsAppRetentionUntil(now)
 
-	conversation := models.WhatsAppConversation{
-		ID:             fmt.Sprintf("whatsapp_%06d", m.nextWhatsAppConversationID),
-		Key:            key,
-		Channel:        "whatsapp",
-		PhoneRef:       phoneRef,
-		ProfileID:      profileID,
-		LinkedProfile:  linkedProfile,
-		Language:       language,
-		Intent:         "main_menu",
-		State:          "idle",
-		StartedAt:      now,
-		UpdatedAt:      now,
-		ExpiresAt:      now.Add(24 * time.Hour),
-		RetentionUntil: utils.WhatsAppRetentionUntil(now),
-	}
-	m.nextWhatsAppConversationID++
+	transition(&conversation)
+
+	conversation.UpdatedAt = now.UTC()
 	m.whatsappConversations[key] = conversation
-	utils.LogInfo(
-		"whatsapp conversation created",
-		"conversationId", conversation.ID,
-		"phoneRef", conversation.PhoneRef,
-		"linkedProfile", conversation.LinkedProfile,
-		"retentionUntil", conversation.RetentionUntil,
-	)
-	return conversation
-}
-
-// UpdateWhatsAppConversation updates an existing WhatsApp conversation.
-func (m *MemoryStore) UpdateWhatsAppConversation(conversation models.WhatsAppConversation) models.WhatsAppConversation {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.whatsappConversations == nil {
-		m.whatsappConversations = map[string]models.WhatsAppConversation{}
-	}
-	conversation.UpdatedAt = conversation.UpdatedAt.UTC()
-	m.whatsappConversations[conversation.Key] = conversation
 	utils.LogInfo(
 		"whatsapp conversation updated",
 		"conversationId", conversation.ID,

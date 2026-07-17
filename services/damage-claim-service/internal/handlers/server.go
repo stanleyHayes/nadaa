@@ -23,7 +23,7 @@ func NewServer(s store.Store, now func() time.Time, cfg *config.Config) *Server 
 		store:              s,
 		now:                now,
 		config:             cfg,
-		httpClient:         http.DefaultClient,
+		httpClient:         &http.Client{Timeout: 10 * time.Second},
 		incidentServiceURL: cfg.IncidentServiceURL,
 	}
 }

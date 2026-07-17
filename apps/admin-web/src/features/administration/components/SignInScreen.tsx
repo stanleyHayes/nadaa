@@ -5,7 +5,6 @@ import {
   Button,
   IconButton,
   InputAdornment,
-  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -21,37 +20,61 @@ import {
   Lock,
   ScrollText,
   ShieldCheck,
+  Smartphone,
 } from "lucide-react";
 import { OtpInput } from "./OtpInput";
-import type { AgencyUserRole } from "@nadaa/shared-types";
+import type {
+  AgencyMFASetupResponse,
+  LoginAgencyResponse,
+} from "@nadaa/shared-types";
 import {
-  adminSignInRoles,
-  agencyByRole,
-  signInAdmin,
-  type AdminSession,
-} from "@/app/session";
-import { roleLabel } from "../utils";
+  AuthApiError,
+  AuthUnavailableError,
+  loginAgency,
+  setupAgencyMfa,
+  verifyAgencyMfa,
+} from "@/app/auth";
+import { signInAdmin, type AdminSession } from "@/app/session";
 
-const DEFAULT_AGENCY_ID = "00000000-0000-0000-0000-000000000101";
+type Step = "credentials" | "mfa" | "mfaSetup";
 
 function cap(word: string) {
   return word ? word[0].toUpperCase() + word.slice(1) : word;
 }
 
-function displayName(identifier: string, role: AgencyUserRole) {
+function displayName(identifier: string) {
   const trimmed = identifier.trim();
   if (!trimmed) {
-    return roleLabel(role);
+    return "Administrator";
   }
   if (trimmed.includes("@")) {
-    return (trimmed
-      .split("@")[0]
-      .split(/[._-]+/)
-      .filter(Boolean)
-      .map(cap)
-      .join(" ") || roleLabel(role));
+    return (
+      trimmed
+        .split("@")[0]
+        .split(/[._-]+/)
+        .filter(Boolean)
+        .map(cap)
+        .join(" ") || "Administrator"
+    );
   }
   return trimmed;
+}
+
+/** Human-facing message for a failed credentials or verification attempt. */
+function signInErrorMessage(error: unknown): string {
+  if (error instanceof AuthUnavailableError) {
+    return error.message;
+  }
+  if (error instanceof AuthApiError) {
+    if (error.code === "too_many_attempts") {
+      return "Too many failed attempts. This account is temporarily locked — wait before trying again.";
+    }
+    if (error.code === "invalid_credentials") {
+      return "Email or password is incorrect.";
+    }
+    return error.message;
+  }
+  return "Sign-in failed. Try again.";
 }
 
 const assurances = [
@@ -73,36 +96,80 @@ const assurances = [
 ];
 
 export function SignInScreen() {
-  const [step, setStep] = useState<"credentials" | "mfa">("credentials");
-  const [identifier, setIdentifier] = useState("system.admin@nadaa.gov.gh");
+  const [step, setStep] = useState<Step>("credentials");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<AgencyUserRole>("system_admin");
-  const [agency, setAgency] = useState(agencyByRole.system_admin);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [setupUserId, setSetupUserId] = useState("");
+  const [setupChallenge, setSetupChallenge] =
+    useState<AgencyMFASetupResponse | null>(null);
 
-  const onRoleChange = (nextRole: AgencyUserRole) => {
-    setRole(nextRole);
-    setAgency(agencyByRole[nextRole]);
+  /** Open the console with the identity and token from the login response. */
+  const establishSession = (payload: LoginAgencyResponse) => {
+    const session: AdminSession = {
+      id: payload.user.id,
+      name: payload.user.name,
+      role: payload.user.role,
+      agencyId: payload.user.agency.id,
+      agency: payload.user.agency.name,
+      mfaCompleted: payload.user.mfaEnabled,
+      accessToken: payload.accessToken,
+      tokenExpiresAt: payload.expiresAt,
+      email: payload.user.email,
+      mfaEnabled: payload.user.mfaEnabled,
+      lastLoginAt: new Date().toISOString(),
+    };
+    signInAdmin(session);
   };
 
-  const submitCredentials = (event: FormEvent) => {
-    event.preventDefault();
-    if (!identifier.trim()) {
-      setError("Enter your admin ID or agency email.");
+  /**
+   * Route a failed login: MFA-enrolled accounts move to code entry, accounts
+   * that must enrol move to the setup walkthrough, everything else surfaces
+   * an error message on the current step.
+   */
+  const handleLoginFailure = (cause: unknown) => {
+    if (cause instanceof AuthApiError && cause.code === "mfa_required") {
+      setError("");
+      setCode("");
+      setStep("mfa");
       return;
     }
-    if (password.length < 6) {
+    if (cause instanceof AuthApiError && cause.code === "mfa_setup_required") {
+      setError("");
+      setCode("");
+      setSetupChallenge(null);
+      setStep("mfaSetup");
+      return;
+    }
+    setError(signInErrorMessage(cause));
+  };
+
+  const submitCredentials = async (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed.includes("@")) {
+      setError("Enter your agency email address.");
+      return;
+    }
+    if (!password) {
       setError("Enter your password to continue.");
       return;
     }
     setError("");
-    setStep("mfa");
+    setBusy(true);
+    try {
+      establishSession(await loginAgency(trimmed, password));
+    } catch (cause) {
+      handleLoginFailure(cause);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const submitMfa = (event: FormEvent) => {
+  const submitMfa = async (event: FormEvent) => {
     event.preventDefault();
     if (!/^\d{6}$/.test(code)) {
       setError("Enter the 6-digit code from your authenticator.");
@@ -110,16 +177,87 @@ export function SignInScreen() {
     }
     setError("");
     setBusy(true);
-    const trimmed = identifier.trim();
-    const session: AdminSession = {
-      id: trimmed || `usr_${role}`,
-      name: displayName(trimmed, role),
-      role,
-      agencyId: DEFAULT_AGENCY_ID,
-      agency: agency.trim() || agencyByRole[role],
-      mfaCompleted: true,
-    };
-    window.setTimeout(() => signInAdmin(session), 500);
+    try {
+      establishSession(await loginAgency(email.trim(), password, code));
+    } catch (cause) {
+      if (cause instanceof AuthApiError && cause.code === "mfa_setup_required") {
+        handleLoginFailure(cause);
+      } else if (
+        cause instanceof AuthApiError &&
+        cause.code === "invalid_credentials"
+      ) {
+        setError("That authenticator code was not accepted. Try again.");
+      } else {
+        setError(signInErrorMessage(cause));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startMfaSetup = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!setupUserId.trim()) {
+      setError("Enter the account user ID from your provisioning administrator.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      const challenge = await setupAgencyMfa(
+        setupUserId.trim(),
+        email.trim(),
+        password,
+      );
+      setSetupChallenge(challenge);
+      setCode("");
+    } catch (cause) {
+      if (cause instanceof AuthApiError && cause.code === "mfa_already_enabled") {
+        setError("");
+        setCode("");
+        setStep("mfa");
+        return;
+      }
+      if (cause instanceof AuthApiError && cause.code === "invalid_credentials") {
+        setError(
+          "Account ID, email, or temporary password did not match our records.",
+        );
+      } else {
+        setError(signInErrorMessage(cause));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const completeMfaSetup = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(code)) {
+      setError("Enter the 6-digit setup code.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      await verifyAgencyMfa(setupUserId.trim(), email.trim(), password, code);
+      // MFA is now enabled; the verified code signs the admin straight in.
+      establishSession(await loginAgency(email.trim(), password, code));
+    } catch (cause) {
+      if (cause instanceof AuthApiError && cause.code === "invalid_credentials") {
+        setError("That setup code was not accepted. Request a new one or retry.");
+      } else {
+        setError(signInErrorMessage(cause));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const backToCredentials = () => {
+    setStep("credentials");
+    setError("");
+    setCode("");
+    setSetupChallenge(null);
   };
 
   return (
@@ -177,7 +315,7 @@ export function SignInScreen() {
             </span>
             <span className="cc-auth__step-rule" />
             <span
-              className={`cc-auth__step${step === "mfa" ? " is-active" : ""}`}
+              className={`cc-auth__step${step !== "credentials" ? " is-active" : ""}`}
             >
               2 · Verify
             </span>
@@ -197,13 +335,14 @@ export function SignInScreen() {
               <Typography className="cc-auth__lede" sx={{
                 color: "text.secondary"
               }}>
-                Use your admin credentials to reach the governance console.
+                Use your agency account to reach the governance console. Your
+                role loads with your profile.
               </Typography>
 
               <TextField
-                label="Admin ID or agency email"
-                value={identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
+                label="Agency email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 fullWidth
                 autoComplete="username"
                 autoFocus
@@ -250,45 +389,31 @@ export function SignInScreen() {
                 }}
               />
 
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <TextField
-                  select
-                  label="Admin role"
-                  value={role}
-                  onChange={(event) =>
-                    onRoleChange(event.target.value as AgencyUserRole)
-                  }
-                  fullWidth
-                >
-                  {adminSignInRoles.map((option) => (
-                    <MenuItem value={option} key={option}>
-                      {roleLabel(option)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  label="Agency"
-                  value={agency}
-                  onChange={(event) => setAgency(event.target.value)}
-                  fullWidth
-                />
-              </Stack>
-
               <Button
                 type="submit"
                 variant="contained"
                 size="large"
-                endIcon={<ArrowRight size={18} />}
+                disabled={busy}
+                endIcon={
+                  busy ? (
+                    <Loader2 size={18} className="spin-icon" />
+                  ) : (
+                    <ArrowRight size={18} />
+                  )
+                }
                 className="cc-auth__submit"
               >
-                Continue
+                {busy ? "Signing in" : "Continue"}
               </Button>
 
               <p className="cc-auth__hint">
-                Demo console: any password (6+ characters) and any 6-digit code.
+                Newly provisioned account? Sign in with your temporary password
+                to enrol an authenticator.
               </p>
             </form>
-          ) : (
+          ) : null}
+
+          {step === "mfa" ? (
             <form className="cc-auth__form" onSubmit={submitMfa}>
               <Typography variant="h5" className="cc-auth__title">
                 Verify it is you
@@ -296,9 +421,8 @@ export function SignInScreen() {
               <Typography className="cc-auth__lede" sx={{
                 color: "text.secondary"
               }}>
-                Enter the 6-digit code for{" "}
-                <strong>{displayName(identifier, role)}</strong> at{" "}
-                {agency || agencyByRole[role]}.
+                Enter the 6-digit authenticator code for{" "}
+                <strong>{displayName(email)}</strong>.
               </Typography>
 
               <Box>
@@ -341,18 +465,132 @@ export function SignInScreen() {
                 type="button"
                 variant="text"
                 startIcon={<ArrowLeft size={16} />}
-                onClick={() => {
-                  setStep("credentials");
-                  setError("");
-                  setCode("");
-                }}
+                onClick={backToCredentials}
                 className="cc-auth__back"
                 disabled={busy}
               >
                 Back to credentials
               </Button>
             </form>
-          )}
+          ) : null}
+
+          {step === "mfaSetup" ? (
+            <form
+              className="cc-auth__form"
+              onSubmit={setupChallenge ? completeMfaSetup : startMfaSetup}
+            >
+              <Typography variant="h5" className="cc-auth__title">
+                Set up two-step verification
+              </Typography>
+              <Typography className="cc-auth__lede" sx={{
+                color: "text.secondary"
+              }}>
+                This account must enrol an authenticator before its first
+                sign-in. The password you entered is your temporary password.
+              </Typography>
+
+              <TextField
+                label="Account user ID"
+                value={setupUserId}
+                onChange={(event) => setSetupUserId(event.target.value)}
+                fullWidth
+                autoFocus={!setupChallenge}
+                disabled={Boolean(setupChallenge)}
+                helperText="Provided by the administrator who created your account (usr_…)."
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Smartphone size={17} />
+                      </InputAdornment>
+                    ),
+                  }
+                }}
+              />
+
+              {setupChallenge ? (
+                <>
+                  <Alert severity="info">
+                    Add this setup key to your authenticator app, then enter the
+                    6-digit code it shows:{" "}
+                    <strong>{setupChallenge.secret}</strong>
+                  </Alert>
+                  {setupChallenge.devCode ? (
+                    <Alert severity="warning">
+                      Development build — setup code:{" "}
+                      <strong>{setupChallenge.devCode}</strong>
+                    </Alert>
+                  ) : null}
+                  <Box>
+                    <Typography
+                      component="label"
+                      variant="subtitle2"
+                      sx={{ display: "block", mb: 1, fontWeight: 700 }}
+                    >
+                      Setup code
+                    </Typography>
+                    <OtpInput
+                      autoFocus
+                      ariaDescribedBy="cc-auth-setup-hint"
+                      onChange={setCode}
+                      value={code}
+                    />
+                  </Box>
+                  <p id="cc-auth-setup-hint" className="cc-auth__hint">
+                    The setup challenge expires 10 minutes after it was issued.
+                  </p>
+                </>
+              ) : null}
+
+              <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                disabled={busy}
+                startIcon={
+                  busy ? (
+                    <Loader2 size={18} className="spin-icon" />
+                  ) : (
+                    <ShieldCheck size={18} />
+                  )
+                }
+                className="cc-auth__submit"
+              >
+                {busy
+                  ? "Working"
+                  : setupChallenge
+                    ? "Verify and sign in"
+                    : "Start MFA setup"}
+              </Button>
+
+              {setupChallenge ? (
+                <Button
+                  type="button"
+                  variant="text"
+                  onClick={() => {
+                    setSetupChallenge(null);
+                    setCode("");
+                    setError("");
+                  }}
+                  className="cc-auth__back"
+                  disabled={busy}
+                >
+                  Request a new setup code
+                </Button>
+              ) : null}
+
+              <Button
+                type="button"
+                variant="text"
+                startIcon={<ArrowLeft size={16} />}
+                onClick={backToCredentials}
+                className="cc-auth__back"
+                disabled={busy}
+              >
+                Back to credentials
+              </Button>
+            </form>
+          ) : null}
         </div>
       </section>
     </main>

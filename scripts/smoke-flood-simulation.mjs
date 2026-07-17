@@ -1,5 +1,14 @@
+// Expects an externally started ml-service (see scripts/dev-dashboard-backends.sh).
+// ml-service gates every non-health endpoint when NADAA_INTERNAL_SERVICE_TOKEN
+// is configured, so send the shared service token on every call.
 const baseURL =
   process.env.SIMULATION_API_URL?.trim() || "http://127.0.0.1:8094";
+
+const serviceTokenHeaders = {
+  "Content-Type": "application/json",
+  "X-NADAA-Service-Token":
+    process.env.NADAA_INTERNAL_SERVICE_TOKEN || "dev-internal-service-token",
+};
 
 const health = await fetch(`${baseURL}/healthz`);
 if (!health.ok) {
@@ -9,7 +18,7 @@ console.log("ml-service health OK");
 
 const create = await fetch(`${baseURL}/api/v1/ml/flood/simulations`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: serviceTokenHeaders,
   body: JSON.stringify({
     name: "Smoke flood simulation",
     rainfallMmOverride: 40,
@@ -40,7 +49,9 @@ console.log(
   `flood simulation create OK ${created.simulation.reference} (${created.simulation.frames.length} frames)`,
 );
 
-const list = await fetch(`${baseURL}/api/v1/ml/flood/simulations`);
+const list = await fetch(`${baseURL}/api/v1/ml/flood/simulations`, {
+  headers: serviceTokenHeaders,
+});
 if (!list.ok) {
   throw new Error(`flood simulation list smoke failed: ${list.status}`);
 }
@@ -52,6 +63,7 @@ console.log(`flood simulation list OK ${listPayload.simulations.length}`);
 
 const get = await fetch(
   `${baseURL}/api/v1/ml/flood/simulations/${created.simulation.id}`,
+  { headers: serviceTokenHeaders },
 );
 if (!get.ok) {
   throw new Error(`flood simulation get smoke failed: ${get.status}`);
@@ -64,7 +76,7 @@ console.log("flood simulation get OK");
 
 const invalid = await fetch(`${baseURL}/api/v1/ml/flood/simulations`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: serviceTokenHeaders,
   body: JSON.stringify({ durationHours: 2 }),
 });
 if (invalid.status !== 400) {

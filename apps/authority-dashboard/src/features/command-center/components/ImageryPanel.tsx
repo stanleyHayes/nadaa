@@ -239,15 +239,13 @@ export function ImageryPanel({
     setBusy(true);
     setFeedback("");
     try {
+      // Multipart bodies must not carry the JSON Content-Type; keep every
+      // other authority header (Authorization + X-NADAA-* actor context).
+      const { "Content-Type": _contentType, ...uploadHeaders } =
+        authorityHeaders();
       const response = await fetch(`${IMAGERY_API_BASE}/imagery`, {
         method: "POST",
-        headers: {
-          "X-NADAA-Actor-ID": authorityHeaders()["X-NADAA-Actor-ID"],
-          "X-NADAA-Actor-Role": authorityHeaders()["X-NADAA-Actor-Role"],
-          "X-NADAA-Agency-ID": authorityHeaders()["X-NADAA-Agency-ID"],
-          "X-NADAA-MFA-Completed": authorityHeaders()["X-NADAA-MFA-Completed"],
-          "X-NADAA-Request-ID": authorityHeaders()["X-NADAA-Request-ID"],
-        },
+        headers: uploadHeaders,
         body,
       });
       if (!response.ok) {
@@ -269,8 +267,31 @@ export function ImageryPanel({
     }
   };
 
-  const handleDownload = (record: ImageryRecord) => {
-    window.open(`${IMAGERY_API_BASE}/imagery/${record.id}/download`, "_blank");
+  const handleDownload = async (record: ImageryRecord) => {
+    // Browser navigation cannot attach authority headers, so fetch the file
+    // with them and open a local object URL instead of window.open.
+    try {
+      const response = await fetch(
+        `${IMAGERY_API_BASE}/imagery/${record.id}/download`,
+        { headers: authorityHeaders() },
+      );
+      if (!response.ok) {
+        throw new Error(`download returned ${response.status}`);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = record.fileName || record.reference;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error) {
+      setFeedback(
+        "Download failed. Ensure the imagery-service is running and your session is signed in.",
+      );
+    }
   };
 
   const handleExpire = async (record: ImageryRecord) => {

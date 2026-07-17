@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,10 +16,20 @@ import (
 	"github.com/stanleyHayes/nadaa/services/road-closure-service/internal/store"
 )
 
+const testTokenSecret = "road-closure-test-token-secret"
+
+var testNow = time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+
 func newTestServer() *Server {
-	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8095"}
-	return NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
+	cfg := &config.Config{Addr: ":8095", AllowMockActorHeaders: true}
+	return NewServer(store.NewMemoryStore(testNow), func() time.Time { return testNow }, cfg)
+}
+
+// newTokenTestServer builds a server that only accepts verified bearer tokens
+// (mock actor headers disabled), mirroring production configuration.
+func newTokenTestServer() *Server {
+	cfg := &config.Config{Addr: ":8095", AuthTokenSecret: testTokenSecret}
+	return NewServer(store.NewMemoryStore(testNow), func() time.Time { return testNow }, cfg)
 }
 
 func TestHealthHandler(t *testing.T) {
@@ -255,6 +268,260 @@ func TestImportAdapterRejectsInvalidWKT(t *testing.T) {
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
 	}
+}
+
+func TestCreateRoadClosureIDsDoNotCollideWithSeeds(t *testing.T) {
+	srv := newTestServer()
+	body := models.CreateRoadClosureRequest{
+		RoadName: "New Spintex Road",
+		Status:   "active",
+		Geometry: models.LineStringGeometry{
+			Type:        "LineString",
+			Coordinates: [][]float64{{-0.100, 5.600}, {-0.090, 5.610}},
+		},
+	}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPost, "/api/v1/road-closures", jsonBody(body))
+
+	srv.createRoadClosureHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	var created models.RoadClosureResponse
+	decodeResponse(t, response, &created)
+	if created.Closure.ID != "road_closure_004" {
+		t.Fatalf("expected first created closure to be road_closure_004, got %s", created.Closure.ID)
+	}
+
+	// Updating the new closure by its own ID must not touch the seed that
+	// previously shared it.
+	update := models.UpdateRoadClosureRequest{Status: "lifted"}
+	updateResponse := httptest.NewRecorder()
+	updateRequest := authorityRequest(http.MethodPatch, "/api/v1/road-closures/road_closure_004", jsonBody(update))
+	updateRequest.SetPathValue("id", "road_closure_004")
+
+	srv.updateRoadClosureHandler(updateResponse, updateRequest)
+
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, updateResponse.Code, updateResponse.Body.String())
+	}
+	var updated models.RoadClosureResponse
+	decodeResponse(t, updateResponse, &updated)
+	if updated.Closure.RoadName != "New Spintex Road" || updated.Closure.Status != "lifted" {
+		t.Fatalf("expected the new closure to be updated, got %#v", updated.Closure)
+	}
+}
+
+func TestUpdateRoadClosureRejectsMergedInvalidWindow(t *testing.T) {
+	// Seed road_closure_001 is valid [now-2h, now+6h]; each request supplies
+	// only one bound, so the invalid pair is only visible after merging.
+	cases := []struct {
+		name string
+		body models.UpdateRoadClosureRequest
+	}{
+		{
+			name: "validTo before stored validFrom",
+			body: models.UpdateRoadClosureRequest{ValidTo: timePtr(testNow.Add(-3 * time.Hour))},
+		},
+		{
+			name: "validFrom after stored validTo",
+			body: models.UpdateRoadClosureRequest{ValidFrom: timePtr(testNow.Add(7 * time.Hour))},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTestServer()
+			response := httptest.NewRecorder()
+			request := authorityRequest(http.MethodPatch, "/api/v1/road-closures/road_closure_001", jsonBody(tc.body))
+			request.SetPathValue("id", "road_closure_001")
+
+			srv.updateRoadClosureHandler(response, request)
+
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestListRoadClosuresNearbyMatchesSegmentMidpoint(t *testing.T) {
+	srv := newTestServer()
+	// Seed road_closure_001 runs (-0.205,5.570)-(-0.190,5.580); this point is
+	// on the segment midpoint but ~1 km from either vertex.
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/road-closures?lat=5.575&lng=-0.1975&radius=500", nil)
+	response := httptest.NewRecorder()
+
+	srv.listRoadClosuresHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.RoadClosureListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Closures) != 1 || payload.Closures[0].ID != "road_closure_001" {
+		t.Fatalf("expected road_closure_001 near its segment midpoint, got %#v", payload.Closures)
+	}
+}
+
+func TestListRoadClosuresBBoxMatchesCrossingSegment(t *testing.T) {
+	srv := newTestServer()
+	// The box covers only the midpoint of road_closure_001's segment; both
+	// vertices lie outside it.
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/road-closures?bbox=-0.200,5.572,-0.195,5.578", nil)
+	response := httptest.NewRecorder()
+
+	srv.listRoadClosuresHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.RoadClosureListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Closures) != 1 || payload.Closures[0].ID != "road_closure_001" {
+		t.Fatalf("expected road_closure_001 crossing the bbox, got %#v", payload.Closures)
+	}
+}
+
+func TestListRoadClosuresRejectsInvalidBBox(t *testing.T) {
+	cases := []struct {
+		name string
+		bbox string
+	}{
+		{"min lng above max lng", "-0.15,5.50,-0.30,5.60"},
+		{"min lat above max lat", "-0.30,5.60,-0.15,5.50"},
+		{"latitude out of WGS84 range", "-0.30,95.0,-0.15,96.0"},
+		{"longitude out of WGS84 range", "-190.0,5.50,-0.15,5.60"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTestServer()
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/road-closures?bbox="+tc.bbox, nil)
+			response := httptest.NewRecorder()
+
+			srv.listRoadClosuresHandler(response, request)
+
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestCreateRoadClosureWithBearerToken(t *testing.T) {
+	srv := newTokenTestServer()
+	body := models.CreateRoadClosureRequest{
+		RoadName: "Token Road",
+		Status:   "active",
+		Geometry: models.LineStringGeometry{
+			Type:        "LineString",
+			Coordinates: [][]float64{{-0.210, 5.550}, {-0.200, 5.552}},
+		},
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/road-closures", jsonBody(body))
+	request.Header.Set("Authorization", "Bearer "+signTestToken(t, models.TokenClaims{
+		UserID:    "usr_verified_officer",
+		UserType:  "agency",
+		Role:      "district_officer",
+		AgencyID:  "00000000-0000-0000-0000-000000000204",
+		MFA:       true,
+		ExpiresAt: testNow.Add(time.Hour).Unix(),
+	}))
+
+	srv.createRoadClosureHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	var payload models.RoadClosureResponse
+	decodeResponse(t, response, &payload)
+	if payload.Closure.CreatedBy != "usr_verified_officer" {
+		t.Fatalf("expected actor from verified claims, got %#v", payload.Closure.CreatedBy)
+	}
+}
+
+func TestCreateRoadClosureIgnoresMockHeadersWhenDisabled(t *testing.T) {
+	srv := newTokenTestServer()
+	body := models.CreateRoadClosureRequest{
+		RoadName: "Token Road",
+		Status:   "active",
+		Geometry: models.LineStringGeometry{
+			Type:        "LineString",
+			Coordinates: [][]float64{{-0.210, 5.550}, {-0.200, 5.552}},
+		},
+	}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPost, "/api/v1/road-closures", jsonBody(body))
+
+	srv.createRoadClosureHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestCreateRoadClosureRejectsForgedAndExpiredTokens(t *testing.T) {
+	valid := signTestToken(t, models.TokenClaims{
+		UserID: "usr_verified_officer", UserType: "agency", Role: "district_officer",
+		AgencyID: "00000000-0000-0000-0000-000000000204", MFA: true, ExpiresAt: testNow.Add(time.Hour).Unix(),
+	})
+	expired := signTestToken(t, models.TokenClaims{
+		UserID: "usr_verified_officer", UserType: "agency", Role: "district_officer",
+		AgencyID: "00000000-0000-0000-0000-000000000204", MFA: true, ExpiresAt: testNow.Add(-time.Hour).Unix(),
+	})
+	cases := []struct {
+		name  string
+		token string
+	}{
+		{"tampered signature", valid[:len(valid)-2] + "zz"},
+		{"wrong prefix", "fake." + valid[len("nadaa."):]},
+		{"expired", expired},
+		{"malformed", "not-a-token"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTokenTestServer()
+			body := models.CreateRoadClosureRequest{
+				RoadName: "Token Road",
+				Status:   "active",
+				Geometry: models.LineStringGeometry{
+					Type:        "LineString",
+					Coordinates: [][]float64{{-0.210, 5.550}, {-0.200, 5.552}},
+				},
+			}
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/road-closures", jsonBody(body))
+			request.Header.Set("Authorization", "Bearer "+tc.token)
+
+			srv.createRoadClosureHandler(response, request)
+
+			if response.Code != http.StatusUnauthorized {
+				t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+			}
+		})
+	}
+}
+
+func timePtr(value time.Time) *time.Time {
+	return &value
+}
+
+// signTestToken signs claims with the test secret using the same
+// nadaa.<payload>.<sig> HMAC-SHA256 scheme as auth-service.
+func signTestToken(t *testing.T, claims models.TokenClaims) string {
+	t.Helper()
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatalf("marshal claims: %v", err)
+	}
+	encoded := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, []byte(testTokenSecret))
+	mac.Write([]byte(encoded))
+	return "nadaa." + encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func jsonBody(value any) *bytes.Reader {

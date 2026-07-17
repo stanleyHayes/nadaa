@@ -10,6 +10,12 @@ import (
 )
 
 func (s *server) initiateMediaUploadHandler(w http.ResponseWriter, r *http.Request) {
+	clientID := utils.ClientIdentifier(r)
+	if !s.rateLimiter.Allow(clientID) {
+		utils.WriteError(w, http.StatusTooManyRequests, "rate_limited", "too many media upload requests; please wait before trying again")
+		return
+	}
+
 	var request models.InitiateMediaUploadRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
@@ -36,7 +42,10 @@ func (s *server) initiateMediaUploadHandler(w http.ResponseWriter, r *http.Reque
 	})
 }
 
-func (s *server) listMediaHandler(w http.ResponseWriter, _ *http.Request) {
+func (s *server) listMediaHandler(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAuthority(w, r, incidentReadRoles); !ok {
+		return
+	}
 	utils.WriteJSON(w, http.StatusOK, models.MediaListResponse{Media: s.store.ListMedia()})
 }
 

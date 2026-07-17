@@ -8,7 +8,7 @@ import (
 )
 
 func (s *Server) previewTargetHandler(w http.ResponseWriter, r *http.Request) {
-	if _, ok := requireAuthority(w, r, utils.DraftRoles); !ok {
+	if _, ok := s.requireAuthority(w, r, utils.DraftRoles); !ok {
 		return
 	}
 

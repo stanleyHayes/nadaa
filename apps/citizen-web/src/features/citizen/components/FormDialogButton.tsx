@@ -36,7 +36,8 @@ export function FormDialogButton({
 
   const handleClick = () => {
     if (!session) {
-      requestSignIn();
+      // The form is gated on sign-in, so tell the dialog why it is opening.
+      requestSignIn(label.toLowerCase());
       return;
     }
     setOpen(true);

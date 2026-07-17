@@ -54,9 +54,30 @@ export function StatusLine({
   );
 }
 
-export function ErrorState({ message }: { message: string }) {
+export function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
   return (
-    <Alert severity="error" className="feed-alert">
+    <Alert
+      severity="error"
+      className="feed-alert"
+      action={
+        onRetry ? (
+          <Button
+            color="inherit"
+            size="small"
+            startIcon={<RefreshCw size={16} />}
+            onClick={onRetry}
+          >
+            Refresh
+          </Button>
+        ) : undefined
+      }
+    >
       {message}
     </Alert>
   );

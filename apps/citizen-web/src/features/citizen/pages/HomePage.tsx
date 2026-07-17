@@ -86,10 +86,22 @@ export function HomePage() {
     info: Info,
   };
 
-  const offlineGuideCount = useMemo(() => {
-    const cached = readGuideCache();
-    const guides = cached?.guides ?? [];
-    return guides.filter((guide) => guide.offlineAvailable).length;
+  // The guide cache read is async (IndexedDB), so the count hydrates on mount.
+  const [offlineGuideCount, setOfflineGuideCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    void readGuideCache().then((cached) => {
+      if (cancelled) {
+        return;
+      }
+      const guides = cached?.guides ?? [];
+      setOfflineGuideCount(
+        guides.filter((guide) => guide.offlineAvailable).length,
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const floodRisk = useMemo(

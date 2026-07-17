@@ -134,7 +134,7 @@ function DamageClaim() {
       event.preventDefault();
 
       if (!session) {
-        requestSignIn();
+        requestSignIn("file your damage claim");
         return;
       }
 
@@ -215,6 +215,16 @@ function DamageClaim() {
         .split(",")
         .map((url) => url.trim())
         .filter((url) => url.length > 0);
+
+      // The service caps damagePhotos at 20 per claim — reject early with a
+      // form error instead of a failed request.
+      if (photoUrls.length > 20) {
+        setState({
+          status: "error",
+          message: "Attach at most 20 photo links to one claim.",
+        });
+        return;
+      }
 
       const payload: CreateDamageClaimRequest = {
         incidentId: form.incidentId.trim() || undefined,
@@ -489,7 +499,7 @@ function DamageClaim() {
                   onChange={(event) =>
                     updateForm("photoUrls", event.target.value)
                   }
-                  helperText="Paste links to photos hosted elsewhere; each link must be safe and 500 characters or fewer."
+                  helperText="Paste links to photos hosted elsewhere (up to 20); each link must be safe and 500 characters or fewer."
                   slotProps={{
                     htmlInput: { maxLength: 2000 }
                   }}

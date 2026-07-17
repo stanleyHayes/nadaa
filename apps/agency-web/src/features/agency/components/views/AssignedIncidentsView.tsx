@@ -12,6 +12,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { Activity, ClipboardList, ShieldAlert, Truck, X } from "lucide-react";
+import { canUpdateIncidentStatus } from "@/app/session";
 import type { AgencyData } from "../../useAgencyData";
 import { MetricTile, ViewIntro } from "../primitives";
 import {
@@ -26,6 +27,7 @@ import {
 
 export function AssignedIncidentsView({ data }: { data: AgencyData }) {
   const {
+    session,
     incidents,
     filteredIncidents,
     incidentLoadState,
@@ -47,6 +49,7 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
 
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const canWriteStatus = canUpdateIncidentStatus(session);
 
   return (
     <Stack spacing={2.5}>
@@ -158,17 +161,23 @@ export function AssignedIncidentsView({ data }: { data: AgencyData }) {
                     lifecycle.
                   </Typography>
                 </Box>
-                <StatusUpdateForm
-                  currentStatus={selectedIncident.status}
-                  form={statusForm}
-                  onChange={setStatusForm}
-                  onSubmit={handleStatusUpdate}
-                  submitLabel={
-                    statusUpdateState === "loading"
-                      ? "Updating..."
-                      : "Update status"
-                  }
-                />
+                {canWriteStatus ? (
+                  <StatusUpdateForm
+                    currentStatus={selectedIncident.status}
+                    form={statusForm}
+                    onChange={setStatusForm}
+                    onSubmit={handleStatusUpdate}
+                    submitLabel={
+                      statusUpdateState === "loading"
+                        ? "Updating..."
+                        : "Update status"
+                    }
+                  />
+                ) : (
+                  <Alert severity="info">
+                    Your role has read-only access to incident status.
+                  </Alert>
+                )}
                 {statusUpdateState === "success" ? (
                   <Alert severity="success" sx={{ mt: 2 }}>
                     Status updated successfully.

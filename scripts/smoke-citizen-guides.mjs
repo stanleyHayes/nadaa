@@ -49,7 +49,8 @@ if (!app.ok) {
   throw new Error(`citizen app failed: ${app.status} ${app.statusText}`);
 }
 const html = await app.text();
-if (!html.includes("<title>NADAA Citizen</title>")) {
+// The title carries an SEO suffix after the stable "NADAA Citizen" prefix.
+if (!html.includes("<title>NADAA Citizen")) {
   throw new Error("citizen guide smoke reached the wrong web app");
 }
 

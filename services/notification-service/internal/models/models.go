@@ -329,22 +329,24 @@ type InclusiveAccessLog struct {
 
 // InclusiveAccessReport is an emergency report received through an inclusive channel.
 type InclusiveAccessReport struct {
-	ID                string      `json:"id"`
-	Channel           string      `json:"channel"`
-	Type              string      `json:"type"`
-	Urgency           string      `json:"urgency"`
-	Description       string      `json:"description"`
-	Location          Coordinates `json:"location"`
-	LocationLabel     string      `json:"locationLabel"`
-	PhoneRef          string      `json:"phoneRef"`
-	ProfileID         string      `json:"profileId,omitempty"`
-	LinkedProfile     bool        `json:"linkedProfile"`
-	Status            string      `json:"status"`
-	Media             []string    `json:"media,omitempty"`
-	IncidentID        string      `json:"incidentId,omitempty"`
-	IncidentReference string      `json:"incidentReference,omitempty"`
-	FailureReason     string      `json:"failureReason,omitempty"`
-	CreatedAt         time.Time   `json:"createdAt"`
+	ID                string       `json:"id"`
+	Channel           string       `json:"channel"`
+	Provider          string       `json:"provider,omitempty"`
+	ProviderMessageID string       `json:"providerMessageId,omitempty"`
+	Type              string       `json:"type"`
+	Urgency           string       `json:"urgency"`
+	Description       string       `json:"description"`
+	Location          *Coordinates `json:"location,omitempty"`
+	LocationLabel     string       `json:"locationLabel"`
+	PhoneRef          string       `json:"phoneRef"`
+	ProfileID         string       `json:"profileId,omitempty"`
+	LinkedProfile     bool         `json:"linkedProfile"`
+	Status            string       `json:"status"`
+	Media             []string     `json:"media,omitempty"`
+	IncidentID        string       `json:"incidentId,omitempty"`
+	IncidentReference string       `json:"incidentReference,omitempty"`
+	FailureReason     string       `json:"failureReason,omitempty"`
+	CreatedAt         time.Time    `json:"createdAt"`
 }
 
 // AccessLogListResponse returns inclusive access logs.
@@ -436,7 +438,7 @@ type VoiceVariant struct {
 type IncidentIntakeRequest struct {
 	Type               string       `json:"type"`
 	Description        string       `json:"description"`
-	Location           Coordinates  `json:"location"`
+	Location           *Coordinates `json:"location,omitempty"`
 	PeopleAffected     int          `json:"peopleAffected"`
 	InjuriesReported   bool         `json:"injuriesReported"`
 	Urgency            string       `json:"urgency"`
@@ -458,6 +460,17 @@ type IncidentIntakeResponse struct {
 	ID        string `json:"id"`
 	Reference string `json:"reference"`
 	Status    string `json:"status"`
+}
+
+// AuthorityContext captures the authenticated authority actor from a verified
+// bearer token (or, in local development, from trusted mock-actor headers).
+type AuthorityContext struct {
+	ActorUserID   string
+	ActorAgencyID string
+	ActorRole     string
+	ActorDistrict string
+	MFACompleted  bool
+	RequestID     string
 }
 
 // APIError is the standard error response envelope.

@@ -30,6 +30,15 @@ NADAA-072 adds the MVP HTTP service:
 
 The service listens on `:8094` by default. Set `NADAA_ML_ADDR` to override the bind address and `NADAA_ML_MODEL_DIR` when model artifacts are mounted somewhere other than the repository defaults.
 
+All endpoints except `GET /healthz` require either a verified NADAA bearer token (`Authorization: Bearer nadaa.<payload>.<sig>`, verified with `NADAA_AUTH_TOKEN_SECRET`) or the `X-NADAA-Service-Token` header matching `NADAA_INTERNAL_SERVICE_TOKEN`. When `NADAA_INTERNAL_SERVICE_TOKEN` is unset the service-token path stays open (development default) and a warning is logged at startup. Legacy `X-NADAA-Actor-*` mock actor headers are honored only when `NADAA_AUTH_ALLOW_MOCK_ACTORS=true`.
+
+At startup the service verifies `checksums.sha256` in the model directory (sha256 of the model artifacts and the generated features file) and refuses to load on mismatch; set `NADAA_ML_SKIP_INTEGRITY_CHECK=true` to bypass. Regenerate the manifest after retraining or regenerating features:
+
+```bash
+cd data/flood-risk/models
+shasum -a 256 baseline-logistic.v1.json evaluation-report.v1.md evaluation.v1.json sample-predictions.v1.json ../generated/features.v1.csv ../generated/features.v1.json ../generated/manifest.v1.json > checksums.sha256
+```
+
 Run locally:
 
 ```bash

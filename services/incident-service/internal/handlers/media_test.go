@@ -4,8 +4,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/stanleyHayes/nadaa/services/incident-service/internal/config"
 	"github.com/stanleyHayes/nadaa/services/incident-service/internal/models"
+	"github.com/stanleyHayes/nadaa/services/incident-service/internal/store"
 	"github.com/stanleyHayes/nadaa/services/incident-service/internal/utils"
 )
 
@@ -53,5 +56,45 @@ func TestInitiateMediaUploadRejectsOversizedFile(t *testing.T) {
 
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
+
+func TestListMediaRequiresAuthority(t *testing.T) {
+	srv := newTestServer()
+	initiateMediaUpload(t, srv)
+
+	unauthenticated := httptest.NewRecorder()
+	srv.listMediaHandler(unauthenticated, httptest.NewRequest(http.MethodGet, "/api/v1/media", nil))
+	if unauthenticated.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, unauthenticated.Code)
+	}
+
+	response := httptest.NewRecorder()
+	srv.listMediaHandler(response, authorityRequest(http.MethodGet, "/api/v1/media", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload models.MediaListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Media) != 1 {
+		t.Fatalf("expected one media record, got %#v", payload.Media)
+	}
+}
+
+func TestInitiateMediaUploadIsRateLimited(t *testing.T) {
+	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+	srv := NewServer(store.NewMemoryStore(), func() time.Time { return now }, &config.Config{RateLimit: 1, RateWindowSecs: 60})
+
+	first := httptest.NewRecorder()
+	srv.initiateMediaUploadHandler(first, httptest.NewRequest(http.MethodPost, "/api/v1/media/uploads", jsonBody(validMediaUploadRequest())))
+	if first.Code != http.StatusCreated {
+		t.Fatalf("expected first upload status %d, got %d: %s", http.StatusCreated, first.Code, first.Body.String())
+	}
+
+	second := httptest.NewRecorder()
+	srv.initiateMediaUploadHandler(second, httptest.NewRequest(http.MethodPost, "/api/v1/media/uploads", jsonBody(validMediaUploadRequest())))
+	if second.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected status %d, got %d", http.StatusTooManyRequests, second.Code)
 	}
 }

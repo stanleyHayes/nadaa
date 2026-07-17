@@ -7,6 +7,7 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -132,8 +133,14 @@ type PaymentProvider interface {
 }
 
 // SandboxPaymentProvider simulates a compliant gateway so the donation flow can
-// run end-to-end without real credentials. It is the safe default.
-type SandboxPaymentProvider struct{}
+// run end-to-end without real credentials. It is the safe default. Outside
+// development (CreditPayments false) it never credits donations and never
+// accepts webhooks, so a deployed default can never mark unpaid money as paid.
+type SandboxPaymentProvider struct {
+	// CreditPayments enables the simulated "paid" verification and webhook
+	// acceptance; it must only be set in development (NADAA_ENV=development).
+	CreditPayments bool
+}
 
 // Name identifies the provider in donation records and logs.
 func (SandboxPaymentProvider) Name() string { return "sandbox_payment" }
@@ -148,8 +155,17 @@ func (SandboxPaymentProvider) Initialize(_ context.Context, request PaymentInitR
 	}
 }
 
-// Verify reports the simulated payment as paid so local flows complete.
-func (SandboxPaymentProvider) Verify(_ context.Context, reference string) PaymentVerifyResult {
+// Verify reports the simulated payment as paid so local flows complete. It only
+// credits payments in development; anywhere else the donation stays pending so
+// no money is ever recorded that did not move.
+func (p SandboxPaymentProvider) Verify(_ context.Context, reference string) PaymentVerifyResult {
+	if !p.CreditPayments {
+		return PaymentVerifyResult{
+			Provider: "sandbox_payment",
+			Status:   "pending",
+			Reason:   "sandbox provider does not credit payments outside development",
+		}
+	}
 	return PaymentVerifyResult{
 		Provider:    "sandbox_payment",
 		Status:      "paid",
@@ -158,10 +174,12 @@ func (SandboxPaymentProvider) Verify(_ context.Context, reference string) Paymen
 	}
 }
 
-// VerifyWebhookSignature accepts any signature in sandbox mode. This is safe
-// only because the sandbox provider is never selected in production; a real
-// provider (PaystackProvider) enforces a cryptographic signature.
-func (SandboxPaymentProvider) VerifyWebhookSignature(_ string, _ []byte) bool { return true }
+// VerifyWebhookSignature accepts any signature in sandbox mode, but only in
+// development; outside development unsigned webhooks are always rejected. A
+// real provider (PaystackProvider) enforces a cryptographic signature.
+func (p SandboxPaymentProvider) VerifyWebhookSignature(_ string, _ []byte) bool {
+	return p.CreditPayments
+}
 
 // DisabledPaymentProvider is the fail-safe when payments are turned off or a
 // real provider is selected without credentials; it never starts or confirms a
@@ -273,11 +291,14 @@ func (p PaystackProvider) Initialize(ctx context.Context, request PaymentInitReq
 }
 
 // Verify confirms a transaction server-side. It is the authoritative check
-// before a donation is credited.
+// before a donation is credited. "failed" is reserved for confirmed gateway
+// failure states: transport errors and non-2xx responses (including Paystack
+// 5xx outages) report "pending" so a transient error never permanently fails a
+// donation the donor may actually have paid.
 func (p PaystackProvider) Verify(ctx context.Context, reference string) PaymentVerifyResult {
 	const providerID = "paystack"
 	if strings.TrimSpace(p.SecretKey) == "" {
-		return PaymentVerifyResult{Provider: providerID, Status: "failed", Reason: "paystack secret key not configured"}
+		return PaymentVerifyResult{Provider: providerID, Status: "pending", Reason: "paystack secret key not configured"}
 	}
 
 	var parsed struct {
@@ -293,10 +314,10 @@ func (p PaystackProvider) Verify(ctx context.Context, reference string) PaymentV
 	}
 	status, err := p.doJSON(ctx, http.MethodGet, "/transaction/verify/"+reference, nil, &parsed)
 	if err != nil {
-		return PaymentVerifyResult{Provider: providerID, Status: "failed", Reason: err.Error()}
+		return PaymentVerifyResult{Provider: providerID, Status: "pending", Reason: err.Error()}
 	}
 	if status < 200 || status >= 300 || !parsed.Status {
-		return PaymentVerifyResult{Provider: providerID, Status: "failed", Reason: paystackReason(parsed.Message, status)}
+		return PaymentVerifyResult{Provider: providerID, Status: "pending", Reason: paystackReason(parsed.Message, status)}
 	}
 
 	result := PaymentVerifyResult{
@@ -336,13 +357,13 @@ func (p PaystackProvider) doJSON(ctx context.Context, method, path string, paylo
 	if payload != nil {
 		encoded, err := json.Marshal(payload)
 		if err != nil {
-			return 0, fmt.Errorf("encode paystack request failed")
+			return 0, errors.New("encode paystack request failed")
 		}
 		reader = bytes.NewReader(encoded)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, p.BaseURL+path, reader)
 	if err != nil {
-		return 0, fmt.Errorf("build paystack request failed")
+		return 0, errors.New("build paystack request failed")
 	}
 	req.Header.Set("Authorization", "Bearer "+p.SecretKey)
 	req.Header.Set("Accept", "application/json")
@@ -352,9 +373,9 @@ func (p PaystackProvider) doJSON(ctx context.Context, method, path string, paylo
 
 	resp, err := p.HTTPClient.Do(req)
 	if err != nil {
-		return 0, fmt.Errorf("paystack request failed")
+		return 0, errors.New("paystack request failed")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, maxPaymentResponseBytes))
 	if len(raw) > 0 && out != nil {
 		_ = json.Unmarshal(raw, out)

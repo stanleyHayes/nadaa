@@ -1,3 +1,7 @@
+// Expects an externally started risk-service (see scripts/dev-citizen-backends.sh).
+// This smoke only calls risk-service; with RISK_EXPECT_ML=true the service must
+// run with NADAA_ML_API_URL + NADAA_INTERNAL_SERVICE_TOKEN set so its own
+// service-to-service call to ml-service passes the ml auth gate.
 const baseURL =
   process.env.RISK_API_URL?.trim() || "http://127.0.0.1:8081/api/v1";
 const expectMLPrediction = process.env.RISK_EXPECT_ML === "true";

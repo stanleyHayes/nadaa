@@ -66,10 +66,12 @@ export function ShelterOccupancyForm({
   form,
   onChange,
   onSubmit,
+  submitting = false,
 }: {
   form: ShelterOccupancyFormState;
   onChange: (form: ShelterOccupancyFormState) => void;
   onSubmit: () => void;
+  submitting?: boolean;
 }) {
   return (
     <Stack spacing={2}>
@@ -115,8 +117,8 @@ export function ShelterOccupancyForm({
         size="small"
         value={form.notes}
       />
-      <Button onClick={onSubmit} variant="contained">
-        Update occupancy
+      <Button disabled={submitting} onClick={onSubmit} variant="contained">
+        {submitting ? "Updating..." : "Update occupancy"}
       </Button>
     </Stack>
   );

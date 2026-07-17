@@ -14,7 +14,7 @@ The imagery service manages drone, satellite, and other aerial imagery ingestion
 - `POST /api/v1/imagery/lifecycle/run` — authority run retention lifecycle
 - `GET /api/v1/imagery/geojson` — public active footprint FeatureCollection
 
-Authority endpoints require MFA-completed authority headers:
+Authority endpoints require a valid `Authorization: Bearer nadaa.<payload>.<sig>` token issued by auth-service (verified with `NADAA_AUTH_TOKEN_SECRET`); the token's role must be an allowed authority role with MFA completed. For local development and smoke tests, setting `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` also honors the legacy headers:
 
 - `X-NADAA-Actor-ID`
 - `X-NADAA-Actor-Role`
@@ -60,6 +60,12 @@ go test ./...
 - `NADAA_ALLOWED_ORIGINS` — comma-separated CORS allowlist; `*` or empty allows all origins
 - `IMAGERY_STORAGE_PATH` — directory for uploaded files (default `./uploads`)
 - `DEFAULT_RETENTION_DAYS` — retention period in days (default `90`)
+- `NADAA_AUTH_TOKEN_SECRET` — HMAC secret used to verify auth-service bearer tokens; when empty (and mock actors off) authority endpoints return 401
+- `NADAA_AUTH_ALLOW_MOCK_ACTORS` — `true` honors legacy `X-NADAA-Actor-*` headers (local dev/smoke tests only)
+- `NADAA_IMAGERY_PUBLIC_BASE_URL` — externally reachable base URL (e.g. `https://imagery.example.com`) used for geojson `downloadUrl`s; falls back to the request scheme/host when unset
+- `NADAA_ENV` — `development` allows localhost/127.0.0.1 CORS origins alongside the allowlist
+
+Expired records are expired automatically by an hourly retention lifecycle tick (in addition to the manual `POST /api/v1/imagery/lifecycle/run` endpoint).
 
 ## Notes
 

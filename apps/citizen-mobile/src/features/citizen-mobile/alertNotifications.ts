@@ -78,6 +78,23 @@ export async function requestAlertPermission(): Promise<boolean> {
   return result.granted;
 }
 
+/**
+ * Read the current OS notification permission WITHOUT prompting. Used at
+ * startup so a persisted OS grant keeps notifications working after restarts.
+ */
+export async function getAlertPermissionStatus(): Promise<
+  "granted" | "denied" | "blocked" | "unknown"
+> {
+  const current = await Notifications.getPermissionsAsync();
+  if (current.granted) {
+    return "granted";
+  }
+  if (current.canAskAgain === false) {
+    return "blocked";
+  }
+  return current.status === "denied" ? "denied" : "unknown";
+}
+
 /** Present a device notification for one alert on the appropriate channel. */
 export async function presentAlertNotification(
   alert: CitizenAlertFeedItem,
@@ -96,25 +113,30 @@ export async function presentAlertNotification(
 }
 
 /**
- * Present notifications for newly-arrived current alerts, adding them to `seen`
- * so none fire twice. The OS channel handles DND; level-5 overrides it. Returns
- * the alerts that were notified.
+ * Present notifications for newly-arrived current alerts. Fixture-sourced
+ * items are never notified — they are not real warnings. Each id is added to
+ * `seen` SYNCHRONOUSLY before presenting so overlapping refreshes can never
+ * double-notify the same alert; a transient presentation failure un-marks it
+ * so it retries on the next refresh. Returns the alerts that were notified.
  */
 export async function notifyNewAlerts(
   alerts: CitizenAlertFeedItem[],
   seen: Set<string>,
 ): Promise<CitizenAlertFeedItem[]> {
   const fresh = alerts.filter(
-    (alert) => alert.status === "current" && !seen.has(alert.id),
+    (alert) =>
+      alert.status === "current" &&
+      alert.source !== "fixture" &&
+      !seen.has(alert.id),
   );
   const delivered: CitizenAlertFeedItem[] = [];
   for (const alert of fresh) {
+    seen.add(alert.id);
     try {
       await presentAlertNotification(alert);
-      seen.add(alert.id);
       delivered.push(alert);
     } catch {
-      // Leave un-seen so a transient failure retries on the next refresh.
+      seen.delete(alert.id);
     }
   }
   return delivered;

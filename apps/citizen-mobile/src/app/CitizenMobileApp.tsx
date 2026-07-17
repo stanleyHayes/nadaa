@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import {
   Image,
+  Linking,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -64,6 +65,9 @@ export default function CitizenMobileApp() {
         <Pressable
           accessibilityLabel="Call 112"
           accessibilityRole="button"
+          onPress={() =>
+            void Linking.openURL(`tel:${nadaaBrand.supportLine}`)
+          }
           style={styles.callButton}
         >
           <Feather

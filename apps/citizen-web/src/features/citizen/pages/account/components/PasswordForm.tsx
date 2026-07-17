@@ -55,7 +55,8 @@ export function PasswordForm() {
           className="warning-alert"
           onClose={() => setFeedback({ kind: "idle" })}
         >
-          Password updated. Use your new password next time you sign in.
+          Password updated on this device (preview — no credential backend
+          enforces it yet).
         </Alert>
       ) : null}
       {feedback.kind === "error" ? (

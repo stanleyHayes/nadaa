@@ -33,11 +33,13 @@ func WriteError(w http.ResponseWriter, status int, code, message string) {
 	WriteJSON(w, status, models.APIError{Error: models.APIErrorBody{Code: code, Message: message}})
 }
 
-// WithCORS wraps a handler with security and CORS headers.
-func WithCORS(allowedOrigins map[string]bool, next http.Handler) http.Handler {
+// WithCORS wraps a handler with security and CORS headers. allowLocalhost
+// (NADAA_ENV=development) permits localhost/127.0.0.1 origins even when an
+// explicit allowlist is configured.
+func WithCORS(allowedOrigins map[string]bool, allowLocalhost bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applySecurityHeaders(w)
-		applyCORSHeaders(w, r, allowedOrigins)
+		applyCORSHeaders(w, r, allowedOrigins, allowLocalhost)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -55,13 +57,14 @@ func applySecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 }
 
-func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool) {
+func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool, allowLocalhost bool) {
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
 	if len(allowedOrigins) == 0 {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		localOrigin := allowLocalhost && (strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:"))
+		if allowedOrigins[origin] || localOrigin {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
@@ -108,6 +111,12 @@ func NormalizeToken(value string) string {
 func UnsafeText(value string) bool {
 	lower := strings.ToLower(value)
 	return strings.Contains(lower, "<script") || strings.Contains(lower, "javascript:")
+}
+
+// LogSafe strips line-break characters so user-controlled values cannot inject
+// forged lines into structured logs.
+func LogSafe(value string) string {
+	return strings.NewReplacer("\n", " ", "\r", " ").Replace(value)
 }
 
 // ValidEmail returns true if value looks like a reasonable email address.

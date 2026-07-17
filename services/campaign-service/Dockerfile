@@ -12,5 +12,5 @@ RUN adduser -D -H -u 10001 appuser
 COPY --from=build /out/campaign-service /usr/local/bin/campaign-service
 
 USER appuser
-EXPOSE 8102
+EXPOSE 8103
 ENTRYPOINT ["campaign-service"]

@@ -63,12 +63,18 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (isDevelopmentEnv() && (strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:"))) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
+}
+
+// isDevelopmentEnv reports whether the service runs in a development
+// environment; the localhost CORS exception is only honored there.
+func isDevelopmentEnv() bool {
+	return NormalizeQueryValue(os.Getenv("NADAA_ENV")) == "development"
 }
 
 // EnvOrDefault returns the value of key or fallback if unset.
@@ -306,8 +312,10 @@ func WhatsAppMediaRefs(media []models.WhatsAppMedia) []string {
 }
 
 // WhatsAppConversationKey returns the lookup key for a WhatsApp conversation.
-func WhatsAppConversationKey(phoneRef string, _ string, _ bool) string {
-	return phoneRef
+// It keys on the full E.164 phone number so users sharing a last-4 suffix never
+// share a conversation state machine; the masked phone ref is for logs only.
+func WhatsAppConversationKey(phone string, _ string, _ bool) string {
+	return strings.TrimSpace(phone)
 }
 
 // IsWhatsAppTopLevelCommand reports whether command is a recognized top-level command.
@@ -355,16 +363,21 @@ func WhatsAppMediaSummary(media []models.WhatsAppMedia) string {
 	return fmt.Sprintf("attachments:%d", len(media))
 }
 
-// InclusiveLocation resolves location from coordinates or free-text tokens.
-func InclusiveLocation(location *models.Coordinates, locationTokens []string) (models.Coordinates, string) {
-	if location != nil && location.Lat >= -90 && location.Lat <= 90 && location.Lng >= -180 && location.Lng <= 180 {
-		return *location, "caller shared approximate coordinates"
+// InclusiveLocation resolves location from coordinates or free-text tokens. It
+// returns nil coordinates when the caller did not share a usable location so the
+// incident handoff omits the field instead of plotting a fabricated point;
+// (0,0) is treated as no-location because it is the default zero value, not a
+// real caller fix.
+func InclusiveLocation(location *models.Coordinates, locationTokens []string) (*models.Coordinates, string) {
+	if location != nil && location.Lat >= -90 && location.Lat <= 90 && location.Lng >= -180 && location.Lng <= 180 && (location.Lat != 0 || location.Lng != 0) {
+		resolved := *location
+		return &resolved, "caller shared approximate coordinates"
 	}
 	locationLabel := strings.TrimSpace(strings.Join(locationTokens, " "))
 	if locationLabel == "" {
 		locationLabel = "caller did not provide location details; use phone follow-up"
 	}
-	return models.Coordinates{Lat: 5.5600, Lng: -0.2057}, locationLabel
+	return nil, locationLabel
 }
 
 // LogTextSummary returns a privacy-safe text length summary.

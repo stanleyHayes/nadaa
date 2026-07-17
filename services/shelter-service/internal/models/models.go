@@ -106,6 +106,7 @@ type AidRequest struct {
 	NeededBy              time.Time   `json:"neededBy"`
 	Visibility            string      `json:"visibility"`
 	SourceReliefPointID   string      `json:"sourceReliefPointId,omitempty"`
+	AgencyID              string      `json:"agencyId,omitempty"`
 	CreatedBy             string      `json:"createdBy"`
 	ApprovedBy            string      `json:"approvedBy,omitempty"`
 	ApprovalNotes         string      `json:"approvalNotes,omitempty"`
@@ -369,6 +370,7 @@ type AuthorityContext struct {
 	ActorUserID   string
 	ActorAgencyID string
 	ActorRole     string
+	ActorDistrict string
 	MFACompleted  bool
 	RequestID     string
 }
@@ -395,6 +397,11 @@ type AidRequestFilter struct {
 	Location       *Coordinates
 	RadiusMeters   float64
 	Limit          int
+	// ViewerRole and ViewerAgencyID scope private (non-public) results when
+	// IncludePrivate is set: privileged roles see every private request, while
+	// agency roles only see private requests owned by their own agency.
+	ViewerRole     string
+	ViewerAgencyID string
 }
 
 // HospitalCapacityFilter captures accepted query parameters for hospital capacity.

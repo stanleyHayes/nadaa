@@ -105,6 +105,33 @@ func TestPaystackVerifyFailed(t *testing.T) {
 	}
 }
 
+func TestPaystackVerifyPendingOnServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = io.WriteString(w, `{"status":false,"message":"gateway error"}`)
+	}))
+	defer server.Close()
+
+	provider := NewPaystackProvider("sk_test_secret", server.URL, "", server.Client())
+	result := provider.Verify(context.Background(), "GIFT-3")
+
+	if result.Status != "pending" {
+		t.Fatalf("status = %q, want pending on a 5xx (transient errors must not fail a donation)", result.Status)
+	}
+}
+
+func TestPaystackVerifyPendingOnTransportError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server.Close() // close immediately so every request fails to connect
+
+	provider := NewPaystackProvider("sk_test_secret", server.URL, "", server.Client())
+	result := provider.Verify(context.Background(), "GIFT-4")
+
+	if result.Status != "pending" {
+		t.Fatalf("status = %q, want pending on a transport error", result.Status)
+	}
+}
+
 func TestPaystackVerifyWebhookSignature(t *testing.T) {
 	const secret = "sk_test_secret"
 	provider := NewPaystackProvider(secret, "https://api.paystack.co", "", nil)
@@ -134,7 +161,7 @@ func TestPaystackInitializeWithoutKeyFails(t *testing.T) {
 }
 
 func TestSandboxPaymentProvider(t *testing.T) {
-	provider := SandboxPaymentProvider{}
+	provider := SandboxPaymentProvider{CreditPayments: true}
 	init := provider.Initialize(context.Background(), PaymentInitRequest{Reference: "GIFT-9"})
 	if init.Status != "initialized" || init.AuthorizationURL == "" {
 		t.Fatalf("sandbox initialize = %+v", init)
@@ -142,6 +169,20 @@ func TestSandboxPaymentProvider(t *testing.T) {
 	verify := provider.Verify(context.Background(), "GIFT-9")
 	if verify.Status != "paid" {
 		t.Fatalf("sandbox verify status = %q, want paid", verify.Status)
+	}
+	if !provider.VerifyWebhookSignature("anything", []byte("body")) {
+		t.Error("dev sandbox should accept webhook signatures")
+	}
+}
+
+func TestSandboxPaymentProviderNeverCreditsOutsideDev(t *testing.T) {
+	provider := SandboxPaymentProvider{} // CreditPayments defaults to false
+	verify := provider.Verify(context.Background(), "GIFT-9")
+	if verify.Status != "pending" {
+		t.Fatalf("non-dev sandbox verify status = %q, want pending (never paid)", verify.Status)
+	}
+	if provider.VerifyWebhookSignature("anything", []byte("body")) {
+		t.Error("non-dev sandbox must never accept a webhook")
 	}
 }
 

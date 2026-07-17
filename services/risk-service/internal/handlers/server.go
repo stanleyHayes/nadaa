@@ -19,7 +19,7 @@ type Server struct {
 func NewServer(s store.Store, cfg *config.Config) *Server {
 	srv := &Server{store: s, config: cfg}
 	if cfg.MLAPIURL != "" {
-		srv.mlClient = newMLClient(cfg.MLAPIURL, http.DefaultClient)
+		srv.mlClient = newMLClient(cfg.MLAPIURL, cfg.InternalServiceToken, http.DefaultClient)
 	}
 	return srv
 }

@@ -60,6 +60,7 @@ func (s *Server) signAgencyToken(profile models.AgencyUserProfile, expiresAt tim
 		Phone:     profile.Phone,
 		Role:      profile.Role,
 		AgencyID:  profile.Agency.ID,
+		District:  profile.Agency.District,
 		MFA:       profile.MFAEnabled,
 		ExpiresAt: expiresAt.Unix(),
 	}

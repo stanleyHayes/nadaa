@@ -321,8 +321,19 @@ export interface CitizenAlertFeedResponse {
 }
 
 export type NotificationChannel = "push" | "sms" | "voice";
+/** Channels that can appear in the unified delivery-log audit stream. Broader
+ *  than `NotificationChannel` because cell broadcasts are audited there but
+ *  are never deliverable through the generic delivery endpoint. */
+export type NotificationDeliveryLogChannel =
+  NotificationChannel | "cell_broadcast";
 export type NotificationDeliveryStatus =
-  "queued" | "delivered" | "failed" | "skipped";
+  | "queued"
+  | "sent"
+  | "delivered"
+  | "failed"
+  | "skipped"
+  | "simulated"
+  | "broadcast";
 export type VoiceLanguage = "en" | "tw" | "ga" | "ee" | "dag" | "ha";
 export type VoiceAlertStatus = "generated" | "approved" | "rejected";
 export type VoiceReviewStatus =
@@ -355,7 +366,7 @@ export interface NotificationDeliveryAttempt {
   id: string;
   alertId: string;
   alertTitle: string;
-  channel: NotificationChannel;
+  channel: NotificationDeliveryLogChannel;
   provider: string;
   recipientRef: string;
   status: NotificationDeliveryStatus;
@@ -467,10 +478,12 @@ export interface InclusiveAccessLog {
 export interface InclusiveAccessReport {
   id: string;
   channel: InclusiveAccessChannel;
+  provider?: string;
+  providerMessageId?: string;
   type: HazardType;
   urgency: IncidentUrgency;
   description: string;
-  location: Coordinates;
+  location?: Coordinates;
   locationLabel: string;
   phoneRef: string;
   profileId?: string;
@@ -1674,6 +1687,7 @@ export interface AidRequestRecord {
   neededBy: string;
   visibility: "public" | "partners_only";
   sourceReliefPointId?: string;
+  agencyId?: string;
   createdBy: string;
   approvedBy?: string;
   approvalNotes?: string;
@@ -2405,6 +2419,9 @@ export interface ReviewMissingPersonRequest {
   publicSummary?: string;
   reviewNotes?: string;
   status?: MissingPersonStatus;
+  /** Explicitly overrides a reporter's declined consentToPublicShare when
+   *  approving public visibility; recorded in the audit trail. */
+  consentOverride?: boolean;
 }
 
 export interface CloseMissingPersonRequest {
@@ -2804,7 +2821,6 @@ export interface OpenDataDatasetDownload {
   format: string;
   url: string;
   size: number;
-  checksum: string;
   createdAt: string;
 }
 

@@ -8,19 +8,25 @@ import (
 
 // Config holds incident-service configuration loaded from the environment.
 type Config struct {
-	Addr           string
-	RateLimit      int
-	RateWindowSecs int
-	AllowedOrigins map[string]bool
+	Addr                 string
+	RateLimit            int
+	RateWindowSecs       int
+	AllowedOrigins       map[string]bool
+	TokenSecret          string
+	InternalServiceToken string
+	AllowMockActors      bool
 }
 
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:           resolveListenAddr("NADAA_INCIDENT_ADDR", ":8084"),
-		RateLimit:      envIntOrDefault("NADAA_INCIDENT_RATE_LIMIT", 60),
-		RateWindowSecs: envIntOrDefault("NADAA_INCIDENT_RATE_WINDOW_SECONDS", 60),
-		AllowedOrigins: allowedOriginsFromEnv(),
+		Addr:                 resolveListenAddr("NADAA_INCIDENT_ADDR", ":8084"),
+		RateLimit:            envIntOrDefault("NADAA_INCIDENT_RATE_LIMIT", 60),
+		RateWindowSecs:       envIntOrDefault("NADAA_INCIDENT_RATE_WINDOW_SECONDS", 60),
+		AllowedOrigins:       allowedOriginsFromEnv(),
+		TokenSecret:          strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
+		InternalServiceToken: strings.TrimSpace(os.Getenv("NADAA_INTERNAL_SERVICE_TOKEN")),
+		AllowMockActors:      strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")), "true"),
 	}
 }
 

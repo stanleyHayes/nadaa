@@ -59,7 +59,7 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (isDevelopmentEnv() && (strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:"))) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
@@ -74,6 +74,23 @@ func EnvOrDefault(key, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+// isDevelopmentEnv reports whether the service runs with NADAA_ENV=development,
+// which gates developer conveniences such as localhost CORS origins.
+func isDevelopmentEnv() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_ENV")), "development")
+}
+
+// SafeLogValue strips line-break characters from user-controlled values so
+// they cannot forge additional log lines (gosec G706).
+func SafeLogValue(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' {
+			return -1
+		}
+		return r
+	}, value)
 }
 
 // AllowedOriginsFromEnv parses NADAA_ALLOWED_ORIGINS into a set.

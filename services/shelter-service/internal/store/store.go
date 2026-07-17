@@ -47,17 +47,27 @@ type MemoryStore struct {
 	reliefStockHistory []models.ReliefStockHistory
 	aidRequests        []models.AidRequest
 	aidPledges         []models.AidPledge
+	// Monotonic ID sequences, independent of slice length, so deletes can
+	// never cause a newly created record to reuse an existing ID.
+	reliefPointSeq int
+	aidRequestSeq  int
 }
 
 // NewMemoryStore creates an in-memory store seeded with fixture data.
 func NewMemoryStore(now time.Time) Store {
+	reliefPoints := seedReliefPoints(now)
+	aidRequests := seedAidRequests(now)
 	return &MemoryStore{
 		shelters:     seedShelters(now),
 		recovery:     seedRecovery(now),
 		hospitals:    seedHospitals(now),
-		reliefPoints: seedReliefPoints(now),
-		aidRequests:  seedAidRequests(now),
+		reliefPoints: reliefPoints,
+		aidRequests:  aidRequests,
 		aidPledges:   seedAidPledges(now),
+		// Seeded fixture IDs do not use the sequential relief_NNN/aid_NNN
+		// format, so starting past the seed count keeps generated IDs unique.
+		reliefPointSeq: len(reliefPoints) + 1,
+		aidRequestSeq:  len(aidRequests) + 1,
 	}
 }
 
@@ -140,6 +150,11 @@ func (m *MemoryStore) UpdateShelter(id string, request models.OccupancyUpdateReq
 		}
 		if request.CurrentOccupancy != nil {
 			next.CurrentOccupancy = *request.CurrentOccupancy
+		}
+		// Validate the merged record so capacity-only or occupancy-only
+		// updates cannot break the occupancy <= capacity invariant.
+		if next.CurrentOccupancy > next.Capacity {
+			return models.Shelter{}, "invalid_occupancy", "currentOccupancy cannot exceed capacity"
 		}
 		if request.Status != "" {
 			next.Status = request.Status
@@ -247,7 +262,7 @@ func (m *MemoryStore) CreateReliefPoint(request models.CreateReliefPointRequest,
 	defer m.mu.Unlock()
 
 	point := models.ReliefPoint{
-		ID:              fmt.Sprintf("relief_%03d", len(m.reliefPoints)+1),
+		ID:              fmt.Sprintf("relief_%03d", m.reliefPointSeq),
 		Name:            request.Name,
 		Type:            request.Type,
 		Region:          request.Region,
@@ -273,6 +288,7 @@ func (m *MemoryStore) CreateReliefPoint(request models.CreateReliefPointRequest,
 	for i := range point.StockCategories {
 		point.StockCategories[i].LastUpdated = now
 	}
+	m.reliefPointSeq++
 	m.reliefPoints = append(m.reliefPoints, point)
 	return point
 }
@@ -400,7 +416,11 @@ func (m *MemoryStore) ListAidRequests(filter models.AidRequestFilter) []models.A
 
 	aidRequests := make([]models.AidRequest, 0, len(m.aidRequests))
 	for _, request := range m.aidRequests {
-		if !filter.IncludePrivate && (request.Visibility != "public" || !utils.PublicAidRequestStatuses[request.Status]) {
+		publicVisible := request.Visibility == "public" && utils.PublicAidRequestStatuses[request.Status]
+		if !filter.IncludePrivate && !publicVisible {
+			continue
+		}
+		if filter.IncludePrivate && !publicVisible && !canViewPrivateAidRequest(filter, request) {
 			continue
 		}
 		if filter.Category != "" && request.Category != filter.Category {
@@ -446,13 +466,23 @@ func (m *MemoryStore) ListAidRequests(filter models.AidRequestFilter) []models.A
 	return aidRequests
 }
 
+// canViewPrivateAidRequest reports whether the viewer described by the filter
+// may see a private (non-public) aid request: privileged roles see all, agency
+// roles only see requests owned by their own agency.
+func canViewPrivateAidRequest(filter models.AidRequestFilter, request models.AidRequest) bool {
+	if utils.AidRequestPrivateViewAllRoles[filter.ViewerRole] {
+		return true
+	}
+	return request.AgencyID != "" && request.AgencyID == filter.ViewerAgencyID
+}
+
 // CreateAidRequest creates a new aid request.
 func (m *MemoryStore) CreateAidRequest(request models.CreateAidRequestRequest, ctx models.AuthorityContext, now time.Time) models.AidRequest {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	aidRequest := models.AidRequest{
-		ID:                    fmt.Sprintf("aid_%03d", len(m.aidRequests)+1),
+		ID:                    fmt.Sprintf("aid_%03d", m.aidRequestSeq),
 		Title:                 request.Title,
 		Category:              request.Category,
 		Priority:              request.Priority,
@@ -468,10 +498,12 @@ func (m *MemoryStore) CreateAidRequest(request models.CreateAidRequestRequest, c
 		NeededBy:              request.NeededBy,
 		Visibility:            request.Visibility,
 		SourceReliefPointID:   request.SourceReliefPointID,
+		AgencyID:              ctx.ActorAgencyID,
 		CreatedBy:             ctx.ActorUserID,
 		CreatedAt:             now,
 		UpdatedAt:             now,
 	}
+	m.aidRequestSeq++
 	m.aidRequests = append(m.aidRequests, aidRequest)
 	return m.copyAidRequestWithPledgesLocked(aidRequest)
 }
@@ -635,13 +667,16 @@ func (m *MemoryStore) refreshAidRequestPledgeSummaryLocked(requestIndex int, now
 	request := m.aidRequests[requestIndex]
 	pledges := m.pledgesForAidRequestLocked(request.ID)
 	request.QuantityPledged = totalActivePledgedQuantity(pledges)
-	if utils.PublicAidRequestStatuses[request.Status] {
+	// fulfilled is included so a request whose pledged total drops below the
+	// quantity needed (pledge cancelled/flagged) transitions back out instead
+	// of silently hiding the unmet need from donor/coordinator views.
+	if utils.PublicAidRequestStatuses[request.Status] || request.Status == "fulfilled" {
 		switch {
 		case request.QuantityPledged >= request.QuantityNeeded:
 			request.Status = "fulfilled"
 		case request.QuantityPledged > 0:
 			request.Status = "partially_matched"
-		case request.Status == "partially_matched":
+		case request.Status == "partially_matched" || request.Status == "fulfilled":
 			request.Status = "open"
 		}
 	}
@@ -699,6 +734,8 @@ func (m *MemoryStore) ListHospitalCapacity(filter models.HospitalCapacityFilter,
 }
 
 // UpdateHospitalCapacity updates a hospital's capacity record.
+//
+//nolint:gocognit // legacy complex function; refactor into validation/execution helpers in a future pass.
 func (m *MemoryStore) UpdateHospitalCapacity(id string, request models.HospitalCapacityUpdateRequest, ctx models.AuthorityContext, now time.Time) (models.HospitalCapacity, string, string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -748,8 +785,14 @@ func (m *MemoryStore) UpdateHospitalCapacity(id string, request models.HospitalC
 		if request.Notes != "" {
 			next.Notes = request.Notes
 		}
-		next.Source = request.Source
-		next.SourceRef = request.SourceRef
+		// Provenance is only overwritten when the caller supplies it; a
+		// partial PATCH must not clobber the stored Source/SourceRef.
+		if request.Source != "" {
+			next.Source = request.Source
+		}
+		if request.SourceRef != "" {
+			next.SourceRef = request.SourceRef
+		}
 		next.UpdatedBy = ctx.ActorUserID
 		next.UpdatedAt = now
 		next = withHospitalStaleness(next, now)
@@ -782,6 +825,11 @@ func (m *MemoryStore) ImportHospitalCapacityFixture(request models.HospitalCapac
 			continue
 		}
 		next := m.hospitals[index]
+		// Skip feed records that would break the availableBeds <= totalBeds
+		// invariant (the manual update path rejects the same condition).
+		if update.AvailableBeds > next.TotalBeds {
+			continue
+		}
 		next.AvailableBeds = update.AvailableBeds
 		next.ICUBedsAvailable = update.ICUBedsAvailable
 		next.MaternityBedsAvailable = update.MaternityBedsAvailable
@@ -874,6 +922,11 @@ func hospitalCapacityRank(status string) int {
 }
 
 func statusForOccupancy(capacity int, occupancy int, fallback string) string {
+	// An explicit "closed" status survives occupancy-only updates; reopening
+	// always requires an explicit status change.
+	if fallback == "closed" {
+		return "closed"
+	}
 	if capacity > 0 && occupancy >= capacity {
 		return "full"
 	}

@@ -113,7 +113,6 @@ type DatasetDownload struct {
 	Format    string    `json:"format"`
 	URL       string    `json:"url"`
 	Size      int64     `json:"size"`
-	Checksum  string    `json:"checksum"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -194,13 +193,18 @@ type OpenDataRequestListResponse struct {
 
 // ReviewOpenDataRequest is the payload to approve or reject a request.
 type ReviewOpenDataRequest struct {
-	Reviewer string `json:"reviewer"`
+	// Reviewer is ignored: review attribution always comes from the verified
+	// admin actor, never from the request body. Kept so older admin clients
+	// that still send it do not break.
+	Reviewer string `json:"reviewer,omitempty"`
 	Approved bool   `json:"approved"`
 	Note     string `json:"note,omitempty"`
 }
 
-// AuditEvent is a lightweight audit event sent to the audit log service.
+// AuditEvent is a download-audit event persisted locally and forwarded
+// best-effort to the audit log service.
 type AuditEvent struct {
+	ID         string            `json:"id"`
 	Action     string            `json:"action"`
 	TargetType string            `json:"targetType"`
 	TargetID   string            `json:"targetId"`
@@ -209,6 +213,12 @@ type AuditEvent struct {
 	UserAgent  string            `json:"userAgent,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
 	CreatedAt  time.Time         `json:"createdAt"`
+}
+
+// AuditEventListResponse returns persisted audit events for admin review.
+type AuditEventListResponse struct {
+	Events      []AuditEvent `json:"events"`
+	GeneratedAt time.Time    `json:"generatedAt"`
 }
 
 // APIError is the standard error response envelope.

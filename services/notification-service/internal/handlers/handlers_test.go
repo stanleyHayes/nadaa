@@ -74,6 +74,7 @@ func TestDeliverAlertLogsMockPushAndSMS(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/alerts/alert_feed_current_flood/deliver", bytes.NewBufferString(body))
 	request.SetPathValue("id", "alert_feed_current_flood")
+	withAuthority(request)
 
 	srv.deliverAlertHandler(response, request)
 
@@ -113,6 +114,7 @@ func TestSMSDisabledLogsSkippedAttempt(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/alerts/alert_feed_current_flood/deliver", bytes.NewBufferString(body))
 	request.SetPathValue("id", "alert_feed_current_flood")
+	withAuthority(request)
 
 	srv.deliverAlertHandler(response, request)
 
@@ -296,8 +298,11 @@ func TestWhatsAppConversationReportQueuesWithLocationAndMedia(t *testing.T) {
 	if completePayload.Report == nil || completePayload.Report.Status != "queued" || completePayload.Report.Channel != "whatsapp" {
 		t.Fatalf("expected queued WhatsApp report, got %#v", completePayload)
 	}
-	if completePayload.Conversation.State != "idle" || len(completePayload.Report.Media) != 1 || completePayload.Report.Media[0] != "wa_media_001" {
-		t.Fatalf("expected completed conversation with media, got %#v", completePayload)
+	if completePayload.Conversation.State != "idle" || len(completePayload.Report.Media) != 0 {
+		t.Fatalf("expected completed conversation with media stripped from handoff, got %#v", completePayload)
+	}
+	if !strings.Contains(completePayload.Report.Description, "wa_media_001") {
+		t.Fatalf("expected media reference folded into description, got %q", completePayload.Report.Description)
 	}
 	if len(completePayload.TranscriptIDs) != 2 {
 		t.Fatalf("expected inbound/outbound transcript ids, got %#v", completePayload.TranscriptIDs)
@@ -351,8 +356,11 @@ func TestWhatsAppDirectReportSubmitsToIncidentService(t *testing.T) {
 	if incidentPayload.Type != "flood" || incidentPayload.Urgency != "high" || incidentPayload.Reporter == nil || incidentPayload.Reporter.Phone != "+233200000006" {
 		t.Fatalf("unexpected incident handoff payload: %#v", incidentPayload)
 	}
-	if len(incidentPayload.Media) != 1 || incidentPayload.Media[0] != "wa_media_002" {
-		t.Fatalf("expected WhatsApp media handoff, got %#v", incidentPayload.Media)
+	if len(incidentPayload.Media) != 0 {
+		t.Fatalf("expected unregistered WhatsApp media stripped from handoff, got %#v", incidentPayload.Media)
+	}
+	if !strings.Contains(incidentPayload.Description, "wa_media_002") {
+		t.Fatalf("expected media reference folded into description, got %q", incidentPayload.Description)
 	}
 }
 
@@ -399,6 +407,7 @@ func TestVoiceAlertGenerationReviewAndDelivery(t *testing.T) {
 	deliverBody := `{"recipients":[{"phone":"+233200000010","language":"en"},{"recipientId":"usr_voice_002","phone":"+233200000011","language":"tw"}]}`
 	deliverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/voice-alerts/"+created.Asset.ID+"/deliver", bytes.NewBufferString(deliverBody))
 	deliverRequest.SetPathValue("id", created.Asset.ID)
+	withAuthority(deliverRequest)
 	srv.deliverVoiceAlertHandler(deliverResponse, deliverRequest)
 
 	if deliverResponse.Code != http.StatusAccepted {
@@ -443,6 +452,7 @@ func TestVoiceDeliveryRequiresApprovedAsset(t *testing.T) {
 	deliverResponse := httptest.NewRecorder()
 	deliverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/voice-alerts/"+created.Asset.ID+"/deliver", bytes.NewBufferString(`{"recipients":[{"phone":"+233200000010","language":"en"}]}`))
 	deliverRequest.SetPathValue("id", created.Asset.ID)
+	withAuthority(deliverRequest)
 	srv.deliverVoiceAlertHandler(deliverResponse, deliverRequest)
 
 	if deliverResponse.Code != http.StatusConflict {
@@ -456,6 +466,7 @@ func TestGenericDeliveryRejectsVoiceChannel(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/alerts/alert_feed_current_flood/deliver", bytes.NewBufferString(body))
 	request.SetPathValue("id", "alert_feed_current_flood")
+	withAuthority(request)
 
 	srv.deliverAlertHandler(response, request)
 
@@ -473,6 +484,7 @@ func TestDeliverRejectsUnsupportedChannel(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/alerts/alert_feed_current_flood/deliver", bytes.NewBufferString(body))
 	request.SetPathValue("id", "alert_feed_current_flood")
+	withAuthority(request)
 
 	srv.deliverAlertHandler(response, request)
 
@@ -495,7 +507,7 @@ func TestAlertFeedRejectsInvalidStatus(t *testing.T) {
 
 func newTestServer() *Server {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8090"}
+	cfg := &config.Config{Addr: ":8090", AllowMockActors: true}
 	return NewServer(
 		store.NewMemoryStore(now),
 		nil,
@@ -509,6 +521,15 @@ func newTestServer() *Server {
 		func() time.Time { return now },
 		cfg,
 	)
+}
+
+// withAuthority adds the mock-actor headers that satisfy requireAuthority when
+// the server config allows mock actors (local development and tests).
+func withAuthority(request *http.Request) {
+	request.Header.Set("X-NADAA-Actor-ID", "usr_test_authority")
+	request.Header.Set("X-NADAA-Agency-ID", "agency_test")
+	request.Header.Set("X-NADAA-Actor-Role", "nadmo_officer")
+	request.Header.Set("X-NADAA-MFA-Completed", "true")
 }
 
 func decodeResponse(t *testing.T, response *httptest.ResponseRecorder, target any) {

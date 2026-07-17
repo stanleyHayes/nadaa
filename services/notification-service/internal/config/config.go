@@ -12,7 +12,21 @@ type Config struct {
 	Addr              string
 	AllowedOrigins    map[string]bool
 	CellBroadcastMode string
+	TokenSecret       string
+	AllowMockActors   bool
+	WebhookSecrets    WebhookSecretConfig
 	Providers         ProviderConfig
+}
+
+// WebhookSecretConfig carries the per-channel shared secrets inbound provider
+// webhooks must present in the X-NADAA-Webhook-Secret header. An empty secret
+// means the channel accepts unauthenticated webhooks (local development
+// default; a WARN is logged at startup).
+type WebhookSecretConfig struct {
+	SMS      string
+	USSD     string
+	WhatsApp string
+	Voice    string
 }
 
 // ProviderConfig selects the delivery provider per channel and carries the
@@ -45,6 +59,14 @@ func Load() *Config {
 		Addr:              resolveListenAddr("NADAA_NOTIFICATION_ADDR", ":8090"),
 		AllowedOrigins:    utils.AllowedOriginsFromEnv(),
 		CellBroadcastMode: utils.EnvOrDefault("NADAA_CELL_BROADCAST_MODE", "disabled"),
+		TokenSecret:       strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
+		AllowMockActors:   strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")) == "true",
+		WebhookSecrets: WebhookSecretConfig{
+			SMS:      strings.TrimSpace(os.Getenv("NADAA_SMS_WEBHOOK_SECRET")),
+			USSD:     strings.TrimSpace(os.Getenv("NADAA_USSD_WEBHOOK_SECRET")),
+			WhatsApp: strings.TrimSpace(os.Getenv("NADAA_WHATSAPP_WEBHOOK_SECRET")),
+			Voice:    strings.TrimSpace(os.Getenv("NADAA_VOICE_WEBHOOK_SECRET")),
+		},
 		Providers: ProviderConfig{
 			SMSProvider:   providerSelection("NADAA_SMS_PROVIDER", "NADAA_SMS_ENABLED"),
 			PushProvider:  providerSelection("NADAA_PUSH_PROVIDER", "NADAA_PUSH_ENABLED"),

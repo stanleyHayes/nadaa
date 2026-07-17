@@ -143,22 +143,6 @@ function normalizeSession(base: AgencySession): AgencySession {
   };
 }
 
-/**
- * Fallback identity used only for request headers if a call somehow fires
- * before an operator signs in. The UI never renders agency surfaces without an
- * authenticated session, so this keeps API clients resilient in dev.
- */
-const fallbackSession: AgencySession = normalizeSession({
-  id: "usr_agency_responder_001",
-  name: "NADMO Responder",
-  role: "responder",
-  agencyId: DEFAULT_AGENCY_ID,
-  agency: "NADMO Accra Metro",
-  district: DEFAULT_DISTRICT,
-  token: "local-agency-token",
-  mfaCompleted: true,
-});
-
 function readStoredSession(): AgencySession | null {
   if (typeof window === "undefined") {
     return null;
@@ -428,16 +412,50 @@ export function hasAgencyAccess(session: AgencySession | null): boolean {
   );
 }
 
+/**
+ * Roles allowed to mutate shelter-service resources (shelter occupancy,
+ * hospital capacity, relief points, aid requests) and export the aid CSV.
+ * Mirrors `ShelterUpdateRoles` in services/shelter-service/internal/utils.
+ */
+export const shelterWriteRoles: AgencyUserRole[] = [
+  "system_admin",
+  "agency_admin",
+  "nadmo_officer",
+  "district_officer",
+  "dispatcher",
+];
+
+/** Roles allowed to advance an incident's status. Mirrors incident-service. */
+export const incidentStatusRoles: AgencyUserRole[] = [
+  ...shelterWriteRoles,
+  "responder",
+];
+
+export function canManageShelterResources(
+  session: AgencySession | null,
+): boolean {
+  return Boolean(session && shelterWriteRoles.includes(session.role));
+}
+
+export function canUpdateIncidentStatus(
+  session: AgencySession | null,
+): boolean {
+  return Boolean(session && incidentStatusRoles.includes(session.role));
+}
+
+/**
+ * Request headers for agency API calls. When no operator is signed in, no
+ * identity headers are sent at all — a signed-out client must look anonymous
+ * so expired or revoked sessions trip the 401 guard instead of silently
+ * acting under a fallback identity.
+ */
 export function agencyHeaders() {
-  const session = currentSession ?? fallbackSession;
-  return {
-    Authorization: `Bearer ${session.token}`,
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-NADAA-Actor-ID": session.id,
-    "X-NADAA-Actor-Role": session.role,
-    "X-NADAA-Agency-ID": session.agencyId,
-    "X-NADAA-Actor-District": session.district,
-    "X-NADAA-MFA-Completed": session.mfaCompleted ? "true" : "false",
     "X-NADAA-Request-ID": `agency-web-${Date.now()}`,
   };
+  if (currentSession) {
+    headers.Authorization = `Bearer ${currentSession.token}`;
+  }
+  return headers;
 }

@@ -135,7 +135,7 @@ func TestRiskHandlerIncludesMLPredictionWhenConfigured(t *testing.T) {
 	defer mlServer.Close()
 
 	srv := newTestServer()
-	srv.mlClient = newMLClient(mlServer.URL+"/api/v1", mlServer.Client())
+	srv.mlClient = newMLClient(mlServer.URL+"/api/v1", "", mlServer.Client())
 
 	payload := requestRiskFromServer(t, srv, "/api/v1/risk?lat=5.5600&lng=-0.2000")
 	if payload.MLPrediction == nil {
@@ -150,6 +150,114 @@ func TestRiskHandlerIncludesMLPredictionWhenConfigured(t *testing.T) {
 	if payload.MLPrediction.PredictionLogID != "ml_log_test" {
 		t.Fatalf("expected prediction log id, got %#v", payload.MLPrediction)
 	}
+}
+
+func TestRiskHandlerRecommendsActionsForFloodLevelWhenFireOutranks(t *testing.T) {
+	// Inside the fire fixture zone but away from flood zones and reports:
+	// fire (moderate) outranks flood (low), so flood-specific moderate
+	// guidance must not be recommended.
+	payload := requestRisk(t, "/api/v1/risk?lat=5.6090&lng=-0.1450")
+
+	if payload.OverallRisk != "moderate" {
+		t.Fatalf("expected moderate overall risk, got %#v", payload)
+	}
+	if payload.Risks[0].Type != "fire" || payload.Risks[0].Level != "moderate" {
+		t.Fatalf("expected moderate fire risk first, got %#v", payload.Risks)
+	}
+	expected := utils.RecommendedActions(payload.OverallRisk, "low")
+	if !equalStrings(payload.RecommendedActions, expected) {
+		t.Fatalf("expected actions for low flood level, got %#v", payload.RecommendedActions)
+	}
+}
+
+func TestRiskHandlerSendsServiceTokenAndForwardsAuthorization(t *testing.T) {
+	var gotServiceToken, gotAuthorization string
+	mlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotServiceToken = r.Header.Get("X-NADAA-Service-Token")
+		gotAuthorization = r.Header.Get("Authorization")
+		utils.WriteJSON(w, http.StatusOK, models.MLPredictionResponse{
+			Prediction: models.MLPredictionPayload{ModelVersion: "flood-logistic-baseline-0.1.0"},
+		})
+	}))
+	defer mlServer.Close()
+
+	srv := newTestServer()
+	srv.mlClient = newMLClient(mlServer.URL+"/api/v1", "test-internal-token", mlServer.Client())
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/risk?lat=5.5600&lng=-0.2000", nil)
+	request.Header.Set("Authorization", "Bearer test-caller-token")
+	response := httptest.NewRecorder()
+	srv.riskHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	if gotServiceToken != "test-internal-token" {
+		t.Fatalf("expected service token header, got %q", gotServiceToken)
+	}
+	if gotAuthorization != "Bearer test-caller-token" {
+		t.Fatalf("expected forwarded authorization header, got %q", gotAuthorization)
+	}
+}
+
+func TestRiskHandlerOmitsServiceHeadersWhenNotConfigured(t *testing.T) {
+	var gotServiceToken, gotAuthorization string
+	mlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotServiceToken = r.Header.Get("X-NADAA-Service-Token")
+		gotAuthorization = r.Header.Get("Authorization")
+		utils.WriteJSON(w, http.StatusOK, models.MLPredictionResponse{
+			Prediction: models.MLPredictionPayload{ModelVersion: "flood-logistic-baseline-0.1.0"},
+		})
+	}))
+	defer mlServer.Close()
+
+	srv := newTestServer()
+	srv.mlClient = newMLClient(mlServer.URL+"/api/v1", "", mlServer.Client())
+
+	payload := requestRiskFromServer(t, srv, "/api/v1/risk?lat=5.5600&lng=-0.2000")
+	if payload.MLPrediction == nil {
+		t.Fatalf("expected ML prediction in risk response, got %#v", payload)
+	}
+	if gotServiceToken != "" {
+		t.Fatalf("expected no service token header, got %q", gotServiceToken)
+	}
+	if gotAuthorization != "" {
+		t.Fatalf("expected no authorization header, got %q", gotAuthorization)
+	}
+}
+
+func TestCORSLocalhostOriginGatedByEnvironment(t *testing.T) {
+	cfg := &config.Config{Addr: ":8081", AllowedOrigins: map[string]bool{"https://nadaa.gov.gh": true}}
+	srv := NewServer(store.NewMemoryStore(), cfg)
+
+	corsHeader := func() string {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/risk?lat=5.5600&lng=-0.2000", nil)
+		request.Header.Set("Origin", "http://localhost:5173")
+		response := httptest.NewRecorder()
+		srv.Routes().ServeHTTP(response, request)
+		return response.Header().Get("Access-Control-Allow-Origin")
+	}
+
+	if got := corsHeader(); got != "" {
+		t.Fatalf("expected localhost origin rejected outside development, got %q", got)
+	}
+
+	t.Setenv("NADAA_ENV", "development")
+	if got := corsHeader(); got != "http://localhost:5173" {
+		t.Fatalf("expected localhost origin allowed in development, got %q", got)
+	}
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func requestRisk(t *testing.T, path string) models.RiskResponse {

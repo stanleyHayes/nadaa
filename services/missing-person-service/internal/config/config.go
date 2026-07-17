@@ -11,13 +11,21 @@ import (
 type Config struct {
 	Addr           string
 	AllowedOrigins map[string]bool
+	// AuthTokenSecret verifies NADAA auth-service bearer tokens; when empty,
+	// token-based authority authentication always fails.
+	AuthTokenSecret string
+	// AllowMockActors honors legacy X-NADAA-Actor-* headers for local
+	// development and smoke tests (NADAA_AUTH_ALLOW_MOCK_ACTORS=true).
+	AllowMockActors bool
 }
 
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:           resolveListenAddr("", ":8101"),
-		AllowedOrigins: utils.AllowedOriginsFromEnv(),
+		Addr:            resolveListenAddr("", ":8101"),
+		AllowedOrigins:  utils.AllowedOriginsFromEnv(),
+		AuthTokenSecret: strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
+		AllowMockActors: strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")), "true"),
 	}
 }
 

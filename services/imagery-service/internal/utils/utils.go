@@ -28,6 +28,12 @@ func UnsafeText(value string) bool {
 	return strings.Contains(lower, "<script") || strings.Contains(lower, "javascript:")
 }
 
+// SafeLogValue strips CR/LF from user-controlled values so they cannot
+// inject forged lines into logs.
+func SafeLogValue(value string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(value, "\r", ""), "\n", "")
+}
+
 // AllowedOriginsFromEnv parses NADAA_ALLOWED_ORIGINS into a set.
 // An empty value or "*" returns nil, meaning all origins are allowed.
 func AllowedOriginsFromEnv() map[string]bool {
@@ -47,10 +53,12 @@ func AllowedOriginsFromEnv() map[string]bool {
 }
 
 // WithCORS wraps a handler with security headers and configurable CORS.
-func WithCORS(allowedOrigins map[string]bool, next http.Handler) http.Handler {
+// localhost/127.0.0.1 origins are echoed only when allowLocalhost is true
+// (NADAA_ENV=development); otherwise the allowlist alone decides.
+func WithCORS(allowedOrigins map[string]bool, allowLocalhost bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applySecurityHeaders(w)
-		applyCORSHeaders(w, r, allowedOrigins)
+		applyCORSHeaders(w, r, allowedOrigins, allowLocalhost)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -68,13 +76,14 @@ func applySecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 }
 
-func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool) {
+func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map[string]bool, allowLocalhost bool) {
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
 	if len(allowedOrigins) == 0 {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		localhostOrigin := strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:")
+		if allowedOrigins[origin] || (allowLocalhost && localhostOrigin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}

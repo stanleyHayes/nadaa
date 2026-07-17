@@ -8,10 +8,13 @@ All request and response bodies are JSON unless a media upload flow explicitly u
 
 ### Authentication
 
-- Citizen endpoints accept citizen access tokens where identity is required.
+Access tokens are issued by auth-service as `nadaa.<payload>.<sig>` tokens and must be sent as `Authorization: Bearer <token>`.
+
+- Agency (authority) users log in via `POST /api/v1/auth/agency/login` with `{email, password, mfaCode}`. Agency tokens are valid for 12 hours and carry role, agency, district, and MFA claims.
+- Citizens register (`POST /api/v1/auth/citizens/register`) or request a login OTP (`POST /api/v1/auth/citizens/login/otp`) and exchange it via `POST /api/v1/auth/citizens/login` for a 24-hour token.
+- Authority endpoints on every service require a verified agency bearer token; role and district checks use the token claims, and MFA must be completed before authority users can perform sensitive actions.
 - Public safety read endpoints may allow anonymous access when no personal data is returned.
-- Authority endpoints require agency-user access tokens and role checks.
-- MFA is required before authority users can perform sensitive actions.
+- Self-asserted `X-NADAA-Actor-*` identity headers are honored only by services running with `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` (local development and smoke tests). Deployed environments set it to `false`, so clients must use bearer tokens.
 
 ### Error Shape
 
@@ -165,7 +168,27 @@ Response:
 }
 ```
 
-In local development, `NADAA_AUTH_MOCK_OTP=123456` can force a known OTP. `NADAA_AUTH_EXPOSE_DEV_OTP=true` includes `devOtp` in the registration response and must not be enabled in production.
+In local development, `NADAA_AUTH_MOCK_OTP=123456` can force a known OTP. `NADAA_AUTH_EXPOSE_DEV_OTP=true` includes `devOtp` in the registration response and must not be enabled in production (both require `NADAA_ENV=development`).
+
+`POST /api/v1/auth/citizens/login/otp`
+
+Requests a fresh login OTP for an already-registered phone (registration returns 409 for existing phones, so returning citizens start here).
+
+```json
+{
+  "phone": "+233200000000"
+}
+```
+
+Response (200; 404 `phone_not_registered` when no citizen account exists for the phone, 429 `too_many_attempts` when brute-force lockout applies):
+
+```json
+{
+  "phone": "+233200000000",
+  "challengeId": "otp_...",
+  "otpDelivery": "mock"
+}
+```
 
 `POST /api/v1/auth/citizens/login`
 
@@ -345,7 +368,7 @@ Response:
 }
 ```
 
-Agency login returns `mfa_setup_required` until setup and verification are complete, and `mfa_required` when a verified agency user omits the MFA code.
+Agency login returns 403 `mfa_setup_required` until setup and verification are complete, 401 `mfa_required` when a verified agency user omits the MFA code, 401 `invalid_credentials` for wrong credentials or code, and 429 `too_many_attempts` after repeated failed attempts.
 
 ### Audit Logs
 
@@ -537,13 +560,7 @@ Authority actors can filter to incidents assigned to their agency:
 
 `GET /api/v1/incidents?assignedAgencyId=00000000-0000-0000-0000-000000000201`
 
-Authority workflow endpoints require these headers:
-
-- `X-NADAA-Actor-ID`
-- `X-NADAA-Actor-Role`
-- `X-NADAA-Agency-ID`
-- `X-NADAA-MFA-Completed: true`
-- `X-NADAA-Request-ID`
+Authority workflow endpoints require `Authorization: Bearer <agency access token>` with an authority role and completed MFA; the verified token claims supply actor id, role, agency, district, and MFA state. (Self-asserted `X-NADAA-Actor-*` headers are accepted only when the service runs with `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` — local development and smoke tests.)
 
 `POST /api/v1/incidents/{id}/verify`
 
@@ -628,7 +645,7 @@ Registers a citizen as a community volunteer candidate and joins them to a distr
 
 `GET /api/v1/volunteers?status=verified&district=Accra%20Metropolitan`
 
-Authority-only volunteer list. Calls use the same authority headers as incident command endpoints. Supported filters are `status` and `district`.
+Authority-only volunteer list. Calls use the same authority bearer token as incident command endpoints. Supported filters are `status` and `district`.
 
 `POST /api/v1/volunteers/{id}/verify`
 
@@ -771,13 +788,7 @@ Public read endpoint returning active road closures by default. Filters include 
 
 `POST /api/v1/road-closures`
 
-Requires authority headers:
-
-- `X-NADAA-Actor-ID`
-- `X-NADAA-Actor-Role`
-- `X-NADAA-Agency-ID`
-- `X-NADAA-MFA-Completed: true`
-- `X-NADAA-Request-ID`
+Requires an authority bearer token with MFA completed (mock `X-NADAA-Actor-*` headers only when `NADAA_AUTH_ALLOW_MOCK_ACTORS=true`):
 
 ```json
 {
@@ -827,13 +838,7 @@ The integration-service also exposes `POST /api/v1/integrations/road-closures/im
 
 `POST /api/v1/alerts`
 
-Requires authority headers:
-
-- `X-NADAA-Actor-ID`
-- `X-NADAA-Actor-Role`
-- `X-NADAA-Agency-ID`
-- `X-NADAA-MFA-Completed: true`
-- `X-NADAA-Request-ID`
+Requires an authority bearer token with MFA completed (mock `X-NADAA-Actor-*` headers only when `NADAA_AUTH_ALLOW_MOCK_ACTORS=true`):
 
 ```json
 {
@@ -940,7 +945,7 @@ Updates a `draft` or `rejected` alert using the same body as create.
 
 `GET /api/v1/alerts?current=true&lat=5.6037&lng=-0.1870`
 
-Without authority headers, alert listing returns only approved or published public alerts. With authority headers, the service returns draft, submitted, approved, and rejected workflow records. `status` may filter by `draft`, `submitted`, `approved`, `rejected`, `published`, `expired`, or `cancelled`.
+Without an authority bearer token, alert listing returns only approved or published public alerts. With an authority bearer token, the service returns draft, submitted, approved, and rejected workflow records. `status` may filter by `draft`, `submitted`, `approved`, `rejected`, `published`, `expired`, or `cancelled`.
 
 `GET /api/v1/alerts/audit?limit=50`
 
@@ -1473,7 +1478,7 @@ The shelter service emits `INFO` logs for relief point list, nearby, create, upd
 
 `GET /api/v1/aid-requests?category=hygiene&priority=high&limit=20`
 
-Returns public/partner donation and aid needs that have been approved for donor visibility. Authority users can add `includePrivate=true` with the standard authority headers to see pending, paused, rejected, closed, and partner-only needs.
+Returns public/partner donation and aid needs that have been approved for donor visibility. Authority users can add `includePrivate=true` with the standard authority bearer token to see pending, paused, rejected, closed, and partner-only needs.
 
 ```json
 {
@@ -2474,7 +2479,7 @@ Response:
 
 `POST /api/v1/campaigns`
 
-Requires authority headers with MFA completed and an allowed role (`system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`).
+Requires an authority bearer token with MFA completed and an allowed role (`system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`).
 
 Request body:
 
@@ -2512,7 +2517,7 @@ Rules:
 
 `PUT /api/v1/campaigns/{id}`
 
-Requires authority headers. Any campaign field may be replaced.
+Requires an authority bearer token. Any campaign field may be replaced.
 
 ### Get Campaign Metrics
 
@@ -2563,8 +2568,8 @@ Response:
 
 ## School Emergency Preparedness
 
-All school preparedness endpoints require authority headers and completed MFA.
-District officers are scoped to their district via `X-NADAA-Actor-District`;
+All school preparedness endpoints require an authority bearer token and completed MFA.
+District officers are scoped to their district via the token's district claim;
 `system_admin` users can access all districts.
 
 ### List Schools

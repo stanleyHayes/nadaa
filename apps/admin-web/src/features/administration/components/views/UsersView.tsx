@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, Stack } from "@mui/material";
 import { UserPlus, UsersRound } from "lucide-react";
 import type { AdminData } from "../../useAdminData";
@@ -8,13 +8,12 @@ import { ViewIntro } from "../primitives";
 export function UsersView({ data }: { data: AdminData }) {
   const [createOpen, setCreateOpen] = useState(false);
 
-  // Close the dialog once a create succeeds; keep it open on validation or
-  // network failure so the operator does not lose their input.
-  useEffect(() => {
-    if (data.actionResult?.severity === "success") {
-      setCreateOpen(false);
-    }
-  }, [data.actionResult]);
+  // Closing the dialog also discards the one-time credentials, so the
+  // temporary password is only ever visible inside this dialog.
+  const closeCreate = () => {
+    setCreateOpen(false);
+    data.dismissCreatedCredentials();
+  };
 
   return (
     <Stack spacing={2.5}>
@@ -36,8 +35,9 @@ export function UsersView({ data }: { data: AdminData }) {
         actionResult={data.actionResult}
         agencies={data.agencies}
         busy={data.createBusy}
+        createdCredentials={data.createdCredentials}
         form={data.userForm}
-        onClose={() => setCreateOpen(false)}
+        onClose={closeCreate}
         onFormChange={data.onFieldChange}
         onSelectChange={data.onFieldChange}
         onSubmit={data.createUser}

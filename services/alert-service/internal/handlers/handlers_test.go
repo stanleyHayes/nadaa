@@ -16,7 +16,7 @@ import (
 
 func newTestServer() *Server {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8089"}
+	cfg := &config.Config{Addr: ":8089", AllowMockActors: true}
 	return NewServer(store.NewMemoryStore(now), func() time.Time { return time.Now().UTC() }, cfg)
 }
 
@@ -386,6 +386,96 @@ func TestCustomTargetStoresPolygonGeometry(t *testing.T) {
 	draft := createAlertWithBody(t, srv, alertBodyWithTarget(target))
 	if draft.Target.Geometry == nil || draft.Target.AreaSqKm <= 0 || draft.Target.Center == nil {
 		t.Fatalf("expected custom target geometry metadata, got %#v", draft.Target)
+	}
+}
+
+func TestDuplicateTargetIDsAreDeduped(t *testing.T) {
+	srv := newTestServer()
+	target := `{
+		"type": "district",
+		"ids": ["accra-metropolitan", "accra-metropolitan", "Accra-Metropolitan"],
+		"label": "Accra Metropolitan"
+	}`
+	draft := createAlertWithBody(t, srv, alertBodyWithTarget(target))
+
+	if len(draft.Target.IDs) != 1 || draft.Target.IDs[0] != "accra-metropolitan" {
+		t.Fatalf("expected deduped target ids, got %#v", draft.Target.IDs)
+	}
+	if draft.Target.AreaSqKm != 61 || draft.Target.EstimatedPopulation != 284000 {
+		t.Fatalf("expected catalog area and population without double-counting, got %#v", draft.Target)
+	}
+}
+
+func TestUpdateRejectedAlertClearsStaleWorkflowFields(t *testing.T) {
+	srv := newTestServer()
+	submitted := createAndSubmitAlert(t, srv)
+
+	rejectResponse := httptest.NewRecorder()
+	rejectRequest := approverRequest(http.MethodPost, "/api/v1/alerts/"+submitted.ID+"/reject", `{"reason":"Needs clearer target wording"}`)
+	srv.rejectAlertHandler(rejectResponse, rejectRequest)
+	if rejectResponse.Code != http.StatusOK {
+		t.Fatalf("reject alert: %s", rejectResponse.Body.String())
+	}
+
+	updateResponse := httptest.NewRecorder()
+	updateRequest := authorizedRequest(http.MethodPatch, "/api/v1/alerts/"+submitted.ID, validAlertBody())
+	srv.updateAlertHandler(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("update rejected alert: %s", updateResponse.Body.String())
+	}
+
+	var updated models.AuthorityAlert
+	decodeResponse(t, updateResponse, &updated)
+	if updated.Status != "draft" || updated.SubmittedAt != nil || updated.RejectedBy != "" || updated.RejectedAt != nil || updated.StatusReason != "" {
+		t.Fatalf("expected stale workflow fields cleared on update, got %#v", updated)
+	}
+}
+
+func TestEmergencyOverrideOnRejectedAlertClearsRejectionFields(t *testing.T) {
+	srv := newTestServer()
+	submitted := createAndSubmitAlert(t, srv)
+
+	rejectResponse := httptest.NewRecorder()
+	rejectRequest := approverRequest(http.MethodPost, "/api/v1/alerts/"+submitted.ID+"/reject", `{"reason":"Needs clearer target wording"}`)
+	srv.rejectAlertHandler(rejectResponse, rejectRequest)
+	if rejectResponse.Code != http.StatusOK {
+		t.Fatalf("reject alert: %s", rejectResponse.Body.String())
+	}
+
+	overrideResponse := httptest.NewRecorder()
+	overrideRequest := approverRequest(http.MethodPost, "/api/v1/alerts/"+submitted.ID+"/emergency-override", `{"reason":"Immediate life-safety warning"}`)
+	srv.emergencyOverrideHandler(overrideResponse, overrideRequest)
+	if overrideResponse.Code != http.StatusOK {
+		t.Fatalf("override rejected alert: %s", overrideResponse.Body.String())
+	}
+
+	var overridden models.AuthorityAlert
+	decodeResponse(t, overrideResponse, &overridden)
+	if overridden.Status != "approved" || !overridden.EmergencyOverride || overridden.RejectedBy != "" || overridden.RejectedAt != nil || overridden.StatusReason != "Immediate life-safety warning" {
+		t.Fatalf("expected rejection fields cleared on override, got %#v", overridden)
+	}
+}
+
+func TestCORSLocalhostEchoRequiresDevelopmentEnv(t *testing.T) {
+	t.Setenv("NADAA_ALLOWED_ORIGINS", "https://dispatcher.staging.nadaa.example")
+
+	corsHeader := func() string {
+		cfg := &config.Config{Addr: ":8089", AllowedOrigins: config.Load().AllowedOrigins}
+		srv := NewServer(store.NewMemoryStore(time.Now().UTC()), func() time.Time { return time.Now().UTC() }, cfg)
+		request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+		request.Header.Set("Origin", "http://localhost:5173")
+		response := httptest.NewRecorder()
+		srv.Routes().ServeHTTP(response, request)
+		return response.Header().Get("Access-Control-Allow-Origin")
+	}
+
+	if got := corsHeader(); got != "" {
+		t.Fatalf("expected localhost origin blocked outside development, got %q", got)
+	}
+
+	t.Setenv("NADAA_ENV", "development")
+	if got := corsHeader(); got != "http://localhost:5173" {
+		t.Fatalf("expected localhost origin allowed in development, got %q", got)
 	}
 }
 

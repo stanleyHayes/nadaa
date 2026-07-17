@@ -18,6 +18,16 @@ type Config struct {
 	StoragePath    string
 	RetentionDays  int
 	AllowedOrigins map[string]bool
+	// PublicBaseURL is the externally reachable base URL (scheme + host) used
+	// to build absolute download URLs in the public geojson feed. When empty,
+	// the request's scheme and Host header are used as a fallback.
+	PublicBaseURL string
+	// TokenSecret verifies NADAA bearer tokens (NADAA_AUTH_TOKEN_SECRET).
+	TokenSecret string
+	// AllowMockActors honors legacy X-NADAA-Actor-* headers (local dev only).
+	AllowMockActors bool
+	// Development enables local-dev relaxations (NADAA_ENV=development).
+	Development bool
 }
 
 // Load reads configuration from environment variables.
@@ -27,10 +37,14 @@ func Load() *Config {
 		retentionDays = DefaultRetentionDays
 	}
 	return &Config{
-		Addr:           resolveListenAddr("", ":8099"),
-		StoragePath:    utils.EnvOrDefault("IMAGERY_STORAGE_PATH", "./uploads"),
-		RetentionDays:  retentionDays,
-		AllowedOrigins: utils.AllowedOriginsFromEnv(),
+		Addr:            resolveListenAddr("", ":8099"),
+		StoragePath:     utils.EnvOrDefault("IMAGERY_STORAGE_PATH", "./uploads"),
+		RetentionDays:   retentionDays,
+		AllowedOrigins:  utils.AllowedOriginsFromEnv(),
+		PublicBaseURL:   strings.TrimSuffix(utils.EnvOrDefault("NADAA_IMAGERY_PUBLIC_BASE_URL", ""), "/"),
+		TokenSecret:     utils.EnvOrDefault("NADAA_AUTH_TOKEN_SECRET", ""),
+		AllowMockActors: os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
+		Development:     os.Getenv("NADAA_ENV") == "development",
 	}
 }
 

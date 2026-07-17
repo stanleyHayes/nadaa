@@ -22,10 +22,19 @@ func (s *Server) geoJSONHandler(w http.ResponseWriter, r *http.Request) {
 				"source":           record.Source,
 				"captureTime":      record.CaptureTime,
 				"resolutionMeters": record.ResolutionMeters,
-				"downloadUrl":      fmt.Sprintf("%s://%s/api/v1/imagery/%s/download", utils.Scheme(r), r.Host, record.ID),
+				"downloadUrl":      fmt.Sprintf("%s/api/v1/imagery/%s/download", s.publicBaseURL(r), record.ID),
 			},
 		})
 	}
 	log.Printf("INFO imagery-service geojson count=%d", len(features))
 	utils.WriteJSON(w, http.StatusOK, models.GeoJSONFeatureCollection{Type: "FeatureCollection", Features: features})
+}
+
+// publicBaseURL returns the configured externally reachable base URL, falling
+// back to the request scheme and Host header when none is configured.
+func (s *Server) publicBaseURL(r *http.Request) string {
+	if s.config.PublicBaseURL != "" {
+		return s.config.PublicBaseURL
+	}
+	return fmt.Sprintf("%s://%s", utils.Scheme(r), r.Host)
 }

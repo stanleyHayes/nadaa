@@ -6,6 +6,8 @@ import type {
   CreateReliefPointRequest,
   HospitalCapacityRecord,
   HospitalCapacityResponse,
+  HospitalCapacityUpdateRequest,
+  HospitalCapacityUpdateResponse,
   IncidentListResponse,
   IncidentRecord,
   IncidentStatusUpdateRequest,
@@ -17,10 +19,16 @@ import type {
   ReviewAidRequestRequest,
   RoadClosureListResponse,
   RoadClosureRecord,
+  ShelterOccupancyUpdateRequest,
   ShelterRecord,
+  ShelterUpdateResponse,
   UpdateReliefPointRequest,
 } from "@nadaa/shared-types";
-import { agencyHeaders, type AgencySession } from "@/app/session";
+import {
+  agencyHeaders,
+  canManageShelterResources,
+  type AgencySession,
+} from "@/app/session";
 import {
   INCIDENT_API_BASE,
   ROAD_CLOSURE_API_BASE,
@@ -45,9 +53,11 @@ import type {
 } from "./types";
 import {
   aidRequestToForm,
+  hospitalToCapacityForm,
   matchesFilters,
   parseStockCategories,
   reliefPointToForm,
+  shelterToOccupancyForm,
 } from "./utils";
 
 /** Default scene used to seed capacity context before an incident is picked. */
@@ -244,11 +254,56 @@ async function updateReliefPoint(
   return (await response.json()) as ReliefPointRecord;
 }
 
+async function updateShelterOccupancy(
+  shelterId: string,
+  request: ShelterOccupancyUpdateRequest,
+): Promise<ShelterRecord> {
+  const response = await fetch(
+    `${SHELTER_API_BASE}/shelters/${encodeURIComponent(shelterId)}/occupancy`,
+    {
+      body: JSON.stringify(request),
+      headers: agencyHeaders(),
+      method: "PATCH",
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await extractError(response));
+  }
+  const payload = (await response.json()) as ShelterUpdateResponse;
+  return payload.shelter;
+}
+
+async function updateHospitalCapacity(
+  facilityId: string,
+  request: HospitalCapacityUpdateRequest,
+): Promise<HospitalCapacityRecord> {
+  const response = await fetch(
+    `${SHELTER_API_BASE}/hospitals/${encodeURIComponent(facilityId)}/capacity`,
+    {
+      body: JSON.stringify(request),
+      headers: agencyHeaders(),
+      method: "PATCH",
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await extractError(response));
+  }
+  const payload = (await response.json()) as HospitalCapacityUpdateResponse;
+  return payload.facility;
+}
+
 async function fetchAidRequests(): Promise<AidRequestRecord[]> {
   const response = await fetch(
     `${SHELTER_API_BASE}/aid-requests?includePrivate=true&limit=30`,
     { headers: agencyHeaders() },
   );
+  if (response.status === 403) {
+    // Private aid listing is limited to AidRequestViewRoles; responders and
+    // viewers get a clear reason instead of a raw API error.
+    throw new Error(
+      "Your role does not have access to private aid requests.",
+    );
+  }
   if (!response.ok) {
     throw new Error(await extractError(response));
   }
@@ -318,10 +373,21 @@ export function useAgencyData(session: AgencySession) {
   const [shelterForm, setShelterForm] = useState<ShelterOccupancyFormState>(
     initialShelterOccupancyForm,
   );
+  const [selectedShelterId, setSelectedShelterId] = useState<string | null>(
+    null,
+  );
   const [hospitals, setHospitals] = useState<HospitalCapacityRecord[]>([]);
   const [hospitalForm, setHospitalForm] = useState<HospitalCapacityFormState>(
     initialHospitalCapacityForm,
   );
+  const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(
+    null,
+  );
+  const [capacityUpdateState, setCapacityUpdateState] =
+    useState<UpdateLoadState>("idle");
+  const [capacityUpdateError, setCapacityUpdateError] = useState<
+    string | null
+  >(null);
   const [capacityLoadState, setCapacityLoadState] =
     useState<IncidentLoadState>("loading");
   const [roadClosures, setRoadClosures] = useState<RoadClosureRecord[]>([]);
@@ -571,7 +637,179 @@ export function useAgencyData(session: AgencySession) {
     }
   }
 
+  function selectShelterTarget(shelterId: string) {
+    setSelectedShelterId(shelterId);
+    setCapacityUpdateState("idle");
+    setCapacityUpdateError(null);
+    const shelter = shelters.find((item) => item.id === shelterId);
+    if (shelter) {
+      setShelterForm(shelterToOccupancyForm(shelter));
+    }
+  }
+
+  function selectHospitalTarget(facilityId: string) {
+    setSelectedHospitalId(facilityId);
+    setCapacityUpdateState("idle");
+    setCapacityUpdateError(null);
+    const facility = hospitals.find((item) => item.id === facilityId);
+    if (facility) {
+      setHospitalForm(hospitalToCapacityForm(facility));
+    }
+  }
+
+  /** Parse a numeric form field; empty strings stay undefined (no change). */
+  function optionalCount(value: string): number | undefined {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+
+  /** Returns true when the update succeeded so the view can close the dialog. */
+  async function handleShelterOccupancyUpdate(): Promise<boolean> {
+    if (!selectedShelterId) {
+      setCapacityUpdateError("Choose a shelter to update.");
+      setCapacityUpdateState("error");
+      return false;
+    }
+    if (!canManageShelterResources(session)) {
+      setCapacityUpdateError(
+        "Your role does not have permission to update shelter occupancy.",
+      );
+      setCapacityUpdateState("error");
+      return false;
+    }
+    setCapacityUpdateState("loading");
+    setCapacityUpdateError(null);
+    try {
+      const request: ShelterOccupancyUpdateRequest = {
+        status: shelterForm.status as ShelterRecord["status"],
+      };
+      const capacity = optionalCount(shelterForm.capacity);
+      const currentOccupancy = optionalCount(shelterForm.currentOccupancy);
+      if (capacity !== undefined) {
+        request.capacity = capacity;
+      }
+      if (currentOccupancy !== undefined) {
+        request.currentOccupancy = currentOccupancy;
+      }
+      if (shelterForm.notes.trim()) {
+        request.notes = shelterForm.notes.trim();
+      }
+      const updated = await updateShelterOccupancy(selectedShelterId, request);
+      setShelters((current) =>
+        current.map((shelter) =>
+          shelter.id === updated.id ? updated : shelter,
+        ),
+      );
+      setCapacityUpdateState("success");
+      return true;
+    } catch (error) {
+      // Surfaces the service's 400 invalid_occupancy message when the merged
+      // occupancy would exceed capacity.
+      setCapacityUpdateError(
+        error instanceof Error ? error.message : "Shelter update failed.",
+      );
+      setCapacityUpdateState("error");
+      return false;
+    }
+  }
+
+  /** Returns true when the update succeeded so the view can close the dialog. */
+  async function handleHospitalCapacityUpdate(): Promise<boolean> {
+    if (!selectedHospitalId) {
+      setCapacityUpdateError("Choose a hospital to update.");
+      setCapacityUpdateState("error");
+      return false;
+    }
+    if (!canManageShelterResources(session)) {
+      setCapacityUpdateError(
+        "Your role does not have permission to update hospital capacity.",
+      );
+      setCapacityUpdateState("error");
+      return false;
+    }
+    setCapacityUpdateState("loading");
+    setCapacityUpdateError(null);
+    try {
+      const request: HospitalCapacityUpdateRequest = {
+        emergencyCapacity: hospitalForm.emergencyCapacity,
+        oxygenAvailable: hospitalForm.oxygenAvailable,
+        source: "manual",
+      };
+      const totalBeds = optionalCount(hospitalForm.totalBeds);
+      const availableBeds = optionalCount(hospitalForm.availableBeds);
+      const icuBedsAvailable = optionalCount(hospitalForm.icuBedsAvailable);
+      const maternityBedsAvailable = optionalCount(
+        hospitalForm.maternityBedsAvailable,
+      );
+      const pediatricBedsAvailable = optionalCount(
+        hospitalForm.pediatricBedsAvailable,
+      );
+      const isolationBedsAvailable = optionalCount(
+        hospitalForm.isolationBedsAvailable,
+      );
+      const ambulancesAvailable = optionalCount(
+        hospitalForm.ambulancesAvailable,
+      );
+      if (totalBeds !== undefined) {
+        request.totalBeds = totalBeds;
+      }
+      if (availableBeds !== undefined) {
+        request.availableBeds = availableBeds;
+      }
+      if (icuBedsAvailable !== undefined) {
+        request.icuBedsAvailable = icuBedsAvailable;
+      }
+      if (maternityBedsAvailable !== undefined) {
+        request.maternityBedsAvailable = maternityBedsAvailable;
+      }
+      if (pediatricBedsAvailable !== undefined) {
+        request.pediatricBedsAvailable = pediatricBedsAvailable;
+      }
+      if (isolationBedsAvailable !== undefined) {
+        request.isolationBedsAvailable = isolationBedsAvailable;
+      }
+      if (ambulancesAvailable !== undefined) {
+        request.ambulancesAvailable = ambulancesAvailable;
+      }
+      if (hospitalForm.emergencyUnitStatus.trim()) {
+        request.emergencyUnitStatus =
+          hospitalForm.emergencyUnitStatus as HospitalCapacityUpdateRequest["emergencyUnitStatus"];
+      }
+      if (hospitalForm.notes.trim()) {
+        request.notes = hospitalForm.notes.trim();
+      }
+      const updated = await updateHospitalCapacity(
+        selectedHospitalId,
+        request,
+      );
+      setHospitals((current) =>
+        current.map((facility) =>
+          facility.id === updated.id ? { ...facility, ...updated } : facility,
+        ),
+      );
+      setCapacityUpdateState("success");
+      return true;
+    } catch (error) {
+      setCapacityUpdateError(
+        error instanceof Error ? error.message : "Hospital update failed.",
+      );
+      setCapacityUpdateState("error");
+      return false;
+    }
+  }
+
   async function handleSaveReliefPoint() {
+    if (!canManageShelterResources(session)) {
+      setReliefError(
+        "Your role does not have permission to manage relief points.",
+      );
+      setReliefUpdateState("error");
+      return;
+    }
     setReliefUpdateState("loading");
     setReliefError(null);
     try {
@@ -630,6 +868,11 @@ export function useAgencyData(session: AgencySession) {
   }
 
   async function handleCreateAidRequest() {
+    if (!canManageShelterResources(session)) {
+      setAidError("Your role does not have permission to create aid requests.");
+      setAidUpdateState("error");
+      return;
+    }
     setAidUpdateState("loading");
     setAidError(null);
     try {
@@ -671,6 +914,11 @@ export function useAgencyData(session: AgencySession) {
     status: ReviewAidRequestRequest["status"],
   ) {
     if (!selectedAidRequest) return;
+    if (!canManageShelterResources(session)) {
+      setAidError("Your role does not have permission to review aid requests.");
+      setAidUpdateState("error");
+      return;
+    }
     setAidUpdateState("loading");
     setAidError(null);
     try {
@@ -702,12 +950,17 @@ export function useAgencyData(session: AgencySession) {
 
   function handleNewAidRequest() {
     setSelectedAidRequestId(null);
-    setAidForm(initialAidRequestForm);
+    // Computed now, at dialog-open time, so the default neededBy never expires.
+    setAidForm(initialAidRequestForm());
     setAidUpdateState("idle");
     setAidError(null);
   }
 
   async function handleAidExport() {
+    if (!canManageShelterResources(session)) {
+      setAidError("Your role does not have permission to export aid reports.");
+      return;
+    }
     setAidError(null);
     try {
       const response = await fetch(
@@ -722,8 +975,14 @@ export function useAgencyData(session: AgencySession) {
       const link = document.createElement("a");
       link.href = href;
       link.download = "nadaa-aid-requests.csv";
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(href);
+      // Revoke asynchronously: a synchronous revoke can cancel the download
+      // before the browser has consumed the blob.
+      window.setTimeout(() => {
+        URL.revokeObjectURL(href);
+        link.remove();
+      }, 0);
     } catch (error) {
       setAidError(
         error instanceof Error ? error.message : "Aid request export failed.",
@@ -805,6 +1064,14 @@ export function useAgencyData(session: AgencySession) {
     setShelterForm,
     hospitalForm,
     setHospitalForm,
+    selectedShelterId,
+    selectShelterTarget,
+    selectedHospitalId,
+    selectHospitalTarget,
+    capacityUpdateState,
+    capacityUpdateError,
+    handleShelterOccupancyUpdate,
+    handleHospitalCapacityUpdate,
     // Relief
     reliefPoints,
     selectedReliefPointId,

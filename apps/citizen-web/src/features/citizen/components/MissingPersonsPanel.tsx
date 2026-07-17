@@ -264,7 +264,7 @@ export default function MissingPersonsPanel() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!session) {
-      requestSignIn();
+      requestSignIn("submit a missing-person report");
       return;
     }
     if (
@@ -290,13 +290,24 @@ export default function MissingPersonsPanel() {
       return;
     }
 
+    // The field is clearable; new Date("").toISOString() would throw a
+    // RangeError outside the try block, so validate before building the payload.
+    const lastSeenAt = new Date(form.lastSeenAt);
+    if (Number.isNaN(lastSeenAt.getTime())) {
+      setFormState({
+        status: "error",
+        message: "Enter a valid last-seen date and time before submitting.",
+      });
+      return;
+    }
+
     const payload: CreateMissingPersonRequest = {
       personName: form.personName.trim(),
       age: form.age ? Number(form.age) : undefined,
       gender: form.gender,
       description: form.description.trim(),
       photoUrl: form.photoUrl.trim() || undefined,
-      lastSeenAt: new Date(form.lastSeenAt).toISOString(),
+      lastSeenAt: lastSeenAt.toISOString(),
       lastSeenLocation: {
         label: form.locationLabel.trim(),
         region: form.region.trim(),

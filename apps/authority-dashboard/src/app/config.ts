@@ -1,3 +1,5 @@
+export const AUTH_API_BASE =
+  import.meta.env.VITE_AUTH_API_URL ?? "http://localhost:8080/api/v1";
 export const INCIDENT_API_BASE =
   import.meta.env.VITE_INCIDENT_API_URL ?? "http://localhost:8084/api/v1";
 export const ALERT_API_BASE =

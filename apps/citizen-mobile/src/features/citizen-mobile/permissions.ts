@@ -1,3 +1,5 @@
+import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import type { MobilePermissionState, PermissionStatus } from "./types";
 
 export const permissionCopy: Record<
@@ -45,18 +47,44 @@ export const permissionCopy: Record<
   },
 };
 
-export function nextPermissionStatus(
-  status: PermissionStatus,
-): PermissionStatus {
-  switch (status) {
-    case "unknown":
-      return "granted";
-    case "denied":
-      return "blocked";
-    case "blocked":
-      return "unknown";
-    case "granted":
-      return "denied";
+type OSPermissionAnswer = {
+  canAskAgain?: boolean;
+  granted: boolean;
+};
+
+function resolveOSPermission(answer: OSPermissionAnswer): PermissionStatus {
+  if (answer.granted) {
+    return "granted";
+  }
+  return answer.canAskAgain === false ? "blocked" : "denied";
+}
+
+/**
+ * Request the REAL OS permission for camera, location, or media library and
+ * report the actual OS answer — these are device permissions, not in-app
+ * preferences. Push notifications are handled separately (alertNotifications).
+ */
+export async function requestOSPermission(
+  key: Exclude<keyof MobilePermissionState, "push">,
+): Promise<PermissionStatus> {
+  try {
+    switch (key) {
+      case "camera":
+        return resolveOSPermission(
+          await ImagePicker.requestCameraPermissionsAsync(),
+        );
+      case "location":
+        return resolveOSPermission(
+          await Location.requestForegroundPermissionsAsync(),
+        );
+      case "media":
+        return resolveOSPermission(
+          await ImagePicker.requestMediaLibraryPermissionsAsync(),
+        );
+    }
+  } catch {
+    // Permission module unavailable (e.g. unsupported platform): keep "unknown".
+    return "unknown";
   }
 }
 

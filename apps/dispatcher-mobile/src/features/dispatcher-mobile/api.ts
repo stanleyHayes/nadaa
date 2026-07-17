@@ -10,12 +10,13 @@ import type {
   LoginAgencyResponse,
   MergeIncidentsRequest,
 } from "@nadaa/shared-types";
+import * as Notifications from "expo-notifications";
 import {
   AUTH_API_BASE,
   INCIDENT_API_BASE,
+  PUSH_PROVIDER,
   SHELTER_API_BASE,
 } from "../../app/config";
-import { fallbackHospitalFacilities, fallbackIncidents } from "./data";
 import type { DispatcherSession, PushRegistrationState } from "./types";
 
 async function extractAPIError(response: Response): Promise<string> {
@@ -33,6 +34,12 @@ async function extractAPIError(response: Response): Promise<string> {
 export function authorityHeaders(session: DispatcherSession) {
   return {
     "Content-Type": "application/json",
+    // Authority endpoints require a verified Bearer token. The X-NADAA-* actor
+    // headers are kept for mock-actors dev mode; services ignore them once a
+    // real token is verified.
+    ...(session.accessToken
+      ? { Authorization: `Bearer ${session.accessToken}` }
+      : {}),
     "X-NADAA-Actor-ID": session.userId,
     "X-NADAA-Actor-Role": session.role,
     "X-NADAA-Agency-ID": session.agencyId,
@@ -75,18 +82,17 @@ export async function fetchMyProfile(
 export async function fetchIncidentQueue(
   session: DispatcherSession,
 ): Promise<IncidentRecord[]> {
-  try {
-    const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {
-      headers: authorityHeaders(session),
-    });
-    if (!response.ok) {
-      throw new Error(await extractAPIError(response));
-    }
-    const payload = (await response.json()) as IncidentListResponse;
-    return payload.incidents.length > 0 ? payload.incidents : fallbackIncidents;
-  } catch {
-    return fallbackIncidents;
+  const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {
+    headers: authorityHeaders(session),
+  });
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
   }
+  const payload = (await response.json()) as IncidentListResponse;
+  // An empty queue is a real answer, and failures must surface to the caller —
+  // substituting fixture incidents would let fixtures reach device
+  // notifications and overwrite the offline cache.
+  return payload.incidents;
 }
 
 export async function verifyIncident(
@@ -189,44 +195,57 @@ export async function fetchHospitalCapacity(
   lat: number,
   lng: number,
 ): Promise<HospitalCapacityResponse> {
-  try {
-    const params = new URLSearchParams({
-      includeStale: "true",
-      lat: lat.toString(),
-      limit: "6",
-      lng: lng.toString(),
-    });
-    const response = await fetch(
-      `${SHELTER_API_BASE}/hospitals/capacity?${params}`,
-      {
-        headers: authorityHeaders(session),
-      },
-    );
-    if (!response.ok) {
-      throw new Error(await extractAPIError(response));
-    }
-    return (await response.json()) as HospitalCapacityResponse;
-  } catch {
-    return {
-      facilities: fallbackHospitalFacilities,
-      generatedAt: new Date().toISOString(),
-      staleThresholdMinutes: 30,
-    };
+  const params = new URLSearchParams({
+    includeStale: "true",
+    lat: lat.toString(),
+    limit: "6",
+    lng: lng.toString(),
+  });
+  const response = await fetch(
+    `${SHELTER_API_BASE}/hospitals/capacity?${params}`,
+    {
+      headers: authorityHeaders(session),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await extractAPIError(response));
   }
+  // Failures must surface to the caller, which keeps the cached capacity with
+  // an offline indicator — fixture facilities must not pose as live data.
+  return (await response.json()) as HospitalCapacityResponse;
 }
 
 export async function registerPushToken(
   granted: boolean,
 ): Promise<PushRegistrationState> {
+  if (PUSH_PROVIDER === "disabled") {
+    return {
+      status: "not_configured",
+      message: "Push registration is disabled for this environment.",
+    };
+  }
   if (!granted) {
     return {
       status: "permission_needed",
       message: "Enable push notifications to receive critical escalations.",
     };
   }
+  try {
+    // A real Expo push token — never a fabricated sandbox string.
+    await Notifications.getExpoPushTokenAsync();
+  } catch {
+    return {
+      status: "failed",
+      message: "This device could not provide an Expo push token.",
+    };
+  }
+  // notification-service exposes no device-token registration endpoint, so a
+  // real backend registration cannot complete — report that honestly instead
+  // of faking a "registered" state. The queue polls while the app is
+  // foregrounded, so new incidents still surface on the device.
   return {
-    status: "registered",
-    provider: "sandbox",
-    token: `sandbox_dispatcher_${Date.now()}`,
+    status: "not_configured",
+    message:
+      "Push backend registration is not configured; the queue polls for new incidents while the app is open.",
   };
 }

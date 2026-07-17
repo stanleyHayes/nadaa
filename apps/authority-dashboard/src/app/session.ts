@@ -19,6 +19,10 @@ export type AuthoritySession = {
   agency: string;
   district: string;
   mfaCompleted: boolean;
+  /** Bearer token issued by auth-service agency login. */
+  accessToken?: string;
+  /** ISO timestamp when {@link accessToken} stops being accepted. */
+  tokenExpiresAt?: string;
   /** Work email; derived from the display name when not supplied. */
   email?: string;
   /** Operating unit within the agency. */
@@ -176,6 +180,18 @@ function readStoredSession(): AuthoritySession | null {
       return null;
     }
     const role = parsed.role as AgencyUserRole;
+    const tokenExpiresAt =
+      typeof parsed.tokenExpiresAt === "string"
+        ? parsed.tokenExpiresAt
+        : undefined;
+    // An expired token can only produce 401s — force a fresh sign-in instead.
+    if (
+      tokenExpiresAt &&
+      !Number.isNaN(Date.parse(tokenExpiresAt)) &&
+      Date.parse(tokenExpiresAt) <= Date.now()
+    ) {
+      return null;
+    }
     return normalizeSession({
       id: parsed.id,
       name: parsed.name ?? roleLabels[role],
@@ -184,6 +200,9 @@ function readStoredSession(): AuthoritySession | null {
       agency: parsed.agency ?? agencyByRole[role],
       district: parsed.district ?? DEFAULT_DISTRICT,
       mfaCompleted: Boolean(parsed.mfaCompleted),
+      accessToken:
+        typeof parsed.accessToken === "string" ? parsed.accessToken : undefined,
+      tokenExpiresAt,
       email: typeof parsed.email === "string" ? parsed.email : undefined,
       department:
         typeof parsed.department === "string" ? parsed.department : undefined,
@@ -424,9 +443,9 @@ export function hasCommandAccess(session: AuthoritySession | null): boolean {
   );
 }
 
-export function authorityHeaders() {
+export function authorityHeaders(): Record<string, string> {
   const session = currentSession ?? fallbackSession;
-  return {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "X-NADAA-Actor-ID": session.id,
     "X-NADAA-Actor-Role": session.role,
@@ -435,4 +454,10 @@ export function authorityHeaders() {
     "X-NADAA-MFA-Completed": session.mfaCompleted ? "true" : "false",
     "X-NADAA-Request-ID": `authority-ui-${Date.now()}`,
   };
+  // Real bearer token from agency login; services require it on authority
+  // endpoints. The X-NADAA-* actor headers above stay for mock-actors dev mode.
+  if (session.accessToken) {
+    headers.Authorization = `Bearer ${session.accessToken}`;
+  }
+  return headers;
 }

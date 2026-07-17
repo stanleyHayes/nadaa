@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,10 +16,44 @@ import (
 	"github.com/stanleyHayes/nadaa/services/school-service/internal/store"
 )
 
+const testTokenSecret = "test-token-secret-for-school-service-tests"
+
 func newTestServer() *Server {
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8097", RiskServiceURL: "http://risk.test", AllowedOrigins: nil}
+	cfg := &config.Config{Addr: ":8097", TokenSecret: testTokenSecret, AllowMockActors: true, AllowedOrigins: nil}
 	return NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
+}
+
+// newTokenOnlyServer builds a server with mock actor headers disabled, so only
+// verified bearer tokens establish authority context.
+func newTokenOnlyServer() *Server {
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	cfg := &config.Config{Addr: ":8097", TokenSecret: testTokenSecret, AllowMockActors: false, AllowedOrigins: nil}
+	return NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
+}
+
+func signTestToken(t *testing.T, secret string, claims tokenClaims) string {
+	t.Helper()
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatalf("marshal claims: %v", err)
+	}
+	encodedPayload := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(encodedPayload))
+	return "nadaa." + encodedPayload + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func districtOfficerTokenClaims() tokenClaims {
+	return tokenClaims{
+		UserID:    "usr_district_officer_001",
+		UserType:  "agency",
+		Role:      "district_officer",
+		AgencyID:  "00000000-0000-0000-0000-000000000204",
+		District:  "accra metropolitan",
+		MFA:       true,
+		ExpiresAt: time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC).Unix(),
+	}
 }
 
 func applyDistrictOfficerHeaders(request *http.Request) {
@@ -281,4 +318,306 @@ func TestCreateSchoolOutsideDistrictDenied(t *testing.T) {
 
 func intPtr(value int) *int {
 	return &value
+}
+
+func applyAgencyViewerHeaders(request *http.Request) {
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-NADAA-Actor-ID", "usr_agency_viewer_001")
+	request.Header.Set("X-NADAA-Actor-Role", "agency_viewer")
+	request.Header.Set("X-NADAA-Agency-ID", "00000000-0000-0000-0000-000000000205")
+	request.Header.Set("X-NADAA-MFA-Completed", "true")
+	request.Header.Set("X-NADAA-Actor-District", "accra metropolitan")
+}
+
+func applyNadmoOfficerHeaders(request *http.Request) {
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-NADAA-Actor-ID", "usr_nadmo_officer_001")
+	request.Header.Set("X-NADAA-Actor-Role", "nadmo_officer")
+	request.Header.Set("X-NADAA-Agency-ID", "00000000-0000-0000-0000-000000000002")
+	request.Header.Set("X-NADAA-MFA-Completed", "true")
+}
+
+func TestListSchoolsWithBearerToken(t *testing.T) {
+	srv := newTokenOnlyServer()
+	token := signTestToken(t, testTokenSecret, districtOfficerTokenClaims())
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/schools", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.SchoolListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Schools) != 2 {
+		t.Fatalf("expected 2 Accra schools for district-scoped token, got %d", len(payload.Schools))
+	}
+}
+
+func TestBearerTokenOverridesForgedActorHeaders(t *testing.T) {
+	srv := newTokenOnlyServer()
+	token := signTestToken(t, testTokenSecret, districtOfficerTokenClaims())
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/schools", nil)
+	applySystemAdminHeaders(request)
+	request.Header.Set("Authorization", "Bearer "+token)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.SchoolListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Schools) != 2 {
+		t.Fatalf("expected forged system_admin headers to be ignored and 2 district schools returned, got %d", len(payload.Schools))
+	}
+}
+
+func TestMockActorHeadersRejectedWhenDisabled(t *testing.T) {
+	srv := newTokenOnlyServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/schools", nil)
+	applyDistrictOfficerHeaders(request)
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestExpiredBearerTokenRejected(t *testing.T) {
+	srv := newTokenOnlyServer()
+	claims := districtOfficerTokenClaims()
+	claims.ExpiresAt = time.Date(2026, 7, 9, 12, 0, 0, 0, time.UTC).Unix()
+	token := signTestToken(t, testTokenSecret, claims)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/schools", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestForgedBearerTokenRejected(t *testing.T) {
+	srv := newTokenOnlyServer()
+	token := signTestToken(t, "a-different-secret", districtOfficerTokenClaims())
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/schools", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestEmptyTokenSecretRejectsBearerToken(t *testing.T) {
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	cfg := &config.Config{Addr: ":8097", TokenSecret: "", AllowMockActors: false, AllowedOrigins: nil}
+	srv := NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
+	token := signTestToken(t, testTokenSecret, districtOfficerTokenClaims())
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/schools", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestAgencyViewerCanReadButNotWrite(t *testing.T) {
+	srv := newTestServer()
+
+	listResponse := httptest.NewRecorder()
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/schools", nil)
+	applyAgencyViewerHeaders(listRequest)
+	srv.Routes().ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, listResponse.Code, listResponse.Body.String())
+	}
+
+	createResponse := httptest.NewRecorder()
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/schools", jsonBody(models.CreateSchoolRequest{
+		Name:              "Viewer School",
+		Location:          models.Coordinates{Lat: 5.55, Lng: -0.19},
+		Region:            "Greater Accra",
+		District:          "Accra Metropolitan",
+		StudentPopulation: 100,
+	}))
+	applyAgencyViewerHeaders(createRequest)
+	srv.Routes().ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, createResponse.Code, createResponse.Body.String())
+	}
+
+	drillResponse := httptest.NewRecorder()
+	drillRequest := httptest.NewRequest(http.MethodPost, "/api/v1/schools/school_001/drills", jsonBody(models.CreateDrillRequest{
+		Date:         time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		Type:         "fire",
+		Participants: 100,
+		Completed:    true,
+	}))
+	applyAgencyViewerHeaders(drillRequest)
+	srv.Routes().ServeHTTP(drillResponse, drillRequest)
+	if drillResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, drillResponse.Code, drillResponse.Body.String())
+	}
+}
+
+func TestDistrictOfficerWithoutDistrictDenied(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/schools", nil)
+	applyDistrictOfficerHeaders(request)
+	request.Header.Del("X-NADAA-Actor-District")
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "district_scope_required" {
+		t.Fatalf("expected error code district_scope_required, got %s", payload.Error.Code)
+	}
+}
+
+func TestNadmoOfficerUnscopedWithoutDistrict(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/schools", nil)
+	applyNadmoOfficerHeaders(request)
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.SchoolListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Schools) != 3 {
+		t.Fatalf("expected 3 schools for unscoped nadmo_officer, got %d", len(payload.Schools))
+	}
+}
+
+func TestCreateDrillRejectsFutureDate(t *testing.T) {
+	srv := newTestServer()
+	body := models.CreateDrillRequest{
+		Date:         time.Date(2026, 7, 12, 12, 0, 0, 0, time.UTC),
+		Type:         "fire",
+		Participants: 100,
+		Completed:    true,
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/schools/school_001/drills", jsonBody(body))
+	applyDistrictOfficerHeaders(request)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_date" {
+		t.Fatalf("expected error code invalid_date, got %s", payload.Error.Code)
+	}
+}
+
+func TestCreateDrillRejectsZeroDate(t *testing.T) {
+	srv := newTestServer()
+	body := models.CreateDrillRequest{
+		Type:         "fire",
+		Participants: 100,
+		Completed:    true,
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/schools/school_001/drills", jsonBody(body))
+	applyDistrictOfficerHeaders(request)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_date" {
+		t.Fatalf("expected error code invalid_date, got %s", payload.Error.Code)
+	}
+}
+
+func TestCreateDrillAllowsDateWithinSkewTolerance(t *testing.T) {
+	srv := newTestServer()
+	body := models.CreateDrillRequest{
+		Date:         time.Date(2026, 7, 10, 18, 0, 0, 0, time.UTC),
+		Type:         "fire",
+		Participants: 100,
+		Completed:    false,
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/schools/school_001/drills", jsonBody(body))
+	applyDistrictOfficerHeaders(request)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+}
+
+func TestCreateReadinessRejectsFutureCheckDate(t *testing.T) {
+	srv := newTestServer()
+	body := models.CreateReadinessRequest{
+		CheckDate:     time.Date(2026, 8, 1, 9, 0, 0, 0, time.UTC),
+		RiskLevel:     "high",
+		OverallStatus: "ready",
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/schools/school_001/readiness", jsonBody(body))
+	applyDistrictOfficerHeaders(request)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_check_date" {
+		t.Fatalf("expected error code invalid_check_date, got %s", payload.Error.Code)
+	}
+}
+
+func TestCreateReadinessRejectsZeroCheckDate(t *testing.T) {
+	srv := newTestServer()
+	body := models.CreateReadinessRequest{
+		RiskLevel:     "high",
+		OverallStatus: "ready",
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/schools/school_001/readiness", jsonBody(body))
+	applyDistrictOfficerHeaders(request)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_check_date" {
+		t.Fatalf("expected error code invalid_check_date, got %s", payload.Error.Code)
+	}
 }

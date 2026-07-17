@@ -95,7 +95,7 @@ func (p ArkeselSMSProvider) Send(ctx context.Context, message ProviderMessage) P
 	if err != nil {
 		return ProviderResult{Provider: providerID, Status: "failed", Reason: "arkesel request failed"}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, maxProviderResponseBytes))
 
 	var parsed struct {
@@ -189,7 +189,7 @@ func (p ExpoPushProvider) Send(ctx context.Context, message ProviderMessage) Pro
 	if err != nil {
 		return ProviderResult{Provider: providerID, Status: "failed", Reason: "expo request failed"}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, maxProviderResponseBytes))
 
 	var parsed struct {
@@ -205,7 +205,9 @@ func (p ExpoPushProvider) Send(ctx context.Context, message ProviderMessage) Pro
 	_ = json.Unmarshal(raw, &parsed)
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 && strings.EqualFold(parsed.Data.Status, "ok") {
-		return ProviderResult{Provider: providerID, Status: "delivered", MessageID: parsed.Data.ID}
+		// An "ok" ticket only means Expo accepted the push; delivery receipts
+		// are never fetched, so record the attempt as sent, not delivered.
+		return ProviderResult{Provider: providerID, Status: "sent", MessageID: parsed.Data.ID}
 	}
 
 	reason := strings.TrimSpace(parsed.Data.Message)

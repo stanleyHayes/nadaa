@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,6 +29,20 @@ func main() {
 	providers := handlers.BuildProviders(cfg.Providers)
 	cellBroadcast := handlers.CellBroadcastAdapterFromMode(cfg.CellBroadcastMode)
 	srv := handlers.NewServer(s, alertClient, incidentClient, providers, cellBroadcast, func() time.Time { return time.Now().UTC() }, cfg)
+
+	for channel, secret := range map[string]string{
+		"sms":      cfg.WebhookSecrets.SMS,
+		"ussd":     cfg.WebhookSecrets.USSD,
+		"whatsapp": cfg.WebhookSecrets.WhatsApp,
+	} {
+		if secret == "" {
+			utils.LogWarn(
+				"inbound webhook has no shared secret configured; accepting unauthenticated webhooks",
+				"channel", channel,
+				"envVar", "NADAA_"+strings.ToUpper(channel)+"_WEBHOOK_SECRET",
+			)
+		}
+	}
 
 	httpServer := &http.Server{
 		Addr:         cfg.Addr,

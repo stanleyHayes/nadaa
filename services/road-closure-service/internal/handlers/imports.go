@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) importAdapterHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, closureUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, closureUpdateRoles)
 	if !ok {
 		return
 	}
@@ -30,7 +30,8 @@ func (s *Server) importAdapterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	closures := s.store.ImportAdapter(normalized, ctx, s.now().UTC())
-	log.Printf("INFO road-closure-service adapter_import completed actor=%s source=%s imported=%d", ctx.ActorUserID, normalized.Source, len(closures))
+	// #nosec G706 -- the source is sanitized with utils.SafeLogValue.
+	log.Printf("INFO road-closure-service adapter_import completed actor=%s source=%s imported=%d", ctx.ActorUserID, utils.SafeLogValue(normalized.Source), len(closures))
 	utils.WriteJSON(w, http.StatusOK, models.AdapterImportResponse{
 		Imported:    len(closures),
 		Closures:    closures,

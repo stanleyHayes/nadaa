@@ -38,12 +38,14 @@ func NewMemoryStore(now time.Time) Store {
 	privateReviewedAt := now.Add(-2 * time.Hour)
 	lat := 5.56
 	lng := -0.2
+	ageChild := 12
+	ageSenior := 68
 	s.records = []models.MissingPerson{
 		{
 			ID:          "missing_001",
 			Reference:   "MP-20260707-001",
 			PersonName:  "Kojo Mensah",
-			Age:         12,
+			Age:         &ageChild,
 			Gender:      "male",
 			Description: "Last seen wearing a blue school shirt and black shorts near the shelter registration desk.",
 			PhotoURL:    "https://example.test/photos/kojo-mensah.jpg",
@@ -78,7 +80,7 @@ func NewMemoryStore(now time.Time) Store {
 			ID:          "missing_002",
 			Reference:   "MP-20260707-002",
 			PersonName:  "Efua Boateng",
-			Age:         68,
+			Age:         &ageSenior,
 			Gender:      "female",
 			Description: "Older adult reported missing after evacuation from a low-lying household.",
 			LastSeenAt:  now.Add(-8 * time.Hour),
@@ -215,9 +217,13 @@ func (m *MemoryStore) GetPublicMissingPerson(id string) (models.PublicMissingPer
 	defer m.mu.RUnlock()
 
 	for _, record := range m.records {
-		if record.ID == strings.TrimSpace(id) && record.PublicVisibility == "public" && record.ReviewStatus == "approved" {
-			return toPublic(record), true
+		if record.ID != strings.TrimSpace(id) || record.PublicVisibility != "public" || record.ReviewStatus != "approved" {
+			continue
 		}
+		if record.Status != "active" && record.Status != "located" {
+			continue
+		}
+		return toPublic(record), true
 	}
 	return models.PublicMissingPerson{}, false
 }
@@ -234,6 +240,9 @@ func (m *MemoryStore) ReviewMissingPerson(id string, request models.ReviewMissin
 		next := m.records[index]
 		switch request.Decision {
 		case "approve_public":
+			if !next.Reporter.ConsentToPublicShare && !request.ConsentOverride {
+				return models.MissingPerson{}, "public_consent_required", "reporter declined consent to public sharing; approve_public requires an explicit consentOverride"
+			}
 			next.ReviewStatus = "approved"
 			next.PublicVisibility = "public"
 			next.Status = statusOrDefault(request.Status, "active")
@@ -252,9 +261,17 @@ func (m *MemoryStore) ReviewMissingPerson(id string, request models.ReviewMissin
 		next.ReviewNotes = request.ReviewNotes
 		next.ReviewedBy = ctx.ActorUserID
 		next.ReviewedAt = &now
+		next.ClosureType = ""
+		next.ClosureNotes = ""
+		next.ClosedBy = ""
+		next.ClosedAt = nil
 		next.UpdatedAt = now
 		m.records[index] = next
-		m.appendAuditLocked(next.ID, "missing_person.reviewed", ctx, request.ReviewNotes, now)
+		auditNotes := request.ReviewNotes
+		if request.Decision == "approve_public" && request.ConsentOverride {
+			auditNotes = strings.TrimSpace(auditNotes + " [consentOverride=true]")
+		}
+		m.appendAuditLocked(next.ID, "missing_person.reviewed", ctx, auditNotes, now)
 		return next, "", ""
 	}
 	return models.MissingPerson{}, "not_found", "missing person record was not found"

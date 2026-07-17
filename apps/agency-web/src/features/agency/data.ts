@@ -67,25 +67,32 @@ export const initialReliefPointForm: ReliefPointFormState = {
   stockCategories: "rice_kg:100:kg, water_sachets:500:sachets",
 };
 
-export const initialAidRequestForm: AidRequestFormState = {
-  title: "",
-  category: "food",
-  priority: "high",
-  region: "Greater Accra",
-  district: "Accra Metropolitan",
-  lat: "5.5600",
-  lng: "-0.2000",
-  receivingOrganization: "NADMO Accra Metro",
-  contact: nadaaBrand.supportLine,
-  quantityNeeded: "100",
-  quantityUnit: "units",
-  description: "",
-  neededBy: new Date(Date.now() + 72 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 16),
-  visibility: "public",
-  sourceReliefPointId: "",
-};
+/**
+ * Build a fresh aid-request form. `neededBy` is computed at call time so the
+ * default stays 72 hours out no matter how long the app has been open — a
+ * module-level constant would freeze at page load and quietly expire.
+ */
+export function initialAidRequestForm(): AidRequestFormState {
+  return {
+    title: "",
+    category: "food",
+    priority: "high",
+    region: "Greater Accra",
+    district: "Accra Metropolitan",
+    lat: "5.5600",
+    lng: "-0.2000",
+    receivingOrganization: "NADMO Accra Metro",
+    contact: nadaaBrand.supportLine,
+    quantityNeeded: "100",
+    quantityUnit: "units",
+    description: "",
+    neededBy: new Date(Date.now() + 72 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 16),
+    visibility: "public",
+    sourceReliefPointId: "",
+  };
+}
 
 export const incidentTransitionOptions: Record<
   IncidentStatus,

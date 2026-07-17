@@ -11,7 +11,9 @@ Expo/React Native triage app for Phase 2 dispatchers.
 - Hospital capacity lookup near the selected incident.
 - Shared contracts from `@nadaa/shared-types` and brand tokens from `@nadaa/brand`.
 - Offline primitives for incident cache, session, and capacity persistence.
-- Sandbox push registration for critical incident escalation.
+- Foreground queue polling for critical incident escalation; push registration
+  reports an honest not-configured state until notification-service exposes a
+  device-token endpoint.
 
 ## Local Checks
 
@@ -22,13 +24,11 @@ pnpm smoke:dispatcher-mobile
 
 ## Expo Runtime
 
-The app keeps Expo runtime packages as optional peers so the monorepo CI can validate contracts without installing the full native toolchain on every run. To run on a device/simulator, install the native peers for this workspace, then run:
+The Expo runtime packages (`expo`, `react`, `react-native`, `@expo/vector-icons`, `expo-location`, `expo-notifications`, and `@react-native-async-storage/async-storage`) are pinned dependencies of this workspace. To run on a device/simulator:
 
 ```bash
 pnpm --filter @nadaa/dispatcher-mobile start
 ```
-
-Expected native peers: `expo`, `react`, `react-native`, `@expo/vector-icons`, `expo-location`, `expo-notifications`, and `@react-native-async-storage/async-storage`.
 
 ## Configuration
 

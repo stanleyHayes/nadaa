@@ -6,6 +6,7 @@ import "@fontsource/outfit/800.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { registerCitizenServiceWorker } from "./features/citizen/utils";
 import "./styles/global.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -13,3 +14,7 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </StrictMode>,
 );
+
+// Registers /sw.js in production builds only (no-op in dev or without SW
+// support), which backs the "available offline" guide copy.
+registerCitizenServiceWorker();

@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
 	"net/http"
@@ -15,12 +18,33 @@ import (
 	"github.com/stanleyHayes/nadaa/services/damage-claim-service/internal/store"
 )
 
+const testAuthSecret = "test-damage-claim-auth-secret"
+
 func newTestServer() *Server {
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
 	return NewServer(
 		store.NewMemoryStore(now),
 		func() time.Time { return now },
-		&config.Config{IncidentServiceURL: "http://127.0.0.1:1"},
+		&config.Config{
+			IncidentServiceURL: "http://127.0.0.1:1",
+			AuthTokenSecret:    testAuthSecret,
+			AllowMockActors:    true,
+		},
+	)
+}
+
+// newSecureTestServer disables mock-actor headers so only a valid bearer token
+// authenticates authority requests.
+func newSecureTestServer() *Server {
+	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
+	return NewServer(
+		store.NewMemoryStore(now),
+		func() time.Time { return now },
+		&config.Config{
+			IncidentServiceURL: "http://127.0.0.1:1",
+			AuthTokenSecret:    testAuthSecret,
+			AllowMockActors:    false,
+		},
 	)
 }
 
@@ -29,7 +53,11 @@ func newTestServerWithIncidentServer(incidentServer *httptest.Server) *Server {
 	srv := NewServer(
 		store.NewMemoryStore(now),
 		func() time.Time { return now },
-		&config.Config{IncidentServiceURL: incidentServer.URL},
+		&config.Config{
+			IncidentServiceURL: incidentServer.URL,
+			AuthTokenSecret:    testAuthSecret,
+			AllowMockActors:    true,
+		},
 	)
 	srv.httpClient = incidentServer.Client()
 	srv.incidentServiceURL = incidentServer.URL
@@ -100,7 +128,8 @@ func TestCreateClaimEnrichesIncidentReference(t *testing.T) {
 			"id":        "inc_test_002",
 			"reference": "NADAA-TEST-20260707-001",
 			"location": map[string]any{
-				"address": "Incident Address",
+				"lat": 5.6037,
+				"lng": -0.187,
 			},
 		})
 	}))
@@ -130,8 +159,160 @@ func TestCreateClaimEnrichesIncidentReference(t *testing.T) {
 	if payload.IncidentReference != "NADAA-TEST-20260707-001" {
 		t.Fatalf("expected incident reference enriched, got %s", payload.IncidentReference)
 	}
-	if payload.IncidentLocation != "Incident Address" {
-		t.Fatalf("expected incident location enriched, got %s", payload.IncidentLocation)
+	if payload.IncidentLocation != "5.6037,-0.187" {
+		t.Fatalf("expected incident location enriched from coordinates, got %s", payload.IncidentLocation)
+	}
+}
+
+func TestCreateClaimEnrichmentToleratesMissingLocation(t *testing.T) {
+	incidentServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		utilsWriteJSON(w, http.StatusOK, map[string]any{
+			"id":        "inc_test_003",
+			"reference": "NADAA-TEST-20260707-002",
+		})
+	}))
+	defer incidentServer.Close()
+
+	srv := newTestServerWithIncidentServer(incidentServer)
+	body := models.CreateClaimRequest{
+		IncidentID:          "inc_test_003",
+		Reporter:            models.ReporterInfo{Name: "Test Reporter", Phone: "+233200000000"},
+		DamageType:          "fire",
+		DamageDescription:   "Fire damage.",
+		EstimatedLossAmount: "5000.00",
+		Location:            models.ClaimLocation{Lat: 5.6, Lng: -0.18},
+		PrivacyConsent:      true,
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/claims", jsonBody(body))
+	srv.createClaimHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+
+	var payload models.DamageClaimRecord
+	decodeResponse(t, response, &payload)
+	if payload.IncidentReference != "NADAA-TEST-20260707-002" {
+		t.Fatalf("expected incident reference enriched, got %s", payload.IncidentReference)
+	}
+	if payload.IncidentLocation != "" {
+		t.Fatalf("expected empty incident location when absent, got %s", payload.IncidentLocation)
+	}
+}
+
+func TestCreateClaimForwardsAuthorizationToIncidentService(t *testing.T) {
+	var gotAuthorization string
+	incidentServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuthorization = r.Header.Get("Authorization")
+		utilsWriteJSON(w, http.StatusOK, map[string]any{"id": "inc_test_004", "reference": "NADAA-TEST-20260707-003"})
+	}))
+	defer incidentServer.Close()
+
+	srv := newTestServerWithIncidentServer(incidentServer)
+	body := models.CreateClaimRequest{
+		IncidentID:          "inc_test_004",
+		Reporter:            models.ReporterInfo{Name: "Test Reporter", Phone: "+233200000000"},
+		DamageType:          "fire",
+		DamageDescription:   "Fire damage.",
+		EstimatedLossAmount: "5000.00",
+		Location:            models.ClaimLocation{Lat: 5.6, Lng: -0.18},
+		PrivacyConsent:      true,
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/claims", jsonBody(body))
+	request.Header.Set("Authorization", "Bearer citizen-token")
+	srv.createClaimHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	if gotAuthorization != "Bearer citizen-token" {
+		t.Fatalf("expected Authorization header forwarded to incident-service, got %q", gotAuthorization)
+	}
+	if request.Header.Get("X-NADAA-Actor-ID") != "" {
+		t.Fatalf("test setup must not fabricate actor headers")
+	}
+}
+
+func TestCreateClaimSendsServiceTokenWithoutCallerAuth(t *testing.T) {
+	var gotAuthorization, gotServiceToken string
+	incidentServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuthorization = r.Header.Get("Authorization")
+		gotServiceToken = r.Header.Get("X-NADAA-Service-Token")
+		utilsWriteJSON(w, http.StatusOK, map[string]any{"id": "inc_test_005", "reference": "NADAA-TEST-20260707-004"})
+	}))
+	defer incidentServer.Close()
+
+	srv := newTestServerWithIncidentServer(incidentServer)
+	srv.config.InternalServiceToken = "test-internal-service-token"
+	body := models.CreateClaimRequest{
+		IncidentID:          "inc_test_005",
+		Reporter:            models.ReporterInfo{Name: "Test Reporter", Phone: "+233200000000"},
+		DamageType:          "flood",
+		DamageDescription:   "Flood damage.",
+		EstimatedLossAmount: "2500.00",
+		Location:            models.ClaimLocation{Lat: 5.6, Lng: -0.18},
+		PrivacyConsent:      true,
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/claims", jsonBody(body))
+	srv.createClaimHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	if gotAuthorization != "" {
+		t.Fatalf("expected no Authorization header without caller auth, got %q", gotAuthorization)
+	}
+	if gotServiceToken != "test-internal-service-token" {
+		t.Fatalf("expected internal service token sent to incident-service, got %q", gotServiceToken)
+	}
+
+	var payload models.DamageClaimRecord
+	decodeResponse(t, response, &payload)
+	if payload.IncidentReference != "NADAA-TEST-20260707-004" {
+		t.Fatalf("expected incident reference enriched via service token, got %s", payload.IncidentReference)
+	}
+}
+
+func TestCreateClaimPrefersAuthorizationOverServiceToken(t *testing.T) {
+	var gotAuthorization, gotServiceToken string
+	incidentServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuthorization = r.Header.Get("Authorization")
+		gotServiceToken = r.Header.Get("X-NADAA-Service-Token")
+		utilsWriteJSON(w, http.StatusOK, map[string]any{"id": "inc_test_006", "reference": "NADAA-TEST-20260707-005"})
+	}))
+	defer incidentServer.Close()
+
+	srv := newTestServerWithIncidentServer(incidentServer)
+	srv.config.InternalServiceToken = "test-internal-service-token"
+	body := models.CreateClaimRequest{
+		IncidentID:          "inc_test_006",
+		Reporter:            models.ReporterInfo{Name: "Test Reporter", Phone: "+233200000000"},
+		DamageType:          "flood",
+		DamageDescription:   "Flood damage.",
+		EstimatedLossAmount: "2500.00",
+		Location:            models.ClaimLocation{Lat: 5.6, Lng: -0.18},
+		PrivacyConsent:      true,
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/claims", jsonBody(body))
+	request.Header.Set("Authorization", "Bearer dispatcher-token")
+	srv.createClaimHandler(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	if gotAuthorization != "Bearer dispatcher-token" {
+		t.Fatalf("expected caller Authorization forwarded to incident-service, got %q", gotAuthorization)
+	}
+	if gotServiceToken != "" {
+		t.Fatalf("expected service token omitted when caller auth is present, got %q", gotServiceToken)
 	}
 }
 
@@ -233,6 +414,28 @@ func TestInvalidVerificationStatus(t *testing.T) {
 	}
 }
 
+func TestVerifyClaimRejectsPendingStatus(t *testing.T) {
+	srv := newTestServer()
+	body := models.VerifyClaimRequest{VerificationStatus: "pending", Notes: "Still pending."}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPost, "/claims/claim_001/verify", jsonBody(body))
+	request.SetPathValue("id", "claim_001")
+	srv.verifyClaimHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+
+	claim, ok := srv.store.Get("claim_001")
+	if !ok {
+		t.Fatalf("expected claim_001 to exist")
+	}
+	if claim.VerifiedBy != "" || claim.VerifiedAt != nil {
+		t.Fatalf("expected no verification metadata stamped for pending status, got %#v", claim)
+	}
+}
+
 func TestExportClaimCSV(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
@@ -327,6 +530,198 @@ func TestCloseClaim(t *testing.T) {
 	}
 }
 
+func TestCloseClaimAlreadyClosed(t *testing.T) {
+	srv := newTestServer()
+	body := models.CloseClaimRequest{Reason: "Duplicate submission."}
+
+	first := httptest.NewRecorder()
+	firstRequest := authorityRequest(http.MethodPost, "/claims/claim_001/close", jsonBody(body))
+	firstRequest.SetPathValue("id", "claim_001")
+	srv.closeClaimHandler(first, firstRequest)
+	if first.Code != http.StatusOK {
+		t.Fatalf("expected first close status %d, got %d: %s", http.StatusOK, first.Code, first.Body.String())
+	}
+
+	second := httptest.NewRecorder()
+	secondRequest := authorityRequest(http.MethodPost, "/claims/claim_001/close", jsonBody(body))
+	secondRequest.SetPathValue("id", "claim_001")
+	srv.closeClaimHandler(second, secondRequest)
+
+	if second.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, second.Code, second.Body.String())
+	}
+
+	claim, ok := srv.store.Get("claim_001")
+	if !ok {
+		t.Fatalf("expected claim_001 to exist")
+	}
+	if strings.Count(claim.VerificationNotes, "Closed by") != 1 {
+		t.Fatalf("expected exactly one closure note, got %q", claim.VerificationNotes)
+	}
+}
+
+func TestWriteClaimCSVEscapesFormulaCells(t *testing.T) {
+	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
+	claim := models.DamageClaimRecord{
+		ID:                  "claim_xss",
+		Reference:           "DC-2026-00009",
+		Reporter:            models.ReporterInfo{Name: "=HYPERLINK(\"http://evil\")", Phone: "+233200000000", Email: "@evil.example.com"},
+		DamageType:          "flood",
+		DamageDescription:   "-10+cmd|' /C calc'!A0",
+		EstimatedLossAmount: "100.00",
+		VerificationStatus:  "pending",
+		Status:              "submitted",
+		Location:            models.ClaimLocation{Lat: 5.6, Lng: -0.18, Address: "=1+1"},
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	response := httptest.NewRecorder()
+	writeClaimCSV(response, claim)
+
+	reader := csv.NewReader(response.Body)
+	records, err := reader.ReadAll()
+	if err != nil {
+		t.Fatalf("failed to read csv: %v", err)
+	}
+
+	values := map[string]string{}
+	for _, record := range records {
+		if len(record) == 2 {
+			values[record[0]] = record[1]
+		}
+	}
+
+	escaped := map[string]string{
+		"ReporterName":      "'=HYPERLINK(\"http://evil\")",
+		"ReporterEmail":     "'@evil.example.com",
+		"DamageDescription": "'-10+cmd|' /C calc'!A0",
+		"LocationAddress":   "'=1+1",
+	}
+	for field, want := range escaped {
+		if values[field] != want {
+			t.Fatalf("expected %s cell %q, got %q", field, want, values[field])
+		}
+	}
+	if values["EstimatedLossAmount"] != "100.00" {
+		t.Fatalf("expected plain value untouched, got %q", values["EstimatedLossAmount"])
+	}
+}
+
+func TestCreateClaimRejectsTooManyPhotos(t *testing.T) {
+	srv := newTestServer()
+	photos := make([]string, 21)
+	for i := range photos {
+		photos[i] = "https://media.nadaa.local/photo.jpg"
+	}
+	body := models.CreateClaimRequest{
+		Reporter:            models.ReporterInfo{Name: "Test Reporter", Phone: "+233200000000"},
+		DamageType:          "flood",
+		DamageDescription:   "Test damage description.",
+		EstimatedLossAmount: "1000.00",
+		DamagePhotos:        photos,
+		Location:            models.ClaimLocation{Lat: 5.6, Lng: -0.18},
+		PrivacyConsent:      true,
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/claims", jsonBody(body))
+	srv.createClaimHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "too_many_damage_photos") {
+		t.Fatalf("expected too_many_damage_photos error, got %s", response.Body.String())
+	}
+}
+
+func TestCreateClaimRejectsOversizedBody(t *testing.T) {
+	srv := newTestServer()
+	// A syntactically valid JSON body larger than the 1 MiB cap.
+	body := bytes.NewReader([]byte(`{"reporter":{"name":"` + strings.Repeat("a", 1<<20) + `"}}`))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/claims", body)
+	srv.createClaimHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "invalid_json") {
+		t.Fatalf("expected invalid_json error for oversized body, got %s", response.Body.String())
+	}
+}
+
+func TestListClaimsWithBearerToken(t *testing.T) {
+	srv := newSecureTestServer()
+	response := httptest.NewRecorder()
+	request := tokenAuthorityRequest(t, http.MethodGet, "/claims", nil)
+	srv.listClaimsHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+}
+
+func TestVerifyClaimWithBearerTokenUsesClaimsActor(t *testing.T) {
+	srv := newSecureTestServer()
+	body := models.VerifyClaimRequest{VerificationStatus: "verified", Notes: "Verified via token."}
+
+	response := httptest.NewRecorder()
+	request := tokenAuthorityRequest(t, http.MethodPost, "/claims/claim_001/verify", jsonBody(body))
+	request.SetPathValue("id", "claim_001")
+	srv.verifyClaimHandler(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload models.DamageClaimRecord
+	decodeResponse(t, response, &payload)
+	if payload.VerifiedBy != "usr_token_officer" {
+		t.Fatalf("expected verifiedBy from token claims, got %s", payload.VerifiedBy)
+	}
+}
+
+func TestAuthorityRejectsLegacyHeadersWhenMockActorsDisabled(t *testing.T) {
+	srv := newSecureTestServer()
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodGet, "/claims", nil)
+	srv.listClaimsHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestAuthorityRejectsForgedToken(t *testing.T) {
+	srv := newSecureTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/claims", nil)
+	request.Header.Set("Authorization", "Bearer "+signTestToken(t, "wrong-secret", testAuthorityClaims()))
+	srv.listClaimsHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestAuthorityRejectsExpiredToken(t *testing.T) {
+	srv := newSecureTestServer()
+	claims := testAuthorityClaims()
+	claims.ExpiresAt = time.Date(2026, 7, 7, 11, 0, 0, 0, time.UTC).Unix()
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/claims", nil)
+	request.Header.Set("Authorization", "Bearer "+signTestToken(t, testAuthSecret, claims))
+	srv.listClaimsHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
 func jsonBody(value any) *bytes.Reader {
 	body, err := json.Marshal(value)
 	if err != nil {
@@ -346,6 +741,44 @@ func authorityRequest(method string, target string, body *bytes.Reader) *http.Re
 	request.Header.Set("X-NADAA-Agency-ID", "00000000-0000-0000-0000-000000000204")
 	request.Header.Set("X-NADAA-MFA-Completed", "true")
 	request.Header.Set("X-NADAA-Request-ID", "test-damage-claim")
+	return request
+}
+
+// testAuthorityClaims mirrors the claims auth-service signs for an agency
+// authority user. Expiry is anchored to the test server's fixed clock.
+func testAuthorityClaims() models.TokenClaims {
+	return models.TokenClaims{
+		UserID:    "usr_token_officer",
+		UserType:  "agency",
+		Role:      "insurance_officer",
+		AgencyID:  "00000000-0000-0000-0000-000000000204",
+		MFA:       true,
+		ExpiresAt: time.Date(2026, 7, 7, 13, 0, 0, 0, time.UTC).Unix(),
+	}
+}
+
+// signTestToken signs claims with the same nadaa.<payload>.<sig> scheme as
+// auth-service; tests may use any secret since they construct the server.
+func signTestToken(t *testing.T, secret string, claims models.TokenClaims) string {
+	t.Helper()
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatalf("marshal claims: %v", err)
+	}
+	encoded := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(encoded))
+	return "nadaa." + encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func tokenAuthorityRequest(t *testing.T, method string, target string, body *bytes.Reader) *http.Request {
+	t.Helper()
+	if body == nil {
+		body = bytes.NewReader([]byte{})
+	}
+	request := httptest.NewRequest(method, target, body)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer "+signTestToken(t, testAuthSecret, testAuthorityClaims()))
 	return request
 }
 

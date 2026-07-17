@@ -184,7 +184,7 @@ export const contactCards = [
     primary: "Plan a deployment lane",
     detail:
       "Use the web, mobile, dispatch, agency, and admin apps as separate rollout tracks.",
-    href: "#platforms",
+    href: "/platforms",
   },
 ] as const;
 

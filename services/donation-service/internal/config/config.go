@@ -12,6 +12,18 @@ type Config struct {
 	Addr           string
 	AllowedOrigins map[string]bool
 	Payment        PaymentConfig
+
+	// Env is NADAA_ENV (e.g. "development"); development-only behaviors such
+	// as sandbox payment crediting and localhost CORS bypass are gated on it.
+	Env string
+	// AuthTokenSecret verifies nadaa.<payload>.<sig> bearer tokens issued by
+	// auth-service. When empty, authority requests are rejected unless mock
+	// actors are allowed.
+	AuthTokenSecret string
+	// AllowMockActors honors legacy X-NADAA-Actor-* headers for local dev and
+	// smoke tests (NADAA_AUTH_ALLOW_MOCK_ACTORS=true); otherwise they are
+	// ignored entirely.
+	AllowMockActors bool
 }
 
 // PaymentConfig selects the payment gateway and carries its credentials.
@@ -46,6 +58,11 @@ func resolveListenAddr(addrKey, fallback string) string {
 	return fallback
 }
 
+// IsDevelopment reports whether the service runs in development mode.
+func (c *Config) IsDevelopment() bool {
+	return c.Env == "development"
+}
+
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
@@ -57,5 +74,8 @@ func Load() *Config {
 			PaystackBaseURL:     utils.EnvOrDefault("NADAA_PAYSTACK_BASE_URL", ""),
 			PaystackCallbackURL: utils.EnvOrDefault("NADAA_PAYSTACK_CALLBACK_URL", ""),
 		},
+		Env:             strings.ToLower(utils.EnvOrDefault("NADAA_ENV", "")),
+		AuthTokenSecret: os.Getenv("NADAA_AUTH_TOKEN_SECRET"),
+		AllowMockActors: strings.EqualFold(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS"), "true"),
 	}
 }

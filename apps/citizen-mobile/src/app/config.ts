@@ -1,3 +1,5 @@
+export const AUTH_API_BASE =
+  process.env.EXPO_PUBLIC_AUTH_API_URL ?? "http://localhost:8080/api/v1";
 export const INCIDENT_API_BASE =
   process.env.EXPO_PUBLIC_INCIDENT_API_URL ?? "http://localhost:8084/api/v1";
 export const RISK_API_BASE =

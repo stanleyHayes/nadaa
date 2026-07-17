@@ -1,14 +1,60 @@
 package utils
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/stanleyHayes/nadaa/services/campaign-service/internal/models"
 )
+
+// VerifyToken validates a NADAA bearer token issued by auth-service
+// (nadaa.<payload>.<sig>, HMAC-SHA256 over the payload) and returns its claims.
+// An empty secret fails closed: no token verifies, so authority endpoints 401.
+func VerifyToken(token string, secret []byte, now time.Time) (models.TokenClaims, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 || parts[0] != "nadaa" || len(secret) == 0 {
+		return models.TokenClaims{}, false
+	}
+
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write([]byte(parts[1]))
+	expectedSignature := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	if !hmac.Equal([]byte(parts[2]), []byte(expectedSignature)) {
+		return models.TokenClaims{}, false
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return models.TokenClaims{}, false
+	}
+
+	var claims models.TokenClaims
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return models.TokenClaims{}, false
+	}
+	if claims.ExpiresAt <= now.Unix() {
+		return models.TokenClaims{}, false
+	}
+	return claims, true
+}
+
+// SanitizeLogValue strips CR/LF from user-controlled values so they cannot
+// forge extra log lines (gosec G706).
+func SanitizeLogValue(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' {
+			return -1
+		}
+		return r
+	}, value)
+}
 
 // DecodeJSON decodes a JSON request body into target.
 func DecodeJSON(r *http.Request, target any) error {
@@ -60,7 +106,7 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (isDevelopmentEnv() && (strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:"))) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
@@ -94,6 +140,13 @@ func AllowedOriginsFromEnv() map[string]bool {
 	return allowed
 }
 
+// isDevelopmentEnv reports whether the service runs in a development
+// environment; only then may CORS echo localhost/127.0.0.1 origins outside the
+// configured allowlist.
+func isDevelopmentEnv() bool {
+	return strings.TrimSpace(os.Getenv("NADAA_ENV")) == "development"
+}
+
 // NormalizeQueryValue trims and lowercases a query value.
 func NormalizeQueryValue(value string) string {
 	return strings.TrimSpace(strings.ToLower(value))
@@ -107,8 +160,11 @@ func UnsafeText(value string) bool {
 
 // StatusForCode maps an error code to an HTTP status.
 func StatusForCode(code string) int {
-	if code == "not_found" {
+	switch code {
+	case "not_found":
 		return http.StatusNotFound
+	case "forbidden":
+		return http.StatusForbidden
 	}
 	return http.StatusBadRequest
 }

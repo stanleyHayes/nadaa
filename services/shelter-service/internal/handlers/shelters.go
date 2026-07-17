@@ -37,7 +37,7 @@ func (s *server) nearbyRecoverySupportHandler(w http.ResponseWriter, r *http.Req
 }
 
 func (s *server) updateShelterOccupancyHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}
@@ -63,7 +63,7 @@ func (s *server) updateShelterOccupancyHandler(w http.ResponseWriter, r *http.Re
 }
 
 func (s *server) deleteShelterHandler(w http.ResponseWriter, r *http.Request) {
-	_, ok := requireAuthority(w, r, utils.ShelterDeleteRoles)
+	_, ok := s.requireAuthority(w, r, utils.ShelterDeleteRoles)
 	if !ok {
 		return
 	}

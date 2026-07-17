@@ -135,8 +135,7 @@ export function withinTimeWindow(
     return true;
   }
   const incidentTime = new Date(createdAt).getTime();
-  const latestFixtureTime = new Date("2026-07-06T19:00:00Z").getTime();
-  return latestFixtureTime - incidentTime <= hours * 60 * 60 * 1000;
+  return Date.now() - incidentTime <= hours * 60 * 60 * 1000;
 }
 
 export function duplicateReviewCandidatesFor(
@@ -832,10 +831,9 @@ export function districtSlug(district: string) {
 }
 
 export function formatIncidentAge(createdAt: string) {
-  const latestFixtureTime = new Date("2026-07-06T19:00:00Z").getTime();
   const minutes = Math.max(
     1,
-    Math.round((latestFixtureTime - new Date(createdAt).getTime()) / 60000),
+    Math.round((Date.now() - new Date(createdAt).getTime()) / 60000),
   );
   if (minutes < 60) {
     return `${minutes} min`;

@@ -47,6 +47,14 @@ declare module "react-native" {
     OS: "android" | "ios" | "web" | string;
     select: <T>(spec: Record<string, T>) => T | undefined;
   };
+  export type AppStateStatus = "active" | "background" | "inactive" | string;
+  export const AppState: {
+    currentState: AppStateStatus;
+    addEventListener(
+      type: "change",
+      listener: (state: AppStateStatus) => void,
+    ): { remove: () => void };
+  };
 
   export const SafeAreaView: ComponentType<{
     children?: ReactNode;
@@ -151,6 +159,9 @@ declare module "expo-notifications" {
     }>;
   }): void;
   export function getPermissionsAsync(): Promise<NotificationPermissionsStatus>;
+  export function getExpoPushTokenAsync(options?: {
+    projectId?: string;
+  }): Promise<{ data: string }>;
   export function requestPermissionsAsync(request?: {
     ios?: {
       allowAlert?: boolean;

@@ -59,10 +59,9 @@ type RiskArea struct {
 	RadiusMeters float64       `json:"radiusMeters,omitempty"`
 }
 
-// RiskAreaListResponse is the payload returned by the risk-service.
-type RiskAreaListResponse struct {
-	Areas       []RiskArea `json:"areas"`
-	GeneratedAt time.Time  `json:"generatedAt"`
+// RiskSampleResponse is the payload returned by the risk-service risk endpoint.
+type RiskSampleResponse struct {
+	OverallRisk string `json:"overallRisk"`
 }
 
 // RoutePlanRequest is the payload to plan an evacuation route.

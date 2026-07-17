@@ -45,3 +45,45 @@ jobs:
       - name: Test service
         working-directory: ${{ matrix.service }}
         run: go test ./...
+
+  # Gates PRs on the repo-root .golangci.yml (v2 config, default: all).
+  # Version pinned to the toolchain the config was triaged against.
+  go-lint:
+    name: Go Lint (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - services/alert-service
+          - services/auth-service
+          - services/incident-service
+          - services/guide-service
+          - services/integration-service
+          - services/ml-service
+          - services/notification-service
+          - services/risk-service
+          - services/damage-claim-service
+          - services/road-closure-service
+          - services/route-service
+          - services/school-service
+          - services/donation-service
+          - services/missing-person-service
+          - services/open-data-service
+          - services/shelter-service
+          - services/imagery-service
+          - services/campaign-service
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.service }}/go.mod
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.12.2
+          working-directory: ${{ matrix.service }}

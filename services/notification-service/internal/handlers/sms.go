@@ -12,6 +12,10 @@ import (
 )
 
 func (s *Server) smsInboundHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.requireWebhookSecret(w, r, "sms") {
+		return
+	}
+
 	var request models.SMSInboundRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
 		utils.LogWarn("sms inbound rejected", "code", "invalid_json", "error", err)
@@ -24,6 +28,7 @@ func (s *Server) smsInboundHandler(w http.ResponseWriter, r *http.Request) {
 	request.Provider = utils.ProviderOrDefault(request.Provider, "sms_sandbox")
 	request.ProfileID = utils.NormalizeID(request.ProfileID)
 	request.ProviderError = strings.TrimSpace(request.ProviderError)
+	request.ProviderMessageID = utils.NormalizeID(request.ProviderMessageID)
 
 	utils.LogInfo(
 		"sms inbound received",
@@ -159,12 +164,22 @@ func (s *Server) handleSMSInbound(ctx context.Context, request models.SMSInbound
 			"phoneRef", phoneRef,
 			"hazard", report.Type,
 			"urgency", report.Urgency,
-			"hasCoordinates", request.Location != nil,
+			"hasCoordinates", report.Location != nil,
 			"locationLabel", utils.LogTextSummary(report.LocationLabel),
 			"linkedProfile", linkedProfile,
 		)
-		report = s.store.CreateAccessReport(report)
-		report = s.submitInclusiveReport(ctx, report, request.From, request.ProfileID, linkedProfile)
+		report, created := s.store.CreateAccessReport(report)
+		if created {
+			report = s.submitInclusiveReport(ctx, report, request.From, request.ProfileID, linkedProfile)
+		} else {
+			utils.LogInfo(
+				"sms report webhook deduplicated",
+				"provider", request.Provider,
+				"phoneRef", phoneRef,
+				"reportId", report.ID,
+				"providerMessageId", request.ProviderMessageID,
+			)
+		}
 		utils.LogInfo(
 			"sms report flow completed",
 			"provider", request.Provider,
@@ -232,16 +247,18 @@ func parseSMSReport(request models.SMSInboundRequest, phoneRef string, linkedPro
 
 	location, locationLabel := utils.InclusiveLocation(request.Location, nil)
 	return models.InclusiveAccessReport{
-		Channel:       "sms",
-		Type:          hazard,
-		Urgency:       urgency,
-		Description:   description,
-		Location:      location,
-		LocationLabel: locationLabel,
-		PhoneRef:      phoneRef,
-		ProfileID:     utils.ProfileIDForLog(request.ProfileID, linkedProfile),
-		LinkedProfile: linkedProfile,
-		Status:        "queued",
-		CreatedAt:     now,
+		Channel:           "sms",
+		Provider:          request.Provider,
+		ProviderMessageID: request.ProviderMessageID,
+		Type:              hazard,
+		Urgency:           urgency,
+		Description:       description,
+		Location:          location,
+		LocationLabel:     locationLabel,
+		PhoneRef:          phoneRef,
+		ProfileID:         utils.ProfileIDForLog(request.ProfileID, linkedProfile),
+		LinkedProfile:     linkedProfile,
+		Status:            "queued",
+		CreatedAt:         now,
 	}, true, ""
 }

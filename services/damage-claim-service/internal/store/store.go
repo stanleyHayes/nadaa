@@ -18,7 +18,7 @@ type Store interface {
 	Get(id string) (models.DamageClaimRecord, bool)
 	Update(id string, req models.UpdateClaimRequest, now time.Time) (models.DamageClaimRecord, bool)
 	Verify(id string, req models.VerifyClaimRequest, verifiedBy string, now time.Time) (models.DamageClaimRecord, string)
-	Close(id string, reason string, closedBy string, now time.Time) (models.DamageClaimRecord, bool)
+	Close(id string, reason string, closedBy string, now time.Time) (models.DamageClaimRecord, string)
 }
 
 // MemoryStore is an in-memory implementation of Store with fixture seed data.
@@ -217,20 +217,25 @@ func (m *MemoryStore) Verify(id string, req models.VerifyClaimRequest, verifiedB
 	return copyClaim(claim), ""
 }
 
-// Close marks a claim as closed and appends a closure note.
-func (m *MemoryStore) Close(id string, reason string, closedBy string, now time.Time) (models.DamageClaimRecord, bool) {
+// Close marks a claim as closed and appends a closure note. It returns
+// "invalid_close_transition" when the claim is already closed so repeated
+// closes cannot append duplicate notes.
+func (m *MemoryStore) Close(id string, reason string, closedBy string, now time.Time) (models.DamageClaimRecord, string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	claim, ok := m.claims[strings.TrimSpace(id)]
 	if !ok {
-		return models.DamageClaimRecord{}, false
+		return models.DamageClaimRecord{}, "not_found"
+	}
+	if claim.Status == "closed" {
+		return models.DamageClaimRecord{}, "invalid_close_transition"
 	}
 	claim.Status = "closed"
 	claim.VerificationNotes = appendNote(claim.VerificationNotes, fmt.Sprintf("Closed by %s: %s", closedBy, reason))
 	claim.UpdatedAt = now
 	m.claims[claim.ID] = claim
-	return copyClaim(claim), true
+	return copyClaim(claim), ""
 }
 
 func copyClaim(claim models.DamageClaimRecord) models.DamageClaimRecord {

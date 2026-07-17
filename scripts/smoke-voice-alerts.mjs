@@ -1,5 +1,19 @@
+// Expects an externally started notification-service (see
+// scripts/dev-citizen-backends.sh) running with NADAA_ENV=development,
+// NADAA_AUTH_ALLOW_MOCK_ACTORS=true and
+// NADAA_AUTH_TOKEN_SECRET=dev-secret-change-me so the mock X-NADAA-Actor-*
+// headers below satisfy the authority gate on the deliver endpoint.
 const baseURL =
   process.env.NOTIFICATION_API_URL?.trim() || "http://127.0.0.1:8090/api/v1";
+
+const authorityHeaders = {
+  "Content-Type": "application/json",
+  "X-NADAA-Actor-ID": "usr_smoke_voice_officer",
+  "X-NADAA-Actor-Role": "nadmo_officer",
+  "X-NADAA-Agency-ID": "00000000-0000-0000-0000-000000000101",
+  "X-NADAA-MFA-Completed": "true",
+  "X-NADAA-Request-ID": "smoke-voice-alerts",
+};
 
 async function requestJSON(path, options, expectedStatus) {
   const response = await fetch(`${baseURL}${path}`, options);
@@ -73,7 +87,7 @@ const delivered = await requestJSON(
   `/notifications/voice-alerts/${created.asset.id}/deliver`,
   {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authorityHeaders,
     body: JSON.stringify({
       recipients: [
         { phone: "+233200000300", language: "en" },

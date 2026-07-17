@@ -10,12 +10,17 @@ Public endpoints:
 - `GET /api/v1/aid-catalog`
 - `GET /api/v1/aid-requests?status=&category=&region=&priority=`
 - `POST /api/v1/donors`
-- `POST /api/v1/aid-requests/{id}/pledges`
+- `POST /api/v1/aid-requests/{id}/pledges` (the pledge must be bound to a
+  registered donor: `donorId` must reference an existing donor and
+  `contactEmail` must match that donor's registered email case-insensitively,
+  otherwise the request is rejected with 403)
 - `POST /api/v1/donations`
-- `GET /api/v1/donations/{reference}`
 - `POST /api/v1/webhooks/paystack`
 
-Authority endpoints (require `X-NADAA-Actor-ID`, `X-NADAA-Actor-Role`, `X-NADAA-Agency-ID`, `X-NADAA-MFA-Completed: true`, `X-NADAA-Request-ID`):
+Authority endpoints (require an `Authorization: Bearer nadaa.<payload>.<sig>`
+token issued by auth-service with an authority role and `mfa: true`; legacy
+`X-NADAA-Actor-*` headers are honored only when
+`NADAA_AUTH_ALLOW_MOCK_ACTORS=true` for local dev and smoke tests):
 
 - `GET /api/v1/donors?type=&q=`
 - `POST /api/v1/donors`
@@ -29,6 +34,7 @@ Authority endpoints (require `X-NADAA-Actor-ID`, `X-NADAA-Actor-Role`, `X-NADAA-
 - `PATCH /api/v1/pledges/{id}`
 - `POST /api/v1/aid-requests/{id}/allocate`
 - `GET /api/v1/donations?status=&campaign=`
+- `GET /api/v1/donations/{reference}`
 
 Allowed authority roles are `system_admin`, `agency_admin`, `agency_viewer`, `nadmo_officer`, `district_officer`, `dispatcher`, and `ngo`.
 
@@ -39,7 +45,10 @@ resolved by the `handlers.BuildPaymentProvider` seam, so the gateway can be
 swapped purely through configuration. It **defaults to the sandbox provider** so
 the flow runs end-to-end before real credentials arrive, and it **fails safe**:
 selecting a real provider without its key yields a disabled provider with a
-clear reason rather than a broken live path.
+clear reason rather than a broken live path. The sandbox provider only credits
+donations (simulated "paid" verification and webhook acceptance) when
+`NADAA_ENV=development`; anywhere else it leaves donations pending, rejects
+webhooks, and its activation is WARN-logged at startup.
 
 Flow:
 
@@ -53,9 +62,11 @@ Flow:
    from a webhook payload alone. `POST /api/v1/webhooks/paystack` verifies the
    `x-paystack-signature` (HMAC-SHA512), then re-verifies the transaction via
    the gateway before marking it paid. `GET /api/v1/donations/{reference}` does
-   the same verification on demand. All transitions are idempotent, and a
-   verified-amount mismatch is rejected as `amount_mismatch`, so replayed or
-   tampered webhooks cannot double-credit.
+   the same verification on demand. All transitions are idempotent, a
+   verified-amount mismatch is rejected as `amount_mismatch`, and a
+   verified-currency mismatch as `currency_mismatch`, so replayed or tampered
+   webhooks cannot double-credit. Transient gateway errors (timeouts, 5xx)
+   leave the donation `pending` for a later re-check rather than failing it.
 
 **Paystack** is the confirmed value-for-money gateway for Ghana (direct MTN
 MoMo, Telecel Cash, AirtelTigo Money + cards, T+1 direct-to-MoMo settlement,
@@ -94,6 +105,9 @@ go build ./cmd/server
 | `NADAA_PAYSTACK_SECRET_KEY` | — | Paystack secret key (required when provider is `paystack`). |
 | `NADAA_PAYSTACK_CALLBACK_URL` | — | Post-payment redirect URL. |
 | `NADAA_PAYSTACK_BASE_URL` | `https://api.paystack.co` | Override the Paystack API host. |
+| `NADAA_ENV` | — | Set to `development` to enable sandbox payment crediting and localhost CORS bypass. |
+| `NADAA_AUTH_TOKEN_SECRET` | — | HMAC-SHA256 secret verifying auth-service bearer tokens; empty rejects authority requests unless mock actors are allowed. |
+| `NADAA_AUTH_ALLOW_MOCK_ACTORS` | `false` | When `true`, honor legacy `X-NADAA-Actor-*` headers (local dev and smoke tests). |
 
 ## Notes
 

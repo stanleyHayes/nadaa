@@ -73,7 +73,6 @@ export function AdminConsoleShell({ session }: { session: AdminSession }) {
     updateProfile,
     updatePreferences,
     setMfaEnabled,
-    changePassword,
   } = useAdminSession();
   const [activeView, setActiveView] = useState<ShellView>(readInitialView);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
@@ -211,7 +210,6 @@ export function AdminConsoleShell({ session }: { session: AdminSession }) {
             onUpdateProfile={updateProfile}
             onUpdatePreferences={updatePreferences}
             onSetMfaEnabled={setMfaEnabled}
-            onChangePassword={changePassword}
           />
         );
       case "guide":

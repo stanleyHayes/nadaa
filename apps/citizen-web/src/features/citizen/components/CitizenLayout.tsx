@@ -73,6 +73,7 @@ export function CitizenLayout() {
     signIn,
     signOut,
     signInOpen,
+    signInContext,
     requestSignIn,
     closeSignIn,
   } = useCitizenSession();
@@ -279,7 +280,7 @@ export function CitizenLayout() {
           ) : (
             <button
               className="citizen-signin"
-              onClick={requestSignIn}
+              onClick={() => requestSignIn()}
               type="button"
             >
               <UserPlus aria-hidden="true" size={16} />
@@ -301,6 +302,7 @@ export function CitizenLayout() {
       </header>
 
       <SignInDialog
+        context={signInContext}
         onClose={closeSignIn}
         onSignIn={(details) => signIn(details)}
         open={signInOpen}

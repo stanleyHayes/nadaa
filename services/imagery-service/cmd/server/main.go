@@ -25,6 +25,25 @@ func main() {
 	s := store.NewMemoryStore(time.Now().UTC(), cfg.RetentionDays)
 	srv := handlers.NewServer(s, time.Now, cfg)
 
+	// Run the retention lifecycle hourly so expired records actually expire
+	// instead of waiting for the manual lifecycle endpoint.
+	lifecycleCtx, stopLifecycle := context.WithCancel(context.Background())
+	defer stopLifecycle()
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-lifecycleCtx.Done():
+				return
+			case now := <-ticker.C:
+				if expired := s.RunLifecycle(now.UTC()); expired > 0 {
+					log.Printf("INFO imagery-service lifecycle_tick expired_count=%d", expired)
+				}
+			}
+		}
+	}()
+
 	httpServer := &http.Server{
 		Addr:         cfg.Addr,
 		Handler:      srv.Routes(),
@@ -43,6 +62,7 @@ func main() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	<-sig
+	stopLifecycle()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

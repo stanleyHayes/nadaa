@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,10 +17,69 @@ import (
 	"github.com/stanleyHayes/nadaa/services/incident-service/internal/store"
 )
 
+const testTokenSecret = "test-incident-token-secret"
+
+// testInternalServiceToken is the shared service-to-service token used by the
+// X-NADAA-Service-Token tests.
+const testInternalServiceToken = "test-internal-service-token"
+
 func newTestServer() *server {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{RateLimit: 100, RateWindowSecs: 60}
+	cfg := &config.Config{RateLimit: 100, RateWindowSecs: 60, TokenSecret: testTokenSecret, AllowMockActors: true}
 	return NewServer(store.NewMemoryStore(), func() time.Time { return now }, cfg)
+}
+
+// newTokenOnlyTestServer builds a server with mock actor headers disabled so
+// the signed-token path is the only way to reach authority endpoints.
+func newTokenOnlyTestServer() *server {
+	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+	cfg := &config.Config{RateLimit: 100, RateWindowSecs: 60, TokenSecret: testTokenSecret}
+	return NewServer(store.NewMemoryStore(), func() time.Time { return now }, cfg)
+}
+
+// newServiceTokenTestServer configures the internal service-to-service token
+// so X-NADAA-Service-Token credentials are honored.
+func newServiceTokenTestServer() *server {
+	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+	cfg := &config.Config{RateLimit: 100, RateWindowSecs: 60, TokenSecret: testTokenSecret, InternalServiceToken: testInternalServiceToken}
+	return NewServer(store.NewMemoryStore(), func() time.Time { return now }, cfg)
+}
+
+func testAuthorityClaims() tokenClaims {
+	return tokenClaims{
+		UserID:    "usr_dispatcher_001",
+		UserType:  "agency",
+		Role:      "nadmo_officer",
+		AgencyID:  "00000000-0000-0000-0000-000000000101",
+		MFA:       true,
+		ExpiresAt: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
+	}
+}
+
+func signTestToken(secret string, claims tokenClaims) string {
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		panic(err)
+	}
+	encoded := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(encoded))
+	return "nadaa." + encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// tokenRequest builds a request carrying a signed Bearer token instead of
+// legacy actor headers.
+func tokenRequest(method string, target string, body *bytes.Reader, claims tokenClaims) *http.Request {
+	var reader *bytes.Reader
+	if body == nil {
+		reader = bytes.NewReader(nil)
+	} else {
+		reader = body
+	}
+	request := httptest.NewRequest(method, target, reader)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer "+signTestToken(testTokenSecret, claims))
+	return request
 }
 
 func validIncidentRequest() models.CreateIncidentRequest {
@@ -145,10 +207,11 @@ func verifyIncidentForTest(t *testing.T, srv *server, incidentID string) models.
 	t.Helper()
 
 	response := httptest.NewRecorder()
-	request := authorityRequest(
+	request := tokenRequest(
 		http.MethodPost,
 		"/api/v1/incidents/"+incidentID+"/verify",
 		jsonBody(models.IncidentWorkflowRequest{Note: "Confirmed by test dispatcher."}),
+		testAuthorityClaims(),
 	)
 	request.SetPathValue("id", incidentID)
 	srv.verifyIncidentHandler(response, request)
@@ -165,10 +228,11 @@ func assignIncidentForTest(t *testing.T, srv *server, incidentID string, body mo
 	t.Helper()
 
 	response := httptest.NewRecorder()
-	request := authorityRequest(
+	request := tokenRequest(
 		http.MethodPost,
 		"/api/v1/incidents/"+incidentID+"/assignments",
 		jsonBody(body),
+		testAuthorityClaims(),
 	)
 	request.SetPathValue("id", incidentID)
 	srv.assignIncidentHandler(response, request)
@@ -185,10 +249,11 @@ func mergeIncidentsForTest(t *testing.T, srv *server, incidentID string, body mo
 	t.Helper()
 
 	response := httptest.NewRecorder()
-	request := authorityRequest(
+	request := tokenRequest(
 		http.MethodPost,
 		"/api/v1/incidents/"+incidentID+"/merge",
 		jsonBody(body),
+		testAuthorityClaims(),
 	)
 	request.SetPathValue("id", incidentID)
 	srv.mergeIncidentHandler(response, request)
@@ -205,10 +270,11 @@ func reviewAbuseForTest(t *testing.T, srv *server, incidentID string, body model
 	t.Helper()
 
 	response := httptest.NewRecorder()
-	request := authorityRequest(
+	request := tokenRequest(
 		http.MethodPost,
 		"/api/v1/incidents/"+incidentID+"/abuse-review",
 		jsonBody(body),
+		testAuthorityClaims(),
 	)
 	request.SetPathValue("id", incidentID)
 	srv.reviewAbuseHandler(response, request)
@@ -239,10 +305,11 @@ func verifyVolunteerForTest(t *testing.T, srv *server, volunteerID string, body 
 	t.Helper()
 
 	response := httptest.NewRecorder()
-	request := authorityRequest(
+	request := tokenRequest(
 		http.MethodPost,
 		"/api/v1/volunteers/"+volunteerID+"/verify",
 		jsonBody(body),
+		testAuthorityClaims(),
 	)
 	request.SetPathValue("id", volunteerID)
 	srv.verifyVolunteerHandler(response, request)
@@ -259,10 +326,11 @@ func assignVolunteerTaskForTest(t *testing.T, srv *server, incidentID string, bo
 	t.Helper()
 
 	response := httptest.NewRecorder()
-	request := authorityRequest(
+	request := tokenRequest(
 		http.MethodPost,
 		"/api/v1/incidents/"+incidentID+"/volunteer-tasks",
 		jsonBody(body),
+		testAuthorityClaims(),
 	)
 	request.SetPathValue("id", incidentID)
 	srv.assignVolunteerTaskHandler(response, request)
@@ -279,7 +347,7 @@ func updateVolunteerTaskStatusForTest(t *testing.T, srv *server, taskID string, 
 	t.Helper()
 
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPatch, "/api/v1/volunteer-tasks/"+taskID+"/status", jsonBody(body))
+	request := authorityRequest(http.MethodPatch, "/api/v1/volunteer-tasks/"+taskID+"/status", jsonBody(body))
 	request.SetPathValue("id", taskID)
 	srv.updateVolunteerTaskStatusHandler(response, request)
 	if response.Code != http.StatusOK {
@@ -295,7 +363,7 @@ func submitVolunteerObservationForTest(t *testing.T, srv *server, taskID string,
 	t.Helper()
 
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/volunteer-tasks/"+taskID+"/observations", jsonBody(body))
+	request := authorityRequest(http.MethodPost, "/api/v1/volunteer-tasks/"+taskID+"/observations", jsonBody(body))
 	request.SetPathValue("id", taskID)
 	srv.submitVolunteerObservationHandler(response, request)
 	if response.Code != http.StatusOK {

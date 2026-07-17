@@ -255,7 +255,7 @@ export function ReportPage() {
     // Submissions require a signed-in citizen — no anonymous reports.
     const currentSession = session;
     if (!currentSession) {
-      requestSignIn();
+      requestSignIn("send your report");
       return;
     }
 
@@ -317,12 +317,10 @@ export function ReportPage() {
         contactPermission: reportForm.contactPermission,
         accessibilityNeeds: reportForm.accessibilityNeeds.trim() || undefined,
         media: mediaIds,
-        reporter: {
-          userId: "usr_demo_citizen",
-          phone: reportForm.contactPermission
-            ? currentSession.phone
-            : undefined,
-        },
+        // reporter is omitted entirely: the session has no real user identity,
+        // and the service requires reporter.userId whenever a reporter object
+        // is present (400 invalid_reporter otherwise) — a fabricated id would
+        // corrupt reportedBy data.
       };
 
       const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {
@@ -750,7 +748,7 @@ export function ReportPage() {
                   as="h3"
                 />
                 <Button
-                  onClick={requestSignIn}
+                  onClick={() => requestSignIn()}
                   variant="contained"
                   startIcon={<LogIn size={18} />}
                   sx={{ fontWeight: 800 }}

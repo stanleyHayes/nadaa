@@ -84,13 +84,30 @@ type ClaimListResponse struct {
 	GeneratedAt time.Time           `json:"generatedAt"`
 }
 
-// AuthorityContext carries the authenticated authority actor from request headers.
+// AuthorityContext carries the authenticated authority actor from a verified
+// bearer token (or, in local development only, from X-NADAA-Actor-* headers).
 type AuthorityContext struct {
 	ActorUserID   string
 	ActorAgencyID string
 	ActorRole     string
+	ActorDistrict string
 	MFACompleted  bool
 	RequestID     string
+}
+
+// TokenClaims mirrors the claims auth-service signs into nadaa.<payload>.<sig>
+// bearer tokens. The signature scheme is duplicated here because auth-service
+// is not importable across Go modules.
+type TokenClaims struct {
+	UserID    string `json:"sub"`
+	UserType  string `json:"typ"`
+	Phone     string `json:"phone,omitempty"`
+	Email     string `json:"email,omitempty"`
+	Role      string `json:"role"`
+	AgencyID  string `json:"agencyId,omitempty"`
+	District  string `json:"district,omitempty"`
+	MFA       bool   `json:"mfa,omitempty"`
+	ExpiresAt int64  `json:"exp"`
 }
 
 // APIError is the standard error envelope returned by the service.
@@ -104,11 +121,17 @@ type APIErrorBody struct {
 	Message string `json:"message"`
 }
 
-// IncidentLookupResponse is the shape of incident-service detail used to enrich claims.
+// IncidentLookupResponse is the shape of incident-service detail used to enrich
+// claims. incident-service returns its incident JSON where location is a
+// {lat, lng} coordinate pair, not an address.
 type IncidentLookupResponse struct {
-	ID        string `json:"id"`
-	Reference string `json:"reference"`
-	Location  struct {
-		Address string `json:"address"`
-	} `json:"location"`
+	ID        string               `json:"id"`
+	Reference string               `json:"reference"`
+	Location  *IncidentCoordinates `json:"location,omitempty"`
+}
+
+// IncidentCoordinates mirrors incident-service's coordinate-only location shape.
+type IncidentCoordinates struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
 }

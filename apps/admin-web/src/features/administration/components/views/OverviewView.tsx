@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Building2,
   DatabaseZap,
+  RefreshCw,
   ScrollText,
   ShieldCheck,
   UsersRound,
@@ -74,7 +75,20 @@ export function OverviewView({
   return (
     <Stack spacing={2.5} className="cc-overview">
       {loadState === "error" ? (
-        <Alert severity="error" className="feed-alert">
+        <Alert
+          severity="error"
+          className="feed-alert"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              startIcon={<RefreshCw size={16} />}
+              onClick={data.refresh}
+            >
+              Refresh
+            </Button>
+          }
+        >
           {loadMessage}
         </Alert>
       ) : null}

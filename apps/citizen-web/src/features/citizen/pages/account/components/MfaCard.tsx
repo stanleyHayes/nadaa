@@ -114,14 +114,14 @@ export function MfaCard() {
     setMfaEnabled(true);
     setEnrolling(false);
     setCode("");
-    setNotice("Multi-factor authentication is on. We will ask for a code next time you sign in.");
+    setNotice("Multi-factor authentication is on for this device preview — no backend enforces it at sign-in yet.");
   };
 
   const disableMfa = () => {
     setMfaEnabled(false);
     setEnrolling(false);
     setCode("");
-    setNotice("Multi-factor authentication is off. Your account now signs in with a password only.");
+    setNotice("Multi-factor authentication is off. This preview preference is stored on this device only.");
   };
 
   return (
@@ -191,7 +191,7 @@ export function MfaCard() {
               <MfaStatusChip enabled={mfaEnabled} />
               <MutedNote>
                 {mfaEnabled
-                  ? "A code from your authenticator app is required each time you sign in."
+                  ? "Preview — the flag is stored on this device; a backend will enforce authenticator codes at sign-in later."
                   : "Add a six-digit code from an authenticator app for a second layer of protection."}
               </MutedNote>
             </Stack>

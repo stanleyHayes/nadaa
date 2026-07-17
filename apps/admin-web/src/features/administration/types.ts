@@ -51,6 +51,19 @@ export interface AdminActionResult {
   message: string;
 }
 
+/**
+ * One-time credential bundle returned by user provisioning. Shown exactly once
+ * in the create-user dialog, then discarded — the auth service never returns
+ * it again. The user id is included because MFA setup addresses the account
+ * by id.
+ */
+export interface CreatedUserCredentials {
+  userId: string;
+  name: string;
+  email: string;
+  temporaryPassword: string;
+}
+
 export interface DataSourceSummary {
   id: string;
   partner: string;

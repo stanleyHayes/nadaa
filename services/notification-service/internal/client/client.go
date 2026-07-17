@@ -19,6 +19,27 @@ type AlertServiceClient struct {
 	HTTPClient *http.Client
 }
 
+// authorizationContextKey carries the caller's Authorization header so outbound
+// service calls can forward it.
+type authorizationContextKey struct{}
+
+// WithAuthorization returns a context carrying the caller's Authorization
+// header for forwarding on outbound service requests.
+func WithAuthorization(ctx context.Context, header string) context.Context {
+	if strings.TrimSpace(header) == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, authorizationContextKey{}, header)
+}
+
+// forwardAuthorization copies the caller's Authorization header (when present)
+// onto an outbound request.
+func forwardAuthorization(ctx context.Context, request *http.Request) {
+	if header, _ := ctx.Value(authorizationContextKey{}).(string); header != "" {
+		request.Header.Set("Authorization", header)
+	}
+}
+
 // NewAlertServiceClient creates an alert-service client from a base URL.
 func NewAlertServiceClient(rawBaseURL string) *AlertServiceClient {
 	rawBaseURL = strings.TrimSpace(rawBaseURL)
@@ -42,6 +63,7 @@ func (c *AlertServiceClient) ListAlerts(ctx context.Context, now time.Time) ([]m
 	if err != nil {
 		return nil, err
 	}
+	forwardAuthorization(ctx, request)
 
 	response, err := c.HTTPClient.Do(request)
 	if err != nil {
@@ -158,6 +180,7 @@ func (c *IncidentServiceClient) CreateIncident(ctx context.Context, report model
 		return models.IncidentIntakeResponse{}, err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	forwardAuthorization(ctx, request)
 
 	response, err := c.HTTPClient.Do(request)
 	if err != nil {

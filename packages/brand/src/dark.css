@@ -23,8 +23,8 @@
   --nadaa-red: #ff5f5a;
   --nadaa-gold: #f6ca3d;
   --nadaa-slate: #9aa8c0; /* secondary text */
-  --nadaa-white: #18223c; /* elevated card surface (near-navy) */
-  --nadaa-mist: #111a30; /* recessed inset well inside cards */
+  --nadaa-white: #1a2440; /* elevated card surface (near-navy) */
+  --nadaa-mist: #141d33; /* recessed inset well inside cards */
   --nadaa-ink: #eaf0fb; /* primary text (near-white) */
 
   /* Screen (canvas) base — Ink default. Tints below shift this hue only. */

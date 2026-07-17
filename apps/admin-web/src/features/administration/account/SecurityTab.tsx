@@ -1,15 +1,14 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Alert,
   Box,
   Button,
   Snackbar,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import { KeyRound, Save, ShieldCheck, Smartphone } from "lucide-react";
-import type { AdminSession, PasswordChangeResult } from "@/app/session";
+import type { AdminSession } from "@/app/session";
 import { OtpInput } from "../components/OtpInput";
 import { formatDateTime, SettingCard, StatusChip } from "./primitives";
 
@@ -45,24 +44,14 @@ function FieldPanel({ children }: { children: ReactNode }) {
 export function SecurityTab({
   user,
   onSetMfaEnabled,
-  onChangePassword,
 }: {
   user: AdminSession;
   onSetMfaEnabled: (enabled: boolean) => void;
-  onChangePassword: (current: string, next: string) => PasswordChangeResult;
 }) {
   const mfaEnabled = Boolean(user.mfaEnabled);
   const [enrolling, setEnrolling] = useState(false);
   const [code, setCode] = useState("");
   const [mfaToast, setMfaToast] = useState<string | null>(null);
-
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [passwordResult, setPasswordResult] =
-    useState<PasswordChangeResult | null>(null);
-
-  const confirmMismatch = confirm.length > 0 && confirm !== next;
 
   const startEnrolment = () => {
     setEnrolling(true);
@@ -89,24 +78,6 @@ export function SecurityTab({
     setEnrolling(false);
     setCode("");
     setMfaToast("Multi-factor authentication disabled.");
-  };
-
-  const submitPassword = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (confirmMismatch) {
-      setPasswordResult({
-        ok: false,
-        message: "New password and confirmation do not match.",
-      });
-      return;
-    }
-    const result = onChangePassword(current, next);
-    setPasswordResult(result);
-    if (result.ok) {
-      setCurrent("");
-      setNext("");
-      setConfirm("");
-    }
   };
 
   return (
@@ -237,64 +208,28 @@ export function SecurityTab({
       <SettingCard
         icon={KeyRound}
         title="Password"
-        description="Change your password using your current one."
+        description="Password changes are managed by the auth service."
       >
-        <Box
-          component="form"
-          onSubmit={submitPassword}
-          sx={{ display: "grid", gap: 2.25 }}
-        >
-          {passwordResult ? (
-            <Alert
-              severity={passwordResult.ok ? "success" : "error"}
-              variant="outlined"
-              onClose={() => setPasswordResult(null)}
-            >
-              {passwordResult.message}
-            </Alert>
-          ) : null}
-          <TextField
-            label="Current password"
-            type="password"
-            value={current}
-            onChange={(event) => setCurrent(event.target.value)}
-            required
-            fullWidth
-            autoComplete="current-password"
-          />
-          <TextField
-            label="New password"
-            type="password"
-            value={next}
-            onChange={(event) => setNext(event.target.value)}
-            required
-            fullWidth
-            autoComplete="new-password"
-            helperText="Use at least 8 characters."
-          />
-          <TextField
-            label="Confirm new password"
-            type="password"
-            value={confirm}
-            onChange={(event) => setConfirm(event.target.value)}
-            required
-            fullWidth
-            autoComplete="new-password"
-            error={confirmMismatch}
-            helperText={confirmMismatch ? "Passwords do not match." : " "}
-          />
+        <Stack spacing={2}>
+          <Alert severity="info" variant="outlined">
+            Password change is not available in this release: the auth service
+            does not expose a password-change endpoint yet. If you need a new
+            password, ask a system administrator to re-provision your account.
+          </Alert>
           <Box>
             <Button
-              type="submit"
+              type="button"
               variant="contained"
               color="primary"
               startIcon={<Save size={17} />}
               sx={{ px: 2.5 }}
+              disabled
+              title="Unavailable in this release"
             >
               Update password
             </Button>
           </Box>
-        </Box>
+        </Stack>
       </SettingCard>
       <Snackbar
         open={Boolean(mfaToast)}

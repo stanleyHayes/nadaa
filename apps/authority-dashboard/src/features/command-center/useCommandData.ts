@@ -1,4 +1,4 @@
-import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import type {
   AssignIncidentRequest,
@@ -146,6 +146,10 @@ export function useCommandData() {
   const [reliefForm, setReliefForm] = useState<ReliefPointFormState>(
     buildDefaultReliefPointForm(),
   );
+  // Mirror the latest relief form so async refreshes resolve the operator's
+  // current selection instead of a stale closure value.
+  const reliefFormRef = useRef(reliefForm);
+  reliefFormRef.current = reliefForm;
   const [reliefHistory, setReliefHistory] = useState<
     ReliefPointStockHistoryResponse["history"]
   >([]);
@@ -316,12 +320,9 @@ export function useCommandData() {
     setReliefFeedback("Loading relief distribution points");
 
     try {
-      const response = await fetch(
-        `${SHELTER_API_BASE}/relief-points?limit=12`,
-        {
-          signal,
-        },
-      );
+      const response = await fetch(`${SHELTER_API_BASE}/relief-points`, {
+        signal,
+      });
       if (!response.ok) {
         throw new Error(`relief point API returned ${response.status}`);
       }
@@ -329,20 +330,20 @@ export function useCommandData() {
       const payload = (await response.json()) as ReliefPointListResponse;
       const nextReliefPoints = payload.reliefPoints;
       setReliefPoints(nextReliefPoints);
-      setReliefForm((current) => {
-        const selected =
-          nextReliefPoints.find(
-            (point) => point.id === current.reliefPointId,
-          ) ?? nextReliefPoints[0];
-        return buildDefaultReliefPointForm(selected);
-      });
+      // Keep the operator's current point selected when it still exists and
+      // load the stock history for that same point — not blindly the first.
+      const selected =
+        nextReliefPoints.find(
+          (point) => point.id === reliefFormRef.current.reliefPointId,
+        ) ?? nextReliefPoints[0];
+      setReliefForm(buildDefaultReliefPointForm(selected));
       setReliefLoadState(nextReliefPoints.length ? "ready" : "empty");
       setReliefFeedback(
         nextReliefPoints.length
           ? "Relief point API connected."
           : "No relief distribution points are currently published.",
       );
-      void refreshReliefHistory(nextReliefPoints[0]?.id, signal);
+      void refreshReliefHistory(selected?.id, signal);
     } catch (error) {
       if (signal?.aborted) {
         return;
@@ -1113,7 +1114,7 @@ export function useCommandData() {
       );
       setAlertLoadState("ready");
       setAlertFeedback(`${alertStatusLabel(updatedAlert.status)} alert saved.`);
-      if (updatedAlert.status === "published") {
+      if (updatedAlert.status === "approved") {
         // An approved warning just went out to citizens — sound the alarm.
         playCommandAlarm();
       }

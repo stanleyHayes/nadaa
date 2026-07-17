@@ -21,13 +21,16 @@ The service listens on `:8096` by default. Override with `PORT`.
 
 ## Environment variables
 
-| Variable                   | Default                 | Description                       |
-| -------------------------- | ----------------------- | --------------------------------- |
-| `PORT`                     | `8096`                  | HTTP listen address               |
-| `ROAD_CLOSURE_SERVICE_URL` | `http://localhost:8095` | Base URL for road-closure-service |
-| `SHELTER_SERVICE_URL`      | `http://localhost:8093` | Base URL for shelter-service      |
-| `RISK_SERVICE_URL`         | `http://localhost:8082` | Base URL for risk-service         |
-| `NADAA_ALLOWED_ORIGINS`    | `*`                     | Comma-separated CORS origins      |
+| Variable                     | Default                 | Description                                   |
+| ---------------------------- | ----------------------- | --------------------------------------------- |
+| `PORT`                       | `8096`                  | HTTP listen address                           |
+| `ROAD_CLOSURE_SERVICE_URL`   | `http://localhost:8095` | Base URL for road-closure-service             |
+| `SHELTER_SERVICE_URL`        | `http://localhost:8093` | Base URL for shelter-service                  |
+| `RISK_SERVICE_URL`           | `http://localhost:8082` | Base URL for risk-service                     |
+| `NADAA_ALLOWED_ORIGINS`      | `*`                     | Comma-separated CORS origins                  |
+| `NADAA_ENV`                  |                         | `development` allows localhost CORS origins   |
+| `NADAA_AUTH_TOKEN_SECRET`    |                         | HMAC secret verifying auth-service tokens     |
+| `NADAA_AUTH_ALLOW_MOCK_ACTORS` |                       | `true` honors legacy `X-NADAA-Actor-*` headers (local dev only) |
 
 ## Route planning
 
@@ -36,8 +39,18 @@ The service listens on `:8096` by default. Override with `PORT`.
 `closureBufferMeters`.
 
 If `destination` is omitted and `waypointType` is `shelter`, the service queries
-the shelter-service for the nearest shelter. If the shelter-service is
-unavailable or returns no shelters, a fallback higher-ground waypoint is used.
+the shelter-service for the nearest open shelter. A shelter route is never
+planned to a fabricated waypoint: when the lookup fails the service responds
+`502` (`shelter_lookup_failed`), and when no open shelter is found it responds
+`404` (`no_shelter_available`).
+
+Closure avoidance queries road-closure-service with a bounding box covering the
+whole origin→destination corridor. Risk avoidance samples risk-service
+(`GET /api/v1/risk`) at points along the route and flags sampled zones whose
+`overallRisk` is in `avoidRiskLevels`; both lookups degrade to no avoidance
+(with a WARN log) when the upstream service is unavailable.
+
+A caller `Authorization` header is forwarded to upstream services when present.
 
 The response includes a polyline of waypoints, estimated distance and walking
 duration, and is always marked as `decisionSupport: true` with a disclaimer to

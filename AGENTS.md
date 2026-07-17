@@ -39,6 +39,7 @@ services/<service>/
 - Keep shared helpers (JSON encoding, CORS, env parsing, validation, coordinates) in `internal/utils`.
 - Place handlers, middleware, and route registration in `internal/handlers`; split files by domain resource.
 - Move service tests into `internal/handlers/*_test.go` under `package handlers` so they can call unexported server methods.
+- Authority endpoints verify `Authorization: Bearer nadaa.<payload>.<sig>` tokens (HMAC-SHA256, shared `NADAA_AUTH_TOKEN_SECRET`) and build the actor context from verified claims (`internal/handlers/auth.go`). Self-asserted `X-NADAA-Actor-*` headers are only honored when `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` (local dev/smoke). Service-to-service calls use `X-NADAA-Service-Token` (`NADAA_INTERNAL_SERVICE_TOKEN`) where supported.
 - Preserve env vars, defaults, routes, CORS behavior, security headers, and observable behavior when refactoring.
 
 ## Safety Rules

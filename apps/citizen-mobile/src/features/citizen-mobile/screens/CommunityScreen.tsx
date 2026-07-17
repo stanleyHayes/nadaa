@@ -8,6 +8,7 @@ import { mobileTheme } from "../../../app/theme";
 import {
   ActionButton,
   Card,
+  EmptyState,
   Field,
   Metric,
   ScreenHeading,
@@ -18,14 +19,17 @@ import {
 } from "../../../ui/components";
 import type { CitizenScreenProps } from "./types";
 
+type VolunteerStatusAction = Exclude<VolunteerTaskStatus, "assigned">;
+
 const statusActions: Array<{
   icon: string;
   label: string;
-  status: Exclude<VolunteerTaskStatus, "assigned">;
+  status: VolunteerStatusAction;
   tone: "danger" | "green" | "navy" | "plain";
 }> = [
   { icon: "check-circle", label: "Accept", status: "accepted", tone: "green" },
-  { icon: "navigation", label: "On scene", status: "on_scene", tone: "navy" },
+  { icon: "navigation", label: "En route", status: "en_route", tone: "navy" },
+  { icon: "map-pin", label: "On scene", status: "on_scene", tone: "navy" },
   { icon: "flag", label: "Complete", status: "completed", tone: "plain" },
   {
     icon: "alert-triangle",
@@ -34,6 +38,20 @@ const statusActions: Array<{
     tone: "danger",
   },
 ];
+
+/**
+ * The incident-service enforces the chain
+ * assigned→accepted→(en_route→)on_scene→completed (needs_escalation allowed
+ * from any active status) and 400s invalid_transition otherwise — only offer
+ * the actions that are valid from the task's current status.
+ */
+const allowedNextStatuses: Record<string, VolunteerStatusAction[]> = {
+  accepted: ["en_route", "on_scene", "needs_escalation"],
+  assigned: ["accepted", "needs_escalation"],
+  en_route: ["on_scene", "needs_escalation"],
+  needs_escalation: ["accepted", "en_route", "on_scene", "completed"],
+  on_scene: ["completed", "needs_escalation"],
+};
 
 const safetyOptions: Array<{
   label: string;
@@ -46,6 +64,7 @@ const safetyOptions: Array<{
 ];
 
 export function CommunityScreen({ actions, state }: CitizenScreenProps) {
+  const profile = state.volunteerProfile;
   const activeTask =
     state.volunteerTasks.find(
       (task) => !["completed", "cancelled"].includes(task.status),
@@ -58,72 +77,92 @@ export function CommunityScreen({ actions, state }: CitizenScreenProps) {
         title="Volunteer assignments"
       />
 
-      <Card tone="green">
-        <View style={stylesRow}>
-          <View style={stylesGrow}>
-            <Text style={stylesSectionTitle}>
-              {state.volunteerProfile.name}
-            </Text>
-            <Text style={stylesMuted}>
-              {state.volunteerProfile.community},{" "}
-              {state.volunteerProfile.district}
-            </Text>
+      {profile ? (
+        <Card tone="green">
+          <View style={stylesRow}>
+            <View style={stylesGrow}>
+              <Text style={stylesSectionTitle}>{profile.name}</Text>
+              <Text style={stylesMuted}>
+                {profile.community}, {profile.district}
+              </Text>
+            </View>
+            <StatusPill
+              label={profile.verificationStatus}
+              tone={profile.verificationStatus === "verified" ? "green" : "gold"}
+            />
           </View>
-          <StatusPill
-            label={state.volunteerProfile.verificationStatus}
-            tone={
-              state.volunteerProfile.verificationStatus === "verified"
-                ? "green"
-                : "gold"
-            }
-          />
-        </View>
-        <View style={stylesMetricRow}>
-          <Metric label="Active tasks" value={state.activeVolunteerTaskCount} />
-          <Metric label="Skills" value={state.volunteerProfile.skills.length} />
-        </View>
-        <Text style={stylesBody}>
-          {state.volunteerProfile.skills.join(", ")} volunteer supporting{" "}
-          {state.volunteerProfile.groupId}.
-        </Text>
-        <View style={stylesButtonGrid}>
+          <View style={stylesMetricRow}>
+            <Metric label="Active tasks" value={state.activeVolunteerTaskCount} />
+            <Metric label="Skills" value={profile.skills.length} />
+          </View>
+          <Text style={stylesBody}>
+            {profile.skills.join(", ")} volunteer supporting {profile.groupId}.
+          </Text>
+          <View style={stylesButtonGrid}>
+            <ActionButton
+              icon="user-check"
+              label="Refresh volunteer profile"
+              onPress={actions.registerVolunteer}
+              tone="navy"
+            />
+            <ActionButton
+              icon="refresh-cw"
+              label="Refresh assignments"
+              onPress={actions.refreshVolunteerTasks}
+              tone="plain"
+            />
+          </View>
+        </Card>
+      ) : (
+        <Card tone="green">
+          <Text style={stylesSectionTitle}>No volunteer profile yet</Text>
+          <Text style={stylesBody}>
+            Sign in on the Support tab, then register as a community volunteer
+            to receive and update assignments.
+          </Text>
           <ActionButton
             icon="user-check"
-            label="Refresh volunteer profile"
+            label="Register volunteer profile"
             onPress={actions.registerVolunteer}
             tone="navy"
           />
-          <ActionButton
-            icon="refresh-cw"
-            label="Refresh assignments"
-            onPress={actions.refreshVolunteerTasks}
-            tone="plain"
-          />
-        </View>
-      </Card>
+        </Card>
+      )}
 
-      <Card>
-        <View style={stylesRow}>
-          <View style={stylesGrow}>
-            <Text style={stylesSectionTitle}>Safety rules</Text>
-            <Text style={stylesMuted}>For community volunteers</Text>
+      {profile ? (
+        <Card>
+          <View style={stylesRow}>
+            <View style={stylesGrow}>
+              <Text style={stylesSectionTitle}>Safety rules</Text>
+              <Text style={stylesMuted}>For community volunteers</Text>
+            </View>
+            <StatusPill label="112 escalation" tone="danger" />
           </View>
-          <StatusPill label="112 escalation" tone="danger" />
-        </View>
-        {state.volunteerProfile.safetyNotes.map((note) => (
-          <Text key={note} style={stylesBody}>
-            {note}
-          </Text>
-        ))}
-      </Card>
+          {profile.safetyNotes.map((note) => (
+            <Text key={note} style={stylesBody}>
+              {note}
+            </Text>
+          ))}
+        </Card>
+      ) : null}
 
-      {state.volunteerTasks.map((task) => (
-        <VolunteerTaskCard
-          key={task.id}
-          onUpdate={(status) => actions.updateVolunteerStatus(task.id, status)}
-          task={task}
-        />
-      ))}
+      {state.volunteerTasks.length === 0 ? (
+        <Card>
+          <EmptyState
+            description="Assignments appear here after you register and refresh with a connection."
+            icon="clipboard"
+            title="No assignments yet"
+          />
+        </Card>
+      ) : (
+        state.volunteerTasks.map((task) => (
+          <VolunteerTaskCard
+            key={task.id}
+            onUpdate={(status) => actions.updateVolunteerStatus(task.id, status)}
+            task={task}
+          />
+        ))
+      )}
 
       {activeTask ? (
         <Card>
@@ -205,10 +244,13 @@ function VolunteerTaskCard({
   onUpdate,
   task,
 }: {
-  onUpdate: (status: Exclude<VolunteerTaskStatus, "assigned">) => void;
+  onUpdate: (status: VolunteerStatusAction) => void;
   task: VolunteerTaskRecord;
 }) {
   const isClosed = ["completed", "cancelled"].includes(task.status);
+  const nextActions = statusActions.filter((item) =>
+    (allowedNextStatuses[task.status] ?? []).includes(item.status),
+  );
   return (
     <Card tone={task.escalationRequired ? "danger" : "plain"}>
       <View style={stylesRow}>
@@ -230,7 +272,7 @@ function VolunteerTaskCard({
         <Metric label="Updates" value={task.updates.length} />
       </View>
       <View style={stylesButtonGrid}>
-        {statusActions.map((item) => (
+        {nextActions.map((item) => (
           <ActionButton
             disabled={isClosed}
             icon={item.icon}

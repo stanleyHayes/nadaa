@@ -142,8 +142,7 @@ export function withinTimeWindow(
     return true;
   }
   const incidentTime = new Date(createdAt).getTime();
-  const latestFixtureTime = new Date("2026-07-06T19:00:00Z").getTime();
-  return latestFixtureTime - incidentTime <= hours * 60 * 60 * 1000;
+  return Date.now() - incidentTime <= hours * 60 * 60 * 1000;
 }
 
 export function duplicateReviewCandidatesFor(
@@ -841,6 +840,26 @@ export function roundArea(value: number) {
   return Math.round(value * 10) / 10;
 }
 
+/**
+ * Client-side guard for the alert schedule. `new Date(value).toISOString()`
+ * throws a RangeError on invalid input, which would otherwise surface as a
+ * fake API failure, so the form validates before any request is attempted.
+ */
+export function alertDatesError(form: AlertFormState): string {
+  const startsAt = new Date(form.startsAt);
+  const expiresAt = new Date(form.expiresAt);
+  if (
+    Number.isNaN(startsAt.getTime()) ||
+    Number.isNaN(expiresAt.getTime())
+  ) {
+    return "Enter a valid start and expiry date before creating the draft.";
+  }
+  if (expiresAt.getTime() <= startsAt.getTime()) {
+    return "Expiry must be later than the start time.";
+  }
+  return "";
+}
+
 export function buildDefaultAlertForm(
   incident?: CommandIncident,
 ): AlertFormState {
@@ -1103,10 +1122,9 @@ export function districtSlug(district: string) {
 }
 
 export function formatIncidentAge(createdAt: string) {
-  const latestFixtureTime = new Date("2026-07-06T19:00:00Z").getTime();
   const minutes = Math.max(
     1,
-    Math.round((latestFixtureTime - new Date(createdAt).getTime()) / 60000),
+    Math.round((Date.now() - new Date(createdAt).getTime()) / 60000),
   );
   if (minutes < 60) {
     return `${minutes} min`;

@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"fmt"
+	"encoding/csv"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,7 +13,7 @@ import (
 )
 
 func (s *server) listAidRequestsHandler(w http.ResponseWriter, r *http.Request) {
-	filter, ok := parseAidRequestFilter(w, r)
+	filter, ok := s.parseAidRequestFilter(w, r)
 	if !ok {
 		return
 	}
@@ -23,7 +23,7 @@ func (s *server) listAidRequestsHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *server) createAidRequestHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}
@@ -48,7 +48,7 @@ func (s *server) createAidRequestHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *server) reviewAidRequestHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}
@@ -78,7 +78,7 @@ func (s *server) reviewAidRequestHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *server) deleteAidRequestHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterDeleteRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterDeleteRoles)
 	if !ok {
 		return
 	}
@@ -94,7 +94,7 @@ func (s *server) deleteAidRequestHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *server) listAidPledgesHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}
@@ -135,28 +135,35 @@ func (s *server) createAidPledgeHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *server) reviewAidPledgeHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}
 
+	// Sanitize user-controlled path values before logging (G706).
+	aidRequestIDLog := utils.SafeLogValue(r.PathValue("id"))
+	pledgeIDLog := utils.SafeLogValue(r.PathValue("pledgeId"))
+
 	var request models.ReviewAidPledgeRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN shelter-service aid_pledge_review invalid_json actor=%s requestId=%s pledgeId=%s error=%v", ctx.ActorUserID, r.PathValue("id"), r.PathValue("pledgeId"), err)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_pledge_review invalid_json actor=%s requestId=%s pledgeId=%s error=%v", ctx.ActorUserID, aidRequestIDLog, pledgeIDLog, err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 
 	normalized, code, message := utils.NormalizeReviewAidPledge(request)
 	if code != "" {
-		log.Printf("WARN shelter-service aid_pledge_review validation_failed actor=%s requestId=%s pledgeId=%s code=%s", ctx.ActorUserID, r.PathValue("id"), r.PathValue("pledgeId"), code)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_pledge_review validation_failed actor=%s requestId=%s pledgeId=%s code=%s", ctx.ActorUserID, aidRequestIDLog, pledgeIDLog, code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
 	pledge, code, message := s.store.ReviewAidPledge(r.PathValue("id"), r.PathValue("pledgeId"), normalized, ctx, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN shelter-service aid_pledge_review failed actor=%s requestId=%s pledgeId=%s code=%s", ctx.ActorUserID, r.PathValue("id"), r.PathValue("pledgeId"), code)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_pledge_review failed actor=%s requestId=%s pledgeId=%s code=%s", ctx.ActorUserID, aidRequestIDLog, pledgeIDLog, code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
@@ -165,12 +172,16 @@ func (s *server) reviewAidPledgeHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *server) exportAidRequestsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r, utils.ShelterUpdateRoles)
+	ctx, ok := s.requireAuthority(w, r, utils.ShelterUpdateRoles)
 	if !ok {
 		return
 	}
 
-	filter := models.AidRequestFilter{IncludePrivate: true}
+	filter := models.AidRequestFilter{
+		IncludePrivate: true,
+		ViewerRole:     ctx.ActorRole,
+		ViewerAgencyID: ctx.ActorAgencyID,
+	}
 	if status := utils.NormalizeToken(r.URL.Query().Get("status")); status != "" {
 		if !utils.AllowedAidRequestStatuses[status] {
 			utils.WriteError(w, http.StatusBadRequest, "invalid_status", "status is not supported")
@@ -179,39 +190,44 @@ func (s *server) exportAidRequestsHandler(w http.ResponseWriter, r *http.Request
 		filter.Status = status
 	}
 	aidRequests := s.store.ListAidRequests(filter)
-	log.Printf("INFO shelter-service aid_request_export actor=%s count=%d status=%s", ctx.ActorUserID, len(aidRequests), filter.Status)
+	// #nosec G706 -- actor id and status are sanitized with utils.SafeLogValue.
+	log.Printf("INFO shelter-service aid_request_export actor=%s count=%d status=%s", utils.SafeLogValue(ctx.ActorUserID), len(aidRequests), utils.SafeLogValue(filter.Status))
 
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="nadaa-aid-requests.csv"`)
 	w.WriteHeader(http.StatusOK)
-	if _, err := fmt.Fprintln(w, "id,title,category,priority,status,district,receivingOrganization,quantityNeeded,quantityPledged,quantityUnit,pledgeCount,neededBy"); err != nil {
+	writer := csv.NewWriter(w)
+	if err := writer.Write([]string{"id", "title", "category", "priority", "status", "district", "receivingOrganization", "quantityNeeded", "quantityPledged", "quantityUnit", "pledgeCount", "neededBy"}); err != nil {
 		log.Printf("ERROR shelter-service aid_request_export header_failed error=%v", err)
 		return
 	}
 	for _, request := range aidRequests {
-		if _, err := fmt.Fprintf(
-			w,
-			"%s,%q,%s,%s,%s,%q,%q,%d,%d,%s,%d,%s\n",
-			request.ID,
-			request.Title,
-			request.Category,
-			request.Priority,
-			request.Status,
-			request.District,
-			request.ReceivingOrganization,
-			request.QuantityNeeded,
-			request.QuantityPledged,
-			request.QuantityUnit,
-			len(request.Pledges),
+		record := []string{
+			utils.CSVSafeCell(request.ID),
+			utils.CSVSafeCell(request.Title),
+			utils.CSVSafeCell(request.Category),
+			utils.CSVSafeCell(request.Priority),
+			utils.CSVSafeCell(request.Status),
+			utils.CSVSafeCell(request.District),
+			utils.CSVSafeCell(request.ReceivingOrganization),
+			strconv.Itoa(request.QuantityNeeded),
+			strconv.Itoa(request.QuantityPledged),
+			utils.CSVSafeCell(request.QuantityUnit),
+			strconv.Itoa(len(request.Pledges)),
 			request.NeededBy.Format(time.RFC3339),
-		); err != nil {
+		}
+		if err := writer.Write(record); err != nil {
 			log.Printf("ERROR shelter-service aid_request_export row_failed id=%s error=%v", request.ID, err)
 			return
 		}
 	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		log.Printf("ERROR shelter-service aid_request_export flush_failed error=%v", err)
+	}
 }
 
-func parseAidRequestFilter(w http.ResponseWriter, r *http.Request) (models.AidRequestFilter, bool) {
+func (s *server) parseAidRequestFilter(w http.ResponseWriter, r *http.Request) (models.AidRequestFilter, bool) {
 	query := r.URL.Query()
 	filter := models.AidRequestFilter{
 		Category:       utils.NormalizeToken(query.Get("category")),
@@ -239,9 +255,14 @@ func parseAidRequestFilter(w http.ResponseWriter, r *http.Request) (models.AidRe
 		return filter, false
 	}
 	if filter.IncludePrivate {
-		if _, ok := requireAuthority(w, r, utils.AidRequestViewRoles); !ok {
+		ctx, ok := s.requireAuthority(w, r, utils.AidRequestViewRoles)
+		if !ok {
 			return filter, false
 		}
+		// Scope private (PII-bearing) results: privileged roles see all,
+		// agency roles only see their own agency's private requests.
+		filter.ViewerRole = ctx.ActorRole
+		filter.ViewerAgencyID = ctx.ActorAgencyID
 	}
 	if value := strings.TrimSpace(query.Get("limit")); value != "" {
 		parsed, err := strconv.Atoi(value)

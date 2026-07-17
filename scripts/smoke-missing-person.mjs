@@ -1,9 +1,19 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const baseURL =
   process.env.MISSING_PERSON_API_URL?.trim() || "http://127.0.0.1:8101/api/v1";
 const rootURL = baseURL.replace("/api/v1", "");
 const serviceDir = "services/missing-person-service";
+// Build once and spawn the binary directly: "go run" wraps the server in a
+// "go" process, so SIGTERM would kill only the wrapper and orphan a stale
+// server on :8101 that later runs would silently test against.
+const binaryPath = join(
+  tmpdir(),
+  `nadaa-missing-person-service-smoke-${process.pid}`,
+);
 
 const authorityHeaders = {
   "Content-Type": "application/json",
@@ -23,17 +33,21 @@ function sleep(ms) {
 async function waitForHealth(maxMs = 30000) {
   const deadline = Date.now() + maxMs;
   let lastErr;
+  let lastStatus;
   while (Date.now() < deadline) {
     try {
       const res = await fetch(`${rootURL}/healthz`);
       if (res.ok) return;
+      lastErr = undefined;
+      lastStatus = res.status;
     } catch (err) {
       lastErr = err;
+      lastStatus = undefined;
     }
     await sleep(500);
   }
   throw new Error(
-    `missing-person-service did not become healthy: ${lastErr?.message}`,
+    `missing-person-service did not become healthy: ${lastErr ? lastErr.message : `last status ${lastStatus ?? "unknown"}`}`,
   );
 }
 
@@ -45,10 +59,27 @@ async function ensureService() {
     // service is not running; start it below
   }
   console.log("starting missing-person-service for smoke test...");
-  serviceChild = spawn("go", ["run", "./cmd/server"], {
+  const build = spawnSync(
+    "go",
+    ["build", "-o", binaryPath, "./cmd/server"],
+    { cwd: serviceDir, stdio: "inherit" },
+  );
+  if (build.error || build.status !== 0) {
+    throw new Error(
+      `missing-person-service build failed: ${build.error?.message ?? `exit ${build.status}`}`,
+    );
+  }
+  serviceChild = spawn(binaryPath, [], {
     cwd: serviceDir,
     stdio: "inherit",
     detached: false,
+    env: {
+      ...process.env,
+      // Dev-mode auth wiring so the mock X-NADAA-Actor-* headers below pass.
+      NADAA_ENV: "development",
+      NADAA_AUTH_ALLOW_MOCK_ACTORS: "true",
+      NADAA_AUTH_TOKEN_SECRET: "dev-secret-change-me",
+    },
   });
   serviceChild.on("error", (err) => {
     console.error("failed to start missing-person-service:", err.message);
@@ -62,12 +93,18 @@ function cleanup() {
   }
 }
 
-process.on("exit", cleanup);
+process.on("exit", () => {
+  cleanup();
+  rmSync(binaryPath, { force: true });
+});
 process.on("SIGINT", () => {
   cleanup();
   process.exit(130);
 });
-process.on("SIGTERM", cleanup);
+process.on("SIGTERM", () => {
+  cleanup();
+  process.exit(143);
+});
 
 await ensureService();
 

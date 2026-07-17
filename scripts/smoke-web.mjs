@@ -2,7 +2,7 @@ const targets = [
   [
     "marketing-web",
     localURL("LOCAL_MARKETING_URL", "http://127.0.0.1:5200/"),
-    "NADAA Marketing",
+    "NADAA —",
   ],
   [
     "citizen-web",
@@ -40,7 +40,8 @@ for (const [name, url, expectedTitle] of targets) {
   }
 
   const html = await response.text();
-  if (!html.includes(`<title>${expectedTitle}</title>`)) {
+  // Match a stable title prefix only: apps append SEO suffixes to <title>.
+  if (!html.includes(`<title>${expectedTitle}`)) {
     throw new Error(`${name} smoke check reached the wrong app at ${url}`);
   }
 

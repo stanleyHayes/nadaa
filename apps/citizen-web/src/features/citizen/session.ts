@@ -253,6 +253,9 @@ type StoreState = {
   preferences: CitizenPreferences;
   notifications: CitizenNotification[];
   signInOpen: boolean;
+  /** Why sign-in was requested (e.g. "send your report"), when a gated
+   * submission opened the dialog — lets the dialog use contextual copy. */
+  signInContext: string | null;
 };
 
 const initialSession = readJSON(SESSION_KEY, isSession);
@@ -271,6 +274,7 @@ let state: StoreState = {
     defaultPreferences(initialSession),
   notifications: initialNotifications,
   signInOpen: false,
+  signInContext: null,
 };
 
 const listeners = new Set<() => void>();
@@ -304,7 +308,7 @@ export function signInCitizen(details: Omit<CitizenSession, "since">) {
     since: new Date().toISOString(),
   };
   writeJSON(SESSION_KEY, session);
-  setState({ session, signInOpen: false });
+  setState({ session, signInOpen: false, signInContext: null });
 }
 
 /** Sign out and clear the persisted session. Preferences and the local
@@ -417,14 +421,18 @@ export function markAllCitizenNotificationsRead() {
   setState({ notifications });
 }
 
-/** Open the sign-in dialog — used when a signed-out citizen tries to submit. */
-export function requestSignIn() {
-  setState({ signInOpen: true });
+/**
+ * Open the sign-in dialog — used when a signed-out citizen tries to submit.
+ * `context` describes the gated action (e.g. "send your report") so the dialog
+ * can explain why sign-in is required instead of claiming it is optional.
+ */
+export function requestSignIn(context?: string) {
+  setState({ signInOpen: true, signInContext: context ?? null });
 }
 
 /** Close the sign-in dialog. */
 export function closeSignIn() {
-  setState({ signInOpen: false });
+  setState({ signInOpen: false, signInContext: null });
 }
 
 /**
@@ -443,6 +451,7 @@ export function useCitizenSession() {
     /** Multi-factor state for the signed-in citizen (false when signed out). */
     mfaEnabled: snapshot.session?.mfaEnabled ?? false,
     signInOpen: snapshot.signInOpen,
+    signInContext: snapshot.signInContext,
     signIn: signInCitizen,
     signOut: signOutCitizen,
     saveReport: saveCitizenReport,

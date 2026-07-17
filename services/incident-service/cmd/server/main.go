@@ -22,6 +22,10 @@ func main() {
 	s := store.NewMemoryStore()
 	srv := handlers.NewServer(s, time.Now, cfg)
 
+	if cfg.InternalServiceToken == "" {
+		log.Printf("INFO %s NADAA_INTERNAL_SERVICE_TOKEN is not set; X-NADAA-Service-Token credentials are ignored (service-to-service reads stay closed)", serviceName)
+	}
+
 	httpServer := &http.Server{
 		Addr:         cfg.Addr,
 		Handler:      srv.Routes(cfg.AllowedOrigins),

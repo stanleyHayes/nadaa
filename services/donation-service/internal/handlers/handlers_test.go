@@ -2,7 +2,11 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,10 +17,17 @@ import (
 	"github.com/stanleyHayes/nadaa/services/donation-service/internal/store"
 )
 
+const testTokenSecret = "test-donation-token-secret"
+
 func newTestServer() *Server {
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8100", AllowedOrigins: nil}
-	return NewServer(store.NewMemoryStore(now), models.SandboxPaymentProvider{}, func() time.Time { return now }, cfg)
+	cfg := &config.Config{
+		Addr:            ":8100",
+		AllowedOrigins:  nil,
+		AuthTokenSecret: testTokenSecret,
+		AllowMockActors: true,
+	}
+	return NewServer(store.NewMemoryStore(now), models.SandboxPaymentProvider{CreditPayments: true}, func() time.Time { return now }, cfg)
 }
 
 func TestHealthz(t *testing.T) {
@@ -269,6 +280,7 @@ func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 	pledgeBody := models.CreatePledgeRequest{
 		DonorID:         donor.ID,
 		QuantityPledged: 300,
+		ContactEmail:    "TEMA@example.com", // matches donor email case-insensitively
 	}
 	pledgeResponse := httptest.NewRecorder()
 	pledgeRequest := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(pledgeBody))
@@ -298,6 +310,7 @@ func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 	pledgeBody2 := models.CreatePledgeRequest{
 		DonorID:         donor.ID,
 		QuantityPledged: 200,
+		ContactEmail:    "tema@example.com",
 	}
 	pledgeResponse2 := httptest.NewRecorder()
 	pledgeRequest2 := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(pledgeBody2))
@@ -332,7 +345,7 @@ func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 	}
 
 	pledgeListRecorder := httptest.NewRecorder()
-	pledgeListRequest := httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests/request_001/pledges", nil)
+	pledgeListRequest := authorityRequest(http.MethodGet, "/api/v1/aid-requests/request_001/pledges", nil)
 	srv.Routes().ServeHTTP(pledgeListRecorder, pledgeListRequest)
 	if pledgeListRecorder.Code != http.StatusOK {
 		t.Fatalf("expected pledge list, got %d: %s", pledgeListRecorder.Code, pledgeListRecorder.Body.String())
@@ -388,7 +401,11 @@ func jsonBody(value any) *bytes.Reader {
 }
 
 func authorityRequest(method string, target string, body *bytes.Reader) *http.Request {
-	request := httptest.NewRequest(method, target, body)
+	var reader io.Reader
+	if body != nil {
+		reader = body
+	}
+	request := httptest.NewRequest(method, target, reader)
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-NADAA-Actor-ID", "usr_donation_operator")
 	request.Header.Set("X-NADAA-Actor-Role", "district_officer")
@@ -402,5 +419,222 @@ func decodeResponse(t *testing.T, response *httptest.ResponseRecorder, target an
 	t.Helper()
 	if err := json.NewDecoder(response.Body).Decode(target); err != nil {
 		t.Fatalf("decode response: %v", err)
+	}
+}
+
+func signedAuthorityToken(t *testing.T, secret string, expiresAt time.Time) string {
+	t.Helper()
+	claims := map[string]any{
+		"sub":      "usr_donation_operator",
+		"typ":      "agency",
+		"role":     "district_officer",
+		"agencyId": "00000000-0000-0000-0000-000000000204",
+		"district": "Accra Metropolitan",
+		"mfa":      true,
+		"exp":      expiresAt.Unix(),
+	}
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatalf("marshal claims: %v", err)
+	}
+	encoded := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(encoded))
+	return "nadaa." + encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func tokenRequest(t *testing.T, method, target string, body *bytes.Reader) *http.Request {
+	t.Helper()
+	var reader io.Reader
+	if body != nil {
+		reader = body
+	}
+	request := httptest.NewRequest(method, target, reader)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer "+signedAuthorityToken(t, testTokenSecret, time.Now().Add(time.Hour)))
+	return request
+}
+
+func TestAuthorityAcceptsValidBearerToken(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := tokenRequest(t, http.MethodGet, "/api/v1/pledges", nil)
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d for a valid bearer token, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+}
+
+func TestAuthorityRejectsInvalidBearerToken(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/pledges", nil)
+	request.Header.Set("Authorization", "Bearer "+signedAuthorityToken(t, "wrong-secret", time.Now().Add(time.Hour)))
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for a wrongly-signed token, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestAuthorityRejectsExpiredBearerToken(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/pledges", nil)
+	expired := time.Date(2026, 7, 7, 11, 0, 0, 0, time.UTC) // before the server's fixed now
+	request.Header.Set("Authorization", "Bearer "+signedAuthorityToken(t, testTokenSecret, expired))
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for an expired token, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestAuthorityRejectsForgedHeadersWhenMockActorsDisabled(t *testing.T) {
+	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
+	cfg := &config.Config{Addr: ":8100", AuthTokenSecret: testTokenSecret, AllowMockActors: false}
+	srv := NewServer(store.NewMemoryStore(now), models.SandboxPaymentProvider{CreditPayments: true}, func() time.Time { return now }, cfg)
+
+	response := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(response, authorityRequest(http.MethodGet, "/api/v1/pledges", nil))
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for forged headers with mock actors off, got %d", http.StatusUnauthorized, response.Code)
+	}
+
+	tokenResponse := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(tokenResponse, tokenRequest(t, http.MethodGet, "/api/v1/pledges", nil))
+	if tokenResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d for a valid token with mock actors off, got %d: %s", http.StatusOK, tokenResponse.Code, tokenResponse.Body.String())
+	}
+}
+
+func TestGetDonationRequiresAuthority(t *testing.T) {
+	srv := newTestServer()
+	body, _ := json.Marshal(models.CreateDonationRequest{DonorName: "Ama", Email: "ama@example.com", Amount: 50})
+	createResponse := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(createResponse, httptest.NewRequest(http.MethodPost, "/api/v1/donations", bytes.NewReader(body)))
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want 201: %s", createResponse.Code, createResponse.Body.String())
+	}
+	var created models.CreateDonationResponse
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/donations/"+created.Donation.Reference, nil))
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for an unauthenticated donation lookup, got %d", http.StatusUnauthorized, response.Code)
+	}
+
+	authorized := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(authorized, tokenRequest(t, http.MethodGet, "/api/v1/donations/"+created.Donation.Reference, nil))
+	if authorized.Code != http.StatusOK {
+		t.Fatalf("expected status %d for an authority donation lookup, got %d: %s", http.StatusOK, authorized.Code, authorized.Body.String())
+	}
+}
+
+func TestListRequestPledgesRequiresAuthority(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests/request_001/pledges", nil)
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestCreatePledgeBindsDonorIdentity(t *testing.T) {
+	srv := newTestServer()
+
+	donorResponse := httptest.NewRecorder()
+	donorRequest := httptest.NewRequest(http.MethodPost, "/api/v1/donors", jsonBody(models.CreateDonorRequest{
+		Name:         "Kumasi Aid Circle",
+		Type:         "organization",
+		ContactEmail: "kumasi@example.com",
+		Region:       "Ashanti",
+		District:     "Kumasi Metropolitan",
+	}))
+	donorRequest.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(donorResponse, donorRequest)
+	if donorResponse.Code != http.StatusCreated {
+		t.Fatalf("expected donor created, got %d: %s", donorResponse.Code, donorResponse.Body.String())
+	}
+	var donor models.Donor
+	decodeResponse(t, donorResponse, &donor)
+
+	// Unknown donorId is rejected.
+	unknownResponse := httptest.NewRecorder()
+	unknownRequest := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(models.CreatePledgeRequest{
+		DonorID:         "donor_999",
+		QuantityPledged: 10,
+		ContactEmail:    "kumasi@example.com",
+	}))
+	unknownRequest.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(unknownResponse, unknownRequest)
+	if unknownResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d for an unknown donor, got %d: %s", http.StatusForbidden, unknownResponse.Code, unknownResponse.Body.String())
+	}
+
+	// A contactEmail that does not match the donor's registered email is rejected.
+	mismatchResponse := httptest.NewRecorder()
+	mismatchRequest := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(models.CreatePledgeRequest{
+		DonorID:         donor.ID,
+		QuantityPledged: 10,
+		ContactEmail:    "someone-else@example.com",
+	}))
+	mismatchRequest.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(mismatchResponse, mismatchRequest)
+	if mismatchResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d for a mismatched contact email, got %d: %s", http.StatusForbidden, mismatchResponse.Code, mismatchResponse.Body.String())
+	}
+
+	// A case-insensitive email match succeeds.
+	matchedResponse := httptest.NewRecorder()
+	matchedRequest := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(models.CreatePledgeRequest{
+		DonorID:         donor.ID,
+		QuantityPledged: 10,
+		ContactEmail:    "KUMASI@example.com",
+	}))
+	matchedRequest.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(matchedResponse, matchedRequest)
+	if matchedResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d for a matching contact email, got %d: %s", http.StatusCreated, matchedResponse.Code, matchedResponse.Body.String())
+	}
+}
+
+func TestUpdateDonorStatusPreservesNotes(t *testing.T) {
+	srv := newTestServer()
+	donorResponse := httptest.NewRecorder()
+	donorRequest := authorityRequest(http.MethodPost, "/api/v1/donors", jsonBody(models.CreateDonorRequest{
+		Name:  "Note Keeper",
+		Type:  "individual",
+		Notes: "verified via field visit",
+	}))
+	srv.Routes().ServeHTTP(donorResponse, donorRequest)
+	if donorResponse.Code != http.StatusCreated {
+		t.Fatalf("expected donor created, got %d: %s", donorResponse.Code, donorResponse.Body.String())
+	}
+	var donor models.Donor
+	decodeResponse(t, donorResponse, &donor)
+
+	updateResponse := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(updateResponse, authorityRequest(http.MethodPatch, "/api/v1/donors/"+donor.ID, jsonBody(models.UpdateDonorRequest{Status: "inactive"})))
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, updateResponse.Code, updateResponse.Body.String())
+	}
+	var updated models.Donor
+	decodeResponse(t, updateResponse, &updated)
+	if updated.Status != "inactive" {
+		t.Fatalf("expected status inactive, got %#v", updated)
+	}
+	if updated.Notes != "verified via field visit" {
+		t.Fatalf("expected notes preserved on a status-only update, got %q", updated.Notes)
 	}
 }

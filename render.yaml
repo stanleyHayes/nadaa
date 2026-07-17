@@ -23,6 +23,30 @@ envVarGroups:
       - key: NADAA_ALLOWED_ORIGINS
         value: "*"
 
+  # Shared auth/verifier config for every Go service. auth-service signs tokens
+  # with NADAA_AUTH_TOKEN_SECRET and every other service verifies Bearer tokens
+  # with the SAME value, so it is generated once here and shared via fromGroup
+  # (auth-service joins this group too — do not re-declare the key per service).
+  - name: nadaa-auth
+    envVars:
+      - key: NADAA_AUTH_TOKEN_SECRET
+        generateValue: true
+      # Production hardening — never trust self-asserted X-NADAA-Actor-* headers.
+      - key: NADAA_AUTH_ALLOW_MOCK_ACTORS
+        value: "false"
+      # Disables development-only relaxations (dev OTPs, sandbox payment
+      # auto-verify, localhost CORS echo).
+      - key: NADAA_ENV
+        value: "production"
+
+  # Service-to-service token shared by internal caller/verifier pairs:
+  # risk-service → ml-service and damage-claim-service → incident-service.
+  # Callers send it as X-NADAA-Service-Token; verifiers gate on it.
+  - name: nadaa-internal-service
+    envVars:
+      - key: NADAA_INTERNAL_SERVICE_TOKEN
+        generateValue: true
+
 services:
   - name: nadaa-alert-service
     type: web
@@ -35,6 +59,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
 
   - name: nadaa-auth-service
     type: web
@@ -47,13 +72,10 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
-      # Signs every citizen/agency bearer token. Required: the service refuses
-      # to start with a weak/placeholder secret. Render generates a strong one.
-      - key: NADAA_AUTH_TOKEN_SECRET
-        generateValue: true
-      # Production hardening — never trust client role headers, never expose OTPs.
-      - key: NADAA_AUTH_ALLOW_MOCK_ACTORS
-        value: "false"
+      # nadaa-auth also supplies NADAA_AUTH_TOKEN_SECRET — auth-service signs
+      # tokens with the same generated secret the other services verify with.
+      - fromGroup: nadaa-auth
+      # Production hardening — never expose OTPs.
       - key: NADAA_AUTH_EXPOSE_DEV_OTP
         value: "false"
       # Optional: seed the first system admin. Set these in the dashboard to
@@ -76,6 +98,9 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
+      # Shared with ml-service; sent as X-NADAA-Service-Token on ML calls.
+      - fromGroup: nadaa-internal-service
       # ml-service base URL for flood scoring; empty falls back to local scoring.
       # Set to the deployed ml-service URL (its internal or public Render URL).
       - key: NADAA_ML_API_URL
@@ -92,6 +117,10 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
+      # Shared with damage-claim-service; verifies X-NADAA-Service-Token on
+      # service-to-service incident lookups (read-only, no reporter contact).
+      - fromGroup: nadaa-internal-service
 
   - name: nadaa-guide-service
     type: web
@@ -104,6 +133,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
 
   - name: nadaa-integration-service
     type: web
@@ -116,6 +146,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
       # road-closure-service base URL for closure imports.
       - key: NADAA_ROAD_CLOSURE_SERVICE_URL
         sync: false
@@ -131,6 +162,9 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
+      # Shared with risk-service; required on X-NADAA-Service-Token calls.
+      - fromGroup: nadaa-internal-service
       # Model artifact directory is baked into the image by the Dockerfile
       # (ENV NADAA_ML_MODEL_DIR=/app/data/flood-risk/models); no override needed.
 
@@ -145,6 +179,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
       # Upstream services (optional enrichment; fixtures used if unreachable).
       - key: NADAA_ALERT_SERVICE_URL
         sync: false
@@ -156,6 +191,14 @@ services:
         sync: false
       # Optional Expo push access token (push works without it).
       - key: NADAA_EXPO_ACCESS_TOKEN
+        sync: false
+      # Inbound SMS/USSD/WhatsApp provider webhooks must present the matching
+      # secret in X-NADAA-Webhook-Secret once set; empty keeps sandbox open.
+      - key: NADAA_SMS_WEBHOOK_SECRET
+        sync: false
+      - key: NADAA_USSD_WEBHOOK_SECRET
+        sync: false
+      - key: NADAA_WHATSAPP_WEBHOOK_SECRET
         sync: false
 
   - name: nadaa-shelter-service
@@ -169,6 +212,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
 
   - name: nadaa-road-closure-service
     type: web
@@ -181,6 +225,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
 
   - name: nadaa-route-service
     type: web
@@ -193,6 +238,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
       # Planner enrichment sources (optional; local fallbacks if unset).
       - key: RISK_SERVICE_URL
         sync: false
@@ -212,6 +258,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
       - key: RISK_SERVICE_URL
         sync: false
 
@@ -226,6 +273,10 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
+      # Shared with incident-service; sent as X-NADAA-Service-Token on incident
+      # lookups when the caller has no bearer token (public claim intake).
+      - fromGroup: nadaa-internal-service
       - key: INCIDENT_SERVICE_URL
         sync: false
 
@@ -240,6 +291,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
       # Payments via Paystack. Set NADAA_PAYMENT_PROVIDER=paystack + the key to
       # go live; stays in sandbox until then.
       - key: NADAA_PAYSTACK_SECRET_KEY
@@ -258,6 +310,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
 
   - name: nadaa-imagery-service
     type: web
@@ -270,10 +323,15 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
       # Uploads write to the container's ephemeral filesystem and are lost on
       # redeploy. Attach a Render disk mounted here for durable storage.
       - key: IMAGERY_STORAGE_PATH
         value: /app/uploads
+      # Externally reachable base URL used for geojson downloadUrls; falls back
+      # to the request scheme/host when unset. Set to the deployed service URL.
+      - key: NADAA_IMAGERY_PUBLIC_BASE_URL
+        sync: false
 
   - name: nadaa-open-data-service
     type: web
@@ -286,6 +344,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth
       # auth-service base URL (audit-log sink).
       - key: AUDIT_LOG_SERVICE_URL
         sync: false
@@ -301,3 +360,4 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: nadaa-web-origins
+      - fromGroup: nadaa-auth

@@ -93,8 +93,10 @@ export async function presentIncidentNotification(
 }
 
 /**
- * Notify for newly-arrived, still-active incidents, adding them to `seen` so
- * none fire twice. The OS channel handles DND; life-threatening overrides it.
+ * Notify for newly-arrived, still-active incidents. Every fresh incident is
+ * marked as seen synchronously BEFORE presenting, so an overlapping refresh
+ * can never present the same incident twice. The OS channel handles DND;
+ * life-threatening overrides it.
  */
 export async function notifyNewIncidents(
   incidents: IncidentRecord[],
@@ -106,14 +108,15 @@ export async function notifyNewIncidents(
       incident.status !== "closed" &&
       incident.status !== "false_report",
   );
+  fresh.forEach((incident) => seen.add(incident.id));
   const delivered: IncidentRecord[] = [];
   for (const incident of fresh) {
     try {
       await presentIncidentNotification(incident);
-      seen.add(incident.id);
       delivered.push(incident);
     } catch {
-      // Leave un-seen so a transient failure retries on the next refresh.
+      // Already marked as seen: a failed presentation is dropped rather than
+      // retried, so a critical alert can never fire twice.
     }
   }
   return delivered;

@@ -92,12 +92,18 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (isDevelopmentEnv() && (strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:"))) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
+}
+
+// isDevelopmentEnv reports whether the service runs in development mode, where
+// localhost origins are tolerated alongside the configured allowlist.
+func isDevelopmentEnv() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_ENV")), "development")
 }
 
 // EnvOrDefault returns the value of key or fallback if unset.
@@ -161,11 +167,20 @@ func UnsafeText(value string) bool {
 	return strings.Contains(lower, "<script") || strings.Contains(lower, "javascript:")
 }
 
-// ClientIdentifier extracts the best-effort client IP from a request.
+// ClientIdentifier extracts the best-effort client IP from a request. Proxy
+// headers are honored only when NADAA_TRUST_PROXY_HEADERS=true, i.e. the
+// service sits behind a known reverse proxy that sets them.
 func ClientIdentifier(r *http.Request) string {
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		return strings.TrimSpace(parts[0])
+	if trustProxyHeaders() {
+		if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+			parts := strings.Split(forwarded, ",")
+			if first := strings.TrimSpace(parts[0]); first != "" {
+				return first
+			}
+		}
+		if realIP := strings.TrimSpace(r.Header.Get("X-Real-Ip")); realIP != "" {
+			return realIP
+		}
 	}
 
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -173,6 +188,17 @@ func ClientIdentifier(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// trustProxyHeaders reports whether client-supplied proxy headers are trusted.
+func trustProxyHeaders() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_TRUST_PROXY_HEADERS")), "true")
+}
+
+// SafeLogValue strips CR/LF from user-controlled values before they are
+// written to logs, preventing forged log lines.
+func SafeLogValue(value string) string {
+	return strings.NewReplacer("\n", " ", "\r", " ").Replace(value)
 }
 
 // NewID generates a random prefixed identifier.

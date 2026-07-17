@@ -28,6 +28,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if cfg.InternalServiceToken == "" {
+		log.Printf("WARN %s NADAA_INTERNAL_SERVICE_TOKEN is not set; internal endpoints accept unauthenticated requests (development default)", serviceName)
+	}
+
 	srv := handlers.NewServer(s, time.Now, cfg)
 
 	httpServer := &http.Server{

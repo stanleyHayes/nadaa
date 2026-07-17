@@ -65,9 +65,47 @@ const requiredEnums = [
   "notification_delivery_status",
 ];
 
+// Enum values the services write that 001 did not include (added by 007).
+const requiredEnumValues = [
+  ["notification_channel", "voice"],
+  ["notification_channel", "cell_broadcast"],
+  ["notification_delivery_status", "broadcast"],
+  ["notification_delivery_status", "simulated"],
+  ["notification_delivery_status", "sent"],
+];
+
+// Columns added or renamed by 007 to match what the services persist.
+const requiredServiceColumns = [
+  "submitted_at",
+  "approved_at",
+  "rejected_by",
+  "rejected_at",
+  "status_reason",
+  "emergency_override",
+  "source_prediction_id",
+  "urgency",
+  "abuse_score",
+];
+
 for (const enumName of requiredEnums) {
   if (!migration.includes(`CREATE TYPE ${enumName}`)) {
     throw new Error(`Missing enum: ${enumName}`);
+  }
+}
+
+for (const [enumName, value] of requiredEnumValues) {
+  if (
+    !migration.includes(
+      `ALTER TYPE ${enumName} ADD VALUE IF NOT EXISTS '${value}'`,
+    )
+  ) {
+    throw new Error(`Missing enum value: ${enumName} '${value}'`);
+  }
+}
+
+for (const column of requiredServiceColumns) {
+  if (!migration.includes(column)) {
+    throw new Error(`Missing service-alignment column: ${column}`);
   }
 }
 

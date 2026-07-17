@@ -167,11 +167,63 @@ export function filterGuides(
   });
 }
 
-export function readGuideCache(): GuideCachePayload | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
+const GUIDE_CACHE_DB_NAME = "nadaa-citizen";
+const GUIDE_CACHE_DB_STORE = "guideCache";
 
+/**
+ * Open the guide-cache IndexedDB, creating the object store on first use.
+ * Resolves to null when IDB is unavailable (private/restricted modes, older
+ * browsers) so callers can fall back to localStorage.
+ */
+function openGuideCacheDb(): Promise<IDBDatabase | null> {
+  if (typeof window === "undefined" || !("indexedDB" in window)) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    let request: IDBOpenDBRequest;
+    try {
+      request = window.indexedDB.open(GUIDE_CACHE_DB_NAME, 1);
+    } catch {
+      resolve(null);
+      return;
+    }
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore(GUIDE_CACHE_DB_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+}
+
+function idbReadGuideCache(db: IDBDatabase): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const request = db
+      .transaction(GUIDE_CACHE_DB_STORE, "readonly")
+      .objectStore(GUIDE_CACHE_DB_STORE)
+      .get(GUIDE_CACHE_KEY);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () =>
+      reject(request.error ?? new Error("guide cache read failed"));
+  });
+}
+
+function idbWriteGuideCache(
+  db: IDBDatabase,
+  payload: GuideCachePayload,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(GUIDE_CACHE_DB_STORE, "readwrite");
+    transaction.objectStore(GUIDE_CACHE_DB_STORE).put(payload, GUIDE_CACHE_KEY);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () =>
+      reject(transaction.error ?? new Error("guide cache write failed"));
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error("guide cache write aborted"));
+  });
+}
+
+function readGuideCacheFromLocalStorage(): GuideCachePayload | null {
   try {
     const raw = window.localStorage.getItem(GUIDE_CACHE_KEY);
     if (!raw) {
@@ -187,11 +239,43 @@ export function readGuideCache(): GuideCachePayload | null {
   }
 }
 
-export function writeGuideCache(
+/**
+ * Read the offline guide cache. IndexedDB is the primary store; localStorage
+ * is the fallback when IDB is unavailable and still holds caches written
+ * before the IDB migration (the GUIDE_CACHE_KEY contract is unchanged).
+ */
+export async function readGuideCache(): Promise<GuideCachePayload | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const db = await openGuideCacheDb();
+  if (db) {
+    try {
+      const cached = await idbReadGuideCache(db);
+      if (isGuideCachePayload(cached)) {
+        return cached;
+      }
+    } catch {
+      // Fall through to the localStorage copy below.
+    } finally {
+      db.close();
+    }
+  }
+
+  return readGuideCacheFromLocalStorage();
+}
+
+/**
+ * Persist the offline-available guides. Writes go to IndexedDB when available,
+ * falling back to localStorage otherwise; a successful IDB write drops the
+ * legacy localStorage copy so there is a single source of truth.
+ */
+export async function writeGuideCache(
   guides: EmergencyGuideRecord[],
   language: string,
   cachedAt: string,
-) {
+): Promise<void> {
   if (typeof window === "undefined") {
     return;
   }
@@ -200,12 +284,27 @@ export function writeGuideCache(
   if (!offlineGuides.length) {
     return;
   }
+  const payload: GuideCachePayload = { guides: offlineGuides, language, cachedAt };
+
+  const db = await openGuideCacheDb();
+  if (db) {
+    try {
+      await idbWriteGuideCache(db, payload);
+      try {
+        window.localStorage.removeItem(GUIDE_CACHE_KEY);
+      } catch {
+        // Storage can be unavailable in private or restricted browser modes.
+      }
+      return;
+    } catch {
+      // Fall through to the localStorage fallback below.
+    } finally {
+      db.close();
+    }
+  }
 
   try {
-    window.localStorage.setItem(
-      GUIDE_CACHE_KEY,
-      JSON.stringify({ guides: offlineGuides, language, cachedAt }),
-    );
+    window.localStorage.setItem(GUIDE_CACHE_KEY, JSON.stringify(payload));
   } catch {
     // Local storage can be unavailable in private or restricted browser modes.
   }
@@ -315,7 +414,9 @@ export async function initiateMediaUploads(files: File[]): Promise<string[]> {
       fileName: file.name,
       contentType: file.type as IncidentMediaContentType,
       sizeBytes: file.size,
-      uploadedBy: "usr_demo_citizen",
+      // uploadedBy is optional server-side and deliberately omitted: there is
+      // no real session identity, so sending a fabricated id would corrupt
+      // attribution data.
     };
 
     const response = await fetch(`${INCIDENT_API_BASE}/media/uploads`, {
@@ -329,6 +430,28 @@ export async function initiateMediaUploads(files: File[]): Promise<string[]> {
     }
 
     const upload = (await response.json()) as MediaUploadResponse;
+
+    // PUT the file bytes to the returned upload URL. The backend's URL is a
+    // dev stub with nothing real listening behind it, so a failed byte
+    // transfer is tolerated — the media record (and its id) is registered.
+    try {
+      const byteResponse = await fetch(upload.uploadUrl, {
+        method: upload.method,
+        headers: upload.headers,
+        body: file,
+      });
+      if (!byteResponse.ok) {
+        console.warn(
+          `Media byte upload for ${file.name} returned ${byteResponse.status}; continuing with the registered media id.`,
+        );
+      }
+    } catch (error) {
+      console.warn(
+        `Media byte upload for ${file.name} failed; continuing with the registered media id.`,
+        error,
+      );
+    }
+
     mediaIds.push(upload.mediaId);
   }
 

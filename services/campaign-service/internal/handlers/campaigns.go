@@ -12,18 +12,19 @@ import (
 )
 
 func (s *Server) listCampaignsHandler(w http.ResponseWriter, r *http.Request) {
-	authority, authorityOK := parseAuthority(r)
+	authority, authorityOK := s.parseAuthority(r)
 	includeAll := authorityOK && authority.MFACompleted && allowedCampaignUpdateRoles[authority.ActorRole]
 
 	filters, code, message := parseCampaignFilters(r, includeAll)
 	if code != "" {
-		utils.WriteError(w, http.StatusBadRequest, code, message)
+		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
 	filters.IncludeAll = includeAll
 
 	campaigns := s.store.ListCampaigns(r.Context(), filters, s.now().UTC())
-	log.Printf("INFO campaign-service campaign_list count=%d includeAll=%t hazard=%s region=%s language=%s", len(campaigns), includeAll, filters.HazardType, filters.Region, filters.Language)
+	// #nosec G706 -- filter values are sanitized with utils.SanitizeLogValue.
+	log.Printf("INFO campaign-service campaign_list count=%d includeAll=%t hazard=%s region=%s language=%s", len(campaigns), includeAll, utils.SanitizeLogValue(filters.HazardType), utils.SanitizeLogValue(filters.Region), utils.SanitizeLogValue(filters.Language))
 	utils.WriteJSON(w, http.StatusOK, models.CampaignListResponse{Campaigns: campaigns, GeneratedAt: s.now().UTC()})
 }
 
@@ -42,7 +43,7 @@ func (s *Server) getCampaignHandler(w http.ResponseWriter, r *http.Request) {
 // in-window campaigns (matching the list endpoint), so drafts and archived
 // campaigns are not leaked by enumerating sequential ids.
 func (s *Server) campaignVisible(r *http.Request, campaign models.Campaign) bool {
-	authority, ok := parseAuthority(r)
+	authority, ok := s.parseAuthority(r)
 	if ok && authority.MFACompleted && allowedCampaignUpdateRoles[authority.ActorRole] {
 		return true
 	}
@@ -50,57 +51,60 @@ func (s *Server) campaignVisible(r *http.Request, campaign models.Campaign) bool
 }
 
 func (s *Server) createCampaignHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
 
 	var request models.CreateCampaignRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN campaign-service create_campaign invalid_json actor=%s error=%v", ctx.ActorUserID, err)
+		log.Printf("WARN campaign-service create_campaign invalid_json actor=%s error=%v", utils.SanitizeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 
 	normalized, code, message := normalizeCreate(request, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN campaign-service create_campaign validation_failed actor=%s code=%s", ctx.ActorUserID, code)
+		log.Printf("WARN campaign-service create_campaign validation_failed actor=%s code=%s", utils.SanitizeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
 	campaign := s.store.CreateCampaign(r.Context(), normalized, ctx, s.now().UTC())
-	log.Printf("INFO campaign-service create_campaign completed id=%s actor=%s status=%s", campaign.ID, ctx.ActorUserID, campaign.Status)
+	log.Printf("INFO campaign-service create_campaign completed id=%s actor=%s status=%s", campaign.ID, utils.SanitizeLogValue(ctx.ActorUserID), campaign.Status)
 	utils.WriteJSON(w, http.StatusCreated, models.CampaignResponse{Campaign: campaign})
 }
 
 func (s *Server) updateCampaignHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
 
 	var request models.UpdateCampaignRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN campaign-service update_campaign invalid_json id=%s actor=%s error=%v", r.PathValue("id"), ctx.ActorUserID, err)
+		// #nosec G706 -- path value and actor id are sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN campaign-service update_campaign invalid_json id=%s actor=%s error=%v", utils.SanitizeLogValue(r.PathValue("id")), utils.SanitizeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 
 	normalized, code, message := normalizeUpdate(request, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN campaign-service update_campaign validation_failed id=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- path value and actor id are sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN campaign-service update_campaign validation_failed id=%s actor=%s code=%s", utils.SanitizeLogValue(r.PathValue("id")), utils.SanitizeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
 	campaign, code, message := s.store.UpdateCampaign(r.Context(), r.PathValue("id"), normalized, ctx, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN campaign-service update_campaign failed id=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- path value and actor id are sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN campaign-service update_campaign failed id=%s actor=%s code=%s", utils.SanitizeLogValue(r.PathValue("id")), utils.SanitizeLogValue(ctx.ActorUserID), code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO campaign-service update_campaign completed id=%s actor=%s status=%s", campaign.ID, ctx.ActorUserID, campaign.Status)
+	log.Printf("INFO campaign-service update_campaign completed id=%s actor=%s status=%s", campaign.ID, utils.SanitizeLogValue(ctx.ActorUserID), campaign.Status)
 	utils.WriteJSON(w, http.StatusOK, models.CampaignResponse{Campaign: campaign})
 }
 
@@ -145,6 +149,11 @@ func normalizeCreate(request models.CreateCampaignRequest, now time.Time) (model
 	request.Title = strings.TrimSpace(request.Title)
 	request.HazardType = utils.NormalizeQueryValue(request.HazardType)
 	request.Status = utils.NormalizeQueryValue(request.Status)
+	// New campaigns default to draft so a create without an explicit status
+	// never stores an unusable empty status.
+	if request.Status == "" {
+		request.Status = "draft"
+	}
 
 	if code, message := validateTitle(request.Title, true); code != "" {
 		return request, code, message

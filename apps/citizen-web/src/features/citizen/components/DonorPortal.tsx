@@ -31,6 +31,7 @@ import type {
 } from "@nadaa/shared-types";
 import { DONATION_API_BASE } from "@/app/config";
 import { useCitizenSession } from "../session";
+import { extractAPIError } from "../utils";
 import { DataTable, type DataTableColumn, type DataTableFilter } from "./DataTable";
 import { DetailDialog, type DetailField } from "./DetailDialog";
 import { EmptyState } from "./EmptyState";
@@ -193,7 +194,7 @@ export function DonorPortal() {
 
   const registerDonor = async (): Promise<boolean> => {
     if (!session) {
-      requestSignIn();
+      requestSignIn("register as a donor");
       return false;
     }
     if (!donorForm.name.trim()) {
@@ -221,7 +222,7 @@ export function DonorPortal() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        throw new Error(`donation API returned ${response.status}`);
+        throw new Error(await extractAPIError(response));
       }
       const donor = (await response.json()) as DonorRecord;
       setRegisteredDonor(donor);
@@ -230,9 +231,11 @@ export function DonorPortal() {
         `Thank you, ${donor.name}. Your donor reference is ${donor.reference}.`,
       );
       return true;
-    } catch {
+    } catch (error) {
       setDonorError(
-        "Donor registration could not reach the donation service. Try again later.",
+        error instanceof Error
+          ? error.message
+          : "Donor registration failed. Try again later.",
       );
       return false;
     } finally {
@@ -244,7 +247,7 @@ export function DonorPortal() {
     aidRequest: DonationAidRequestRecord,
   ): Promise<boolean> => {
     if (!session) {
-      requestSignIn();
+      requestSignIn("pledge support");
       return false;
     }
     const form = pledgeForms[aidRequest.id] ?? buildDefaultPledgeForm();
@@ -258,18 +261,44 @@ export function DonorPortal() {
       return false;
     }
 
-    const payload: CreatePledgeRequest = {
-      donorName: form.donorName.trim(),
-      quantityPledged,
-      contactEmail: form.contactEmail.trim() || undefined,
-      contactPhone: form.contactPhone.trim() || undefined,
-      donorId: registeredDonor?.id,
-    };
-
     setBusy(true);
     setPledgeError("");
     setFeedback("");
     try {
+      // Pledges must be bound to a registered donor: create one inline from
+      // the pledge form on first use, then reuse it for later pledges.
+      let donor = registeredDonor;
+      if (!donor) {
+        const donorPayload: CreateDonorRequest = {
+          name: form.donorName.trim(),
+          type: "individual",
+          contactName: form.donorName.trim(),
+          contactEmail: form.contactEmail.trim() || undefined,
+          contactPhone: form.contactPhone.trim() || undefined,
+        };
+        const donorResponse = await fetch(`${DONATION_API_BASE}/donors`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(donorPayload),
+        });
+        if (!donorResponse.ok) {
+          throw new Error(await extractAPIError(donorResponse));
+        }
+        donor = (await donorResponse.json()) as DonorRecord;
+        setRegisteredDonor(donor);
+      }
+
+      const payload: CreatePledgeRequest = {
+        donorName: form.donorName.trim(),
+        quantityPledged,
+        // The service rejects the pledge (403) unless contactEmail matches the
+        // donor's registered email, so send the donor's own rather than the
+        // free-typed form value.
+        contactEmail: donor.contactEmail,
+        contactPhone: form.contactPhone.trim() || undefined,
+        donorId: donor.id,
+      };
+
       const response = await fetch(
         `${DONATION_API_BASE}/aid-requests/${aidRequest.id}/pledges`,
         {
@@ -279,7 +308,7 @@ export function DonorPortal() {
         },
       );
       if (!response.ok) {
-        throw new Error(`donation API returned ${response.status}`);
+        throw new Error(await extractAPIError(response));
       }
       const pledge = (await response.json()) as {
         id: string;
@@ -310,9 +339,11 @@ export function DonorPortal() {
         `Thank you ${pledge.donorName}. Pledge ${pledge.reference} recorded for ${quantityPledged} ${aidRequest.unit}.`,
       );
       return true;
-    } catch {
+    } catch (error) {
       setPledgeError(
-        "Pledge could not be submitted. The donation service may be offline.",
+        error instanceof Error
+          ? error.message
+          : "Pledge could not be submitted. Try again later.",
       );
       return false;
     } finally {

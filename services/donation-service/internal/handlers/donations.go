@@ -74,8 +74,14 @@ func (s *Server) createDonationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // getDonationHandler returns a donation by reference, verifying a still-pending
-// payment with the gateway first so the donor sees an up-to-date status.
+// payment with the gateway first. It requires a verified authority caller: the
+// record carries donor PII and references are sequential, so public lookup
+// would make the day's donations enumerable (and burn provider quota).
 func (s *Server) getDonationHandler(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAuthority(w, r); !ok {
+		return
+	}
+
 	reference := strings.TrimSpace(r.PathValue("reference"))
 	donation, ok := s.store.GetDonationByReference(reference)
 	if !ok {
@@ -137,7 +143,7 @@ func (s *Server) paystackWebhookHandler(w http.ResponseWriter, r *http.Request) 
 
 // listDonationsHandler returns donations for authority reconciliation.
 func (s *Server) listDonationsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, ok := requireAuthority(w, r)
+	ctx, ok := s.requireAuthority(w, r)
 	if !ok {
 		return
 	}
@@ -152,7 +158,7 @@ func (s *Server) listDonationsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	donations := s.store.ListDonations(filter)
-	log.Printf("INFO donation-service donation_list count=%d actor=%s status=%s", len(donations), ctx.ActorUserID, filter.Status)
+	log.Printf("INFO donation-service donation_list count=%d actor=%s status=%s", len(donations), utils.LogSafe(ctx.ActorUserID), utils.LogSafe(filter.Status)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 	utils.WriteJSON(w, http.StatusOK, models.DonationListResponse{Donations: donations, GeneratedAt: s.now().UTC()})
 }
 
@@ -166,8 +172,15 @@ func (s *Server) reconcileDonation(ctx context.Context, donation models.Donation
 
 	switch result.Status {
 	case "paid":
+		if result.Currency != "" && !strings.EqualFold(result.Currency, donation.Currency) {
+			log.Printf("ERROR donation-service donation_currency_mismatch reference=%s expected=%s verified=%s", utils.LogSafe(donation.Reference), utils.LogSafe(donation.Currency), utils.LogSafe(result.Currency))
+			if updated, ok := s.store.MarkDonationFailed(donation.Reference, "currency_mismatch", now); ok {
+				return updated
+			}
+			return donation
+		}
 		if result.AmountMinor > 0 && result.AmountMinor != donation.AmountMinor {
-			log.Printf("ERROR donation-service donation_amount_mismatch reference=%s expected=%d verified=%d", donation.Reference, donation.AmountMinor, result.AmountMinor)
+			log.Printf("ERROR donation-service donation_amount_mismatch reference=%s expected=%d verified=%d", utils.LogSafe(donation.Reference), donation.AmountMinor, result.AmountMinor)
 			if updated, ok := s.store.MarkDonationFailed(donation.Reference, "amount_mismatch", now); ok {
 				return updated
 			}

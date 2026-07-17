@@ -3,17 +3,35 @@
 # The default 80xx/90xx ports are squatted by unrelated apps on this machine,
 # so the citizen app is pointed here via apps/citizen-web/.env.local.
 # CORS: services allow-all when NADAA_ALLOWED_ORIGINS is empty.
-ROOT="/Users/shayford/Desktop/Dev/Projects/nadaa"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN="/tmp/nadaa-svc-bin"
 LOG="/tmp/nadaa-svc-logs"
 mkdir -p "$BIN" "$LOG"
 
+# Shared dev auth posture for every service: verify tokens signed with the dev
+# secret, honor self-asserted X-NADAA-Actor-* headers from the demo apps, and
+# share the internal service-to-service token. auth-service itself is run by
+# dev-dashboard-backends.sh, which also prints the dev agency admin login.
+export NADAA_ENV=development
+export NADAA_AUTH_ALLOW_MOCK_ACTORS=true
+export NADAA_AUTH_TOKEN_SECRET=dev-secret-change-me
+export NADAA_INTERNAL_SERVICE_TOKEN=dev-internal-service-token
+
+echo "=== NADAA citizen dev backends (root: $ROOT) ==="
+echo "dev auth: NADAA_ENV=development, mock actor headers on, token secret dev-secret-change-me"
+
+stop() {
+  # Only kill processes running our own built binaries — never whatever else
+  # happens to be listening on the port.
+  local name="$1" pids
+  pids=$(pgrep -f "^$BIN/$name$" 2>/dev/null || true)
+  [ -n "$pids" ] && kill $pids 2>/dev/null
+}
+
 start() {
   # $1 service dir  $2 shortname  $3 port-env-var  $4 port
   local dir="$1" name="$2" penv="$3" port="$4"
-  local pid
-  pid=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null)
-  [ -n "$pid" ] && kill "$pid" 2>/dev/null
+  stop "$name"
   echo "[build] $name"
   if ! (cd "$ROOT/services/$dir" && go build -o "$BIN/$name" ./cmd/server) 2>"$LOG/$name.build.log"; then
     echo "[BUILD-FAIL] $name — see $LOG/$name.build.log"

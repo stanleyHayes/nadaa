@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
 	"net/http"
@@ -23,6 +24,8 @@ const (
 	DefaultSampleStepMeters = 200.0
 	// WalkingSpeedMetersPerSecond is the assumed evacuation walking speed.
 	WalkingSpeedMetersPerSecond = 1.4
+	// metersPerDegree is the approximate length of one degree at the equator.
+	metersPerDegree = 111320.0
 )
 
 // DecodeJSON decodes a JSON request body into target.
@@ -74,12 +77,23 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	} else {
 		w.Header().Add("Vary", "Origin")
-		if allowedOrigins[origin] || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+		if allowedOrigins[origin] || (developmentMode() && isLocalOrigin(origin)) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
+}
+
+// developmentMode reports whether the service runs in a local development
+// environment, where echoing localhost origins is allowed even with a
+// configured allowlist.
+func developmentMode() bool {
+	return os.Getenv("NADAA_ENV") == "development"
+}
+
+func isLocalOrigin(origin string) bool {
+	return strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:")
 }
 
 // EnvOrDefault returns the value of key or fallback if unset.
@@ -131,6 +145,8 @@ func DistanceMeters(a, b models.Coordinates) float64 {
 	deltaLng := degreesToRadians(b.Lng - a.Lng)
 	h := math.Sin(deltaLat/2)*math.Sin(deltaLat/2) +
 		math.Cos(lat1)*math.Cos(lat2)*math.Sin(deltaLng/2)*math.Sin(deltaLng/2)
+	// Clamp floating-point drift so (near-)antipodal points do not produce NaN.
+	h = min(max(h, 0), 1)
 	return EarthRadiusMeters * 2 * math.Atan2(math.Sqrt(h), math.Sqrt(1-h))
 }
 
@@ -188,6 +204,26 @@ func Interpolate(a, b models.Coordinates, t float64) models.Coordinates {
 	return DestinationPoint(a, t*d, bearing)
 }
 
+// CorridorBBox returns a "minLng,minLat,maxLng,maxLat" bounding box string
+// covering the straight corridor from origin to destination, padded by
+// paddingMeters on every side so closures just off the direct line are
+// included.
+func CorridorBBox(origin, destination models.Coordinates, paddingMeters float64) string {
+	latPadding := paddingMeters / metersPerDegree
+	lngScale := math.Cos(degreesToRadians((origin.Lat + destination.Lat) / 2))
+	if math.Abs(lngScale) < 0.01 {
+		lngScale = 0.01
+	}
+	lngPadding := paddingMeters / (metersPerDegree * lngScale)
+
+	minLat := min(origin.Lat, destination.Lat) - latPadding
+	maxLat := max(origin.Lat, destination.Lat) + latPadding
+	minLng := min(origin.Lng, destination.Lng) - lngPadding
+	maxLng := max(origin.Lng, destination.Lng) + lngPadding
+
+	return fmt.Sprintf("%f,%f,%f,%f", minLng, minLat, maxLng, maxLat)
+}
+
 // PointInPolygon reports whether point is inside the polygon using the ray-casting algorithm.
 func PointInPolygon(point models.Coordinates, polygon []models.Coordinates) bool {
 	inside := false
@@ -204,19 +240,52 @@ func PointInPolygon(point models.Coordinates, polygon []models.Coordinates) bool
 	return inside
 }
 
-// MinDistanceToLineString returns the minimum distance from a location to any coordinate in a LineString.
+// MinDistanceToLineString returns the minimum distance from a location to a
+// LineString, measuring to whole segments rather than vertices only so a long
+// segment is still detected near its midpoint.
 func MinDistanceToLineString(location models.Coordinates, coordinates [][]float64) float64 {
 	minDistance := math.MaxFloat64
-	for _, point := range coordinates {
+	for i, point := range coordinates {
 		if len(point) < 2 {
 			continue
 		}
+		if i+1 < len(coordinates) && len(coordinates[i+1]) >= 2 {
+			next := coordinates[i+1]
+			d := pointToSegmentDistanceMeters(location,
+				models.Coordinates{Lat: point[1], Lng: point[0]},
+				models.Coordinates{Lat: next[1], Lng: next[0]})
+			if d < minDistance {
+				minDistance = d
+			}
+			continue
+		}
+		// Last vertex (or a lone point): measure to the vertex itself.
 		d := DistanceMeters(location, models.Coordinates{Lat: point[1], Lng: point[0]})
 		if d < minDistance {
 			minDistance = d
 		}
 	}
 	return minDistance
+}
+
+// pointToSegmentDistanceMeters returns the distance from p to the segment a-b
+// using a local equirectangular projection centered on p, accurate for the
+// short segments used in road-closure geometry.
+func pointToSegmentDistanceMeters(p, a, b models.Coordinates) float64 {
+	metersPerLngDegree := metersPerDegree * math.Cos(degreesToRadians(p.Lat))
+	ax := (a.Lng - p.Lng) * metersPerLngDegree
+	ay := (a.Lat - p.Lat) * metersPerDegree
+	bx := (b.Lng - p.Lng) * metersPerLngDegree
+	by := (b.Lat - p.Lat) * metersPerDegree
+
+	dx := bx - ax
+	dy := by - ay
+	if dx == 0 && dy == 0 {
+		return math.Hypot(ax, ay)
+	}
+	t := -(ax*dx + ay*dy) / (dx*dx + dy*dy)
+	t = min(max(t, 0), 1)
+	return math.Hypot(ax+t*dx, ay+t*dy)
 }
 
 // NormalizeRiskLevels lowercases and trims a slice of risk level strings.

@@ -61,7 +61,18 @@ export function SiteHeader() {
     };
     measure();
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    // Web fonts swap in after first paint and change link widths — re-measure
+    // once they settle so the pill still lands on the active item.
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (!cancelled) {
+        measure();
+      }
+    });
+    return () => {
+      cancelled = true;
+      window.removeEventListener("resize", measure);
+    };
   }, [pathname]);
 
   return (

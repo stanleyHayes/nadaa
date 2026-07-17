@@ -1,4 +1,4 @@
-import { type ChangeEvent } from "react";
+import { type ChangeEvent, useMemo } from "react";
 import {
   Alert,
   Box,
@@ -22,11 +22,13 @@ import type { SelectChangeEvent } from "@mui/material/Select";
 import "leaflet/dist/leaflet.css";
 import { BellRing } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
-import type { AuthorityAlertRecord } from "@nadaa/shared-types";
+import type { AgencyUserRole, AuthorityAlertRecord } from "@nadaa/shared-types";
 
+import { alertApprovalRoles, alertOverrideRoles } from "@/app/session";
 import { alertSeverityOptions, alertTargetTypeOptions } from "../data";
 import type { AlertFormState, AlertLoadState, CommandIncident } from "../types";
 import {
+  alertDatesError,
   alertSeverityLabel,
   alertStatusColor,
   alertStatusLabel,
@@ -48,6 +50,7 @@ export function AlertWorkflowPanel({
   onRunAction,
   onUpdateForm,
   selectedIncident,
+  sessionRole,
 }: {
   alerts: AuthorityAlertRecord[];
   busy: boolean;
@@ -66,10 +69,17 @@ export function AlertWorkflowPanel({
       ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent,
   ) => void;
   selectedIncident?: CommandIncident;
+  sessionRole: AgencyUserRole;
 }) {
   const queueAlerts = alerts.filter(
     (alert) => alert.status !== "published" && alert.status !== "expired",
   );
+  const canApprove = alertApprovalRoles.includes(sessionRole);
+  const canOverride = alertOverrideRoles.includes(sessionRole);
+  const datesError = alertDatesError(form);
+  // Memoized so the preview map only refits when the form actually changes,
+  // not on every parent re-render (queue refresh, busy flips, etc.).
+  const previewTarget = useMemo(() => buildAlertTarget(form), [form]);
   const radiusFieldsInvalid =
     form.targetType === "radius" &&
     (!form.targetLatitude.trim() ||
@@ -268,6 +278,7 @@ export function AlertWorkflowPanel({
                 onChange={onUpdateForm("startsAt")}
                 type="datetime-local"
                 fullWidth
+                error={Boolean(datesError)}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
             </Grid>
@@ -279,12 +290,14 @@ export function AlertWorkflowPanel({
                 onChange={onUpdateForm("expiresAt")}
                 type="datetime-local"
                 fullWidth
+                error={Boolean(datesError)}
+                helperText={datesError || ""}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
             </Grid>
           </Grid>
 
-          <AlertTargetPreview target={buildAlertTarget(form)} />
+          <AlertTargetPreview target={previewTarget} />
 
           <TextField
             size="small"
@@ -311,7 +324,7 @@ export function AlertWorkflowPanel({
             variant="contained"
             color="error"
             startIcon={<BellRing size={17} />}
-            disabled={busy}
+            disabled={busy || Boolean(datesError)}
             onClick={onCreateDraft}
           >
             Create draft
@@ -399,7 +412,7 @@ export function AlertWorkflowPanel({
                     Submit
                   </Button>
                 ) : null}
-                {alert.status === "submitted" ? (
+                {alert.status === "submitted" && canApprove ? (
                   <>
                     <Button
                       size="small"
@@ -421,9 +434,10 @@ export function AlertWorkflowPanel({
                     </Button>
                   </>
                 ) : null}
-                {alert.status === "draft" ||
+                {(alert.status === "draft" ||
                 alert.status === "submitted" ||
-                alert.status === "rejected" ? (
+                alert.status === "rejected") &&
+                canOverride ? (
                   <Button
                     size="small"
                     color="error"

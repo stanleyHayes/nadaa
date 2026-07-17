@@ -195,6 +195,23 @@ export const closureSeverityColors: Record<string, string> = {
   low: "#64748b",
 };
 
+const popupEscapeMap: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+/**
+ * Escape a value interpolated into a Leaflet `bindPopup` HTML string. Popups
+ * render as innerHTML, so service-sourced text (road names, addresses,
+ * communities) must never reach them unescaped.
+ */
+function popupEscape(value: string) {
+  return value.replace(/[&<>"']/g, (char) => popupEscapeMap[char] ?? char);
+}
+
 export function IncidentMap({
   incidents,
   onSelect,
@@ -264,7 +281,7 @@ export function IncidentMap({
         },
       );
       marker.bindPopup(
-        `<strong>${incident.reference}</strong><br>${hazardLabel(incident.type)} · ${severityLabel(incident.severity)}<br>${incident.locality}`,
+        `<strong>${popupEscape(incident.reference)}</strong><br>${popupEscape(hazardLabel(incident.type))} · ${popupEscape(severityLabel(incident.severity))}<br>${popupEscape(incident.locality)}`,
       );
       marker.on("click", () => onSelect(incident.id));
       marker.addTo(layer);
@@ -286,7 +303,7 @@ export function IncidentMap({
         dashArray: closure.status === "scheduled" ? "8,8" : undefined,
       });
       polyline.bindPopup(
-        `<strong>${closure.roadName}</strong><br>${closure.reason ?? "Road closure"} · ${closure.severity}<br>${closure.detourNote ?? "No detour noted"}`,
+        `<strong>${popupEscape(closure.roadName)}</strong><br>${popupEscape(closure.reason ?? "Road closure")} · ${popupEscape(closure.severity)}<br>${popupEscape(closure.detourNote ?? "No detour noted")}`,
       );
       polyline.addTo(layer);
       latlngs.forEach((latlng) => bounds.extend(latlng));
@@ -301,10 +318,13 @@ export function IncidentMap({
         fillOpacity: 0.85,
       });
       const stock = point.stockCategories
-        .map((item) => `${item.category}: ${item.quantity} ${item.unit}`)
+        .map(
+          (item) =>
+            `${popupEscape(item.category)}: ${popupEscape(String(item.quantity))} ${popupEscape(item.unit)}`,
+        )
         .join("<br>");
       marker.bindPopup(
-        `<strong>${point.name}</strong><br>${point.type} · ${point.status}<br>${point.address}<br>${stock || "No stock recorded"}`,
+        `<strong>${popupEscape(point.name)}</strong><br>${popupEscape(point.type)} · ${popupEscape(point.status)}<br>${popupEscape(point.address)}<br>${stock || "No stock recorded"}`,
       );
       marker.addTo(layer);
       bounds.extend([point.location.lat, point.location.lng]);
@@ -552,9 +572,7 @@ export function PredictionReviewMap({
           weight: selected ? 4 : 2,
         });
         polygon.bindPopup(
-          `<strong>${prediction.community}</strong><br>${probabilityLabel(
-            prediction.probability,
-          )} · ${severityLabel(prediction.severity)}`,
+          `<strong>${popupEscape(prediction.community)}</strong><br>${popupEscape(probabilityLabel(prediction.probability))} · ${popupEscape(severityLabel(prediction.severity))}`,
         );
         polygon.on("click", () => onSelect(prediction.id));
         polygon.addTo(layer);
@@ -573,9 +591,7 @@ export function PredictionReviewMap({
         },
       );
       marker.bindPopup(
-        `<strong>${prediction.community}</strong><br>${probabilityLabel(
-          prediction.probability,
-        )} · ${severityLabel(prediction.severity)}`,
+        `<strong>${popupEscape(prediction.community)}</strong><br>${popupEscape(probabilityLabel(prediction.probability))} · ${popupEscape(severityLabel(prediction.severity))}`,
       );
       marker.on("click", () => onSelect(prediction.id));
       marker.addTo(layer);

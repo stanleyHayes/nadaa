@@ -1,4 +1,4 @@
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, useCallback, useState } from "react";
 import {
   Alert,
   Box,
@@ -75,10 +75,13 @@ export function MLPredictionReviewPanel({
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const openPrediction = (predictionId: string) => {
-    onSelectPrediction(predictionId);
-    setDetailOpen(true);
-  };
+  const openPrediction = useCallback(
+    (predictionId: string) => {
+      onSelectPrediction(predictionId);
+      setDetailOpen(true);
+    },
+    [onSelectPrediction],
+  );
 
   const closeDetail = () => setDetailOpen(false);
 
@@ -115,7 +118,13 @@ export function MLPredictionReviewPanel({
           <Chip
             size="small"
             label={
-              live ? "Live ML" : loadState === "loading" ? "Loading" : "Fixture"
+              live
+                ? "Live ML"
+                : loadState === "loading"
+                  ? "Loading"
+                  : loadState === "error"
+                    ? "Unavailable"
+                    : "Fixture"
             }
             color={live ? "success" : "warning"}
           />
@@ -366,11 +375,19 @@ export function MLPredictionReviewPanel({
                 variant="contained"
                 color="error"
                 startIcon={<FileText size={17} />}
-                disabled={busy}
+                disabled={busy || loadState !== "ready"}
                 onClick={onCreateDraft}
               >
                 Create reviewed draft
               </Button>
+              {!live ? (
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
+                  Drafts require live ML predictions; fixture data can never
+                  drive a real alert draft.
+                </Typography>
+              ) : null}
             </Stack>
           ) : null}
         </DialogContent>

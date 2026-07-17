@@ -59,7 +59,7 @@ function validate(form: SignupForm) {
     errors.region = "Choose your region.";
   }
   if (!form.consent) {
-    errors.consent = "Please accept the data-use notice to continue.";
+    errors.consent = "Please acknowledge the preview notice to continue.";
   }
   return errors;
 }
@@ -92,12 +92,14 @@ export function SignupPage() {
           <span className="signup-done-icon" aria-hidden="true">
             <CheckCircle2 size={30} />
           </span>
-          <p className="eyebrow">You're on the list</p>
-          <h1 id="signup-done-title">Welcome, {form.name.split(" ")[0]}.</h1>
+          <p className="eyebrow">Sign-up preview</p>
+          <h1 id="signup-done-title">
+            Welcome, {form.name.trim().split(" ")[0]}.
+          </h1>
           <p>
-            We'll send safety warnings for {form.region} to your phone. Continue
-            in the citizen app to verify your number and check your area's risk
-            now.
+            This preview does not create an account — your details were not
+            submitted or stored. When public registration opens, sign up in the
+            citizen app to receive flood and fire warnings for {form.region}.
           </p>
           <div className="hero-actions">
             <a className="primary-action" href={marketingLinks.citizenWeb}>
@@ -116,12 +118,13 @@ export function SignupPage() {
   return (
     <section className="signup-section" aria-labelledby="signup-title">
       <div className="signup-copy">
-        <p className="eyebrow">Citizen sign-up</p>
+        <p className="eyebrow">Citizen sign-up preview</p>
         <h1 id="signup-title">Get warnings where you live.</h1>
         <p>
-          Create a free account to receive flood and fire warnings, check your
-          area's risk, and report incidents — in your language, online or
-          offline.
+          A free citizen account brings flood and fire warnings, area risk
+          checks, and incident reporting — in your language, online or offline.
+          This page previews the sign-up flow: it does not create an account,
+          send messages, or store your details.
         </p>
         <ul className="signup-points">
           <li>
@@ -142,6 +145,9 @@ export function SignupPage() {
       </div>
 
       <form className="signup-form" noValidate onSubmit={onSubmit}>
+        <p className="field-hint">
+          Sign-up preview — nothing you enter here is submitted or stored.
+        </p>
         <div className="field">
           <label htmlFor="signup-name">Full name</label>
           <input
@@ -179,7 +185,7 @@ export function SignupPage() {
             </p>
           ) : (
             <p className="field-hint" id="hint-phone">
-              We'll text a verification code. Standard rates may apply.
+              Preview only — no verification text is sent from this page.
             </p>
           )}
         </div>
@@ -235,8 +241,8 @@ export function SignupPage() {
               type="checkbox"
             />
             <span>
-              I agree that NADAA may use my number and region to send safety
-              warnings, under the data-use notice.
+              I understand this preview does not create an account and that
+              nothing I enter is submitted or stored.
             </span>
           </label>
           {errors.consent ? (
@@ -247,7 +253,7 @@ export function SignupPage() {
         </div>
 
         <button className="primary-action signup-submit" type="submit">
-          Create citizen account
+          Preview sign-up
           <ChevronRight aria-hidden="true" size={18} />
         </button>
         <p className="field-hint">

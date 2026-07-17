@@ -19,7 +19,7 @@ export function IntegrationsView({ data }: { data: AdminData }) {
       ) : data.dataSources.length ? (
         <DataSourcePanel dataSources={data.dataSources} />
       ) : data.loadState === "error" ? (
-        <ErrorState message={data.loadMessage} />
+        <ErrorState message={data.loadMessage} onRetry={data.refresh} />
       ) : (
         <EmptyState
           title="No data sources"
