@@ -3139,7 +3139,13 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-title {
+  .split-reveal__part {
+    transform: none;
+    transition: none;
+  }
+  /* Must stay as specific as the animated .hero-content .hero-title rule
+     above, otherwise this override loses the cascade and is dead code. */
+  .hero-content .hero-title {
     animation: none;
   }
   .rotating-words__word {

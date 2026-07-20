@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -46,4 +47,14 @@ func Load() *Config {
 		InternalServiceToken: strings.TrimSpace(os.Getenv("NADAA_INTERNAL_SERVICE_TOKEN")),
 		AllowMockActors:      strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")), "true"),
 	}
+}
+
+// Validate rejects configuration combinations that are unsafe outside local
+// development. Self-asserted X-NADAA-Actor-* headers enable full impersonation,
+// so they must never be honored in a deployed environment.
+func (c *Config) Validate() error {
+	if c.AllowMockActors && !strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_ENV")), "development") {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
 }

@@ -6,9 +6,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -280,47 +283,52 @@ func TestGetDatasetNotFound(t *testing.T) {
 	}
 }
 
-func TestDownloadApprovedDataset(t *testing.T) {
+func TestDownloadApprovedDatasetServesRealCSVBytes(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/open-data/datasets/dataset_flood_reports_2026/download?format=json", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/open-data/datasets/dataset_flood_reports_2026/download?format=csv", nil)
 
 	srv.Routes().ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
 	}
-
-	body := append([]byte(nil), response.Body.Bytes()...)
-
-	var payload models.DatasetDownloadResponse
-	if err := json.Unmarshal(body, &payload); err != nil {
-		t.Fatalf("unmarshal download response: %v", err)
+	if ct := response.Header().Get("Content-Type"); ct != "text/csv" {
+		t.Fatalf("expected text/csv content type, got %q", ct)
 	}
-	if payload.Download.DatasetID != "dataset_flood_reports_2026" {
-		t.Fatalf("unexpected download dataset id %s", payload.Download.DatasetID)
+	if cd := response.Header().Get("Content-Disposition"); !strings.Contains(cd, "attachment") || !strings.Contains(cd, "dataset_flood_reports_2026.csv") {
+		t.Fatalf("expected attachment content disposition with csv filename, got %q", cd)
 	}
-	if payload.Download.Format != "json" {
-		t.Fatalf("expected json format, got %s", payload.Download.Format)
+	if got := response.Header().Get("X-NADAA-Audit-Logged"); got != "true" {
+		t.Fatalf("expected X-NADAA-Audit-Logged true, got %q", got)
 	}
-	if payload.RateLimit.Remaining != 9 {
-		t.Fatalf("expected remaining 9, got %d", payload.RateLimit.Remaining)
-	}
-	if !payload.AuditLogged {
-		t.Fatalf("expected audit logged")
+	if got := response.Header().Get("X-RateLimit-Remaining"); got != "9" {
+		t.Fatalf("expected X-RateLimit-Remaining 9, got %q", got)
 	}
 
-	// No fabricated checksum may be reported for an artifact the service does not hold.
-	raw := map[string]any{}
-	if err := json.Unmarshal(body, &raw); err != nil {
-		t.Fatalf("unmarshal raw response: %v", err)
+	// The body is the dataset's actual rows serialized as CSV.
+	body := response.Body.String()
+	lines := strings.Split(strings.TrimSpace(body), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected header plus 2 data rows, got %d lines: %q", len(lines), body)
 	}
-	download, ok := raw["download"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected download object in response")
+	if lines[0] != "date,district,reportCount,maxUrgency,injuriesReported" {
+		t.Fatalf("unexpected csv header %q", lines[0])
 	}
-	if _, present := download["checksum"]; present {
-		t.Fatalf("download response must not contain a fabricated checksum")
+	if !strings.Contains(lines[1], "2026-07-01") || !strings.Contains(lines[1], "Accra Metropolitan") {
+		t.Fatalf("unexpected first csv data row %q", lines[1])
+	}
+
+	// The recorded artifact reports the real byte size and the serving route.
+	downloads := srv.store.GetDatasetDownloads("dataset_flood_reports_2026")
+	if len(downloads) != 1 {
+		t.Fatalf("expected one recorded download, got %#v", downloads)
+	}
+	if downloads[0].Size != int64(len(body)) {
+		t.Fatalf("expected recorded size %d to match served bytes, got %d", len(body), downloads[0].Size)
+	}
+	if downloads[0].URL != "/api/v1/open-data/datasets/dataset_flood_reports_2026/download?format=csv" {
+		t.Fatalf("expected recorded url to be the download route, got %q", downloads[0].URL)
 	}
 
 	// The download audit event is persisted locally and queryable by admins.
@@ -330,6 +338,55 @@ func TestDownloadApprovedDataset(t *testing.T) {
 	}
 	if events[0].ID == "" {
 		t.Fatalf("expected persisted audit event to have an id")
+	}
+	if events[0].Metadata["size"] != strconv.Itoa(len(body)) {
+		t.Fatalf("expected audit metadata size %d, got %q", len(body), events[0].Metadata["size"])
+	}
+}
+
+func TestDownloadApprovedDatasetServesRealJSONBytes(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/open-data/datasets/dataset_flood_reports_2026/download?format=json", nil)
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	if ct := response.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected application/json content type, got %q", ct)
+	}
+	if cd := response.Header().Get("Content-Disposition"); !strings.Contains(cd, "dataset_flood_reports_2026.json") {
+		t.Fatalf("expected attachment content disposition with json filename, got %q", cd)
+	}
+
+	var rows []map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &rows); err != nil {
+		t.Fatalf("download body must be the dataset rows as JSON: %v", err)
+	}
+	if len(rows) != 2 || rows[0]["district"] != "Accra Metropolitan" {
+		t.Fatalf("unexpected json rows %#v", rows)
+	}
+
+	downloads := srv.store.GetDatasetDownloads("dataset_flood_reports_2026")
+	if len(downloads) != 1 || downloads[0].Size != int64(len(response.Body.Bytes())) {
+		t.Fatalf("expected recorded size to match served json bytes, got %#v", downloads)
+	}
+	if downloads[0].Format != "json" {
+		t.Fatalf("expected recorded format json, got %q", downloads[0].Format)
+	}
+}
+
+func TestDownloadUnsupportedFormatRejected(t *testing.T) {
+	srv := newTestServer()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/open-data/datasets/dataset_flood_reports_2026/download?format=parquet", nil)
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
 	}
 }
 
@@ -523,6 +580,78 @@ func TestApproveRequest(t *testing.T) {
 	// Attribution comes from the verified actor, not the body-supplied reviewer.
 	if approved.Request.ReviewedBy != "usr_admin" {
 		t.Fatalf("expected reviewedBy usr_admin (actor), got %q", approved.Request.ReviewedBy)
+	}
+
+	// The review decision is audit-logged with the verified admin actor.
+	events := srv.store.ListAuditEvents()
+	if len(events) != 1 || events[0].Action != "access_request_review" || events[0].TargetID != created.Request.ID {
+		t.Fatalf("expected one persisted access_request_review audit event, got %#v", events)
+	}
+	if events[0].Metadata["reviewer"] != "usr_admin" || events[0].Metadata["decision"] != "approved" {
+		t.Fatalf("expected audit metadata reviewer=usr_admin decision=approved, got %#v", events[0].Metadata)
+	}
+
+	// Re-review is refused with 409 and overwrites neither the decision nor
+	// the audit trail.
+	againResponse := httptest.NewRecorder()
+	againRequest := httptest.NewRequest(http.MethodPost, "/api/v1/open-data/requests/"+created.Request.ID+"/approve", jsonBody(models.ReviewOpenDataRequest{Approved: false}))
+	againRequest.Header.Set("Content-Type", "application/json")
+	setAdminHeaders(againRequest)
+	srv.Routes().ServeHTTP(againResponse, againRequest)
+	if againResponse.Code != http.StatusConflict {
+		t.Fatalf("expected status %d on re-review, got %d: %s", http.StatusConflict, againResponse.Code, againResponse.Body.String())
+	}
+	record, found := srv.store.GetRequest(created.Request.ID)
+	if !found || record.Status != models.OpenDataRequestApproved || record.ReviewedBy != "usr_admin" {
+		t.Fatalf("expected re-review to leave the original decision untouched, got %#v", record)
+	}
+	if len(srv.store.ListAuditEvents()) != 1 {
+		t.Fatalf("expected re-review to add no audit event, got %#v", srv.store.ListAuditEvents())
+	}
+}
+
+func TestRejectRequestAuditedAndReReviewConflict(t *testing.T) {
+	srv := newTestServer()
+	body := models.CreateOpenDataRequest{
+		DatasetID:     "dataset_raw_incident_feed",
+		RequesterInfo: models.RequesterInfo{Name: "Ama Kwame", Email: "ama@example.edu.gh", UseCase: "research"},
+		Purpose:       "Research on flood response patterns in Accra.",
+	}
+	createResponse := httptest.NewRecorder()
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/open-data/requests", jsonBody(body))
+	createRequest.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(createResponse, createRequest)
+
+	var created models.OpenDataRequestResponse
+	decodeResponse(t, createResponse, &created)
+
+	rejectResponse := httptest.NewRecorder()
+	rejectRequest := httptest.NewRequest(http.MethodPost, "/api/v1/open-data/requests/"+created.Request.ID+"/approve", jsonBody(models.ReviewOpenDataRequest{Approved: false, Note: "Insufficient data-use agreement."}))
+	rejectRequest.Header.Set("Content-Type", "application/json")
+	setAdminHeaders(rejectRequest)
+	srv.Routes().ServeHTTP(rejectResponse, rejectRequest)
+
+	if rejectResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rejectResponse.Code, rejectResponse.Body.String())
+	}
+	var rejected models.OpenDataRequestResponse
+	decodeResponse(t, rejectResponse, &rejected)
+	if rejected.Request.Status != models.OpenDataRequestRejected {
+		t.Fatalf("expected rejected status, got %s", rejected.Request.Status)
+	}
+
+	events := srv.store.ListAuditEvents()
+	if len(events) != 1 || events[0].Action != "access_request_review" || events[0].Metadata["decision"] != "rejected" {
+		t.Fatalf("expected rejected review decision audit-logged, got %#v", events)
+	}
+
+	reReviewResponse := httptest.NewRecorder()
+	reReviewRequest := httptest.NewRequest(http.MethodPost, "/api/v1/open-data/requests/"+created.Request.ID+"/approve", jsonBody(models.ReviewOpenDataRequest{Approved: true}))
+	reReviewRequest.Header.Set("Content-Type", "application/json")
+	setAdminHeaders(reReviewRequest)
+	srv.Routes().ServeHTTP(reReviewResponse, reReviewRequest)
+	if reReviewResponse.Code != http.StatusConflict {
+		t.Fatalf("expected status %d on re-review of rejected request, got %d", http.StatusConflict, reReviewResponse.Code)
 	}
 }
 
@@ -798,12 +927,83 @@ func TestAuditForwardingFailureStillHonest(t *testing.T) {
 		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
 	}
 
-	var payload models.DatasetDownloadResponse
-	decodeResponse(t, response, &payload)
-	if !payload.AuditLogged {
-		t.Fatalf("expected auditLogged from local persistence even when forwarding fails")
+	if got := response.Header().Get("X-NADAA-Audit-Logged"); got != "true" {
+		t.Fatalf("expected X-NADAA-Audit-Logged true from local persistence even when forwarding fails, got %q", got)
 	}
 	if len(srv.store.ListAuditEvents()) != 1 {
 		t.Fatalf("expected one locally persisted audit event")
+	}
+}
+
+func TestSendAuditEventForwardsWithServiceToken(t *testing.T) {
+	received := make(chan *http.Request, 1)
+	sink := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received <- r
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"audit_000001"}`))
+	}))
+	defer sink.Close()
+
+	cfg := &config.Config{
+		Addr:                 ":8102",
+		AuditLogServiceURL:   sink.URL,
+		InternalServiceToken: "svc-secret",
+	}
+	srv := NewServer(store.NewMemoryStore(testNow), func() time.Time { return testNow }, cfg)
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("Authorization", "Bearer caller-credential")
+	srv.sendAuditEvent(request, models.AuditEvent{ID: "audit_000001", Action: "dataset_download", TargetID: "dataset_flood_reports_2026"})
+
+	select {
+	case got := <-received:
+		if token := got.Header.Get("X-NADAA-Service-Token"); token != "svc-secret" {
+			t.Fatalf("expected X-NADAA-Service-Token svc-secret, got %q", token)
+		}
+		// The caller's credentials are never forwarded to the audit sink.
+		if authorization := got.Header.Get("Authorization"); authorization != "" {
+			t.Fatalf("expected no forwarded Authorization header, got %q", authorization)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("expected the audit event to be forwarded to the sink")
+	}
+}
+
+func TestSendAuditEventLogsRejectedForward(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusMethodNotAllowed} {
+		received := make(chan struct{}, 1)
+		sink := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			received <- struct{}{}
+			w.WriteHeader(status)
+		}))
+
+		var logBuf bytes.Buffer
+		log.SetOutput(&logBuf)
+		cfg := &config.Config{
+			Addr:                 ":8102",
+			AuditLogServiceURL:   sink.URL,
+			InternalServiceToken: "svc-secret",
+		}
+		srv := NewServer(store.NewMemoryStore(testNow), func() time.Time { return testNow }, cfg)
+
+		srv.sendAuditEvent(httptest.NewRequest(http.MethodGet, "/", nil), models.AuditEvent{ID: "audit_000002", Action: "dataset_download", TargetID: "dataset_flood_reports_2026"})
+
+		select {
+		case <-received:
+		case <-time.After(2 * time.Second):
+			log.SetOutput(os.Stderr)
+			sink.Close()
+			t.Fatalf("expected the audit event to reach the sink for status %d", status)
+		}
+		// The rejection is logged after the sink responds; wait for it.
+		deadline := time.Now().Add(2 * time.Second)
+		for !strings.Contains(logBuf.String(), "audit_forward_rejected") && time.Now().Before(deadline) {
+			time.Sleep(5 * time.Millisecond)
+		}
+		log.SetOutput(os.Stderr)
+		sink.Close()
+		if !strings.Contains(logBuf.String(), "audit_forward_rejected") {
+			t.Fatalf("expected rejected forward (status %d) to be logged, got %q", status, logBuf.String())
+		}
 	}
 }

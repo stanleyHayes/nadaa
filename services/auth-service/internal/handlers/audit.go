@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/stanleyHayes/nadaa/services/auth-service/internal/models"
 	"github.com/stanleyHayes/nadaa/services/auth-service/internal/utils"
@@ -21,6 +22,48 @@ func (s *Server) listAuditLogsHandler(w http.ResponseWriter, r *http.Request) {
 		"limit": limit,
 		"count": len(logs),
 	})
+}
+
+// ingestAuditLogHandler accepts audit events forwarded by other services. It
+// is gated on the shared service-to-service token only — never on end-user
+// credentials — and stays closed when NADAA_INTERNAL_SERVICE_TOKEN is unset.
+func (s *Server) ingestAuditLogHandler(w http.ResponseWriter, r *http.Request) {
+	if s.config.InternalServiceToken == "" || !utils.SecureCompare(strings.TrimSpace(r.Header.Get(serviceTokenHeader)), s.config.InternalServiceToken) {
+		utils.WriteError(w, http.StatusUnauthorized, "invalid_service_token", "a valid service token is required")
+		return
+	}
+
+	var request models.IngestAuditLogRequest
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
+		return
+	}
+
+	request.EventType = strings.TrimSpace(request.EventType)
+	if request.EventType == "" {
+		utils.WriteError(w, http.StatusBadRequest, "invalid_event", "eventType is required")
+		return
+	}
+
+	var after map[string]any
+	if request.Summary != "" || request.Metadata != nil {
+		after = map[string]any{}
+		if request.Summary != "" {
+			after["summary"] = request.Summary
+		}
+		if request.Metadata != nil {
+			after["metadata"] = request.Metadata
+		}
+	}
+
+	record := s.recordAudit(r, models.AuditActor{
+		UserID: strings.TrimSpace(request.ActorID),
+		Role:   strings.TrimSpace(request.ActorRole),
+	}, request.EventType, models.AuditTarget{
+		Type: strings.TrimSpace(request.ResourceType),
+		ID:   strings.TrimSpace(request.ResourceID),
+	}, nil, after)
+	utils.WriteJSON(w, http.StatusCreated, models.IngestAuditLogResponse{ID: record.ID})
 }
 
 func (s *Server) recordAudit(r *http.Request, actor models.AuditActor, action string, target models.AuditTarget, before map[string]any, after map[string]any) models.AuditLogRecord {

@@ -67,7 +67,7 @@ function readInitialCollapsed(): boolean {
 }
 
 export function AdminConsoleShell({ session }: { session: AdminSession }) {
-  const data = useAdminData();
+  const data = useAdminData(session);
   const {
     preferences,
     updateProfile,

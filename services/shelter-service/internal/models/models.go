@@ -209,6 +209,37 @@ type AidRequestListResponse struct {
 	GeneratedAt time.Time    `json:"generatedAt"`
 }
 
+// PublicAidRequest is the anonymous-safe view of an aid request. It carries
+// only the fields donors need and omits pledge records (donor contact PII and
+// fraud-review internals) and authority-only review metadata.
+type PublicAidRequest struct {
+	ID                    string      `json:"id"`
+	Title                 string      `json:"title"`
+	Category              string      `json:"category"`
+	Priority              string      `json:"priority"`
+	Status                string      `json:"status"`
+	Region                string      `json:"region"`
+	District              string      `json:"district"`
+	Location              Coordinates `json:"location"`
+	ReceivingOrganization string      `json:"receivingOrganization"`
+	Contact               string      `json:"contact"`
+	QuantityNeeded        int         `json:"quantityNeeded"`
+	QuantityUnit          string      `json:"quantityUnit"`
+	QuantityPledged       int         `json:"quantityPledged"`
+	Description           string      `json:"description"`
+	NeededBy              time.Time   `json:"neededBy"`
+	Visibility            string      `json:"visibility"`
+	SourceReliefPointID   string      `json:"sourceReliefPointId,omitempty"`
+	CreatedAt             time.Time   `json:"createdAt"`
+	UpdatedAt             time.Time   `json:"updatedAt"`
+}
+
+// PublicAidRequestListResponse is the payload for anonymous aid request listings.
+type PublicAidRequestListResponse struct {
+	AidRequests []PublicAidRequest `json:"aidRequests"`
+	GeneratedAt time.Time          `json:"generatedAt"`
+}
+
 // AidPledgeListResponse is the payload for listing pledges.
 type AidPledgeListResponse struct {
 	AidRequestID string      `json:"aidRequestId"`

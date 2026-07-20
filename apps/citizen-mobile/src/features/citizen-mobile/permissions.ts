@@ -88,6 +88,28 @@ export async function requestOSPermission(
   }
 }
 
+/**
+ * Read the device's current position. Only call after the location permission
+ * was granted. Returns null when the position is unavailable (location services
+ * off, timeout, unsupported platform) so callers can degrade gracefully.
+ */
+export async function readDevicePosition(): Promise<{
+  lat: number;
+  lng: number;
+} | null> {
+  try {
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function permissionMessage(
   key: keyof MobilePermissionState,
   status: PermissionStatus,

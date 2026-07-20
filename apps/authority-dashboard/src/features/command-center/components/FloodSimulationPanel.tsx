@@ -22,6 +22,7 @@ import type {
   FloodSimulationRun,
 } from "@nadaa/shared-types";
 import { SIMULATION_API_BASE } from "@/app/config";
+import { authorityHeaders } from "@/app/session";
 import { EmptyState } from "./shared";
 import { severityColors } from "../data";
 
@@ -81,7 +82,7 @@ export function FloodSimulationPanel() {
         `${SIMULATION_API_BASE}/ml/flood/simulations`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authorityHeaders(),
           body: JSON.stringify(body),
         },
       );

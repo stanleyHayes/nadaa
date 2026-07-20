@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +16,11 @@ type Config struct {
 	TokenSecret          string
 	InternalServiceToken string
 	AllowMockActors      bool
+	// MediaStoragePath is the directory media upload bytes are written to.
+	MediaStoragePath string
+	// PublicBaseURL is the externally reachable base URL (scheme + host) used
+	// to build absolute media upload URLs.
+	PublicBaseURL string
 }
 
 // Load reads configuration from environment variables.
@@ -27,7 +33,18 @@ func Load() *Config {
 		TokenSecret:          strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
 		InternalServiceToken: strings.TrimSpace(os.Getenv("NADAA_INTERNAL_SERVICE_TOKEN")),
 		AllowMockActors:      strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")), "true"),
+		MediaStoragePath:     envOrDefault("NADAA_INCIDENT_MEDIA_STORAGE_PATH", "./uploads/media"),
+		PublicBaseURL:        strings.TrimSuffix(envOrDefault("NADAA_INCIDENT_PUBLIC_BASE_URL", "http://localhost:8084"), "/"),
 	}
+}
+
+// Validate fails closed on unsafe configuration: mock actor headers trust
+// client-supplied identity, so they are rejected unless NADAA_ENV=development.
+func (c *Config) Validate() error {
+	if c.AllowMockActors && !strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_ENV")), "development") {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
 }
 
 // resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare
@@ -47,6 +64,14 @@ func resolveListenAddr(addrKey, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+func envOrDefault(key, fallback string) string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	return value
 }
 
 func envIntOrDefault(key string, fallback int) int {

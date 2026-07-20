@@ -19,6 +19,9 @@ const serviceName = "alert-service"
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("%s: invalid configuration: %v", serviceName, err)
+	}
 	s := store.NewMemoryStore(time.Now().UTC())
 	srv := handlers.NewServer(s, func() time.Time { return time.Now().UTC() }, cfg)
 

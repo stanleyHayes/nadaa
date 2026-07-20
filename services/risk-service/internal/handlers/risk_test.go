@@ -226,6 +226,39 @@ func TestRiskHandlerOmitsServiceHeadersWhenNotConfigured(t *testing.T) {
 	}
 }
 
+func TestRiskHandlerMLElevatedRiskDrivesRecommendedActions(t *testing.T) {
+	// Heuristic risk at the Kumasi fixture location is low; when the ML
+	// prediction elevates the overall risk, the recommended actions must
+	// match the ML severity, not the heuristic flood level.
+	for _, severity := range []string{"high", "moderate"} {
+		mlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			utils.WriteJSON(w, http.StatusOK, models.MLPredictionResponse{
+				Prediction: models.MLPredictionPayload{
+					ID:           "pred_test",
+					ModelVersion: "flood-logistic-baseline-0.1.0",
+					HazardType:   "flood",
+					Severity:     severity,
+				},
+				Log: models.MLPredictionLog{ID: "ml_log_test"},
+			})
+		}))
+
+		srv := newTestServer()
+		srv.mlClient = newMLClient(mlServer.URL+"/api/v1", "", mlServer.Client())
+
+		payload := requestRiskFromServer(t, srv, "/api/v1/risk?lat=6.6885&lng=-1.6244")
+		mlServer.Close()
+
+		if payload.OverallRisk != severity {
+			t.Fatalf("expected ML-elevated %s overall risk, got %#v", severity, payload)
+		}
+		expected := utils.RecommendedActions(severity, severity)
+		if !equalStrings(payload.RecommendedActions, expected) {
+			t.Fatalf("expected %s-level actions for ML-elevated %s risk, got %#v", severity, severity, payload.RecommendedActions)
+		}
+	}
+}
+
 func TestCORSLocalhostOriginGatedByEnvironment(t *testing.T) {
 	cfg := &config.Config{Addr: ":8081", AllowedOrigins: map[string]bool{"https://nadaa.gov.gh": true}}
 	srv := NewServer(store.NewMemoryStore(), cfg)

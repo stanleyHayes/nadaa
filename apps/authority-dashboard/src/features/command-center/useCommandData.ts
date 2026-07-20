@@ -66,6 +66,26 @@ import {
 } from "./utils";
 
 /**
+ * Read a service error body (`{message}` or `{error:{message}}`) so mutation
+ * failures surface what the API actually said instead of a generic
+ * "API not running" guess.
+ */
+async function extractError(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as {
+      message?: string;
+      error?: string | { message?: string };
+    };
+    if (body.message) return body.message;
+    if (typeof body.error === "string") return body.error;
+    if (body.error?.message) return body.error.message;
+    return `Request failed (${response.status})`;
+  } catch {
+    return `Request failed (${response.status})`;
+  }
+}
+
+/**
  * Central command-center state container. Holds every incident, alert,
  * shelter, and relief workflow that the dashboard views depend on so the
  * app shell can mount data once and route between views without losing state.
@@ -625,14 +645,16 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`incident API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
       const incident = (await response.json()) as IncidentRecord;
       applyIncidentUpdate(incident);
       setStatusFeedback(`${statusLabel(incident.status)} status saved.`);
     } catch (error) {
       setStatusFeedback(
-        "Incident workflow action needs the incident-service API running with this incident.",
+        error instanceof Error
+          ? error.message
+          : "Incident workflow action needs the incident-service API running with this incident.",
       );
     } finally {
       setStatusBusy(false);
@@ -662,14 +684,16 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`incident API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
       const incident = (await response.json()) as IncidentRecord;
       applyIncidentUpdate(incident);
       setStatusFeedback(`${statusLabel(incident.status)} status saved.`);
     } catch (error) {
       setStatusFeedback(
-        "Incident workflow action needs a valid live incident transition.",
+        error instanceof Error
+          ? error.message
+          : "Incident workflow action needs a valid live incident transition.",
       );
     } finally {
       setStatusBusy(false);
@@ -699,7 +723,7 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`incident API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
       const incident = (await response.json()) as IncidentRecord;
       applyIncidentUpdate(incident);
@@ -708,7 +732,9 @@ export function useCommandData() {
       );
     } catch (error) {
       setAbuseFeedback(
-        "Report safety review needs a live incident-service API and valid authority transition.",
+        error instanceof Error
+          ? error.message
+          : "Report safety review needs a live incident-service API and valid authority transition.",
       );
     } finally {
       setAbuseBusy(false);
@@ -741,14 +767,16 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`incident API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
       const incident = (await response.json()) as IncidentRecord;
       applyIncidentUpdate(incident);
       setAssignmentFeedback(`Assigned to ${assignmentForIncident(incident)}.`);
     } catch (error) {
       setAssignmentFeedback(
-        "Assignment needs a verified live incident and incident-service API.",
+        error instanceof Error
+          ? error.message
+          : "Assignment needs a verified live incident and incident-service API.",
       );
     } finally {
       setAssignmentBusy(false);
@@ -785,7 +813,7 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`incident API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
       const payload = (await response.json()) as MergeIncidentsResponse;
       applyIncidentUpdates([payload.incident, ...payload.mergedIncidents]);
@@ -798,7 +826,9 @@ export function useCommandData() {
       );
     } catch (error) {
       setMergeFeedback(
-        "Merge needs a live duplicate candidate and incident-service API.",
+        error instanceof Error
+          ? error.message
+          : "Merge needs a live duplicate candidate and incident-service API.",
       );
     } finally {
       setMergeBusy(false);
@@ -860,7 +890,7 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`shelter API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
 
       const payload = (await response.json()) as ShelterUpdateResponse;
@@ -875,7 +905,9 @@ export function useCommandData() {
       return true;
     } catch (error) {
       setShelterFeedback(
-        "Shelter update needs a live shelter-service API and authority session.",
+        error instanceof Error
+          ? error.message
+          : "Shelter update needs a live shelter-service API and authority session.",
       );
       return false;
     } finally {
@@ -895,7 +927,7 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`shelter API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
 
       setShelters((current) =>
@@ -910,7 +942,9 @@ export function useCommandData() {
       return true;
     } catch (error) {
       setShelterFeedback(
-        "Shelter delete needs a live shelter-service API and an admin session.",
+        error instanceof Error
+          ? error.message
+          : "Shelter delete needs a live shelter-service API and an admin session.",
       );
       return false;
     } finally {
@@ -986,7 +1020,7 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`relief point API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
 
       const reliefPoint = (await response.json()) as ReliefPointRecord;
@@ -1007,7 +1041,9 @@ export function useCommandData() {
       return true;
     } catch (error) {
       setReliefFeedback(
-        "Relief point save needs a live shelter-service API and authority session.",
+        error instanceof Error
+          ? error.message
+          : "Relief point save needs a live shelter-service API and authority session.",
       );
       return false;
     } finally {
@@ -1029,7 +1065,7 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`relief point API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
 
       setReliefPoints((current) =>
@@ -1045,7 +1081,9 @@ export function useCommandData() {
       return true;
     } catch (error) {
       setReliefFeedback(
-        "Relief point delete needs a live shelter-service API and an admin session.",
+        error instanceof Error
+          ? error.message
+          : "Relief point delete needs a live shelter-service API and an admin session.",
       );
       return false;
     } finally {
@@ -1054,6 +1092,19 @@ export function useCommandData() {
   };
 
   const createAlertDraft = async () => {
+    const startsAt = new Date(alertForm.startsAt);
+    const expiresAt = new Date(alertForm.expiresAt);
+    if (
+      !alertForm.startsAt ||
+      !alertForm.expiresAt ||
+      Number.isNaN(startsAt.getTime()) ||
+      Number.isNaN(expiresAt.getTime())
+    ) {
+      setAlertFeedback(
+        "Set valid start and expiry date/times before drafting an alert.",
+      );
+      return;
+    }
     setAlertBusy(true);
     setAlertFeedback("");
     try {
@@ -1063,7 +1114,7 @@ export function useCommandData() {
         body: JSON.stringify(buildAlertRequest()),
       });
       if (!response.ok) {
-        throw new Error(`alert API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
       const alert = (await response.json()) as AuthorityAlertRecord;
       setAlerts((current) => [
@@ -1074,7 +1125,9 @@ export function useCommandData() {
       setAlertFeedback("Draft created.");
     } catch (error) {
       setAlertFeedback(
-        "Alert API unavailable. Start alert-service to create drafts.",
+        error instanceof Error
+          ? error.message
+          : "Alert API unavailable. Start alert-service to create drafts.",
       );
     } finally {
       setAlertBusy(false);
@@ -1104,7 +1157,7 @@ export function useCommandData() {
         },
       );
       if (!response.ok) {
-        throw new Error(`alert API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
       const updatedAlert = (await response.json()) as AuthorityAlertRecord;
       setAlerts((current) =>
@@ -1119,7 +1172,11 @@ export function useCommandData() {
         playCommandAlarm();
       }
     } catch (error) {
-      setAlertFeedback("Alert action needs the alert-service API running.");
+      setAlertFeedback(
+        error instanceof Error
+          ? error.message
+          : "Alert action needs the alert-service API running.",
+      );
     } finally {
       setAlertBusy(false);
     }

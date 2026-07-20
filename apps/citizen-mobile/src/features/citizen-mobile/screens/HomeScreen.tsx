@@ -12,7 +12,7 @@ import {
 import type { CitizenScreenProps } from "./types";
 
 export function HomeScreen({ actions, state }: CitizenScreenProps) {
-  const floodRisk = state.risk.risks.find((risk) => risk.type === "flood");
+  const floodRisk = state.risk?.risks.find((risk) => risk.type === "flood");
   return (
     <View style={uiStyles.card_plain}>
       <ScreenHeading
@@ -35,14 +35,28 @@ export function HomeScreen({ actions, state }: CitizenScreenProps) {
         <View style={stylesRow}>
           <View style={stylesGrow}>
             <Text style={stylesSectionTitle}>Area risk</Text>
-            <Text style={stylesMuted}>{state.risk.location}</Text>
+            {state.risk ? (
+              <Text style={stylesMuted}>{state.risk.location}</Text>
+            ) : null}
           </View>
-          <SeverityBadge severity={state.risk.overallRisk} />
+          {state.risk ? (
+            <SeverityBadge severity={state.risk.overallRisk} />
+          ) : null}
         </View>
-        {floodRisk ? (
-          <Text style={stylesBody}>{floodRisk.reason}</Text>
+        {state.risk ? (
+          floodRisk ? (
+            <Text style={stylesBody}>{floodRisk.reason}</Text>
+          ) : (
+            <Text style={stylesBody}>
+              No flood risk details are available.
+            </Text>
+          )
         ) : (
-          <Text style={stylesBody}>No flood risk details are available.</Text>
+          <Text style={stylesBody}>
+            {state.loadState.status === "loading"
+              ? "Loading the live risk for your area…"
+              : "Live area risk is not available yet. Refresh to load the current risk for your area."}
+          </Text>
         )}
         <View style={stylesButtonGrid}>
           {mobileAreaPresets.map((preset, index) => (

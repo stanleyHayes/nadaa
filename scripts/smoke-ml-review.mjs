@@ -3,6 +3,13 @@ const mlBaseURL =
 const alertBaseURL =
   process.env.ALERT_API_URL?.trim() || "http://127.0.0.1:8089/api/v1";
 
+// ml-service gates every non-health endpoint when NADAA_INTERNAL_SERVICE_TOKEN
+// is configured, so send the shared service token on every ML call.
+const serviceTokenHeaders = {
+  "X-NADAA-Service-Token":
+    process.env.NADAA_INTERNAL_SERVICE_TOKEN || "dev-internal-service-token",
+};
+
 const drafterHeaders = {
   "Content-Type": "application/json",
   "X-NADAA-Actor-ID": "usr_smoke_ml_reviewer",
@@ -21,7 +28,7 @@ const approverHeaders = {
 
 const predictionResponse = await fetch(`${mlBaseURL}/ml/flood/predictions`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", ...serviceTokenHeaders },
   body: JSON.stringify({
     location: { lat: 5.56, lng: -0.2 },
     requestedBy: "smoke-ml-review",

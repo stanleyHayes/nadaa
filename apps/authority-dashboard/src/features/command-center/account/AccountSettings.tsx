@@ -41,8 +41,10 @@ export type AccountSettingsProps = {
   preferences: AuthorityAccountPreferences;
   onUpdateProfile: (patch: AuthorityProfilePatch) => void;
   onUpdatePreferences: (patch: Partial<AuthorityAccountPreferences>) => void;
-  onSetMfaEnabled: (enabled: boolean) => void;
-  onChangePassword: (current: string, next: string) => PasswordChangeResult;
+  onChangePassword: (
+    current: string,
+    next: string,
+  ) => Promise<PasswordChangeResult>;
 };
 
 export function AccountSettings({
@@ -52,7 +54,6 @@ export function AccountSettings({
   preferences,
   onUpdateProfile,
   onUpdatePreferences,
-  onSetMfaEnabled,
   onChangePassword,
 }: AccountSettingsProps) {
   return (
@@ -184,11 +185,7 @@ export function AccountSettings({
           />
         ) : null}
         {tab === "security" ? (
-          <SecurityTab
-            user={user}
-            onSetMfaEnabled={onSetMfaEnabled}
-            onChangePassword={onChangePassword}
-          />
+          <SecurityTab user={user} onChangePassword={onChangePassword} />
         ) : null}
         {tab === "notifications" ? (
           <NotificationsTab

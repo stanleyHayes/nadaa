@@ -217,7 +217,7 @@ func TestCellBroadcastDisabledAdapterSkips(t *testing.T) {
 		map[string]models.NotificationProvider{},
 		models.DisabledCellBroadcastAdapter{Reason: "telecom cell broadcast path is not configured"},
 		func() time.Time { return now },
-		&config.Config{Addr: ":8090", AllowMockActors: true},
+		&config.Config{Addr: ":8090", AllowMockActors: true, Env: "development"},
 	)
 	message := createApprovedCellBroadcast(t, srv, `["en"]`)
 

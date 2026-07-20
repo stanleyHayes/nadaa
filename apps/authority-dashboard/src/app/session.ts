@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import type { AgencyUserRole } from "@nadaa/shared-types";
+import type { AgencyUserProfile, AgencyUserRole } from "@nadaa/shared-types";
+import { AUTH_API_BASE } from "./config";
 
 export const commandRoles: AgencyUserRole[] = [
   "system_admin",
@@ -41,10 +42,22 @@ export type AuthorityProfilePatch = {
   department?: string;
 };
 
-/** Result of the mock {@link changeAuthorityPassword} action. */
+/** Result of the {@link changeAuthorityPassword} action. */
 export type PasswordChangeResult = {
   ok: boolean;
   message: string;
+};
+
+/** Result of an MFA enrollment action against the auth service. */
+export type MfaActionResult = {
+  ok: boolean;
+  message: string;
+};
+
+/** Result of starting MFA enrollment: the TOTP secret to display. */
+export type MfaSetupResult = MfaActionResult & {
+  secret?: string;
+  otpauthUrl?: string;
 };
 
 /**
@@ -66,7 +79,10 @@ export type AuthoritySessionState = {
   updateProfile: (patch: AuthorityProfilePatch) => void;
   updatePreferences: (patch: Partial<AuthorityAccountPreferences>) => void;
   setMfaEnabled: (enabled: boolean) => void;
-  changePassword: (current: string, next: string) => PasswordChangeResult;
+  changePassword: (
+    current: string,
+    next: string,
+  ) => Promise<PasswordChangeResult>;
 };
 
 /**
@@ -348,7 +364,7 @@ export function signOutAuthority() {
 /**
  * Update the signed-in operator's editable profile fields. Email stays fixed —
  * it is presented as administrator-managed — so only name and department move.
- * TODO: wire to real profile/password/MFA API.
+ * TODO: wire to real profile API.
  */
 export function updateAuthorityProfile(patch: AuthorityProfilePatch) {
   if (!currentSession) {
@@ -374,9 +390,10 @@ export function updateAuthorityPreferences(
 }
 
 /**
- * Toggle whether an authenticator is enrolled. This never clears the current
- * session's completed-MFA gate, so disabling never locks the operator out mid
- * shift. TODO: wire to real profile/password/MFA API.
+ * Record the server-verified MFA enrollment state on the session. Called only
+ * after the auth service confirms a change (verify succeeded, or a profile
+ * refresh read the directory state) — never as a local-only toggle. This never
+ * clears the current session's completed-MFA gate.
  */
 export function setAuthorityMfaEnabled(enabled: boolean) {
   if (!currentSession) {
@@ -387,14 +404,36 @@ export function setAuthorityMfaEnabled(enabled: boolean) {
   emit();
 }
 
+/** Read the auth-service error body (`{error:{code,message}}`) if present. */
+async function readAuthError(
+  response: Response,
+): Promise<{ code: string; message: string }> {
+  try {
+    const body = (await response.json()) as {
+      error?: { code?: string; message?: string };
+      message?: string;
+    };
+    return {
+      code: body.error?.code ?? "",
+      message:
+        body.error?.message ??
+        body.message ??
+        `Request failed (${response.status}).`,
+    };
+  } catch {
+    return { code: "", message: `Request failed (${response.status}).` };
+  }
+}
+
 /**
- * Mock password change. Validates locally and returns a result; there is no
- * backend in this build. TODO: wire to real profile/password/MFA API.
+ * Change the signed-in operator's password through the auth service. Success
+ * is reported only on a 200 response; 400 (validation), 401 (wrong current
+ * password or expired session), and 429 (lockout) surface their own messages.
  */
-export function changeAuthorityPassword(
+export async function changeAuthorityPassword(
   current: string,
   next: string,
-): PasswordChangeResult {
+): Promise<PasswordChangeResult> {
   if (!current.trim()) {
     return { ok: false, message: "Enter your current password." };
   }
@@ -410,10 +449,196 @@ export function changeAuthorityPassword(
       message: "New password must be different from your current password.",
     };
   }
-  return {
-    ok: true,
-    message: "Password updated. Use it the next time you sign in.",
-  };
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/auth/agency/password`, {
+      method: "POST",
+      headers: authorityHeaders(),
+      body: JSON.stringify({
+        currentPassword: current,
+        newPassword: next,
+      }),
+    });
+    if (response.ok) {
+      return {
+        ok: true,
+        message: "Password updated. Use it the next time you sign in.",
+      };
+    }
+    const failure = await readAuthError(response);
+    if (response.status === 401) {
+      return {
+        ok: false,
+        message:
+          failure.message ||
+          "Current password is incorrect, or your session expired — sign in again.",
+      };
+    }
+    if (response.status === 429) {
+      return {
+        ok: false,
+        message:
+          failure.message ||
+          "Too many attempts. Wait a few minutes and try again.",
+      };
+    }
+    return { ok: false, message: failure.message };
+  } catch {
+    return {
+      ok: false,
+      message:
+        "Could not reach the sign-in service. Check your connection and try again.",
+    };
+  }
+}
+
+/**
+ * Start MFA enrollment for the signed-in operator. The auth service checks
+ * the account password (the `temporaryPassword` field of the enrollment
+ * contract), then issues a fresh TOTP secret; the operator adds it to their
+ * authenticator, then confirms with a live code via
+ * {@link verifyAuthorityMfaEnrollment}.
+ */
+export async function startAuthorityMfaEnrollment(
+  password: string,
+): Promise<MfaSetupResult> {
+  if (!currentSession) {
+    return { ok: false, message: "Sign in before enabling MFA." };
+  }
+  if (!password) {
+    return { ok: false, message: "Enter your current password to continue." };
+  }
+  try {
+    const response = await fetch(
+      `${AUTH_API_BASE}/auth/agency-users/${encodeURIComponent(currentSession.id)}/mfa/setup`,
+      {
+        method: "POST",
+        headers: authorityHeaders(),
+        body: JSON.stringify({
+          email: currentSession.email,
+          temporaryPassword: password,
+        }),
+      },
+    );
+    if (response.ok) {
+      const payload = (await response.json()) as {
+        secret?: string;
+        otpauthUrl?: string;
+      };
+      if (!payload.secret) {
+        return {
+          ok: false,
+          message: "The sign-in service did not return an authenticator secret.",
+        };
+      }
+      return {
+        ok: true,
+        message: "Authenticator secret created.",
+        secret: payload.secret,
+        otpauthUrl: payload.otpauthUrl,
+      };
+    }
+    const failure = await readAuthError(response);
+    if (response.status === 409) {
+      // The directory says MFA is already on — adopt the server state.
+      setAuthorityMfaEnabled(true);
+      return { ok: false, message: failure.message };
+    }
+    if (response.status === 429) {
+      return {
+        ok: false,
+        message:
+          failure.message ||
+          "Too many attempts. Wait a few minutes and try again.",
+      };
+    }
+    return { ok: false, message: failure.message };
+  } catch {
+    return {
+      ok: false,
+      message:
+        "Could not reach the sign-in service. Check your connection and try again.",
+    };
+  }
+}
+
+/**
+ * Confirm MFA enrollment with the current six-digit authenticator code. The
+ * session's MFA flag flips only after the auth service verifies the code.
+ */
+export async function verifyAuthorityMfaEnrollment(
+  code: string,
+  password: string,
+): Promise<MfaActionResult> {
+  if (!currentSession) {
+    return { ok: false, message: "Sign in before enabling MFA." };
+  }
+  try {
+    const response = await fetch(
+      `${AUTH_API_BASE}/auth/agency-users/${encodeURIComponent(currentSession.id)}/mfa/verify`,
+      {
+        method: "POST",
+        headers: authorityHeaders(),
+        body: JSON.stringify({
+          code,
+          email: currentSession.email,
+          temporaryPassword: password,
+        }),
+      },
+    );
+    if (response.ok) {
+      setAuthorityMfaEnabled(true);
+      return { ok: true, message: "Multi-factor authentication enabled." };
+    }
+    const failure = await readAuthError(response);
+    if (response.status === 401) {
+      return {
+        ok: false,
+        message:
+          failure.message ||
+          "That code did not match. Check your authenticator and try again.",
+      };
+    }
+    if (response.status === 429) {
+      return {
+        ok: false,
+        message:
+          failure.message ||
+          "Too many attempts. Wait for the lockout to clear, then try again.",
+      };
+    }
+    return { ok: false, message: failure.message };
+  } catch {
+    return {
+      ok: false,
+      message:
+        "Could not reach the sign-in service. Check your connection and try again.",
+    };
+  }
+}
+
+/**
+ * Refresh the signed-in profile from the auth service so account screens show
+ * the directory's MFA state rather than a stale local copy. Silent on
+ * failure — the last known session keeps rendering.
+ */
+export async function syncAuthorityProfile(): Promise<void> {
+  if (!currentSession) {
+    return;
+  }
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/auth/me`, {
+      headers: authorityHeaders(),
+    });
+    if (!response.ok) {
+      return;
+    }
+    const profile = (await response.json()) as AgencyUserProfile;
+    if (typeof profile.mfaEnabled === "boolean") {
+      setAuthorityMfaEnabled(profile.mfaEnabled);
+    }
+  } catch {
+    // Offline or expired session — keep the last known profile.
+  }
 }
 
 /**

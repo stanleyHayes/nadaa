@@ -19,6 +19,9 @@ const serviceName = "road-closure-service"
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
 	s := store.NewMemoryStore(time.Now().UTC())
 	srv := handlers.NewServer(s, time.Now, cfg)
 

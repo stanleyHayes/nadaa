@@ -43,7 +43,7 @@ export function NotificationsTab({
           <PreferenceRow
             icon={MessageSquareWarning}
             label="Critical incident SMS"
-            description="Text your duty phone when an emergency or severe incident opens."
+            description="Text your duty phone when an emergency or severe incident opens. Not connected yet — SMS delivery is coming soon; this toggle only saves your choice in this browser."
             checked={draft.criticalSms}
             onChange={(checked) =>
               setDraft((current) => ({ ...current, criticalSms: checked }))
@@ -52,7 +52,7 @@ export function NotificationsTab({
           <PreferenceRow
             icon={Mail}
             label="Aid-review email"
-            description="Email you when an aid need is waiting for your review."
+            description="Email you when an aid need is waiting for your review. Not connected yet — email delivery is coming soon; this toggle only saves your choice in this browser."
             checked={draft.approvalEmail}
             onChange={(checked) =>
               setDraft((current) => ({ ...current, approvalEmail: checked }))

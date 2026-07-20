@@ -112,92 +112,76 @@ async function fetchShelters(
   lat: number,
   lng: number,
 ): Promise<ShelterRecord[]> {
-  try {
-    const params = new URLSearchParams({
-      lat: lat.toString(),
-      lng: lng.toString(),
-    });
-    const response = await fetch(
-      `${SHELTER_API_BASE}/shelters/nearby?${params}`,
-    );
-    if (!response.ok) {
-      throw new Error(await extractError(response));
-    }
-    const payload = (await response.json()) as { shelters: ShelterRecord[] };
-    return payload.shelters;
-  } catch {
-    return [];
+  const params = new URLSearchParams({
+    lat: lat.toString(),
+    lng: lng.toString(),
+  });
+  const response = await fetch(
+    `${SHELTER_API_BASE}/shelters/nearby?${params}`,
+  );
+  if (!response.ok) {
+    throw new Error(await extractError(response));
   }
+  const payload = (await response.json()) as { shelters: ShelterRecord[] };
+  return payload.shelters;
 }
 
 async function fetchHospitalCapacity(
   lat: number,
   lng: number,
 ): Promise<HospitalCapacityRecord[]> {
-  try {
-    const params = new URLSearchParams({
-      includeStale: "true",
-      lat: lat.toString(),
-      limit: "6",
-      lng: lng.toString(),
-    });
-    const response = await fetch(
-      `${SHELTER_API_BASE}/hospitals/capacity?${params}`,
-    );
-    if (!response.ok) {
-      throw new Error(await extractError(response));
-    }
-    const payload = (await response.json()) as HospitalCapacityResponse;
-    return payload.facilities;
-  } catch {
-    return [];
+  const params = new URLSearchParams({
+    includeStale: "true",
+    lat: lat.toString(),
+    limit: "6",
+    lng: lng.toString(),
+  });
+  const response = await fetch(
+    `${SHELTER_API_BASE}/hospitals/capacity?${params}`,
+  );
+  if (!response.ok) {
+    throw new Error(await extractError(response));
   }
+  const payload = (await response.json()) as HospitalCapacityResponse;
+  return payload.facilities;
 }
 
 async function fetchRoadClosures(
   lat: number,
   lng: number,
 ): Promise<RoadClosureRecord[]> {
-  try {
-    const params = new URLSearchParams({
-      lat: lat.toString(),
-      limit: "6",
-      lng: lng.toString(),
-    });
-    const response = await fetch(
-      `${ROAD_CLOSURE_API_BASE}/road-closures?${params}`,
-    );
-    if (!response.ok) {
-      throw new Error(await extractError(response));
-    }
-    const payload = (await response.json()) as RoadClosureListResponse;
-    return payload.closures;
-  } catch {
-    return [];
+  const params = new URLSearchParams({
+    lat: lat.toString(),
+    limit: "6",
+    lng: lng.toString(),
+  });
+  const response = await fetch(
+    `${ROAD_CLOSURE_API_BASE}/road-closures?${params}`,
+  );
+  if (!response.ok) {
+    throw new Error(await extractError(response));
   }
+  const payload = (await response.json()) as RoadClosureListResponse;
+  return payload.closures;
 }
 
 async function fetchNearbyReliefPoints(
   lat: number,
   lng: number,
 ): Promise<ReliefPointRecord[]> {
-  try {
-    const params = new URLSearchParams({
-      lat: lat.toString(),
-      limit: "6",
-      lng: lng.toString(),
-    });
-    const response = await fetch(
-      `${SHELTER_API_BASE}/relief-points/nearby?${params}`,
-    );
-    if (!response.ok) {
-      throw new Error(await extractError(response));
-    }
-    const payload = (await response.json()) as ReliefPointNearbyResponse;
-    return payload.reliefPoints;
-  } catch {
-    return [];
+  const params = new URLSearchParams({
+    lat: lat.toString(),
+    limit: "6",
+    lng: lng.toString(),
+  });
+  const response = await fetch(
+    `${SHELTER_API_BASE}/relief-points/nearby?${params}`,
+  );
+  if (!response.ok) {
+    throw new Error(await extractError(response));
   }
+  const payload = (await response.json()) as ReliefPointNearbyResponse;
+  return payload.reliefPoints;
 }
 
 async function fetchReliefPoints(): Promise<ReliefPointRecord[]> {
@@ -390,6 +374,7 @@ export function useAgencyData(session: AgencySession) {
   >(null);
   const [capacityLoadState, setCapacityLoadState] =
     useState<IncidentLoadState>("loading");
+  const [capacityError, setCapacityError] = useState<string | null>(null);
   const [roadClosures, setRoadClosures] = useState<RoadClosureRecord[]>([]);
   const [nearbyReliefPoints, setNearbyReliefPoints] = useState<
     ReliefPointRecord[]
@@ -491,24 +476,48 @@ export function useAgencyData(session: AgencySession) {
 
   async function loadCapacity(lat: number, lng: number) {
     setCapacityLoadState("loading");
-    const [nearbyShelters, nearbyHospitals, nearbyClosures, nearbyRelief] =
-      await Promise.all([
-        fetchShelters(lat, lng),
-        fetchHospitalCapacity(lat, lng),
-        fetchRoadClosures(lat, lng),
-        fetchNearbyReliefPoints(lat, lng),
-      ]);
-    setShelters(nearbyShelters);
-    setHospitals(nearbyHospitals);
-    setRoadClosures(nearbyClosures);
-    setNearbyReliefPoints(nearbyRelief);
-    setCapacityLoadState(
-      nearbyShelters.length > 0 ||
-        nearbyHospitals.length > 0 ||
-        nearbyClosures.length > 0 ||
-        nearbyRelief.length > 0
-        ? "ready"
-        : "empty",
+    setCapacityError(null);
+    try {
+      const [nearbyShelters, nearbyHospitals, nearbyClosures, nearbyRelief] =
+        await Promise.all([
+          fetchShelters(lat, lng),
+          fetchHospitalCapacity(lat, lng),
+          fetchRoadClosures(lat, lng),
+          fetchNearbyReliefPoints(lat, lng),
+        ]);
+      setShelters(nearbyShelters);
+      setHospitals(nearbyHospitals);
+      setRoadClosures(nearbyClosures);
+      setNearbyReliefPoints(nearbyRelief);
+      setCapacityLoadState(
+        nearbyShelters.length > 0 ||
+          nearbyHospitals.length > 0 ||
+          nearbyClosures.length > 0 ||
+          nearbyRelief.length > 0
+          ? "ready"
+          : "empty",
+      );
+    } catch (error) {
+      // An outage must not masquerade as "no shelters nearby" — clear the
+      // collections and surface the failure with a retry path.
+      setShelters([]);
+      setHospitals([]);
+      setRoadClosures([]);
+      setNearbyReliefPoints([]);
+      setCapacityError(
+        error instanceof Error
+          ? error.message
+          : "Could not load nearby capacity.",
+      );
+      setCapacityLoadState("error");
+    }
+  }
+
+  /** Retry the capacity load against the current incident (or default) scene. */
+  async function reloadCapacity() {
+    await loadCapacity(
+      selectedIncident?.location.lat ?? DEFAULT_CAPACITY_LOCATION.lat,
+      selectedIncident?.location.lng ?? DEFAULT_CAPACITY_LOCATION.lng,
     );
   }
 
@@ -922,17 +931,19 @@ export function useAgencyData(session: AgencySession) {
     setAidUpdateState("loading");
     setAidError(null);
     try {
-      const reviewed = await reviewAidRequest(selectedAidRequest.id, {
-        antiFraudNotes:
-          status === "approved" || status === "open"
-            ? "Receiving organization, contact, and category checked by agency operator."
-            : "Reviewed by agency operator.",
-        approvalNotes:
-          status === "approved" || status === "open"
-            ? "Approved for partner/public aid listing."
-            : "Status updated by agency operator.",
-        status,
-      });
+      // Pause/close only moves the status: approval notes and anti-fraud
+      // notes are server-owned review fields, so they stay off the payload
+      // and the service preserves what the original review recorded.
+      const request: ReviewAidRequestRequest = { status };
+      if (status === "approved" || status === "open") {
+        request.antiFraudNotes =
+          "Receiving organization, contact, and category checked by agency operator.";
+        request.approvalNotes = "Approved for partner/public aid listing.";
+      } else if (status === "rejected") {
+        request.antiFraudNotes = "Reviewed by agency operator.";
+        request.approvalNotes = "Status updated by agency operator.";
+      }
+      const reviewed = await reviewAidRequest(selectedAidRequest.id, request);
       setAidRequests((current) =>
         current.map((request) =>
           request.id === reviewed.id ? reviewed : request,
@@ -1059,6 +1070,8 @@ export function useAgencyData(session: AgencySession) {
     roadClosures,
     nearbyReliefPoints,
     capacityLoadState,
+    capacityError,
+    reloadCapacity,
     sheltersCritical,
     shelterForm,
     setShelterForm,

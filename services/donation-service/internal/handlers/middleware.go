@@ -45,6 +45,15 @@ func (s *Server) requireAuthority(w http.ResponseWriter, r *http.Request) (model
 	return ctx, true
 }
 
+// verifiedAuthorityCaller reports whether the request carries a complete
+// authority context (verified bearer token, or mock actor headers when
+// explicitly allowed) with MFA completed and an authority role. Unlike
+// requireAuthority it writes no response, so public endpoints can branch on it.
+func (s *Server) verifiedAuthorityCaller(r *http.Request) bool {
+	ctx, ok := s.authorityContextFromRequest(r)
+	return ok && ctx.MFACompleted && authorityRoles[ctx.ActorRole]
+}
+
 // authorityContextFromRequest builds the authority context from a verified
 // bearer token's claims. Legacy X-NADAA-Actor-* headers are honored only when
 // NADAA_AUTH_ALLOW_MOCK_ACTORS=true (local dev and smoke tests); otherwise they

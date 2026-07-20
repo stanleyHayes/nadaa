@@ -18,7 +18,7 @@ type Store interface {
 	ListRequests() []models.OpenDataRequest
 	GetRequest(id string) (models.OpenDataRequest, bool)
 	UpdateRequest(req models.OpenDataRequest) models.OpenDataRequest
-	RecordDownload(datasetID, format, ip string, now time.Time) models.DatasetDownload
+	RecordDownload(datasetID, format, ip string, sizeBytes int64, now time.Time) models.DatasetDownload
 	GetDownload(id string) (models.DatasetDownload, bool)
 	RecordAuditEvent(event models.AuditEvent) models.AuditEvent
 	ListAuditEvents() []models.AuditEvent
@@ -133,9 +133,9 @@ func (m *MemoryStore) UpdateRequest(req models.OpenDataRequest) models.OpenDataR
 }
 
 // RecordDownload creates a download record and returns it. The URL points at
-// the real download endpoint; no checksum is fabricated for an artifact whose
-// bytes this service does not hold.
-func (m *MemoryStore) RecordDownload(datasetID, format, ip string, now time.Time) models.DatasetDownload {
+// the real download endpoint and sizeBytes is the exact byte size of the
+// artifact served there; nothing about the artifact is fabricated.
+func (m *MemoryStore) RecordDownload(datasetID, format, ip string, sizeBytes int64, now time.Time) models.DatasetDownload {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -144,7 +144,7 @@ func (m *MemoryStore) RecordDownload(datasetID, format, ip string, now time.Time
 		DatasetID: datasetID,
 		Format:    format,
 		URL:       "/api/v1/open-data/datasets/" + datasetID + "/download?format=" + format,
-		Size:      estimateSize(datasetID, format),
+		Size:      sizeBytes,
 		CreatedAt: now,
 	}
 	m.downloads[download.ID] = download

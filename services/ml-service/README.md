@@ -26,11 +26,21 @@ NADAA-072 adds the MVP HTTP service:
 
 - `GET /healthz`
 - `POST /api/v1/ml/flood/predictions`
-- `GET /api/v1/ml/prediction-logs`
+- `GET /api/v1/ml/prediction-logs?limit=&offset=`
+- `POST /api/v1/ml/flood/simulations`
+- `GET /api/v1/ml/flood/simulations?limit=&offset=` and `GET /api/v1/ml/flood/simulations/{id}`
+- `POST /api/v1/cv/analyze`
+- `GET /api/v1/cv/results?limit=&offset=` and `GET /api/v1/cv/results/{imageId}`
+- `PATCH /api/v1/cv/results/{id}/review`
+- `GET /api/v1/forecasts` family and `GET /api/v1/staging-suggestions`
 
 The service listens on `:8094` by default. Set `NADAA_ML_ADDR` to override the bind address and `NADAA_ML_MODEL_DIR` when model artifacts are mounted somewhere other than the repository defaults.
 
-All endpoints except `GET /healthz` require either a verified NADAA bearer token (`Authorization: Bearer nadaa.<payload>.<sig>`, verified with `NADAA_AUTH_TOKEN_SECRET`) or the `X-NADAA-Service-Token` header matching `NADAA_INTERNAL_SERVICE_TOKEN`. When `NADAA_INTERNAL_SERVICE_TOKEN` is unset the service-token path stays open (development default) and a warning is logged at startup. Legacy `X-NADAA-Actor-*` mock actor headers are honored only when `NADAA_AUTH_ALLOW_MOCK_ACTORS=true`.
+All endpoints except `GET /healthz` require either a verified NADAA bearer token (`Authorization: Bearer nadaa.<payload>.<sig>`, verified with `NADAA_AUTH_TOKEN_SECRET`) whose claims carry an agency/dispatcher role (`system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher` — verified tokens without one, such as citizen tokens, get `403`), or the `X-NADAA-Service-Token` header matching `NADAA_INTERNAL_SERVICE_TOKEN`. When `NADAA_INTERNAL_SERVICE_TOKEN` is unset the service-token path fails closed (the header is ignored) and a warning is logged at startup. Legacy `X-NADAA-Actor-*` mock actor headers are honored only when `NADAA_AUTH_ALLOW_MOCK_ACTORS=true`, and that setting is rejected at startup unless `NADAA_ENV=development`.
+
+`PATCH /api/v1/cv/results/{id}/review` records a human review decision on a CV result (looked up by result ID or image ID): body `{"decision":"approved"|"rejected", "note"?}`, `200` returns the updated result (`{"result": {...}}` with `reviewStatus`, `reviewedBy`, `reviewedAt`), `400 invalid_decision` for other decisions, `404` for unknown IDs. The reviewer identity always comes from a verified agency bearer token — service tokens and mock headers are not accepted for review.
+
+List endpoints paginate with `limit` (default 50, max 200) and `offset`, and report `total`, `limit`, and `offset`. In-memory collections are bounded with FIFO eviction: 500 prediction logs, 100 simulation runs, and 500 CV results. Simulation creation rejects non-positive `durationHours`/`timeStepHours` (previously silently defaulted) and names over 200 characters.
 
 At startup the service verifies `checksums.sha256` in the model directory (sha256 of the model artifacts and the generated features file) and refuses to load on mismatch; set `NADAA_ML_SKIP_INTEGRITY_CHECK=true` to bypass. Regenerate the manifest after retraining or regenerating features:
 

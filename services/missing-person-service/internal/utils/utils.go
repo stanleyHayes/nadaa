@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/stanleyHayes/nadaa/services/missing-person-service/internal/models"
@@ -82,6 +83,20 @@ func isDevelopmentEnv() bool {
 func EnvOrDefault(key, fallback string) string {
 	value := os.Getenv(key)
 	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+// EnvOrDefaultInt returns the integer value of key or fallback if unset or
+// not a valid integer.
+func EnvOrDefaultInt(key string, fallback int) int {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
 		return fallback
 	}
 	return value

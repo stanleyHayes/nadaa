@@ -34,19 +34,23 @@ var (
 	}
 )
 
-// DecodeJSON decodes a JSON request body into target.
-func DecodeJSON(r *http.Request, target any) error {
-	decoder := json.NewDecoder(r.Body)
+// MaxRequestBodyBytes caps JSON request bodies at 1 MiB.
+const MaxRequestBodyBytes = 1 << 20
+
+// DecodeJSON decodes a JSON request body into target, capping the body at
+// MaxRequestBodyBytes so oversized payloads are rejected during decode.
+func DecodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes))
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(target)
 }
 
 // OptionalDecodeJSON decodes a JSON body when content is present.
-func OptionalDecodeJSON(r *http.Request, target any) error {
+func OptionalDecodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
 	if r.Body == nil || r.ContentLength == 0 {
 		return nil
 	}
-	return DecodeJSON(r, target)
+	return DecodeJSON(w, r, target)
 }
 
 // WriteJSON writes a JSON response with the given status code.
@@ -96,7 +100,7 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, allowedOrigins map
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 	}
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
 }
 

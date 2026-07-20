@@ -17,11 +17,11 @@ import (
 type Store interface {
 	CVStore
 	Predict(req models.PredictionRequest, now time.Time) (models.PredictionResponse, error)
-	ListLogs() []models.PredictionLog
+	ListLogs(limit, offset int) ([]models.PredictionLog, int)
 	ModelVersion() string
 	CreateSimulationJob(req models.CreateSimulationRequest, now time.Time) (models.SimulationRun, error)
 	GetSimulationJob(id string) (models.SimulationRun, bool)
-	ListSimulationJobs() []models.SimulationRun
+	ListSimulationJobs(limit, offset int) ([]models.SimulationRun, int)
 	ListForecasts(region string, now time.Time) []models.DemandForecast
 	StagingSuggestions(agencyType string, now time.Time) []models.StagingSuggestion
 	CompareScenarios(req models.CompareScenarioRequest, now time.Time) []models.ScenarioResult
@@ -34,7 +34,25 @@ const (
 	// maxSimulationSteps caps the computed frame count so a tiny time step
 	// cannot exhaust memory.
 	maxSimulationSteps = 500
+	// maxSimulationNameLength bounds caller-supplied simulation names.
+	maxSimulationNameLength = 200
+	// maxPredictionLogs bounds the in-memory prediction audit log; the oldest
+	// entries are evicted FIFO once the cap is reached.
+	maxPredictionLogs = 500
+	// maxSimulationRuns bounds stored simulation runs; the oldest runs are
+	// evicted FIFO once the cap is reached.
+	maxSimulationRuns = 100
 )
+
+// paginate returns the requested page of items and the total item count.
+func paginate[T any](items []T, limit, offset int) ([]T, int) {
+	total := len(items)
+	if offset >= total {
+		return []T{}, total
+	}
+	end := min(offset+limit, total)
+	return items[offset:end], total
+}
 
 // MemoryStore is an in-memory implementation of Store seeded from fixture files.
 type MemoryStore struct {
@@ -113,6 +131,10 @@ func (m *MemoryStore) Predict(req models.PredictionRequest, now time.Time) (mode
 	m.logCounter++
 	logEntry.ID = fmt.Sprintf("ml_log_%s_%s_%06d", now.Format("20060102150405"), utils.SanitizeID(prediction.CellID), m.logCounter)
 	m.logs = append(m.logs, logEntry)
+	// FIFO eviction keeps the audit log bounded.
+	if len(m.logs) > maxPredictionLogs {
+		m.logs = m.logs[len(m.logs)-maxPredictionLogs:]
+	}
 	m.mu.Unlock()
 
 	return models.PredictionResponse{
@@ -156,16 +178,20 @@ func (m *MemoryStore) nearestPrediction(location models.Coordinates) (models.Sto
 	return candidates[0].prediction, int(math.Round(candidates[0].distance)), nil
 }
 
-// ListLogs returns a copy of the stored prediction logs sorted newest first.
-func (m *MemoryStore) ListLogs() []models.PredictionLog {
+// ListLogs returns a page of the stored prediction logs sorted newest first,
+// with the total number of retained logs.
+func (m *MemoryStore) ListLogs(limit, offset int) ([]models.PredictionLog, int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	logs := append([]models.PredictionLog(nil), m.logs...)
 	sort.Slice(logs, func(i, j int) bool {
-		return logs[i].CreatedAt > logs[j].CreatedAt
+		if logs[i].CreatedAt != logs[j].CreatedAt {
+			return logs[i].CreatedAt > logs[j].CreatedAt
+		}
+		return logs[i].ID > logs[j].ID
 	})
-	return logs
+	return paginate(logs, limit, offset)
 }
 
 // CreateSimulationJob runs a deterministic flood simulation and stores the result.
@@ -173,14 +199,14 @@ func (m *MemoryStore) CreateSimulationJob(req models.CreateSimulationRequest, no
 	if strings.TrimSpace(req.Name) == "" {
 		return models.SimulationRun{}, errors.New("simulation name is required")
 	}
-	if req.DurationHours <= 0 {
-		req.DurationHours = 6
+	if len(strings.TrimSpace(req.Name)) > maxSimulationNameLength {
+		return models.SimulationRun{}, fmt.Errorf("simulation name must be %d characters or fewer", maxSimulationNameLength)
 	}
-	if req.DurationHours > maxSimulationDurationHours {
+	if req.DurationHours < 1 || req.DurationHours > maxSimulationDurationHours {
 		return models.SimulationRun{}, fmt.Errorf("durationHours must be between 1 and %d", maxSimulationDurationHours)
 	}
-	if req.TimeStepHours <= 0 {
-		req.TimeStepHours = 1
+	if req.TimeStepHours < 1 {
+		return models.SimulationRun{}, errors.New("timeStepHours must be at least 1")
 	}
 	if req.TimeStepHours > req.DurationHours {
 		req.TimeStepHours = req.DurationHours
@@ -222,8 +248,12 @@ func (m *MemoryStore) CreateSimulationJob(req models.CreateSimulationRequest, no
 	m.simulationMu.Lock()
 	m.simulationCounter++
 	run.ID = fmt.Sprintf("sim_%s_%06d", now.Format("20060102150405"), m.simulationCounter)
-	run.Reference = fmt.Sprintf("FS-%s-%05d", now.Format("2006"), len(m.simulations)+1)
+	run.Reference = fmt.Sprintf("FS-%s-%05d", now.Format("2006"), m.simulationCounter)
 	m.simulations = append(m.simulations, run)
+	// FIFO eviction keeps stored runs bounded.
+	if len(m.simulations) > maxSimulationRuns {
+		m.simulations = m.simulations[len(m.simulations)-maxSimulationRuns:]
+	}
 	m.simulationMu.Unlock()
 
 	frames := m.runSimulation(scenario, now)
@@ -256,16 +286,20 @@ func (m *MemoryStore) GetSimulationJob(id string) (models.SimulationRun, bool) {
 	return models.SimulationRun{}, false
 }
 
-// ListSimulationJobs returns simulation jobs sorted newest first.
-func (m *MemoryStore) ListSimulationJobs() []models.SimulationRun {
+// ListSimulationJobs returns a page of simulation jobs sorted newest first,
+// with the total number of retained jobs.
+func (m *MemoryStore) ListSimulationJobs(limit, offset int) ([]models.SimulationRun, int) {
 	m.simulationMu.Lock()
 	defer m.simulationMu.Unlock()
 
 	jobs := append([]models.SimulationRun(nil), m.simulations...)
 	sort.Slice(jobs, func(i, j int) bool {
-		return jobs[i].CreatedAt > jobs[j].CreatedAt
+		if jobs[i].CreatedAt != jobs[j].CreatedAt {
+			return jobs[i].CreatedAt > jobs[j].CreatedAt
+		}
+		return jobs[i].ID > jobs[j].ID
 	})
-	return jobs
+	return paginate(jobs, limit, offset)
 }
 
 func (m *MemoryStore) runSimulation(scenario models.SimulationScenario, now time.Time) []models.SimulationFrame {

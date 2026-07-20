@@ -10,6 +10,24 @@ import (
 	"github.com/stanleyHayes/nadaa/services/auth-service/internal/utils"
 )
 
+// serviceTokenHeader carries the shared service-to-service credential
+// (NADAA_INTERNAL_SERVICE_TOKEN) on internal calls.
+//
+//nolint:gosec // G101: header name constant, not a credential.
+const serviceTokenHeader = "X-NADAA-Service-Token"
+
+// allAgencyRoles matches every authority role, for endpoints open to any
+// authenticated agency user rather than a restricted role set.
+var allAgencyRoles = []string{
+	models.RoleAgencyViewer,
+	models.RoleDispatcher,
+	models.RoleResponder,
+	models.RoleNADMOOfficer,
+	models.RoleDistrictOfficer,
+	models.RoleAgencyAdmin,
+	models.RoleSystemAdmin,
+}
+
 // agencyProfileFromMockHeaders accepts the shared X-NADAA-* actor headers used
 // by the rest of the platform's services (see each service's requireAuthority).
 // It lets the demo dashboards reach auth-service governance endpoints without a

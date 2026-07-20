@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -169,6 +170,7 @@ func TestAgencyRoleCatalogCoversAuthorityRoles(t *testing.T) {
 }
 
 func TestAgencyUserCreationSetupMFALoginAndProfile(t *testing.T) {
+	t.Setenv("NADAA_ENV", "development")
 	srv := newTestServer()
 	_, adminToken := seedVerifiedAgencyUser(t, srv, models.RoleSystemAdmin, "admin@nadaa.local", "+233200000001")
 
@@ -219,8 +221,35 @@ func TestAgencyUserCreationSetupMFALoginAndProfile(t *testing.T) {
 
 	var setupPayload models.AgencyMFASetupResponse
 	decodeResponse(t, setup, &setupPayload)
-	if setupPayload.DevCode != "123456" || setupPayload.Secret == "" || setupPayload.ChallengeID == "" {
-		t.Fatalf("expected exposed dev MFA challenge, got %#v", setupPayload)
+	if setupPayload.Method != "totp" || setupPayload.Secret == "" || setupPayload.ChallengeID == "" {
+		t.Fatalf("expected TOTP enrollment challenge, got %#v", setupPayload)
+	}
+	if !strings.Contains(setupPayload.OTPAuthURL, "otpauth://totp/") || !strings.Contains(setupPayload.OTPAuthURL, "secret="+setupPayload.Secret) {
+		t.Fatalf("expected otpauth URL carrying the secret, got %q", setupPayload.OTPAuthURL)
+	}
+	currentCode, err := utils.TOTPCode(setupPayload.Secret, srv.now())
+	if err != nil {
+		t.Fatalf("compute current TOTP code: %v", err)
+	}
+	if setupPayload.DevCode != currentCode {
+		t.Fatalf("expected dev code to expose the current TOTP code in development, got %q", setupPayload.DevCode)
+	}
+
+	// A code outside the ±1 step verification window must be rejected.
+	staleCode, err := utils.TOTPCode(setupPayload.Secret, srv.now().Add(-3*30*time.Second))
+	if err != nil {
+		t.Fatalf("compute stale TOTP code: %v", err)
+	}
+	staleVerify := httptest.NewRecorder()
+	staleVerifyRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency-users/"+createPayload.User.ID+"/mfa/verify", jsonBody(models.AgencyMFAVerifyRequest{
+		Email:             "dispatcher@nadaa.local",
+		TemporaryPassword: createPayload.TemporaryPassword,
+		Code:              staleCode,
+	}))
+	staleVerifyRequest.SetPathValue("id", createPayload.User.ID)
+	srv.verifyAgencyMFAHandler(staleVerify, staleVerifyRequest)
+	if staleVerify.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for out-of-window code, got %d", http.StatusUnauthorized, staleVerify.Code)
 	}
 
 	verify := httptest.NewRecorder()
@@ -248,6 +277,16 @@ func TestAgencyUserCreationSetupMFALoginAndProfile(t *testing.T) {
 	})))
 	if loginMissingMFA.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d for missing MFA code, got %d", http.StatusUnauthorized, loginMissingMFA.Code)
+	}
+
+	loginWrongMFA := httptest.NewRecorder()
+	srv.loginAgencyHandler(loginWrongMFA, httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/login", jsonBody(models.LoginAgencyRequest{
+		Email:    "dispatcher@nadaa.local",
+		Password: createPayload.TemporaryPassword,
+		MFACode:  staleCode,
+	})))
+	if loginWrongMFA.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for out-of-window MFA code, got %d", http.StatusUnauthorized, loginWrongMFA.Code)
 	}
 
 	login := httptest.NewRecorder()
@@ -302,6 +341,7 @@ func TestAgencyUserCreationRejectsUnauthorizedRoles(t *testing.T) {
 }
 
 func TestAuditLogsCaptureAuthAndAdminEvents(t *testing.T) {
+	t.Setenv("NADAA_ENV", "development")
 	srv := newTestServer()
 	_, adminToken := seedVerifiedAgencyUser(t, srv, models.RoleSystemAdmin, "admin@nadaa.local", "+233200000001")
 
@@ -459,12 +499,17 @@ func seedVerifiedAgencyUser(t *testing.T, srv *Server, role string, email string
 		t.Fatalf("seed agency user: %v", err)
 	}
 
-	challenge, err := srv.store.StartAgencyMFASetup(profile.ID, email, password, utils.NewMFASecret(), "123456", srv.now())
-	if err != nil {
+	secret := utils.NewTOTPSecret()
+	if _, err := srv.store.StartAgencyMFASetup(profile.ID, email, password, secret, srv.now()); err != nil {
 		t.Fatalf("seed MFA setup: %v", err)
 	}
 
-	profile, err = srv.store.VerifyAgencyMFA(profile.ID, email, password, challenge.Code, srv.now())
+	code, err := utils.TOTPCode(secret, srv.now())
+	if err != nil {
+		t.Fatalf("seed TOTP code: %v", err)
+	}
+
+	profile, err = srv.store.VerifyAgencyMFA(profile.ID, email, password, code, srv.now())
 	if err != nil {
 		t.Fatalf("seed MFA verify: %v", err)
 	}
@@ -638,7 +683,8 @@ func TestVerifyAgencyMFALocksOutAfterRepeatedFailures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed agency user: %v", err)
 	}
-	if _, err := srv.store.StartAgencyMFASetup(profile.ID, "dispatcher@nadaa.local", password, utils.NewMFASecret(), "123456", srv.now()); err != nil {
+	secret := utils.NewTOTPSecret()
+	if _, err := srv.store.StartAgencyMFASetup(profile.ID, "dispatcher@nadaa.local", password, secret, srv.now()); err != nil {
 		t.Fatalf("seed MFA setup: %v", err)
 	}
 
@@ -656,11 +702,15 @@ func TestVerifyAgencyMFALocksOutAfterRepeatedFailures(t *testing.T) {
 		}
 	}
 
+	correctCode, err := utils.TOTPCode(secret, srv.now())
+	if err != nil {
+		t.Fatalf("compute TOTP code: %v", err)
+	}
 	locked := httptest.NewRecorder()
 	lockedRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency-users/"+profile.ID+"/mfa/verify", jsonBody(models.AgencyMFAVerifyRequest{
 		Email:             "dispatcher@nadaa.local",
 		TemporaryPassword: password,
-		Code:              "123456",
+		Code:              correctCode,
 	}))
 	lockedRequest.SetPathValue("id", profile.ID)
 	srv.verifyAgencyMFAHandler(locked, lockedRequest)
@@ -716,5 +766,350 @@ func TestListAgenciesRequiresSystemAdmin(t *testing.T) {
 	decodeResponse(t, list, &payload)
 	if len(payload.Agencies) != 1 || payload.Agencies[0].ID != models.DefaultAgencyID || payload.Agencies[0].District != "Accra Metropolitan" {
 		t.Fatalf("unexpected agencies payload: %#v", payload.Agencies)
+	}
+}
+
+func TestSetupAgencyMFAHidesDevCodeOutsideDevelopment(t *testing.T) {
+	// The dev-code bypass must stay inert outside NADAA_ENV=development even
+	// if NADAA_AUTH_EXPOSE_DEV_OTP somehow ends up set.
+	t.Setenv("NADAA_ENV", "production")
+	srv := newTestServer()
+	password := "Password123!"
+	profile, err := srv.store.CreateAgencyUser(models.CreateAgencyUserRequest{
+		Name:     "Dispatcher One",
+		Email:    "dispatcher@nadaa.local",
+		Phone:    "+233200000002",
+		AgencyID: models.DefaultAgencyID,
+		Role:     models.RoleDispatcher,
+	}, password, srv.now())
+	if err != nil {
+		t.Fatalf("seed agency user: %v", err)
+	}
+
+	setup := httptest.NewRecorder()
+	setupRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency-users/"+profile.ID+"/mfa/setup", jsonBody(models.AgencyMFASetupRequest{
+		Email:             "dispatcher@nadaa.local",
+		TemporaryPassword: password,
+	}))
+	setupRequest.SetPathValue("id", profile.ID)
+	srv.setupAgencyMFAHandler(setup, setupRequest)
+	if setup.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, setup.Code, setup.Body.String())
+	}
+
+	var payload models.AgencyMFASetupResponse
+	decodeResponse(t, setup, &payload)
+	if payload.DevCode != "" {
+		t.Fatalf("expected no dev code outside development, got %q", payload.DevCode)
+	}
+	if payload.Secret == "" || payload.OTPAuthURL == "" {
+		t.Fatalf("expected TOTP enrollment material, got %#v", payload)
+	}
+}
+
+func TestChangeAgencyPassword(t *testing.T) {
+	srv := newTestServer()
+	_, token := seedVerifiedAgencyUser(t, srv, models.RoleDispatcher, "dispatcher@nadaa.local", "+233200000002")
+
+	change := httptest.NewRecorder()
+	changeRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/password", jsonBody(models.ChangeAgencyPasswordRequest{
+		CurrentPassword: "Password123!",
+		NewPassword:     "NewPassword456!",
+	}))
+	changeRequest.Header.Set("Authorization", "Bearer "+token)
+	srv.changeAgencyPasswordHandler(change, changeRequest)
+	if change.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, change.Code, change.Body.String())
+	}
+
+	var payload models.ChangeAgencyPasswordResponse
+	decodeResponse(t, change, &payload)
+	if !payload.OK {
+		t.Fatalf("expected ok response, got %#v", payload)
+	}
+	if !hasAuditAction(srv, "auth.agency_password.changed") {
+		t.Fatal("expected password change audit event")
+	}
+
+	oldLogin := httptest.NewRecorder()
+	srv.loginAgencyHandler(oldLogin, httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/login", jsonBody(models.LoginAgencyRequest{
+		Email:    "dispatcher@nadaa.local",
+		Password: "Password123!",
+		MFACode:  "000000",
+	})))
+	if oldLogin.Code != http.StatusUnauthorized {
+		t.Fatalf("expected old password to be rejected, got %d", oldLogin.Code)
+	}
+}
+
+func TestChangeAgencyPasswordRejectsWrongCurrentPassword(t *testing.T) {
+	srv := newTestServer()
+	_, token := seedVerifiedAgencyUser(t, srv, models.RoleDispatcher, "dispatcher@nadaa.local", "+233200000002")
+
+	change := httptest.NewRecorder()
+	changeRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/password", jsonBody(models.ChangeAgencyPasswordRequest{
+		CurrentPassword: "wrong-password",
+		NewPassword:     "NewPassword456!",
+	}))
+	changeRequest.Header.Set("Authorization", "Bearer "+token)
+	srv.changeAgencyPasswordHandler(change, changeRequest)
+	if change.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusUnauthorized, change.Code, change.Body.String())
+	}
+
+	var payload models.APIError
+	decodeResponse(t, change, &payload)
+	if payload.Error.Code != "invalid_credentials" {
+		t.Fatalf("expected invalid_credentials, got %#v", payload.Error)
+	}
+}
+
+func TestChangeAgencyPasswordRejectsWeakPassword(t *testing.T) {
+	srv := newTestServer()
+	_, token := seedVerifiedAgencyUser(t, srv, models.RoleDispatcher, "dispatcher@nadaa.local", "+233200000002")
+
+	change := httptest.NewRecorder()
+	changeRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/password", jsonBody(models.ChangeAgencyPasswordRequest{
+		CurrentPassword: "Password123!",
+		NewPassword:     "short",
+	}))
+	changeRequest.Header.Set("Authorization", "Bearer "+token)
+	srv.changeAgencyPasswordHandler(change, changeRequest)
+	if change.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, change.Code, change.Body.String())
+	}
+
+	var payload models.APIError
+	decodeResponse(t, change, &payload)
+	if payload.Error.Code != "weak_password" {
+		t.Fatalf("expected weak_password, got %#v", payload.Error)
+	}
+}
+
+func TestChangeAgencyPasswordLocksOutAfterRepeatedFailures(t *testing.T) {
+	srv := newTestServer()
+	_, token := seedVerifiedAgencyUser(t, srv, models.RoleDispatcher, "dispatcher@nadaa.local", "+233200000002")
+
+	for attempt := range 5 {
+		change := httptest.NewRecorder()
+		changeRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/password", jsonBody(models.ChangeAgencyPasswordRequest{
+			CurrentPassword: "wrong-password",
+			NewPassword:     "NewPassword456!",
+		}))
+		changeRequest.Header.Set("Authorization", "Bearer "+token)
+		srv.changeAgencyPasswordHandler(change, changeRequest)
+		if change.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: expected status %d, got %d", attempt+1, http.StatusUnauthorized, change.Code)
+		}
+	}
+
+	// Even the correct current password is rejected while locked out.
+	locked := httptest.NewRecorder()
+	lockedRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/agency/password", jsonBody(models.ChangeAgencyPasswordRequest{
+		CurrentPassword: "Password123!",
+		NewPassword:     "NewPassword456!",
+	}))
+	lockedRequest.Header.Set("Authorization", "Bearer "+token)
+	srv.changeAgencyPasswordHandler(locked, lockedRequest)
+	if locked.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected status %d after lockout, got %d", http.StatusTooManyRequests, locked.Code)
+	}
+}
+
+func TestIngestAuditLog(t *testing.T) {
+	srv := newTestServer()
+	srv.config.InternalServiceToken = "internal-service-token"
+
+	ingest := httptest.NewRecorder()
+	ingestRequest := httptest.NewRequest(http.MethodPost, "/api/v1/audit/logs", jsonBody(models.IngestAuditLogRequest{
+		EventType:    "open_data.dataset.downloaded",
+		ActorID:      "usr_123",
+		ActorRole:    "agency_viewer",
+		ResourceType: "dataset",
+		ResourceID:   "ds_456",
+		Summary:      "downloaded flood extent CSV",
+		Metadata:     map[string]any{"format": "csv"},
+	}))
+	ingestRequest.Header.Set("X-NADAA-Service-Token", "internal-service-token")
+	srv.ingestAuditLogHandler(ingest, ingestRequest)
+	if ingest.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, ingest.Code, ingest.Body.String())
+	}
+
+	var payload models.IngestAuditLogResponse
+	decodeResponse(t, ingest, &payload)
+	if payload.ID == "" {
+		t.Fatalf("expected audit record id, got %#v", payload)
+	}
+
+	record, ok := findAuditAction(srv, "open_data.dataset.downloaded")
+	if !ok {
+		t.Fatal("expected ingested audit event to be persisted")
+	}
+	if record.ID != payload.ID || record.ActorUserID != "usr_123" || record.ActorRole != "agency_viewer" {
+		t.Fatalf("unexpected persisted audit record: %#v", record)
+	}
+	if record.TargetType != "dataset" || record.TargetID != "ds_456" {
+		t.Fatalf("unexpected audit target: %#v", record)
+	}
+	if record.After["summary"] != "downloaded flood extent CSV" {
+		t.Fatalf("expected summary in audit context, got %#v", record.After)
+	}
+}
+
+func TestIngestAuditLogRejectsMissingOrWrongServiceToken(t *testing.T) {
+	srv := newTestServer()
+	srv.config.InternalServiceToken = "internal-service-token"
+	body := func() *bytes.Reader {
+		return jsonBody(models.IngestAuditLogRequest{EventType: "open_data.dataset.downloaded"})
+	}
+
+	missing := httptest.NewRecorder()
+	srv.ingestAuditLogHandler(missing, httptest.NewRequest(http.MethodPost, "/api/v1/audit/logs", body()))
+	if missing.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for missing token, got %d", http.StatusUnauthorized, missing.Code)
+	}
+
+	wrong := httptest.NewRecorder()
+	wrongRequest := httptest.NewRequest(http.MethodPost, "/api/v1/audit/logs", body())
+	wrongRequest.Header.Set("X-NADAA-Service-Token", "forged-token")
+	srv.ingestAuditLogHandler(wrong, wrongRequest)
+	if wrong.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for wrong token, got %d", http.StatusUnauthorized, wrong.Code)
+	}
+
+	// With no service token configured the endpoint stays closed even to a
+	// caller that guesses an empty header value.
+	srv.config.InternalServiceToken = ""
+	unset := httptest.NewRecorder()
+	unsetRequest := httptest.NewRequest(http.MethodPost, "/api/v1/audit/logs", body())
+	unsetRequest.Header.Set("X-NADAA-Service-Token", "")
+	srv.ingestAuditLogHandler(unset, unsetRequest)
+	if unset.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d when no service token is configured, got %d", http.StatusUnauthorized, unset.Code)
+	}
+}
+
+func TestIngestAuditLogRejectsEmptyEventType(t *testing.T) {
+	srv := newTestServer()
+	srv.config.InternalServiceToken = "internal-service-token"
+
+	ingest := httptest.NewRecorder()
+	ingestRequest := httptest.NewRequest(http.MethodPost, "/api/v1/audit/logs", jsonBody(models.IngestAuditLogRequest{
+		EventType: "  ",
+	}))
+	ingestRequest.Header.Set("X-NADAA-Service-Token", "internal-service-token")
+	srv.ingestAuditLogHandler(ingest, ingestRequest)
+	if ingest.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, ingest.Code, ingest.Body.String())
+	}
+
+	var payload models.APIError
+	decodeResponse(t, ingest, &payload)
+	if payload.Error.Code != "invalid_event" {
+		t.Fatalf("expected invalid_event, got %#v", payload.Error)
+	}
+}
+
+func TestListAgencyUsersScopesByRole(t *testing.T) {
+	srv := newTestServer()
+	_, systemAdminToken := seedVerifiedAgencyUser(t, srv, models.RoleSystemAdmin, "admin@nadaa.local", "+233200000001")
+	agencyAdmin, agencyAdminToken := seedVerifiedAgencyUser(t, srv, models.RoleAgencyAdmin, "agency-admin@nadaa.local", "+233200000004")
+	_, dispatcherToken := seedVerifiedAgencyUser(t, srv, models.RoleDispatcher, "dispatcher@nadaa.local", "+233200000002")
+
+	forbidden := httptest.NewRecorder()
+	forbiddenRequest := httptest.NewRequest(http.MethodGet, "/api/v1/auth/agency-users", nil)
+	forbiddenRequest.Header.Set("Authorization", "Bearer "+dispatcherToken)
+	srv.listAgencyUsersHandler(forbidden, forbiddenRequest)
+	if forbidden.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusForbidden, forbidden.Code, forbidden.Body.String())
+	}
+
+	all := httptest.NewRecorder()
+	allRequest := httptest.NewRequest(http.MethodGet, "/api/v1/auth/agency-users", nil)
+	allRequest.Header.Set("Authorization", "Bearer "+systemAdminToken)
+	srv.listAgencyUsersHandler(all, allRequest)
+	if all.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, all.Code, all.Body.String())
+	}
+
+	var allPayload models.AgencyUserListResponse
+	decodeResponse(t, all, &allPayload)
+	if len(allPayload.Users) != 3 {
+		t.Fatalf("expected system_admin to see all three users, got %#v", allPayload.Users)
+	}
+
+	// The seeded store has a single agency, so scoping is only exercisable in
+	// one direction: every entry returned to an agency_admin must belong to
+	// the caller's own agency.
+	scoped := httptest.NewRecorder()
+	scopedRequest := httptest.NewRequest(http.MethodGet, "/api/v1/auth/agency-users", nil)
+	scopedRequest.Header.Set("Authorization", "Bearer "+agencyAdminToken)
+	srv.listAgencyUsersHandler(scoped, scopedRequest)
+	if scoped.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, scoped.Code, scoped.Body.String())
+	}
+
+	var scopedPayload models.AgencyUserListResponse
+	decodeResponse(t, scoped, &scopedPayload)
+	if len(scopedPayload.Users) == 0 {
+		t.Fatal("expected agency_admin to see its own agency users")
+	}
+	for _, user := range scopedPayload.Users {
+		if user.AgencyID != agencyAdmin.Agency.ID {
+			t.Fatalf("agency_admin received user from another agency: %#v", user)
+		}
+	}
+}
+
+func TestListAgencyUsersNeverExposesCredentials(t *testing.T) {
+	srv := newTestServer()
+	_, systemAdminToken := seedVerifiedAgencyUser(t, srv, models.RoleSystemAdmin, "admin@nadaa.local", "+233200000001")
+
+	list := httptest.NewRecorder()
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/auth/agency-users", nil)
+	listRequest.Header.Set("Authorization", "Bearer "+systemAdminToken)
+	srv.listAgencyUsersHandler(list, listRequest)
+	if list.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, list.Code, list.Body.String())
+	}
+
+	var payload struct {
+		Users []map[string]any `json:"users"`
+	}
+	decodeResponse(t, list, &payload)
+	if len(payload.Users) != 1 {
+		t.Fatalf("expected one user, got %#v", payload.Users)
+	}
+	user := payload.Users[0]
+	for _, key := range []string{"id", "name", "email", "role", "agencyId", "mfaEnabled", "createdAt"} {
+		if _, ok := user[key]; !ok {
+			t.Fatalf("expected directory field %q in %#v", key, user)
+		}
+	}
+	for _, key := range []string{"password", "passwordHash", "mfaSecret", "mfaCode", "secret", "temporaryPassword"} {
+		if _, ok := user[key]; ok {
+			t.Fatalf("directory entry must not expose %q: %#v", key, user)
+		}
+	}
+	if user["mfaEnabled"] != true || user["role"] != models.RoleSystemAdmin || user["agencyId"] != models.DefaultAgencyID {
+		t.Fatalf("unexpected directory entry: %#v", user)
+	}
+}
+
+func TestDecodeJSONRejectsOversizedBody(t *testing.T) {
+	srv := newTestServer()
+	oversized := `{"name":"` + strings.Repeat("a", 1<<20) + `","phone":"+233200000000"}`
+	response := httptest.NewRecorder()
+	srv.registerCitizenHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/auth/citizens/register", strings.NewReader(oversized)))
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d for oversized body, got %d", http.StatusBadRequest, response.Code)
+	}
+
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json, got %#v", payload.Error)
 	}
 }

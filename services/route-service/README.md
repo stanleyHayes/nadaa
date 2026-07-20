@@ -26,11 +26,11 @@ The service listens on `:8096` by default. Override with `PORT`.
 | `PORT`                       | `8096`                  | HTTP listen address                           |
 | `ROAD_CLOSURE_SERVICE_URL`   | `http://localhost:8095` | Base URL for road-closure-service             |
 | `SHELTER_SERVICE_URL`        | `http://localhost:8093` | Base URL for shelter-service                  |
-| `RISK_SERVICE_URL`           | `http://localhost:8082` | Base URL for risk-service                     |
+| `RISK_SERVICE_URL`           | `http://localhost:8081` | Base URL for risk-service                     |
 | `NADAA_ALLOWED_ORIGINS`      | `*`                     | Comma-separated CORS origins                  |
 | `NADAA_ENV`                  |                         | `development` allows localhost CORS origins   |
 | `NADAA_AUTH_TOKEN_SECRET`    |                         | HMAC secret verifying auth-service tokens     |
-| `NADAA_AUTH_ALLOW_MOCK_ACTORS` |                       | `true` honors legacy `X-NADAA-Actor-*` headers (local dev only) |
+| `NADAA_AUTH_ALLOW_MOCK_ACTORS` |                       | `true` honors legacy `X-NADAA-Actor-*` headers (only allowed with `NADAA_ENV=development`) |
 
 ## Route planning
 
@@ -46,11 +46,19 @@ planned to a fabricated waypoint: when the lookup fails the service responds
 
 Closure avoidance queries road-closure-service with a bounding box covering the
 whole origin→destination corridor. Risk avoidance samples risk-service
-(`GET /api/v1/risk`) at points along the route and flags sampled zones whose
-`overallRisk` is in `avoidRiskLevels`; both lookups degrade to no avoidance
-(with a WARN log) when the upstream service is unavailable.
+(`GET /api/v1/risk`) concurrently at points along the route and flags sampled
+zones whose `overallRisk` is in `avoidRiskLevels`. When an upstream lookup
+fails, the route is still returned but flagged `degraded: true` with an
+`enrichmentStatus` naming the failed lookup (`closure_lookup_failed`,
+`risk_lookup_failed`) — an empty `avoidedClosures`/`avoidedRiskZones` then
+means missing data, not a verified hazard-free corridor.
+
+The returned polyline is re-sampled against all hazards after every detour
+insertion (bounded passes, trying both detour sides); a hazard is listed as
+avoided only when the final polyline actually clears it.
 
 A caller `Authorization` header is forwarded to upstream services when present.
+`POST /routes/plan` bodies are limited to 1 MiB.
 
 The response includes a polyline of waypoints, estimated distance and walking
 duration, and is always marked as `decisionSupport: true` with a disclaimer to

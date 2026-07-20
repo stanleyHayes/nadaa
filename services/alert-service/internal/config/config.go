@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 )
@@ -21,6 +22,16 @@ func Load() *Config {
 		TokenSecret:     strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
 		AllowMockActors: strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")) == "true",
 	}
+}
+
+// Validate fails closed on unsafe configuration. Mock actor headers trust
+// self-asserted X-NADAA-Actor-* identity, so they are only allowed when
+// NADAA_ENV=development (local development and smoke tests).
+func (c *Config) Validate() error {
+	if c.AllowMockActors && strings.TrimSpace(os.Getenv("NADAA_ENV")) != "development" {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
 }
 
 // resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare

@@ -20,6 +20,9 @@ const serviceName = "integration-service"
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("%s: invalid configuration: %v", serviceName, err)
+	}
 	s := store.NewMemoryStore(time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC))
 	srv := handlers.NewServer(s, &http.Client{Timeout: 15 * time.Second}, cfg.RoadClosureAPIURL, cfg.AllowMockActors)
 

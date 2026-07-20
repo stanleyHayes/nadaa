@@ -132,6 +132,15 @@ declare module "@expo/vector-icons/Feather" {
   export default Feather;
 }
 
+declare module "@react-native-async-storage/async-storage" {
+  const AsyncStorage: {
+    getItem(key: string): Promise<string | null>;
+    removeItem(key: string): Promise<void>;
+    setItem(key: string, value: string): Promise<void>;
+  };
+  export default AsyncStorage;
+}
+
 declare module "expo-notifications" {
   export enum AndroidImportance {
     MIN = 1,

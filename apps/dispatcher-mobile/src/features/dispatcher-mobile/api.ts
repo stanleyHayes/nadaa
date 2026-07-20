@@ -31,6 +31,17 @@ async function extractAPIError(response: Response): Promise<string> {
   }
 }
 
+/** API failure carrying the HTTP status so callers can react to 401/403. */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export function authorityHeaders(session: DispatcherSession) {
   return {
     "Content-Type": "application/json",
@@ -57,7 +68,7 @@ export async function agencyLogin(
     method: "POST",
   });
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   return (await response.json()) as LoginAgencyResponse & {
     user: AgencyUserProfile;
@@ -74,7 +85,7 @@ export async function fetchMyProfile(
     },
   });
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   return (await response.json()) as AgencyUserProfile;
 }
@@ -86,7 +97,7 @@ export async function fetchIncidentQueue(
     headers: authorityHeaders(session),
   });
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   const payload = (await response.json()) as IncidentListResponse;
   // An empty queue is a real answer, and failures must surface to the caller —
@@ -109,7 +120,7 @@ export async function verifyIncident(
     },
   );
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   return (await response.json()) as IncidentRecord;
 }
@@ -128,7 +139,7 @@ export async function updateIncidentStatus(
     },
   );
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   return (await response.json()) as IncidentRecord;
 }
@@ -147,7 +158,7 @@ export async function assignIncident(
     },
   );
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   return (await response.json()) as IncidentRecord;
 }
@@ -166,7 +177,7 @@ export async function reviewAbuse(
     },
   );
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   return (await response.json()) as IncidentRecord;
 }
@@ -185,7 +196,7 @@ export async function mergeIncidents(
     },
   );
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   return (await response.json()) as IncidentRecord;
 }
@@ -208,7 +219,7 @@ export async function fetchHospitalCapacity(
     },
   );
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   // Failures must surface to the caller, which keeps the cached capacity with
   // an offline indicator — fixture facilities must not pose as live data.

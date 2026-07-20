@@ -36,7 +36,8 @@ func bearerToken(r *http.Request) (string, bool) {
 
 // verifyToken verifies an auth-service nadaa.<payload>.<sig> token: the
 // signature is base64.RawURLEncoding(HMAC-SHA256(secret, payload)) compared
-// with hmac.Equal, and the claims must not be expired.
+// with hmac.Equal, the claims must not be expired, and the token must be an
+// agency token — citizen tokens never mint an authority context.
 func verifyToken(token string, secret []byte, now time.Time) (tokenClaims, bool) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 || parts[0] != "nadaa" {
@@ -60,6 +61,9 @@ func verifyToken(token string, secret []byte, now time.Time) (tokenClaims, bool)
 		return tokenClaims{}, false
 	}
 	if claims.ExpiresAt <= now.Unix() {
+		return tokenClaims{}, false
+	}
+	if claims.UserType != "agency" {
 		return tokenClaims{}, false
 	}
 	return claims, true

@@ -1,6 +1,8 @@
 package store
 
 import (
+	"os"
+	"strings"
 	"time"
 
 	"github.com/stanleyHayes/nadaa/services/alert-service/internal/models"
@@ -8,6 +10,12 @@ import (
 )
 
 func seedAlerts(now time.Time) []models.AuthorityAlert {
+	// The fixture alert exists to exercise the approval queue in development
+	// and smoke environments. In production it must never be seeded: a live
+	// fixture in the queue could be approved into real citizen sends.
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_ENV")), "production") {
+		return nil
+	}
 	return []models.AuthorityAlert{
 		{
 			ID:                 "alert_fixture_submitted",

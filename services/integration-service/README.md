@@ -18,7 +18,7 @@ Current endpoints:
 
 ## Road Closure Imports
 
-`POST /api/v1/integrations/road-closures/imports` validates an inbound road closure record (including the WKT `LINESTRING` geometry) locally, then forwards it to the `road-closure-service` adapter endpoint. The import is also recorded locally for observability. Forwarding uses `NADAA_ROAD_CLOSURE_SERVICE_URL` (default `http://localhost:8095`) and passes through the caller's `Authorization` bearer token so the downstream service verifies and attributes the real actor; downstream client errors (400/401/403/404) are surfaced to the caller with the downstream error code. When `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` (local dev and smoke tests only), legacy `X-NADAA-Actor-*` authority headers are forwarded instead.
+`POST /api/v1/integrations/road-closures/imports` validates an inbound road closure record (including the WKT `LINESTRING` geometry) locally, then forwards it to the `road-closure-service` adapter endpoint. The import is also recorded locally for observability. Forwarding uses `NADAA_ROAD_CLOSURE_SERVICE_URL` (default `http://localhost:8095`) and passes through the caller's `Authorization` bearer token so the downstream service verifies and attributes the real actor; downstream client errors (400/401/403/404) are surfaced to the caller with the downstream error code. When `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` (local dev and smoke tests only), legacy `X-NADAA-Actor-*` authority headers are forwarded instead; the service refuses to start when that variable is set without `NADAA_ENV=development`, so production deployments can only ever forward the verified bearer token.
 
 ## Contracts
 

@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stanleyHayes/nadaa/services/incident-service/internal/config"
 	"github.com/stanleyHayes/nadaa/services/incident-service/internal/models"
+	"github.com/stanleyHayes/nadaa/services/incident-service/internal/store"
 )
 
 func TestVolunteerRegistrationVerificationTaskAndObservationTimeline(t *testing.T) {
@@ -309,15 +311,10 @@ func TestVolunteerTaskEndpointsAllowOwningCitizen(t *testing.T) {
 	srv := newTokenOnlyTestServer()
 	volunteer, task := assignedVolunteerTaskForTest(t, srv)
 
-	citizenClaims := tokenClaims{
-		UserID:    volunteer.CitizenUserID,
-		UserType:  "citizen",
-		Role:      "citizen",
-		ExpiresAt: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
-	}
+	ownerClaims := citizenClaims(volunteer.CitizenUserID)
 
 	tasksResponse := httptest.NewRecorder()
-	tasksRequest := tokenRequest(http.MethodGet, "/api/v1/volunteers/"+volunteer.ID+"/tasks", nil, citizenClaims)
+	tasksRequest := tokenRequest(http.MethodGet, "/api/v1/volunteers/"+volunteer.ID+"/tasks", nil, ownerClaims)
 	tasksRequest.SetPathValue("id", volunteer.ID)
 	srv.listVolunteerTasksHandler(tasksResponse, tasksRequest)
 	if tasksResponse.Code != http.StatusOK {
@@ -329,7 +326,7 @@ func TestVolunteerTaskEndpointsAllowOwningCitizen(t *testing.T) {
 		VolunteerID: volunteer.ID,
 		Status:      "accepted",
 		Note:        "On my way via the safe route.",
-	}), citizenClaims)
+	}), ownerClaims)
 	statusRequest.SetPathValue("id", task.ID)
 	srv.updateVolunteerTaskStatusHandler(statusResponse, statusRequest)
 	if statusResponse.Code != http.StatusOK {
@@ -341,12 +338,7 @@ func TestVolunteerTaskEndpointsRejectOtherCitizen(t *testing.T) {
 	srv := newTokenOnlyTestServer()
 	volunteer, task := assignedVolunteerTaskForTest(t, srv)
 
-	otherClaims := tokenClaims{
-		UserID:    "usr_someone_else",
-		UserType:  "citizen",
-		Role:      "citizen",
-		ExpiresAt: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
-	}
+	otherClaims := citizenClaims("usr_someone_else")
 
 	tasksResponse := httptest.NewRecorder()
 	tasksRequest := tokenRequest(http.MethodGet, "/api/v1/volunteers/"+volunteer.ID+"/tasks", nil, otherClaims)
@@ -388,5 +380,266 @@ func TestVolunteerObservationRejectsUnknownMedia(t *testing.T) {
 	decodeResponse(t, response, &payload)
 	if payload.Error.Code != "unknown_media" {
 		t.Fatalf("expected unknown_media error code, got %q", payload.Error.Code)
+	}
+}
+
+func TestVolunteerRegistrationRequiresCitizenToken(t *testing.T) {
+	srv := newTokenOnlyTestServer()
+
+	// No token at all.
+	unauthenticated := httptest.NewRecorder()
+	srv.registerVolunteerHandler(unauthenticated, httptest.NewRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(validVolunteerRegistrationRequest())))
+	if unauthenticated.Code != http.StatusUnauthorized {
+		t.Fatalf("expected unauthenticated registration %d, got %d: %s", http.StatusUnauthorized, unauthenticated.Code, unauthenticated.Body.String())
+	}
+
+	// An agency token is not a citizen account.
+	agency := httptest.NewRecorder()
+	srv.registerVolunteerHandler(agency, tokenRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(validVolunteerRegistrationRequest()), testAuthorityClaims()))
+	if agency.Code != http.StatusForbidden {
+		t.Fatalf("expected agency registration %d, got %d: %s", http.StatusForbidden, agency.Code, agency.Body.String())
+	}
+
+	// Body citizenUserId must match the verified token subject.
+	mismatched := validVolunteerRegistrationRequest()
+	mismatch := httptest.NewRecorder()
+	srv.registerVolunteerHandler(mismatch, tokenRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(mismatched), citizenClaims("usr_someone_else")))
+	if mismatch.Code != http.StatusForbidden {
+		t.Fatalf("expected mismatched citizen %d, got %d: %s", http.StatusForbidden, mismatch.Code, mismatch.Body.String())
+	}
+
+	// A matching citizen token registers and derives citizenUserId from the token.
+	response := httptest.NewRecorder()
+	srv.registerVolunteerHandler(response, tokenRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(mismatched), citizenClaims(mismatched.CitizenUserID)))
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected citizen registration %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	var payload models.VolunteerProfileResponse
+	decodeResponse(t, response, &payload)
+	if payload.Volunteer.CitizenUserID != mismatched.CitizenUserID {
+		t.Fatalf("expected citizenUserId from token, got %#v", payload.Volunteer)
+	}
+}
+
+func TestVolunteerRegistrationDerivesCitizenUserIDFromToken(t *testing.T) {
+	srv := newTestServer()
+	body := validVolunteerRegistrationRequest()
+	body.CitizenUserID = ""
+
+	response := httptest.NewRecorder()
+	srv.registerVolunteerHandler(response, tokenRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(body), citizenClaims("usr_volunteer_001")))
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	var payload models.VolunteerProfileResponse
+	decodeResponse(t, response, &payload)
+	if payload.Volunteer.CitizenUserID != "usr_volunteer_001" {
+		t.Fatalf("expected derived citizenUserId, got %#v", payload.Volunteer)
+	}
+}
+
+func TestVolunteerRegistrationIsIdempotentPerCitizen(t *testing.T) {
+	srv := newTestServer()
+	body := validVolunteerRegistrationRequest()
+	first := registerVolunteerForTest(t, srv, body)
+
+	// Re-registering the same citizen returns the existing profile with 200
+	// instead of minting a duplicate vol_ id that would orphan assignments.
+	changed := validVolunteerRegistrationRequest()
+	changed.Phone = "+233200000999"
+	response := httptest.NewRecorder()
+	srv.registerVolunteerHandler(response, tokenRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(changed), citizenClaims(body.CitizenUserID)))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected idempotent re-registration %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.VolunteerProfileResponse
+	decodeResponse(t, response, &payload)
+	if payload.Volunteer.ID != first.ID {
+		t.Fatalf("expected existing volunteer id %s, got %s", first.ID, payload.Volunteer.ID)
+	}
+	if payload.Volunteer.Phone != first.Phone {
+		t.Fatalf("expected existing profile to be returned unchanged, got %#v", payload.Volunteer)
+	}
+	if len(srv.store.ListVolunteers("", "")) != 1 {
+		t.Fatalf("expected exactly one volunteer profile, got %#v", srv.store.ListVolunteers("", ""))
+	}
+}
+
+func TestVolunteerRegistrationIsRateLimited(t *testing.T) {
+	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+	srv := NewServer(store.NewMemoryStore(), func() time.Time { return now }, &config.Config{RateLimit: 1, RateWindowSecs: 60, TokenSecret: testTokenSecret})
+
+	first := httptest.NewRecorder()
+	srv.registerVolunteerHandler(first, tokenRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(validVolunteerRegistrationRequest()), citizenClaims("usr_volunteer_001")))
+	if first.Code != http.StatusCreated {
+		t.Fatalf("expected first registration %d, got %d: %s", http.StatusCreated, first.Code, first.Body.String())
+	}
+
+	second := httptest.NewRecorder()
+	other := validVolunteerRegistrationRequest()
+	other.CitizenUserID = "usr_volunteer_002"
+	srv.registerVolunteerHandler(second, tokenRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(other), citizenClaims(other.CitizenUserID)))
+	if second.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected rate limited registration %d, got %d: %s", http.StatusTooManyRequests, second.Code, second.Body.String())
+	}
+}
+
+func TestVolunteerTaskMutationsRejectReadOnlyAgencyRoles(t *testing.T) {
+	srv := newTokenOnlyTestServer()
+	volunteer, task := assignedVolunteerTaskForTest(t, srv)
+
+	viewerClaims := testAuthorityClaims()
+	viewerClaims.Role = "agency_viewer"
+
+	statusResponse := httptest.NewRecorder()
+	statusRequest := tokenRequest(http.MethodPatch, "/api/v1/volunteer-tasks/"+task.ID+"/status", jsonBody(models.VolunteerTaskStatusRequest{
+		VolunteerID: volunteer.ID,
+		Status:      "accepted",
+	}), viewerClaims)
+	statusRequest.SetPathValue("id", task.ID)
+	srv.updateVolunteerTaskStatusHandler(statusResponse, statusRequest)
+	if statusResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected agency_viewer status update %d, got %d: %s", http.StatusForbidden, statusResponse.Code, statusResponse.Body.String())
+	}
+
+	observationResponse := httptest.NewRecorder()
+	observationRequest := tokenRequest(http.MethodPost, "/api/v1/volunteer-tasks/"+task.ID+"/observations", jsonBody(models.VolunteerObservationRequest{
+		VolunteerID: volunteer.ID,
+		Observation: "Viewer attempting to mutate task state.",
+	}), viewerClaims)
+	observationRequest.SetPathValue("id", task.ID)
+	srv.submitVolunteerObservationHandler(observationResponse, observationRequest)
+	if observationResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected agency_viewer observation %d, got %d: %s", http.StatusForbidden, observationResponse.Code, observationResponse.Body.String())
+	}
+
+	// Read access is preserved for the viewer role.
+	tasksResponse := httptest.NewRecorder()
+	tasksRequest := tokenRequest(http.MethodGet, "/api/v1/volunteers/"+volunteer.ID+"/tasks", nil, viewerClaims)
+	tasksRequest.SetPathValue("id", volunteer.ID)
+	srv.listVolunteerTasksHandler(tasksResponse, tasksRequest)
+	if tasksResponse.Code != http.StatusOK {
+		t.Fatalf("expected agency_viewer task list %d, got %d: %s", http.StatusOK, tasksResponse.Code, tasksResponse.Body.String())
+	}
+}
+
+func TestVolunteerTaskEventsAttributedToVerifiedActor(t *testing.T) {
+	srv := newTestServer()
+	volunteer, task := assignedVolunteerTaskForTest(t, srv)
+
+	// Authority actor via verified headers: attribution must use the verified
+	// actor id, not the client-supplied volunteerId.
+	updated := updateVolunteerTaskStatusForTest(t, srv, task.ID, models.VolunteerTaskStatusRequest{
+		VolunteerID: volunteer.ID,
+		Status:      "accepted",
+		Note:        "Dispatcher confirmed task acceptance by phone.",
+	})
+	latest := updated.Updates[len(updated.Updates)-1]
+	if latest.CreatedBy != "usr_dispatcher_001" {
+		t.Fatalf("expected update createdBy verified actor, got %q", latest.CreatedBy)
+	}
+
+	incidents := srv.store.ListIncidents("")
+	var incident models.IncidentRecord
+	for _, item := range incidents {
+		if item.ID == task.IncidentID {
+			incident = item
+			break
+		}
+	}
+	var statusEvent *models.TimelineEvent
+	for index := range incident.Timeline {
+		if incident.Timeline[index].Type == "incident.volunteer_status_updated" {
+			statusEvent = &incident.Timeline[index]
+		}
+	}
+	if statusEvent == nil || statusEvent.ActorUserID != "usr_dispatcher_001" || statusEvent.ActorRole != "nadmo_officer" {
+		t.Fatalf("expected timeline attribution to verified actor, got %#v", statusEvent)
+	}
+
+	auditFound := false
+	for _, logEntry := range srv.store.ListAudit(10) {
+		if logEntry.Action == "incident.volunteer_status_updated" {
+			auditFound = true
+			if logEntry.ActorUserID != "usr_dispatcher_001" {
+				t.Fatalf("expected audit attribution to verified actor, got %#v", logEntry)
+			}
+		}
+	}
+	if !auditFound {
+		t.Fatal("expected incident.volunteer_status_updated audit event")
+	}
+}
+
+func TestVolunteerTaskEventsAttributedToOwningCitizen(t *testing.T) {
+	srv := newTokenOnlyTestServer()
+	volunteer, task := assignedVolunteerTaskForTest(t, srv)
+
+	response := httptest.NewRecorder()
+	request := tokenRequest(http.MethodPatch, "/api/v1/volunteer-tasks/"+task.ID+"/status", jsonBody(models.VolunteerTaskStatusRequest{
+		VolunteerID: volunteer.ID,
+		Status:      "accepted",
+	}), citizenClaims(volunteer.CitizenUserID))
+	request.SetPathValue("id", task.ID)
+	srv.updateVolunteerTaskStatusHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected citizen status update %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload models.VolunteerTaskRecord
+	decodeResponse(t, response, &payload)
+	latest := payload.Updates[len(payload.Updates)-1]
+	if latest.CreatedBy != volunteer.CitizenUserID {
+		t.Fatalf("expected update createdBy owning citizen, got %q", latest.CreatedBy)
+	}
+}
+
+func TestVolunteerObservationCannotResurrectTerminalTask(t *testing.T) {
+	srv := newTestServer()
+	volunteer, task := assignedVolunteerTaskForTest(t, srv)
+
+	for _, next := range []string{"accepted", "on_scene", "completed"} {
+		updated := updateVolunteerTaskStatusForTest(t, srv, task.ID, models.VolunteerTaskStatusRequest{
+			VolunteerID: volunteer.ID,
+			Status:      next,
+		})
+		if updated.Status != next {
+			t.Fatalf("expected task status %s, got %#v", next, updated)
+		}
+	}
+
+	// An escalating observation on a completed task must be rejected by the
+	// same transition guard as status updates, not resurrect the task.
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPost, "/api/v1/volunteer-tasks/"+task.ID+"/observations", jsonBody(models.VolunteerObservationRequest{
+		VolunteerID:         volunteer.ID,
+		Observation:         "Late escalation attempt after task completion.",
+		SafetyStatus:        "unsafe",
+		EscalationRequested: true,
+	}))
+	request.SetPathValue("id", task.ID)
+	srv.submitVolunteerObservationHandler(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected terminal task observation %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_transition" {
+		t.Fatalf("expected invalid_transition error code, got %q", payload.Error.Code)
+	}
+
+	final, found := srv.store.VolunteerTaskByID(task.ID)
+	if !found || final.Status != "completed" || final.EscalationRequired {
+		t.Fatalf("expected task to remain completed without escalation, got %#v", final)
+	}
+
+	// A plain (non-escalating) observation still records without a status change.
+	plain := submitVolunteerObservationForTest(t, srv, task.ID, models.VolunteerObservationRequest{
+		VolunteerID:  volunteer.ID,
+		Observation:  "Final photo of the cleared drainage for the record.",
+		SafetyStatus: "safe",
+	})
+	if plain.Status != "completed" || len(plain.Updates) != 4 {
+		t.Fatalf("expected plain observation to append without transition, got %#v", plain)
 	}
 }

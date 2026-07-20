@@ -4,13 +4,15 @@ import type {
   CreateAgencyUserResponse,
 } from "@nadaa/shared-types";
 import { AUTH_API_BASE } from "@/app/config";
-import { adminHeaders } from "@/app/session";
-import { handleUnauthorized } from "@/app/http";
+import { adminHeaders, type AdminSession } from "@/app/session";
+import { handleUnauthorized, SessionExpiredError } from "@/app/http";
 import {
   fetchAgencies,
+  fetchAgencyUsers,
   fetchAlertRules,
   fetchAuditLogs,
   fetchDataSources,
+  GovernanceForbiddenError,
 } from "./api";
 import { defaultUserForm } from "./data";
 import type {
@@ -23,19 +25,41 @@ import type {
   ManagedAgency,
   ManagedAgencyUser,
 } from "./types";
-import { managedUserFromCreateResponse, validateUserForm } from "./utils";
+import {
+  managedUserFromCreateResponse,
+  managedUserFromDirectoryEntry,
+  validateUserForm,
+  withAgencyUserMetrics,
+} from "./utils";
 
 export type AdminData = ReturnType<typeof useAdminData>;
 
+/** Best-effort read of the auth service's error body for honest feedback. */
+async function readErrorMessage(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as {
+      error?: { message?: string };
+    };
+    if (payload.error?.message) {
+      return payload.error.message;
+    }
+  } catch {
+    // Non-JSON error body; fall back to the status line.
+  }
+  return `The auth API returned ${response.status}.`;
+}
+
 /**
- * Central governance-console state container. Loads the agency directory and
- * the audit, integration, and alert-rule surfaces the admin views depend on
- * from the live backends so the shell can mount data once and route between
- * views without losing state. Collections start empty; a failed surface stays
- * empty and the console surfaces a concise error state instead of
- * substituting fixture data.
+ * Central governance-console state container. Loads the users directory, the
+ * agency directory, and the audit, integration, and alert-rule surfaces the
+ * admin views depend on from the live backends so the shell can mount data
+ * once and route between views without losing state. Surfaces the admin's
+ * role cannot read (the system_admin-only agency directory and audit trail)
+ * degrade to scoped "requires system admin" states; a surface that fails
+ * outright stays empty and the console surfaces a concise error state instead
+ * of substituting fixture data.
  */
-export function useAdminData() {
+export function useAdminData(session: AdminSession) {
   const [loadState, setLoadState] = useState<AdminLoadState>("loading");
   const [loadMessage, setLoadMessage] = useState("Loading governance data");
   const [agencies, setAgencies] = useState<ManagedAgency[]>([]);
@@ -43,19 +67,43 @@ export function useAdminData() {
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
   const [dataSources, setDataSources] = useState<DataSourceSummary[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRuleSummary[]>([]);
-  const [userForm, setUserForm] = useState<AdminUserFormState>(defaultUserForm);
+  const [agenciesForbidden, setAgenciesForbidden] = useState(false);
+  const [auditForbidden, setAuditForbidden] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
+
+  // Agency admins provision within their own agency only, so the form is
+  // pinned to it; system admins pick from the live directory.
+  const isAgencyAdmin = session.role === "agency_admin";
+  const lockedAgency = isAgencyAdmin
+    ? { id: session.agencyId, name: session.agency }
+    : undefined;
+  const initialUserForm = (): AdminUserFormState =>
+    isAgencyAdmin
+      ? { ...defaultUserForm, agencyId: session.agencyId }
+      : { ...defaultUserForm };
+
+  const [userForm, setUserForm] = useState<AdminUserFormState>(initialUserForm);
   const [createBusy, setCreateBusy] = useState(false);
   const [actionResult, setActionResult] = useState<AdminActionResult>();
   const [createdCredentials, setCreatedCredentials] =
     useState<CreatedUserCredentials | null>(null);
 
+  const agencyNameFor = (agencyId: string, directory: ManagedAgency[]) => {
+    const match = directory.find((agency) => agency.id === agencyId);
+    if (match) {
+      return match.name;
+    }
+    return agencyId === session.agencyId ? session.agency : "Unknown agency";
+  };
+
   const refresh = async (signal?: AbortSignal) => {
     setLoadState("loading");
     setLoadMessage("Loading governance data");
 
-    const [agencyResult, auditResult, sourceResult, alertResult] =
+    const [agencyResult, userResult, auditResult, sourceResult, alertResult] =
       await Promise.allSettled([
         fetchAgencies(signal),
+        fetchAgencyUsers(signal),
         fetchAuditLogs(signal),
         fetchDataSources(signal),
         fetchAlertRules(signal),
@@ -66,18 +114,46 @@ export function useAdminData() {
     }
 
     let failureCount = 0;
+
+    let loadedAgencies: ManagedAgency[] = [];
     if (agencyResult.status === "fulfilled") {
-      setAgencies(agencyResult.value);
+      loadedAgencies = agencyResult.value;
+      setAgenciesForbidden(false);
+    } else if (agencyResult.reason instanceof GovernanceForbiddenError) {
+      setAgenciesForbidden(true);
     } else {
       failureCount += 1;
-      setAgencies([]);
+      setAgenciesForbidden(false);
     }
+
+    let loadedUsers: ManagedAgencyUser[] | null = null;
+    if (userResult.status === "fulfilled") {
+      loadedUsers = userResult.value.map((entry) =>
+        managedUserFromDirectoryEntry(
+          entry,
+          agencyNameFor(entry.agencyId, loadedAgencies),
+        ),
+      );
+      setUsersError(null);
+    } else {
+      failureCount += 1;
+      setUsersError(
+        "The users directory could not be loaded. Retry once the auth service is reachable.",
+      );
+    }
+    setUsers(loadedUsers ?? []);
+    setAgencies(withAgencyUserMetrics(loadedAgencies, loadedUsers));
 
     if (auditResult.status === "fulfilled") {
       setAuditLogs(auditResult.value);
+      setAuditForbidden(false);
+    } else if (auditResult.reason instanceof GovernanceForbiddenError) {
+      setAuditLogs([]);
+      setAuditForbidden(true);
     } else {
       failureCount += 1;
       setAuditLogs([]);
+      setAuditForbidden(false);
     }
 
     if (sourceResult.status === "fulfilled") {
@@ -136,12 +212,12 @@ export function useAdminData() {
       });
       handleUnauthorized(response);
       if (!response.ok) {
-        throw new Error(`auth API returned ${response.status}`);
+        throw new Error(await readErrorMessage(response));
       }
 
       const payload = (await response.json()) as CreateAgencyUserResponse;
       setUsers((current) => [managedUserFromCreateResponse(payload), ...current]);
-      setUserForm(defaultUserForm);
+      setUserForm(initialUserForm());
       // The temporary password is only returned here, once; hold it for the
       // success dialog and drop it when the dialog closes.
       setCreatedCredentials({
@@ -155,11 +231,19 @@ export function useAdminData() {
         message:
           "Authority user created. Hand the temporary password to the user — it is shown once and required for MFA setup.",
       });
-    } catch {
+    } catch (cause) {
+      if (cause instanceof SessionExpiredError) {
+        // The 401 guard cleared the session; the app returns to sign-in.
+        return;
+      }
       setActionResult({
         severity: "error",
         message:
-          "User was not created. The auth API is unavailable or rejected the current admin session.",
+          cause instanceof TypeError
+            ? "User was not created. The auth API is unavailable."
+            : cause instanceof Error
+              ? `User was not created. ${cause.message}`
+              : "User was not created. The auth API is unavailable.",
       });
     } finally {
       setCreateBusy(false);
@@ -174,6 +258,10 @@ export function useAdminData() {
     alertRules,
     loadState,
     loadMessage,
+    agenciesForbidden,
+    auditForbidden,
+    usersError,
+    lockedAgency,
     refresh: () => void refresh(),
     userForm,
     createBusy,

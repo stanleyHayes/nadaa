@@ -9,6 +9,7 @@ import { UsersRound } from "lucide-react";
 import { nadaaBrand } from "@nadaa/brand";
 import type { ManagedAgency } from "../types";
 import {
+  agencyStatusLabel,
   agencyTypeLabel,
   formatDateTime,
   formatPercent,
@@ -50,9 +51,9 @@ export function AgencyGovernancePanel({
             key: "status",
             label: "Status",
             options: Array.from(
-              new Set(agencies.map((agency) => agency.status)),
+              new Set(agencies.map((agency) => agencyStatusLabel(agency.status))),
             ),
-            valueOf: (agency) => agency.status,
+            valueOf: (agency) => agencyStatusLabel(agency.status),
           },
           {
             key: "type",
@@ -79,7 +80,7 @@ export function AgencyGovernancePanel({
                     className="status-chip"
                     size="small"
                     color={statusColor(agency.status) as ChipColor}
-                    label={agency.status}
+                    label={agencyStatusLabel(agency.status)}
                   />
                   <Chip size="small" label={agencyTypeLabel(agency.type)} />
                 </Stack>
@@ -103,11 +104,13 @@ export function AgencyGovernancePanel({
               <>
                 <Typography sx={{
                   fontWeight: 800
-                }}>{agency.users}</Typography>
+                }}>{agency.users ?? "—"}</Typography>
                 <Typography variant="caption" sx={{
                   color: "text.secondary"
                 }}>
-                  {agency.openAssignments} open assignments
+                  {agency.openAssignments === null
+                    ? "Assignments not tracked"
+                    : `${agency.openAssignments} open assignments`}
                 </Typography>
               </>
             ),
@@ -115,20 +118,27 @@ export function AgencyGovernancePanel({
           {
             key: "mfa",
             label: "MFA",
-            render: (agency) => (
-              <Stack spacing={0.75}>
-                <LinearProgress
-                  className="mfa-meter"
-                  variant="determinate"
-                  color={agency.mfaCoverage >= 90 ? "success" : "warning"}
-                  value={agency.mfaCoverage}
-                  aria-label={`${agency.name} MFA coverage`}
-                />
-                <Typography variant="caption">
-                  {formatPercent(agency.mfaCoverage)}
+            render: (agency) =>
+              agency.mfaCoverage === null ? (
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
+                  Not available
                 </Typography>
-              </Stack>
-            ),
+              ) : (
+                <Stack spacing={0.75}>
+                  <LinearProgress
+                    className="mfa-meter"
+                    variant="determinate"
+                    color={agency.mfaCoverage >= 90 ? "success" : "warning"}
+                    value={agency.mfaCoverage}
+                    aria-label={`${agency.name} MFA coverage`}
+                  />
+                  <Typography variant="caption">
+                    {formatPercent(agency.mfaCoverage)}
+                  </Typography>
+                </Stack>
+              ),
           },
           {
             key: "lastAudit",

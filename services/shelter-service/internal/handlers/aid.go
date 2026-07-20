@@ -19,7 +19,43 @@ func (s *server) listAidRequestsHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	aidRequests := s.store.ListAidRequests(filter)
 	log.Printf("INFO shelter-service aid_request_list count=%d status=%s category=%s priority=%s includePrivate=%t", len(aidRequests), filter.Status, filter.Category, filter.Priority, filter.IncludePrivate)
+	// Anonymous listings get the public view: pledge records (donor contact
+	// PII, fraud-review internals) and authority-only review metadata stay on
+	// the authenticated includePrivate path.
+	if !filter.IncludePrivate {
+		utils.WriteJSON(w, http.StatusOK, models.PublicAidRequestListResponse{AidRequests: publicAidRequests(aidRequests), GeneratedAt: s.now().UTC()})
+		return
+	}
 	utils.WriteJSON(w, http.StatusOK, models.AidRequestListResponse{AidRequests: aidRequests, GeneratedAt: s.now().UTC()})
+}
+
+// publicAidRequests maps aid requests to their anonymous-safe public view.
+func publicAidRequests(aidRequests []models.AidRequest) []models.PublicAidRequest {
+	public := make([]models.PublicAidRequest, 0, len(aidRequests))
+	for _, request := range aidRequests {
+		public = append(public, models.PublicAidRequest{
+			ID:                    request.ID,
+			Title:                 request.Title,
+			Category:              request.Category,
+			Priority:              request.Priority,
+			Status:                request.Status,
+			Region:                request.Region,
+			District:              request.District,
+			Location:              request.Location,
+			ReceivingOrganization: request.ReceivingOrganization,
+			Contact:               request.Contact,
+			QuantityNeeded:        request.QuantityNeeded,
+			QuantityUnit:          request.QuantityUnit,
+			QuantityPledged:       request.QuantityPledged,
+			Description:           request.Description,
+			NeededBy:              request.NeededBy,
+			Visibility:            request.Visibility,
+			SourceReliefPointID:   request.SourceReliefPointID,
+			CreatedAt:             request.CreatedAt,
+			UpdatedAt:             request.UpdatedAt,
+		})
+	}
+	return public
 }
 
 func (s *server) createAidRequestHandler(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +65,7 @@ func (s *server) createAidRequestHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	var request models.CreateAidRequestRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		log.Printf("WARN shelter-service aid_request_create invalid_json actor=%s error=%v", ctx.ActorUserID, err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
@@ -53,23 +89,29 @@ func (s *server) reviewAidRequestHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Sanitize user-controlled path values before logging (G706).
+	aidRequestIDLog := utils.SafeLogValue(r.PathValue("id"))
+
 	var request models.ReviewAidRequestRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN shelter-service aid_request_review invalid_json actor=%s requestId=%s error=%v", ctx.ActorUserID, r.PathValue("id"), err)
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_request_review invalid_json actor=%s requestId=%s error=%v", ctx.ActorUserID, aidRequestIDLog, err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 
 	normalized, code, message := utils.NormalizeReviewAidRequest(request)
 	if code != "" {
-		log.Printf("WARN shelter-service aid_request_review validation_failed actor=%s requestId=%s code=%s", ctx.ActorUserID, r.PathValue("id"), code)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_request_review validation_failed actor=%s requestId=%s code=%s", ctx.ActorUserID, aidRequestIDLog, code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
 	aidRequest, code, message := s.store.ReviewAidRequest(r.PathValue("id"), normalized, ctx, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN shelter-service aid_request_review failed actor=%s requestId=%s code=%s", ctx.ActorUserID, r.PathValue("id"), code)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_request_review failed actor=%s requestId=%s code=%s", ctx.ActorUserID, aidRequestIDLog, code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
@@ -84,12 +126,16 @@ func (s *server) deleteAidRequestHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	id := r.PathValue("id")
+	// Sanitize user-controlled path values before logging (G706).
+	idLog := utils.SafeLogValue(id)
 	if !s.store.DeleteAidRequest(id) {
-		log.Printf("WARN shelter-service aid_request_delete not_found id=%s actor=%s", id, ctx.ActorUserID)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_request_delete not_found id=%s actor=%s", idLog, ctx.ActorUserID)
 		utils.WriteError(w, http.StatusNotFound, "not_found", "aid request was not found")
 		return
 	}
-	log.Printf("INFO shelter-service aid_request_delete completed id=%s actor=%s", id, ctx.ActorUserID)
+	// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO shelter-service aid_request_delete completed id=%s actor=%s", idLog, ctx.ActorUserID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -99,34 +145,54 @@ func (s *server) listAidPledgesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Sanitize user-controlled path values before logging (G706).
+	aidRequestIDLog := utils.SafeLogValue(r.PathValue("id"))
+
 	pledges, code, message := s.store.ListAidPledges(r.PathValue("id"))
 	if code != "" {
-		log.Printf("WARN shelter-service aid_pledge_list failed actor=%s requestId=%s code=%s", ctx.ActorUserID, r.PathValue("id"), code)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_pledge_list failed actor=%s requestId=%s code=%s", ctx.ActorUserID, aidRequestIDLog, code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
-	log.Printf("INFO shelter-service aid_pledge_list requestId=%s count=%d", r.PathValue("id"), len(pledges))
+	// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO shelter-service aid_pledge_list requestId=%s count=%d", aidRequestIDLog, len(pledges))
 	utils.WriteJSON(w, http.StatusOK, models.AidPledgeListResponse{AidRequestID: r.PathValue("id"), Pledges: pledges, GeneratedAt: s.now().UTC()})
 }
 
 func (s *server) createAidPledgeHandler(w http.ResponseWriter, r *http.Request) {
+	// Pledge creation is unauthenticated, so it is rate limited per client.
+	clientID := utils.ClientIdentifier(r)
+	if !s.rateLimiter.Allow(clientID) {
+		// #nosec G706 -- client id is sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_pledge_create rate_limited client=%s", utils.SafeLogValue(clientID))
+		utils.WriteError(w, http.StatusTooManyRequests, "rate_limited", "too many pledge attempts; please wait before trying again")
+		return
+	}
+
+	// Sanitize user-controlled path values before logging (G706).
+	aidRequestIDLog := utils.SafeLogValue(r.PathValue("id"))
+
 	var request models.CreateAidPledgeRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN shelter-service aid_pledge_create invalid_json requestId=%s error=%v", r.PathValue("id"), err)
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_pledge_create invalid_json requestId=%s error=%v", aidRequestIDLog, err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 
 	normalized, code, message := utils.NormalizeCreateAidPledge(request)
 	if code != "" {
-		log.Printf("WARN shelter-service aid_pledge_create validation_failed requestId=%s code=%s", r.PathValue("id"), code)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_pledge_create validation_failed requestId=%s code=%s", aidRequestIDLog, code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
 	pledge, code, message := s.store.CreateAidPledge(r.PathValue("id"), normalized, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN shelter-service aid_pledge_create failed requestId=%s code=%s", r.PathValue("id"), code)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service aid_pledge_create failed requestId=%s code=%s", aidRequestIDLog, code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
@@ -145,7 +211,7 @@ func (s *server) reviewAidPledgeHandler(w http.ResponseWriter, r *http.Request) 
 	pledgeIDLog := utils.SafeLogValue(r.PathValue("pledgeId"))
 
 	var request models.ReviewAidPledgeRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
 		log.Printf("WARN shelter-service aid_pledge_review invalid_json actor=%s requestId=%s pledgeId=%s error=%v", ctx.ActorUserID, aidRequestIDLog, pledgeIDLog, err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")

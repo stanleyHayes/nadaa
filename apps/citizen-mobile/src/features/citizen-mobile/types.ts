@@ -96,6 +96,17 @@ export type VolunteerObservationDraft = {
   safetyStatus: "safe" | "caution" | "unsafe" | "needs_authority";
 };
 
+/**
+ * Volunteer registration form values. `skills` is edited as a comma-separated
+ * list and split before it is sent to the incident-service.
+ */
+export type VolunteerRegistrationDraft = {
+  community: string;
+  district: string;
+  region: string;
+  skills: string;
+};
+
 export type CitizenMobileSnapshot = {
   alertFeed: CitizenAlertFeedItem[];
   guideCache: GuideCachePayload;

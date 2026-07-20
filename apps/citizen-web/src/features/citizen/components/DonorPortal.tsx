@@ -252,8 +252,11 @@ export function DonorPortal() {
     }
     const form = pledgeForms[aidRequest.id] ?? buildDefaultPledgeForm();
     const quantityPledged = Number(form.quantityPledged);
+    // Once a donor is registered the pledge is bound to that donor's identity,
+    // so a free-typed name is only required for the first, donor-creating
+    // pledge.
     if (
-      !form.donorName.trim() ||
+      (!registeredDonor && !form.donorName.trim()) ||
       !Number.isFinite(quantityPledged) ||
       quantityPledged <= 0
     ) {
@@ -289,13 +292,14 @@ export function DonorPortal() {
       }
 
       const payload: CreatePledgeRequest = {
-        donorName: form.donorName.trim(),
+        donorName: donor.name,
         quantityPledged,
-        // The service rejects the pledge (403) unless contactEmail matches the
-        // donor's registered email, so send the donor's own rather than the
-        // free-typed form value.
+        // Every identity field comes from the donor record — never from
+        // free-typed form values, which could belong to a different donor than
+        // donorId. The service also rejects the pledge (403) unless
+        // contactEmail matches the donor's registered email.
         contactEmail: donor.contactEmail,
-        contactPhone: form.contactPhone.trim() || undefined,
+        contactPhone: donor.contactPhone,
         donorId: donor.id,
       };
 
@@ -610,9 +614,19 @@ export function DonorPortal() {
             label="Your name"
             size="small"
             fullWidth
-            value={pledgeForms[activeRequestId]?.donorName ?? ""}
+            disabled={Boolean(registeredDonor)}
+            value={
+              registeredDonor
+                ? registeredDonor.name
+                : (pledgeForms[activeRequestId]?.donorName ?? "")
+            }
             onChange={(event) =>
               updatePledgeField(activeRequestId, "donorName", event.target.value)
+            }
+            helperText={
+              registeredDonor
+                ? `Pledging as registered donor ${registeredDonor.reference}.`
+                : undefined
             }
           />
         </Grid>
@@ -639,7 +653,12 @@ export function DonorPortal() {
             label="Email"
             size="small"
             fullWidth
-            value={pledgeForms[activeRequestId]?.contactEmail ?? ""}
+            disabled={Boolean(registeredDonor)}
+            value={
+              registeredDonor
+                ? (registeredDonor.contactEmail ?? "")
+                : (pledgeForms[activeRequestId]?.contactEmail ?? "")
+            }
             onChange={(event) =>
               updatePledgeField(
                 activeRequestId,
@@ -654,7 +673,12 @@ export function DonorPortal() {
             label="Phone"
             size="small"
             fullWidth
-            value={pledgeForms[activeRequestId]?.contactPhone ?? ""}
+            disabled={Boolean(registeredDonor)}
+            value={
+              registeredDonor
+                ? (registeredDonor.contactPhone ?? "")
+                : (pledgeForms[activeRequestId]?.contactPhone ?? "")
+            }
             onChange={(event) =>
               updatePledgeField(
                 activeRequestId,

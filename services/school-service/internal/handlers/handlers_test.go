@@ -202,6 +202,72 @@ func TestCreateAndGetSchool(t *testing.T) {
 	}
 }
 
+func TestCreateSchoolRejectsInvalidEvacuationPoint(t *testing.T) {
+	cases := []struct {
+		name   string
+		points []models.EvacuationPoint
+	}{
+		{
+			name:   "out-of-range coordinates",
+			points: []models.EvacuationPoint{{Label: "Field", Location: models.Coordinates{Lat: 999, Lng: -0.19}, Capacity: 100}},
+		},
+		{
+			name:   "negative capacity",
+			points: []models.EvacuationPoint{{Label: "Field", Location: models.Coordinates{Lat: 5.551, Lng: -0.191}, Capacity: -50}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTestServer()
+			body := models.CreateSchoolRequest{
+				Name:             "Evac Point School",
+				Location:         models.Coordinates{Lat: 5.55, Lng: -0.19},
+				Region:           "Greater Accra",
+				District:         "Accra Metropolitan",
+				EvacuationPoints: tc.points,
+			}
+
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/schools", jsonBody(body))
+			applyDistrictOfficerHeaders(request)
+			srv.Routes().ServeHTTP(response, request)
+
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+			}
+			var payload models.APIError
+			decodeResponse(t, response, &payload)
+			if payload.Error.Code != "invalid_evacuation_point" {
+				t.Fatalf("expected invalid_evacuation_point, got %q", payload.Error.Code)
+			}
+		})
+	}
+}
+
+func TestUpdateSchoolRejectsInvalidEvacuationPoint(t *testing.T) {
+	srv := newTestServer()
+	update := models.UpdateSchoolRequest{
+		EvacuationPoints: []models.EvacuationPoint{
+			{Label: "Assembly", Location: models.Coordinates{Lat: 5.551, Lng: -0.191}, Capacity: -1},
+		},
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/schools/school_001", jsonBody(update))
+	applyDistrictOfficerHeaders(request)
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_evacuation_point" {
+		t.Fatalf("expected invalid_evacuation_point, got %q", payload.Error.Code)
+	}
+}
+
 func TestUpdateSchool(t *testing.T) {
 	srv := newTestServer()
 	update := models.UpdateSchoolRequest{

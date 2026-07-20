@@ -57,7 +57,7 @@ func (s *Server) createCampaignHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request models.CreateCampaignRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		log.Printf("WARN campaign-service create_campaign invalid_json actor=%s error=%v", utils.SanitizeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
@@ -82,7 +82,7 @@ func (s *Server) updateCampaignHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request models.UpdateCampaignRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		// #nosec G706 -- path value and actor id are sanitized with utils.SanitizeLogValue.
 		log.Printf("WARN campaign-service update_campaign invalid_json id=%s actor=%s error=%v", utils.SanitizeLogValue(r.PathValue("id")), utils.SanitizeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")

@@ -20,6 +20,7 @@ import type { ViewId } from "../../navigation";
 import { ViewIntro } from "../primitives";
 import {
   EmptyState,
+  ErrorState,
   HospitalCapacityCard,
   HospitalCapacityUpdateForm,
   LoadingState,
@@ -43,6 +44,8 @@ export function CapacityView({
     session,
     selectedIncident,
     capacityLoadState,
+    capacityError,
+    reloadCapacity,
     shelters,
     hospitals,
     roadClosures,
@@ -108,6 +111,11 @@ export function CapacityView({
       />
       {capacityLoadState === "loading" ? (
         <LoadingState message="Loading nearby capacity" />
+      ) : capacityLoadState === "error" ? (
+        <ErrorState
+          message={capacityError ?? "Could not load nearby capacity."}
+          onRetry={() => void reloadCapacity()}
+        />
       ) : (
         <>
           <Grid container spacing={2.5}>

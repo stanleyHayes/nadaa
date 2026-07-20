@@ -140,16 +140,18 @@ type Store interface {
 	MergeIncidents(primaryID string, request models.MergeIncidentsRequest, ctx models.AuthorityContext, now time.Time) (models.MergeIncidentsResponse, string, string)
 	ReviewAbuse(id string, request models.AbuseReviewRequest, ctx models.AuthorityContext, now time.Time) (models.IncidentRecord, string, string)
 	AssignIncident(id string, request models.AssignmentRequest, ctx models.AuthorityContext, now time.Time) (models.IncidentRecord, string, string)
-	RegisterVolunteer(request models.RegisterVolunteerRequest, now time.Time) models.VolunteerProfile
+	RegisterVolunteer(request models.RegisterVolunteerRequest, now time.Time) (models.VolunteerProfile, bool)
 	ListVolunteers(status, district string) []models.VolunteerProfile
 	VolunteerByID(id string) (models.VolunteerProfile, bool)
 	VerifyVolunteer(id string, request models.VerifyVolunteerRequest, ctx models.AuthorityContext, now time.Time) (models.VolunteerProfile, string, string)
 	ListVolunteerTasks(volunteerID string) ([]models.VolunteerTaskRecord, string, string)
 	VolunteerTaskByID(id string) (models.VolunteerTaskRecord, bool)
 	AssignVolunteerTask(incidentID string, request models.VolunteerTaskRequest, ctx models.AuthorityContext, now time.Time) (models.VolunteerTaskRecord, string, string)
-	UpdateVolunteerTaskStatus(taskID string, request models.VolunteerTaskStatusRequest, now time.Time) (models.VolunteerTaskRecord, string, string)
-	AddVolunteerObservation(taskID string, request models.VolunteerObservationRequest, now time.Time) (models.VolunteerTaskRecord, string, string)
-	CreateMediaUpload(request models.InitiateMediaUploadRequest, now time.Time) models.MediaRecord
+	UpdateVolunteerTaskStatus(taskID string, request models.VolunteerTaskStatusRequest, ctx models.AuthorityContext, now time.Time) (models.VolunteerTaskRecord, string, string)
+	AddVolunteerObservation(taskID string, request models.VolunteerObservationRequest, ctx models.AuthorityContext, now time.Time) (models.VolunteerTaskRecord, string, string)
+	CreateMediaUpload(request models.InitiateMediaUploadRequest, publicBaseURL string, now time.Time) models.MediaRecord
+	MediaByID(id string) (models.MediaRecord, bool)
+	CompleteMediaUpload(id string, sizeBytes int64) (models.MediaRecord, string, string)
 	ListMedia() []models.MediaRecord
 	ValidateMediaReferences(mediaIDs []string) error
 	LinkMediaToIncident(incidentID string, mediaIDs []string, now time.Time)
@@ -216,6 +218,11 @@ func (m *MemoryStore) createIncidentLocked(request models.CreateIncidentRequest,
 	m.sequence++
 	reference := fmt.Sprintf("INC-%06d", m.sequence)
 	timestamp := now.UTC()
+	var location *models.Coordinates
+	if request.Location != nil {
+		point := *request.Location
+		location = &point
+	}
 	record := models.IncidentRecord{
 		ID:                 utils.NewID("inc"),
 		Reference:          reference,
@@ -223,7 +230,7 @@ func (m *MemoryStore) createIncidentLocked(request models.CreateIncidentRequest,
 		Severity:           severityFromUrgency(request.Urgency),
 		Status:             "reported",
 		Description:        request.Description,
-		Location:           request.Location,
+		Location:           location,
 		PeopleAffected:     request.PeopleAffected,
 		InjuriesReported:   request.InjuriesReported,
 		Urgency:            request.Urgency,
@@ -690,10 +697,18 @@ func (m *MemoryStore) AssignIncident(id string, request models.AssignmentRequest
 	return incident, "", ""
 }
 
-// RegisterVolunteer creates a pending volunteer profile.
-func (m *MemoryStore) RegisterVolunteer(request models.RegisterVolunteerRequest, now time.Time) models.VolunteerProfile {
+// RegisterVolunteer creates a pending volunteer profile. Registration is
+// idempotent per citizenUserId: re-registering returns the existing profile
+// with created=false instead of minting a duplicate that orphans assignments.
+func (m *MemoryStore) RegisterVolunteer(request models.RegisterVolunteerRequest, now time.Time) (models.VolunteerProfile, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	for _, existing := range m.volunteers {
+		if existing.CitizenUserID == request.CitizenUserID {
+			return existing, false
+		}
+	}
 
 	m.volunteerSequence++
 	timestamp := now.UTC()
@@ -716,7 +731,7 @@ func (m *MemoryStore) RegisterVolunteer(request models.RegisterVolunteerRequest,
 	}
 	m.volunteers[volunteer.ID] = volunteer
 	m.appendAuditForTargetLocked("volunteer.registered", volunteerActorContext(volunteer), "volunteer_profile", volunteer.ID, nil, snapshotVolunteer(volunteer), timestamp)
-	return volunteer
+	return volunteer, true
 }
 
 // ListVolunteers returns volunteers filtered by status and district.
@@ -878,7 +893,9 @@ func (m *MemoryStore) AssignVolunteerTask(incidentID string, request models.Volu
 }
 
 // UpdateVolunteerTaskStatus records a status change from the volunteer.
-func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.VolunteerTaskStatusRequest, now time.Time) (models.VolunteerTaskRecord, string, string) {
+// Timeline and audit events are attributed to the verified actor in ctx,
+// never to the client-supplied volunteer id.
+func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.VolunteerTaskStatusRequest, ctx models.AuthorityContext, now time.Time) (models.VolunteerTaskRecord, string, string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -919,21 +936,20 @@ func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.Vo
 		SafetyStatus:        request.SafetyStatus,
 		Location:            request.Location,
 		EscalationRequested: escalationNewlyRequested,
-		CreatedBy:           request.VolunteerID,
+		CreatedBy:           ctx.ActorUserID,
 		CreatedAt:           timestamp,
 	}
 	task.Updates = append(task.Updates, update)
 	m.volunteerTasks[task.ID] = task
 
-	actor := volunteerActorContextByID(request.VolunteerID)
-	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_status_updated", "Volunteer task "+request.Status, actor, map[string]string{
+	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_status_updated", "Volunteer task "+request.Status, ctx, map[string]string{
 		"taskId":       task.ID,
 		"volunteerId":  request.VolunteerID,
 		"status":       request.Status,
 		"safetyStatus": request.SafetyStatus,
 	}, timestamp))
 	if escalationNewlyRequested {
-		incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_escalation", "Volunteer requested authority escalation", actor, map[string]string{
+		incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_escalation", "Volunteer requested authority escalation", ctx, map[string]string{
 			"taskId":       task.ID,
 			"volunteerId":  request.VolunteerID,
 			"safetyStatus": request.SafetyStatus,
@@ -941,12 +957,14 @@ func (m *MemoryStore) UpdateVolunteerTaskStatus(taskID string, request models.Vo
 	}
 	incident.UpdatedAt = timestamp
 	m.incidents[incident.ID] = incident
-	m.appendAuditLocked("incident.volunteer_status_updated", actor, incident.ID, before, snapshotIncident(incident), timestamp)
+	m.appendAuditLocked("incident.volunteer_status_updated", ctx, incident.ID, before, snapshotIncident(incident), timestamp)
 	return task, "", ""
 }
 
 // AddVolunteerObservation records a field observation from the volunteer.
-func (m *MemoryStore) AddVolunteerObservation(taskID string, request models.VolunteerObservationRequest, now time.Time) (models.VolunteerTaskRecord, string, string) {
+// Timeline and audit events are attributed to the verified actor in ctx,
+// never to the client-supplied volunteer id.
+func (m *MemoryStore) AddVolunteerObservation(taskID string, request models.VolunteerObservationRequest, ctx models.AuthorityContext, now time.Time) (models.VolunteerTaskRecord, string, string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -966,6 +984,12 @@ func (m *MemoryStore) AddVolunteerObservation(taskID string, request models.Volu
 	timestamp := now.UTC()
 	escalationNewlyRequested := !task.EscalationRequired && (request.EscalationRequested || request.SafetyStatus == "unsafe" || request.SafetyStatus == "needs_authority")
 	if escalationNewlyRequested {
+		// Escalating an observation moves the task to needs_escalation, so it
+		// must honor the same transition guard as status updates; terminal
+		// tasks (completed, cancelled) cannot be resurrected.
+		if !allowedVolunteerTaskTransitions[task.Status]["needs_escalation"] {
+			return models.VolunteerTaskRecord{}, "invalid_transition", fmt.Sprintf("cannot move volunteer task from %s to needs_escalation", task.Status)
+		}
 		task.EscalationRequired = true
 		task.Status = "needs_escalation"
 	}
@@ -978,22 +1002,21 @@ func (m *MemoryStore) AddVolunteerObservation(taskID string, request models.Volu
 		Location:            request.Location,
 		EscalationRequested: request.EscalationRequested,
 		Media:               append([]string{}, request.Media...),
-		CreatedBy:           request.VolunteerID,
+		CreatedBy:           ctx.ActorUserID,
 		CreatedAt:           timestamp,
 	}
 	task.Updates = append(task.Updates, update)
 	task.UpdatedAt = timestamp
 	m.volunteerTasks[task.ID] = task
 
-	actor := volunteerActorContextByID(request.VolunteerID)
-	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_observation", "Volunteer field observation received", actor, map[string]string{
+	incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_observation", "Volunteer field observation received", ctx, map[string]string{
 		"taskId":       task.ID,
 		"volunteerId":  request.VolunteerID,
 		"safetyStatus": request.SafetyStatus,
 		"mediaCount":   strconv.Itoa(len(request.Media)),
 	}, timestamp))
 	if escalationNewlyRequested {
-		incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_escalation", "Volunteer observation requires authority review", actor, map[string]string{
+		incident.Timeline = append(incident.Timeline, newTimelineEvent("incident.volunteer_escalation", "Volunteer observation requires authority review", ctx, map[string]string{
 			"taskId":       task.ID,
 			"volunteerId":  request.VolunteerID,
 			"safetyStatus": request.SafetyStatus,
@@ -1001,7 +1024,7 @@ func (m *MemoryStore) AddVolunteerObservation(taskID string, request models.Volu
 	}
 	incident.UpdatedAt = timestamp
 	m.incidents[incident.ID] = incident
-	m.appendAuditLocked("incident.volunteer_observation", actor, incident.ID, before, snapshotIncident(incident), timestamp)
+	m.appendAuditLocked("incident.volunteer_observation", ctx, incident.ID, before, snapshotIncident(incident), timestamp)
 	return task, "", ""
 }
 
@@ -1023,8 +1046,10 @@ func (m *MemoryStore) ListAudit(limit int) []models.AuditEvent {
 	return logs
 }
 
-// CreateMediaUpload persists a pending media upload record.
-func (m *MemoryStore) CreateMediaUpload(request models.InitiateMediaUploadRequest, now time.Time) models.MediaRecord {
+// CreateMediaUpload persists a pending media upload record. The upload URL is
+// the absolute content endpoint built from the service's public base URL so
+// clients can PUT bytes directly.
+func (m *MemoryStore) CreateMediaUpload(request models.InitiateMediaUploadRequest, publicBaseURL string, now time.Time) models.MediaRecord {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -1039,12 +1064,40 @@ func (m *MemoryStore) CreateMediaUpload(request models.InitiateMediaUploadReques
 		UploadedBy:  request.UploadedBy,
 		Access:      "private",
 		Status:      "pending_upload",
-		UploadURL:   fmt.Sprintf("/dev/uploads/%s/%s", id, request.FileName),
+		UploadURL:   fmt.Sprintf("%s/api/v1/media/%s/content", strings.TrimSuffix(publicBaseURL, "/"), id),
 		ExpiresAt:   timestamp.Add(15 * time.Minute),
 		CreatedAt:   timestamp,
 	}
 	m.media[record.ID] = record
 	return record
+}
+
+// MediaByID returns a single media record by id.
+func (m *MemoryStore) MediaByID(id string) (models.MediaRecord, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	record, ok := m.media[id]
+	return record, ok
+}
+
+// CompleteMediaUpload marks a pending upload as uploaded with the actual
+// stored byte size.
+func (m *MemoryStore) CompleteMediaUpload(id string, sizeBytes int64) (models.MediaRecord, string, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	record, ok := m.media[id]
+	if !ok {
+		return models.MediaRecord{}, "not_found", "media record was not found"
+	}
+	if record.Status == "linked" {
+		return models.MediaRecord{}, "media_already_linked", "media is already linked to an incident and cannot be replaced"
+	}
+	record.Status = "uploaded"
+	record.SizeBytes = sizeBytes
+	m.media[id] = record
+	return record, "", ""
 }
 
 // Media reference errors.
@@ -1219,13 +1272,18 @@ func scoreDuplicateCandidate(record models.IncidentRecord, existing models.Incid
 	if existing.MergedIntoID != "" || existing.Status == "closed" || existing.Status == "false_report" {
 		return models.DuplicateCandidate{}, false
 	}
+	// Reports without GPS coordinates (e.g. USSD) cannot be distance-scored, so
+	// locationless pairs are never duplicate candidates.
+	if record.Location == nil || existing.Location == nil {
+		return models.DuplicateCandidate{}, false
+	}
 
 	timeApart := absoluteDuration(record.CreatedAt.Sub(existing.CreatedAt))
 	if timeApart > DuplicateReviewWindow {
 		return models.DuplicateCandidate{}, false
 	}
 
-	distance := haversineMeters(record.Location, existing.Location)
+	distance := haversineMeters(*record.Location, *existing.Location)
 	if distance > DuplicateDistanceMeters {
 		return models.DuplicateCandidate{}, false
 	}

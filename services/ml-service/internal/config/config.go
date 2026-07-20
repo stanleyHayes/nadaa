@@ -57,6 +57,16 @@ func resolveListenAddr(addrKey, fallback string) string {
 	return fallback
 }
 
+// Validate fails closed on unsafe configuration: honoring self-asserted
+// X-NADAA-Actor-* headers is a development-only relaxation, so it is rejected
+// unless NADAA_ENV=development.
+func (c *Config) Validate() error {
+	if c.AllowMockActors && os.Getenv("NADAA_ENV") != "development" {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
+}
+
 func resolveModelDir() (string, error) {
 	if value := strings.TrimSpace(os.Getenv("NADAA_ML_MODEL_DIR")); value != "" {
 		return value, nil

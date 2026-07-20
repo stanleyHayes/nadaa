@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -46,4 +47,14 @@ func Load() *Config {
 		TokenSecret:           strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
 		AllowMockActorHeaders: os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
 	}
+}
+
+// Validate fails closed on unsafe configuration: mock actor headers trust
+// client-supplied identity, so they are only allowed with NADAA_ENV=development
+// and can never leak into a deployed environment.
+func (c *Config) Validate() error {
+	if c.AllowMockActorHeaders && strings.TrimSpace(os.Getenv("NADAA_ENV")) != "development" {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
 }

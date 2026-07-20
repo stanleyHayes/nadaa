@@ -431,24 +431,25 @@ export async function initiateMediaUploads(files: File[]): Promise<string[]> {
 
     const upload = (await response.json()) as MediaUploadResponse;
 
-    // PUT the file bytes to the returned upload URL. The backend's URL is a
-    // dev stub with nothing real listening behind it, so a failed byte
-    // transfer is tolerated — the media record (and its id) is registered.
+    // PUT the raw bytes to the absolute upload URL the service returned,
+    // using exactly the headers it dictated (Content-Type, Authorization).
+    // A failed byte transfer fails the whole submission with a visible error —
+    // a media id without stored bytes must never be attached to a report.
+    let byteResponse: Response;
     try {
-      const byteResponse = await fetch(upload.uploadUrl, {
+      byteResponse = await fetch(upload.uploadUrl, {
         method: upload.method,
         headers: upload.headers,
         body: file,
       });
-      if (!byteResponse.ok) {
-        console.warn(
-          `Media byte upload for ${file.name} returned ${byteResponse.status}; continuing with the registered media id.`,
-        );
-      }
-    } catch (error) {
-      console.warn(
-        `Media byte upload for ${file.name} failed; continuing with the registered media id.`,
-        error,
+    } catch {
+      throw new Error(
+        `Could not upload ${file.name}. Check your connection and try again — the report was not sent.`,
+      );
+    }
+    if (!byteResponse.ok) {
+      throw new Error(
+        `Could not upload ${file.name} (status ${byteResponse.status}). The report was not sent — try again.`,
       );
     }
 

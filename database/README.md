@@ -11,6 +11,7 @@ NADAA uses PostgreSQL with PostGIS for core relational and geospatial data.
 - `migrations/005_add_aid_coordination.sql` - aid requests and donation pledges for recovery coordination.
 - `migrations/006_add_missing_persons.sql` - missing person reports and authority audit entries for family reunification.
 - `migrations/007_fix_service_alignment.sql` - notification enum extensions, alert workflow and incident urgency/abuse_score columns, and TEXT ID alignment with service-owned string IDs.
+- `migrations/008_fix_remaining_id_alignment.sql` - remaining TEXT ID alignment (users, incidents, road closures, relief points, aid coordination) and incident abuse-review/status-lifecycle columns.
 - `seeds/001_ghana_mvp_seed.sql` - development seed data for Ghana agencies, shelters, emergency guides, risk zones, alerts, incidents, and ML predictions.
 
 ## Local Database
@@ -27,7 +28,7 @@ If port `5432` is already in use:
 POSTGRES_PORT=55432 docker compose -f infra/docker/docker-compose.yml up -d postgres
 ```
 
-Apply migrations manually in filename order (all seven files):
+Apply migrations manually in filename order (all eight files):
 
 ```bash
 for migration in database/migrations/*.sql; do

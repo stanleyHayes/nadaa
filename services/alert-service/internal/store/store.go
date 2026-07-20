@@ -156,6 +156,9 @@ func (m *MemoryStore) TransitionAlert(id string, nextStatus string, ctx models.A
 		if alert.Status == "approved" || alert.Status == "published" {
 			return models.AuthorityAlert{}, "invalid_transition", "approved or published alerts do not need override"
 		}
+		if alert.IssuedBy == ctx.ActorUserID && ctx.ActorRole != "system_admin" {
+			return models.AuthorityAlert{}, "separation_of_duties", "override actor must be different from drafter unless actor is system_admin"
+		}
 		alert.Status = "approved"
 		alert.EmergencyOverride = true
 		alert.ApprovedBy = ctx.ActorUserID

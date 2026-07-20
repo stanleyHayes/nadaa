@@ -38,7 +38,9 @@ export function QueueScreen({ actions, state }: DispatcherScreenProps) {
           <ActionButton
             icon="refresh-cw"
             label="Refresh"
-            onPress={actions.refreshQueue}
+            // Never pass the handler bare: Pressable would forward the gesture
+            // event as the session override and the request would 401/403.
+            onPress={() => actions.refreshQueue()}
             tone="plain"
           />
         </View>

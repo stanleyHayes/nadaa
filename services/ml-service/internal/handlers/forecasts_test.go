@@ -13,7 +13,7 @@ import (
 func TestListForecasts(t *testing.T) {
 	srv := newTestServer(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/forecasts", nil)
+	req := authedRequest(http.MethodGet, "/api/v1/forecasts", nil)
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -58,7 +58,7 @@ func TestListForecastsDeterministic(t *testing.T) {
 func TestForecastsRegionFilter(t *testing.T) {
 	srv := newTestServer(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/forecasts?region=Ashanti", nil)
+	req := authedRequest(http.MethodGet, "/api/v1/forecasts?region=Ashanti", nil)
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -77,7 +77,7 @@ func TestForecastsRegionFilter(t *testing.T) {
 func TestForecastByRegion(t *testing.T) {
 	srv := newTestServer(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/forecasts/Greater%20Accra", nil)
+	req := authedRequest(http.MethodGet, "/api/v1/forecasts/Greater%20Accra", nil)
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -96,7 +96,7 @@ func TestForecastByRegion(t *testing.T) {
 func TestForecastByRegionNotFound(t *testing.T) {
 	srv := newTestServer(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/forecasts/Nowhere", nil)
+	req := authedRequest(http.MethodGet, "/api/v1/forecasts/Nowhere", nil)
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -108,7 +108,7 @@ func TestForecastByRegionNotFound(t *testing.T) {
 func TestStagingSuggestions(t *testing.T) {
 	srv := newTestServer(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/staging-suggestions", nil)
+	req := authedRequest(http.MethodGet, "/api/v1/staging-suggestions", nil)
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -138,7 +138,7 @@ func TestStagingSuggestions(t *testing.T) {
 func TestStagingSuggestionsAgencyFilter(t *testing.T) {
 	srv := newTestServer(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/staging-suggestions?agencyType=ambulance", nil)
+	req := authedRequest(http.MethodGet, "/api/v1/staging-suggestions?agencyType=ambulance", nil)
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -162,7 +162,7 @@ func TestCompareScenarios(t *testing.T) {
 
 	payload := models.CompareScenarioRequest{HistoricalWeight: 2.0, TimeWindowHours: 48}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/forecasts/compare", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/forecasts/compare", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -193,7 +193,7 @@ func TestCompareScenariosRiskFilterIsSymmetric(t *testing.T) {
 	// adjusted (heavier history) total is never below the baseline.
 	payload := models.CompareScenarioRequest{RiskLevel: "severe", HistoricalWeight: 2.0}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/forecasts/compare", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/forecasts/compare", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -235,7 +235,7 @@ func TestCompareScenariosRejectsInvalidInput(t *testing.T) {
 	}
 	for _, payload := range cases {
 		body, _ := json.Marshal(payload)
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/forecasts/compare", bytes.NewReader(body))
+		req := authedRequest(http.MethodPost, "/api/v1/forecasts/compare", bytes.NewReader(body))
 		rr := httptest.NewRecorder()
 		srv.Routes().ServeHTTP(rr, req)
 		if rr.Code != http.StatusBadRequest {
@@ -246,7 +246,7 @@ func TestCompareScenariosRejectsInvalidInput(t *testing.T) {
 
 func forecastBody(t *testing.T, srv *server, target string) []byte {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, target, nil)
+	req := authedRequest(http.MethodGet, target, nil)
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {

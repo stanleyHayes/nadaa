@@ -26,8 +26,17 @@ var allowedDonationStatuses = map[string]bool{
 
 // createDonationHandler starts a monetary donation and returns the gateway
 // authorization URL the donor is redirected to. The donation is recorded as
-// pending; it is only ever marked paid after a server-side verification.
+// pending; it is only ever marked paid after a server-side verification. The
+// endpoint is unauthenticated and every initialization fires an outbound
+// gateway call, so it is rate limited per client.
 func (s *Server) createDonationHandler(w http.ResponseWriter, r *http.Request) {
+	clientID := utils.ClientIdentifier(r)
+	if !s.rateLimiter.Allow(clientID) {
+		log.Printf("WARN donation-service donation_create rate_limited client=%s", utils.LogSafe(clientID)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
+		utils.WriteError(w, http.StatusTooManyRequests, "rate_limited", "too many donation attempts; please wait before trying again")
+		return
+	}
+
 	var request models.CreateDonationRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
 		log.Printf("WARN donation-service donation_create invalid_json error=%v", err)

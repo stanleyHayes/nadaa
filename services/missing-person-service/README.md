@@ -5,7 +5,7 @@ Privacy-sensitive missing persons workflow for disaster response and family reun
 ## Endpoints
 
 - `GET /healthz` - service health.
-- `POST /api/v1/missing-persons` - public intake. Creates a private `pending_review` record.
+- `POST /api/v1/missing-persons` - public intake. Creates a private `pending_review` record. Rate-limited per client IP (`429`) and refused when the store reaches its record cap (`503`).
 - `GET /api/v1/missing-persons` - public approved search/list.
 - `GET /api/v1/missing-persons/{id}` - public approved record lookup.
 - `GET /api/v1/authority/missing-persons` - authority full sensitive queue.
@@ -33,8 +33,20 @@ Without a valid token (and without mock actors enabled), authority endpoints ret
 Public endpoints (`POST/GET /api/v1/missing-persons`) stay public. Approving public
 visibility for a record whose reporter declined `consentToPublicShare` requires an
 explicit `"consentOverride": true` in the review payload, which is recorded in the
-audit trail. The localhost CORS exception (when `NADAA_ALLOWED_ORIGINS` is set) only
+audit trail. A review without an explicit `status` activates a pending record on first
+approval but leaves the current status untouched on any later re-review (a located or
+closed case is never silently reset to active; reopening requires `status: "active"`).
+The localhost CORS exception (when `NADAA_ALLOWED_ORIGINS` is set) only
 applies with `NADAA_ENV=development`.
+
+## Environment variables
+
+| Variable                     | Default | Description                                                   |
+| ---------------------------- | ------- | ------------------------------------------------------------- |
+| `PORT`                       | `:8101` | HTTP bind address                                             |
+| `RATE_LIMIT_REQUESTS`        | `10`    | Public intake requests allowed per client IP per window       |
+| `RATE_LIMIT_WINDOW_SECONDS`  | `60`    | Rate limit window in seconds                                  |
+| `MISSING_PERSON_MAX_RECORDS` | `10000` | Store capacity cap; intake is refused with `503` when reached |
 
 ## Local Development
 

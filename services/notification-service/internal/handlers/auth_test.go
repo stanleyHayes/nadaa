@@ -20,7 +20,7 @@ import (
 var tokenTestNow = time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
 
 func newTokenTestServer(secret string) *Server {
-	cfg := &config.Config{Addr: ":8090", TokenSecret: secret}
+	cfg := &config.Config{Addr: ":8090", TokenSecret: secret, Env: "development"}
 	return NewServer(
 		store.NewMemoryStore(tokenTestNow),
 		nil,
@@ -172,7 +172,7 @@ func TestDeliverExpiredAlertConflict(t *testing.T) {
 
 func TestVoiceDeliveryRevalidatesUnderlyingAlert(t *testing.T) {
 	currentNow := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8090", AllowMockActors: true}
+	cfg := &config.Config{Addr: ":8090", AllowMockActors: true, Env: "development"}
 	srv := NewServer(
 		store.NewMemoryStore(currentNow),
 		nil,

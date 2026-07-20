@@ -4,13 +4,7 @@ import {
   SELECTED_INCIDENT_KEY,
   SESSION_KEY,
 } from "../../app/config";
-import {
-  defaultCapacityFilters,
-  defaultFilters,
-  fallbackHospitalFacilities,
-  fallbackIncidents,
-  fixtureDispatcherSession,
-} from "./data";
+import { defaultCapacityFilters, defaultFilters } from "./data";
 import type {
   CapacityCachePayload,
   CapacityFilterState,
@@ -40,12 +34,16 @@ export function createMemoryStorage(seed: Record<string, string> = {}) {
   } satisfies KeyValueStorage;
 }
 
+/**
+ * Read the persisted session. Empty or corrupt storage means signed out —
+ * fixture sessions must never pose as an authenticated dispatcher.
+ */
 export async function readSession(
   storage: KeyValueStorage,
-): Promise<DispatcherSession> {
+): Promise<DispatcherSession | null> {
   const raw = await storage.getItem(SESSION_KEY);
   if (!raw) {
-    return fixtureDispatcherSession;
+    return null;
   }
   try {
     const payload = JSON.parse(raw) as DispatcherSession;
@@ -59,7 +57,7 @@ export async function readSession(
   } catch {
     await storage.removeItem(SESSION_KEY);
   }
-  return fixtureDispatcherSession;
+  return null;
 }
 
 export async function writeSession(
@@ -69,6 +67,10 @@ export async function writeSession(
   await storage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
+export async function clearSession(storage: KeyValueStorage) {
+  await storage.removeItem(SESSION_KEY);
+}
+
 export async function readIncidentCache(
   storage: KeyValueStorage,
 ): Promise<IncidentCachePayload> {
@@ -76,7 +78,7 @@ export async function readIncidentCache(
   if (!raw) {
     return {
       cachedAt: new Date().toISOString(),
-      incidents: fallbackIncidents,
+      incidents: [],
     };
   }
   try {
@@ -90,9 +92,10 @@ export async function readIncidentCache(
   } catch {
     await storage.removeItem(INCIDENT_CACHE_KEY);
   }
+  // Corrupt cache: an honest empty queue, never fixture incidents.
   return {
     cachedAt: new Date().toISOString(),
-    incidents: fallbackIncidents,
+    incidents: [],
   };
 }
 
@@ -139,7 +142,7 @@ export async function readCapacityCache(
   if (!raw) {
     return {
       cachedAt: new Date().toISOString(),
-      facilities: fallbackHospitalFacilities,
+      facilities: [],
     };
   }
   try {
@@ -153,9 +156,10 @@ export async function readCapacityCache(
   } catch {
     await storage.removeItem(CAPACITY_CACHE_KEY);
   }
+  // Corrupt cache: an honest empty list, never fixture facilities.
   return {
     cachedAt: new Date().toISOString(),
-    facilities: fallbackHospitalFacilities,
+    facilities: [],
   };
 }
 

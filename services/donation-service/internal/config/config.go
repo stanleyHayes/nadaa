@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/stanleyHayes/nadaa/services/donation-service/internal/utils"
@@ -24,6 +26,12 @@ type Config struct {
 	// smoke tests (NADAA_AUTH_ALLOW_MOCK_ACTORS=true); otherwise they are
 	// ignored entirely.
 	AllowMockActors bool
+	// DonationRateLimit caps how many payment initializations one client may
+	// start per DonationRateWindowSecs (NADAA_DONATION_RATE_LIMIT /
+	// NADAA_DONATION_RATE_WINDOW_SECONDS); each initialization fires an
+	// outbound gateway call, so the unauthenticated endpoint is throttled.
+	DonationRateLimit      int
+	DonationRateWindowSecs int
 }
 
 // PaymentConfig selects the payment gateway and carries its credentials.
@@ -63,6 +71,16 @@ func (c *Config) IsDevelopment() bool {
 	return c.Env == "development"
 }
 
+// Validate rejects configuration combinations that must never run outside
+// development: mock actor headers let any client self-assert an authority
+// identity, so they are only allowed when NADAA_ENV=development.
+func (c *Config) Validate() error {
+	if c.AllowMockActors && !c.IsDevelopment() {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
+}
+
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
@@ -77,5 +95,20 @@ func Load() *Config {
 		Env:             strings.ToLower(utils.EnvOrDefault("NADAA_ENV", "")),
 		AuthTokenSecret: os.Getenv("NADAA_AUTH_TOKEN_SECRET"),
 		AllowMockActors: strings.EqualFold(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS"), "true"),
+
+		DonationRateLimit:      envIntOrDefault("NADAA_DONATION_RATE_LIMIT", 10),
+		DonationRateWindowSecs: envIntOrDefault("NADAA_DONATION_RATE_WINDOW_SECONDS", 60),
 	}
+}
+
+func envIntOrDefault(key string, fallback int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

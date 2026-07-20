@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -16,10 +17,20 @@ type server struct {
 	tokenSecret          []byte
 	internalServiceToken string
 	allowMockActors      bool
+	mediaStoragePath     string
+	publicBaseURL        string
 }
 
 // NewServer creates a new server with the given dependencies.
 func NewServer(s store.Store, now func() time.Time, cfg *config.Config) *server {
+	mediaStoragePath := strings.TrimSpace(cfg.MediaStoragePath)
+	if mediaStoragePath == "" {
+		mediaStoragePath = "./uploads/media"
+	}
+	publicBaseURL := strings.TrimSuffix(strings.TrimSpace(cfg.PublicBaseURL), "/")
+	if publicBaseURL == "" {
+		publicBaseURL = "http://localhost:8084"
+	}
 	return &server{
 		store:                s,
 		rateLimiter:          newRateLimiter(cfg.RateLimit, time.Duration(cfg.RateWindowSecs)*time.Second, now),
@@ -27,6 +38,8 @@ func NewServer(s store.Store, now func() time.Time, cfg *config.Config) *server 
 		tokenSecret:          []byte(cfg.TokenSecret),
 		internalServiceToken: cfg.InternalServiceToken,
 		allowMockActors:      cfg.AllowMockActors,
+		mediaStoragePath:     mediaStoragePath,
+		publicBaseURL:        publicBaseURL,
 	}
 }
 

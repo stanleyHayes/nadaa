@@ -13,7 +13,7 @@ type SplitRevealProps = {
 
 /**
  * One-shot masked rise reveal that splits text into words or letters.
- * Screen readers get the plain string via aria-label; split spans are
+ * Screen readers get the plain string via an sr-only copy; split spans are
  * aria-hidden. Renders static text under reduced-motion.
  */
 export function SplitReveal({
@@ -40,7 +40,8 @@ export function SplitReveal({
 
   const parts = mode === "letters" ? Array.from(text) : text.split(" ");
   return (
-    <span aria-label={text} className={className} role="text">
+    <span className={className}>
+      <span className="sr-only">{text}</span>
       {parts.map((part, index) => (
         <span
           aria-hidden="true"

@@ -10,11 +10,18 @@ Public endpoints:
 - `GET /api/v1/aid-catalog`
 - `GET /api/v1/aid-requests?status=&category=&region=&priority=`
 - `POST /api/v1/donors`
-- `POST /api/v1/aid-requests/{id}/pledges` (the pledge must be bound to a
-  registered donor: `donorId` must reference an existing donor and
-  `contactEmail` must match that donor's registered email case-insensitively,
-  otherwise the request is rejected with 403)
-- `POST /api/v1/donations`
+- `POST /api/v1/aid-requests/{id}/pledges` (for public callers the pledge must
+  be bound to a registered donor: `donorId` must reference an existing donor
+  and `contactEmail` must match that donor's registered email
+  case-insensitively, otherwise the request is rejected with 403. A verified
+  authority caller pledges on behalf of the donor — the email match is skipped
+  and the donor's registered email is inherited when the form sends none.
+  Only delivered pledge quantities count toward a request's
+  `quantityFulfilled`; pledged-but-undelivered quantities never mark a request
+  `fulfilled`)
+- `POST /api/v1/donations` (rate limited per client — see
+  `NADAA_DONATION_RATE_LIMIT` below — because every initialization fires an
+  outbound gateway call)
 - `POST /api/v1/webhooks/paystack`
 
 Authority endpoints (require an `Authorization: Bearer nadaa.<payload>.<sig>`
@@ -32,7 +39,10 @@ token issued by auth-service with an authority role and `mfa: true`; legacy
 - `GET /api/v1/aid-requests/{id}/pledges`
 - `GET /api/v1/pledges?status=`
 - `PATCH /api/v1/pledges/{id}`
-- `POST /api/v1/aid-requests/{id}/allocate`
+- `POST /api/v1/aid-requests/{id}/allocate` (records one delivered tranche:
+  delivered quantities accumulate, a tranche beyond the remaining pledged
+  quantity is rejected with 400, and the pledge flips to `delivered` only once
+  fully allocated)
 - `GET /api/v1/donations?status=&campaign=`
 - `GET /api/v1/donations/{reference}`
 
@@ -107,7 +117,10 @@ go build ./cmd/server
 | `NADAA_PAYSTACK_BASE_URL` | `https://api.paystack.co` | Override the Paystack API host. |
 | `NADAA_ENV` | — | Set to `development` to enable sandbox payment crediting and localhost CORS bypass. |
 | `NADAA_AUTH_TOKEN_SECRET` | — | HMAC-SHA256 secret verifying auth-service bearer tokens; empty rejects authority requests unless mock actors are allowed. |
-| `NADAA_AUTH_ALLOW_MOCK_ACTORS` | `false` | When `true`, honor legacy `X-NADAA-Actor-*` headers (local dev and smoke tests). |
+| `NADAA_AUTH_ALLOW_MOCK_ACTORS` | `false` | When `true`, honor legacy `X-NADAA-Actor-*` headers (local dev and smoke tests). Rejected at startup unless `NADAA_ENV=development`. |
+| `NADAA_DONATION_RATE_LIMIT` | `10` | Max `POST /api/v1/donations` payment initializations per client per window. |
+| `NADAA_DONATION_RATE_WINDOW_SECONDS` | `60` | Rate-limit window length in seconds. |
+| `NADAA_TRUST_PROXY_HEADERS` | `false` | When `true`, derive the rate-limit client IP from `X-Forwarded-For`/`X-Real-Ip` (only enable behind a trusted reverse proxy). |
 
 ## Notes
 

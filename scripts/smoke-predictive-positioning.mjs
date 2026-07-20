@@ -2,13 +2,22 @@ const baseURL =
   process.env.FORECAST_API_URL?.trim() || "http://127.0.0.1:8094/api/v1";
 const healthURL = `${baseURL.replace(/\/api\/v1$/, "")}/healthz`;
 
+// ml-service gates every non-health endpoint when NADAA_INTERNAL_SERVICE_TOKEN
+// is configured, so send the shared service token on every call.
+const serviceTokenHeaders = {
+  "X-NADAA-Service-Token":
+    process.env.NADAA_INTERNAL_SERVICE_TOKEN || "dev-internal-service-token",
+};
+
 const health = await fetch(healthURL);
 if (!health.ok) {
   throw new Error(`ml-service health smoke failed: ${health.status}`);
 }
 console.log("ml-service health OK");
 
-const forecastsResponse = await fetch(`${baseURL}/forecasts`);
+const forecastsResponse = await fetch(`${baseURL}/forecasts`, {
+  headers: serviceTokenHeaders,
+});
 if (!forecastsResponse.ok) {
   throw new Error(`forecasts smoke failed: ${forecastsResponse.status}`);
 }
@@ -42,7 +51,9 @@ console.log(
   `forecasts OK ${forecastsPayload.forecasts.length} district(s), top ${topForecast.district} ${topForecast.predictedIncidentCount} incident(s)`,
 );
 
-const regionResponse = await fetch(`${baseURL}/forecasts/Greater%20Accra`);
+const regionResponse = await fetch(`${baseURL}/forecasts/Greater%20Accra`, {
+  headers: serviceTokenHeaders,
+});
 if (!regionResponse.ok) {
   throw new Error(`forecast-by-region smoke failed: ${regionResponse.status}`);
 }
@@ -55,7 +66,9 @@ if (
 }
 console.log("forecast-by-region OK");
 
-const missingRegion = await fetch(`${baseURL}/forecasts/Nowhere`);
+const missingRegion = await fetch(`${baseURL}/forecasts/Nowhere`, {
+  headers: serviceTokenHeaders,
+});
 if (missingRegion.status !== 404) {
   throw new Error(
     `forecast-by-region unknown expected 404 got ${missingRegion.status}`,
@@ -65,6 +78,7 @@ console.log("forecast-by-region unknown OK 404");
 
 const stagingResponse = await fetch(
   `${baseURL}/staging-suggestions?agencyType=ambulance`,
+  { headers: serviceTokenHeaders },
 );
 if (!stagingResponse.ok) {
   throw new Error(`staging smoke failed: ${stagingResponse.status}`);
@@ -95,7 +109,7 @@ console.log(
 
 const compareResponse = await fetch(`${baseURL}/forecasts/compare`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", ...serviceTokenHeaders },
   body: JSON.stringify({ historicalWeight: 2, timeWindowHours: 48 }),
 });
 if (!compareResponse.ok) {
@@ -120,7 +134,7 @@ console.log("compare OK baseline vs adjusted");
 
 const invalidCompare = await fetch(`${baseURL}/forecasts/compare`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", ...serviceTokenHeaders },
   body: JSON.stringify({ riskLevel: "catastrophic" }),
 });
 if (invalidCompare.status !== 400) {

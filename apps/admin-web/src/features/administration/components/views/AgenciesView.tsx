@@ -13,7 +13,12 @@ export function AgenciesView({ data }: { data: AdminData }) {
         title="Agencies"
         description="Registered agencies, their operating scope, user counts, and MFA coverage."
       />
-      {data.agencies.length ? (
+      {data.agenciesForbidden ? (
+        <EmptyState
+          title="Requires system admin"
+          detail="The cross-agency directory is limited to system administrators. Your session is scoped to your own agency — manage its users from the Users desk."
+        />
+      ) : data.agencies.length ? (
         <AgencyGovernancePanel agencies={data.agencies} />
       ) : (
         <EmptyState

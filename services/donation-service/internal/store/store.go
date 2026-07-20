@@ -3,6 +3,7 @@ package store
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -55,7 +56,52 @@ func NewMemoryStore(now time.Time) Store {
 	store.catalog = seedCatalog(now)
 	store.requests = seedAidRequests(now)
 	store.seq = len(store.catalog)
+	store.advanceSeqPastLoadedReferences(now)
 	return store
+}
+
+// advanceSeqPastLoadedReferences moves the shared id/reference counter past the
+// highest numeric suffix used by any loaded same-day reference, so a restart
+// that reloads persisted records never re-issues a reference (e.g. a GIFT
+// payment reference the gateway still holds a live transaction for).
+func (m *MemoryStore) advanceSeqPastLoadedReferences(now time.Time) {
+	day := now.Format("20060102")
+	for _, reference := range m.loadedReferences() {
+		if suffix, ok := referenceDaySuffix(reference, day); ok && suffix > m.seq {
+			m.seq = suffix
+		}
+	}
+}
+
+func (m *MemoryStore) loadedReferences() []string {
+	references := make([]string, 0, len(m.donors)+len(m.requests)+len(m.pledges)+len(m.donations))
+	for _, donor := range m.donors {
+		references = append(references, donor.Reference)
+	}
+	for _, req := range m.requests {
+		references = append(references, req.Reference)
+	}
+	for _, pledge := range m.pledges {
+		references = append(references, pledge.Reference)
+	}
+	for _, donation := range m.donations {
+		references = append(references, donation.Reference)
+	}
+	return references
+}
+
+// referenceDaySuffix parses the numeric suffix of a "<prefix>-<yyyymmdd>-<nnn>"
+// reference minted on the given day.
+func referenceDaySuffix(reference, day string) (int, bool) {
+	parts := strings.Split(reference, "-")
+	if len(parts) != 3 || parts[1] != day {
+		return 0, false
+	}
+	suffix, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, false
+	}
+	return suffix, true
 }
 
 func seedCatalog(_ time.Time) []models.AidCatalogItem {
@@ -529,7 +575,9 @@ func (m *MemoryStore) UpdatePledge(id string, request models.UpdatePledgeRequest
 	return next, "", ""
 }
 
-// AllocatePledge marks a pledged quantity as delivered for an aid request.
+// AllocatePledge records a delivered tranche against a pledge. Deliveries
+// accumulate, a tranche beyond the remaining undelivered quantity is rejected,
+// and the pledge only becomes delivered once fully allocated.
 func (m *MemoryStore) AllocatePledge(aidRequestID string, request models.AllocateRequest, _ string, now time.Time) (models.Pledge, string, string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -548,13 +596,15 @@ func (m *MemoryStore) AllocatePledge(aidRequestID string, request models.Allocat
 		return models.Pledge{}, "not_found", "pledge was not found for this aid request"
 	}
 
-	if request.Quantity > m.pledges[pledgeIndex].QuantityPledged {
-		return models.Pledge{}, "invalid_quantity", "quantity cannot exceed quantityPledged"
+	next := m.pledges[pledgeIndex]
+	if request.Quantity > next.QuantityPledged-next.QuantityDelivered {
+		return models.Pledge{}, "invalid_quantity", "quantity exceeds the remaining undelivered pledge quantity"
 	}
 
-	next := m.pledges[pledgeIndex]
-	next.Status = "delivered"
-	next.QuantityDelivered = request.Quantity
+	next.QuantityDelivered += request.Quantity
+	if next.QuantityDelivered >= next.QuantityPledged {
+		next.Status = "delivered"
+	}
 	next.UpdatedAt = now
 	m.pledges[pledgeIndex] = next
 
@@ -576,11 +626,10 @@ func (m *MemoryStore) recalcSingleRequest(req models.AidRequest, now time.Time) 
 		if pledge.Status == "cancelled" {
 			continue
 		}
-		if pledge.Status == "delivered" {
-			fulfilled += pledge.QuantityDelivered
-		} else {
-			fulfilled += pledge.QuantityPledged
-		}
+		// Only delivered quantities count: a pledge is a promise, not aid
+		// received, so undelivered pledges must never fulfill a request and
+		// hide real unmet needs from donors and dashboards.
+		fulfilled += pledge.QuantityDelivered
 	}
 	req.QuantityFulfilled = fulfilled
 	if req.Status != "closed" {

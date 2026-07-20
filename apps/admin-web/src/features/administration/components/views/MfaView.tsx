@@ -20,7 +20,9 @@ export function MfaView({ data }: { data: AdminData }) {
   const mfaReady = users.filter((user) => user.mfaEnabled).length;
   const mfaCoverage =
     users.length > 0 ? Math.round((mfaReady / users.length) * 100) : 0;
-  const board = [...agencies].sort((a, b) => a.mfaCoverage - b.mfaCoverage);
+  const board = [...agencies].sort(
+    (a, b) => (a.mfaCoverage ?? -1) - (b.mfaCoverage ?? -1),
+  );
 
   return (
     <Stack spacing={2.5}>
@@ -43,12 +45,18 @@ export function MfaView({ data }: { data: AdminData }) {
                   <div className="cc-shelter-row__head">
                     <span className="cc-shelter-row__name">{agency.name}</span>
                     <span className="cc-shelter-row__figure">
-                      {agency.users} users · {formatPercent(agency.mfaCoverage)}
+                      {agency.mfaCoverage === null
+                        ? "users unavailable"
+                        : `${agency.users} users · ${formatPercent(agency.mfaCoverage)}`}
                     </span>
                   </div>
                   <CoverageMeter
-                    value={agency.mfaCoverage}
-                    tone={coverageTone(agency.mfaCoverage)}
+                    value={agency.mfaCoverage ?? 0}
+                    tone={
+                      agency.mfaCoverage === null
+                        ? "red"
+                        : coverageTone(agency.mfaCoverage)
+                    }
                   />
                 </div>
               ))}

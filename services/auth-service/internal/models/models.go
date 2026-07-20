@@ -86,7 +86,7 @@ type AgencyUser struct {
 	MFARequired  bool
 	MFAEnabled   bool
 	PasswordHash string
-	MFACode      string
+	MFASecret    string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -113,12 +113,13 @@ type OTPChallenge struct {
 	ExpiresAt time.Time
 }
 
-// MFAChallenge tracks a temporary MFA setup challenge for an agency user.
+// MFAChallenge tracks a pending TOTP enrollment for an agency user. The
+// secret is the challenge: verification proves possession of the
+// authenticator enrolled with it, so no separate code is stored.
 type MFAChallenge struct {
 	ID        string
 	UserID    string
 	Secret    string
-	Code      string
 	ExpiresAt time.Time
 }
 
@@ -190,12 +191,17 @@ type AgencyMFASetupRequest struct {
 	TemporaryPassword string `json:"temporaryPassword"`
 }
 
-// AgencyMFASetupResponse returns the MFA setup challenge.
+// AgencyMFASetupResponse returns the pending TOTP enrollment. Secret and
+// OTPAuthURL are shown once so the user can enroll an authenticator; DevCode
+// carries the current TOTP code only in development (NADAA_ENV=development
+// with NADAA_AUTH_EXPOSE_DEV_OTP=true) so automated tests can complete the
+// flow.
 type AgencyMFASetupResponse struct {
 	UserID      string    `json:"userId"`
 	ChallengeID string    `json:"challengeId"`
 	Method      string    `json:"method"`
 	Secret      string    `json:"secret"`
+	OTPAuthURL  string    `json:"otpauthUrl"`
 	ExpiresAt   time.Time `json:"expiresAt"`
 	DevCode     string    `json:"devCode,omitempty"`
 }
@@ -230,6 +236,51 @@ type LoginAgencyResponse struct {
 // AgencyListResponse is the payload returned when listing the agency directory.
 type AgencyListResponse struct {
 	Agencies []AgencySummary `json:"agencies"`
+}
+
+// ChangeAgencyPasswordRequest is the payload for an agency user password change.
+type ChangeAgencyPasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+// ChangeAgencyPasswordResponse is returned after a successful password change.
+type ChangeAgencyPasswordResponse struct {
+	OK bool `json:"ok"`
+}
+
+// AgencyUserDirectoryEntry is the sanitized directory view of an agency user.
+// It never carries password hashes or MFA secrets.
+type AgencyUserDirectoryEntry struct {
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Email       string     `json:"email"`
+	Role        string     `json:"role"`
+	AgencyID    string     `json:"agencyId"`
+	MFAEnabled  bool       `json:"mfaEnabled"`
+	LockedUntil *time.Time `json:"lockedUntil,omitempty"`
+	CreatedAt   time.Time  `json:"createdAt"`
+}
+
+// AgencyUserListResponse is the payload returned when listing agency users.
+type AgencyUserListResponse struct {
+	Users []AgencyUserDirectoryEntry `json:"users"`
+}
+
+// IngestAuditLogRequest is the payload for service-to-service audit ingestion.
+type IngestAuditLogRequest struct {
+	EventType    string         `json:"eventType"`
+	ActorID      string         `json:"actorId,omitempty"`
+	ActorRole    string         `json:"actorRole,omitempty"`
+	ResourceType string         `json:"resourceType,omitempty"`
+	ResourceID   string         `json:"resourceId,omitempty"`
+	Summary      string         `json:"summary,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+}
+
+// IngestAuditLogResponse is returned after an audit event is ingested.
+type IngestAuditLogResponse struct {
+	ID string `json:"id"`
 }
 
 // AuditLogRecord is a single audit event.

@@ -37,8 +37,11 @@ export function UsersView({ data }: { data: AdminData }) {
         busy={data.createBusy}
         createdCredentials={data.createdCredentials}
         form={data.userForm}
+        loadError={data.usersError}
+        lockedAgency={data.lockedAgency}
         onClose={closeCreate}
         onFormChange={data.onFieldChange}
+        onRetry={data.refresh}
         onSelectChange={data.onFieldChange}
         onSubmit={data.createUser}
         open={createOpen}

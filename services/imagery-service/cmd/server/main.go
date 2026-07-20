@@ -18,6 +18,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("ERROR imagery-service invalid_configuration error=%v", err)
+	}
 	if err := os.MkdirAll(cfg.StoragePath, 0o750); err != nil {
 		log.Fatalf("ERROR imagery-service storage_path_create_failed path=%s error=%v", cfg.StoragePath, err)
 	}

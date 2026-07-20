@@ -133,7 +133,7 @@ Set the `VITE_*` vars per app to the **public** Render URL of each backend (`htt
 | `VITE_ROUTE_SERVICE_URL` | route **(no `/api/v1`)** |
 | `VITE_DAMAGE_CLAIM_SERVICE_URL` | damage-claim **(no `/api/v1`)** |
 
-**marketing-web** — no backend APIs. Optionally set sibling-app links to the deployed frontends: `VITE_CITIZEN_WEB_URL`, `VITE_DISPATCHER_WEB_URL`, `VITE_AGENCY_WEB_URL`, `VITE_ADMIN_WEB_URL`.
+**marketing-web** — no backend APIs. Set the sibling-app links to the deployed frontends: `VITE_CITIZEN_WEB_URL`, `VITE_DISPATCHER_WEB_URL`, `VITE_AGENCY_WEB_URL`, `VITE_ADMIN_WEB_URL` — **required for production**: a production build without them fails at startup rather than linking visitors to localhost (local dev falls back to the dev ports). Canonical, OG, robots.txt, and sitemap.xml URLs default to the `https://nadaa.gov.gh` origin; set `VITE_SITE_ORIGIN` to the app's deployed origin (e.g. `https://<project>.vercel.app`) when that differs.
 
 ---
 

@@ -1,6 +1,4 @@
-import { nadaaBrand } from "@nadaa/brand";
 import type {
-  AreaRiskResponse,
   EmergencyGuideRecord,
   HazardType,
   NearbyShelterResponse,
@@ -10,6 +8,7 @@ import type {
   MobileSession,
   ReportDraft,
   SignInDraft,
+  VolunteerRegistrationDraft,
 } from "./types";
 
 const generatedAt = new Date().toISOString();
@@ -45,17 +44,26 @@ export const initialPermissions: MobilePermissionState = {
   push: "unknown",
 };
 
+// Coordinates start empty: they are prefilled from the device GPS when the
+// citizen grants location access, or typed in manually — never hardcoded.
 export const initialReportDraft: ReportDraft = {
   anonymous: false,
   contactPermission: true,
   description: "",
   hazard: "flood",
   injuriesReported: false,
-  lat: "5.603700",
-  lng: "-0.187000",
+  lat: "",
+  lng: "",
   mediaRefs: [],
   peopleAffected: "0",
   urgency: "moderate",
+};
+
+export const initialVolunteerRegistration: VolunteerRegistrationDraft = {
+  community: "",
+  district: "",
+  region: "",
+  skills: "",
 };
 
 export const mobileAreaPresets = [
@@ -72,51 +80,6 @@ export const hazardOptions: Array<{ label: string; value: HazardType }> = [
   { label: "Building collapse", value: "building_collapse" },
   { label: "Other", value: "other" },
 ];
-
-export const sampleRisk: AreaRiskResponse = {
-  location: "Accra Central",
-  overallRisk: "high",
-  risks: [
-    {
-      type: "flood",
-      level: "severe",
-      probability: 0.82,
-      reason:
-        "Heavy rainfall forecast, low elevation, and historical flood reports nearby.",
-    },
-    {
-      type: "fire",
-      level: "moderate",
-      probability: 0.34,
-      reason:
-        "Dense market activity and recent dry periods increase localized risk.",
-    },
-  ],
-  nearestShelters: [
-    {
-      id: "shelter-ama-001",
-      name: "Accra Metro Assembly Shelter",
-      location: { lat: 5.56, lng: -0.2 },
-      capacity: 450,
-      currentOccupancy: 116,
-      contact: nadaaBrand.supportLine,
-    },
-  ],
-  nearbyFacilities: [
-    {
-      id: "agency-nadmo-ama",
-      name: "NADMO Accra Metro",
-      type: "nadmo",
-      location: { lat: 5.56, lng: -0.2 },
-      contact: nadaaBrand.supportLine,
-    },
-  ],
-  recommendedActions: [
-    "Avoid low-lying roads and open drains.",
-    "Move valuables above ground level.",
-    "Prepare an evacuation route to the nearest safe shelter.",
-  ],
-};
 
 export function buildFallbackGuides(): EmergencyGuideRecord[] {
   return [

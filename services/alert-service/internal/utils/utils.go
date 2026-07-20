@@ -703,22 +703,30 @@ func CompactStrings(values []string) []string {
 	return result
 }
 
-// SnapshotAlert creates a map snapshot of an alert for audit logging.
+// SnapshotAlert creates a map snapshot of an alert for audit logging. It must
+// carry every citizen-facing field so the audit trail can reconstruct exactly
+// what citizens were sent.
 func SnapshotAlert(alert models.AuthorityAlert) map[string]any {
 	return map[string]any{
-		"id":                alert.ID,
-		"title":             alert.Title,
-		"hazardType":        alert.HazardType,
-		"severity":          alert.Severity,
-		"target":            alert.Target,
-		"issuingAgencyId":   alert.IssuingAgencyID,
-		"issuedBy":          alert.IssuedBy,
-		"approvedBy":        alert.ApprovedBy,
-		"rejectedBy":        alert.RejectedBy,
-		"status":            alert.Status,
-		"emergencyOverride": alert.EmergencyOverride,
-		"statusReason":      alert.StatusReason,
-		"sourcePrediction":  alert.SourcePrediction,
+		"id":                 alert.ID,
+		"title":              alert.Title,
+		"hazardType":         alert.HazardType,
+		"severity":           alert.Severity,
+		"message":            alert.Message,
+		"target":             alert.Target,
+		"startsAt":           alert.StartsAt,
+		"expiresAt":          alert.ExpiresAt,
+		"recommendedAction":  alert.RecommendedAction,
+		"evacuationRequired": alert.EvacuationRequired,
+		"shelterIds":         alert.ShelterIDs,
+		"issuingAgencyId":    alert.IssuingAgencyID,
+		"issuedBy":           alert.IssuedBy,
+		"approvedBy":         alert.ApprovedBy,
+		"rejectedBy":         alert.RejectedBy,
+		"status":             alert.Status,
+		"emergencyOverride":  alert.EmergencyOverride,
+		"statusReason":       alert.StatusReason,
+		"sourcePrediction":   alert.SourcePrediction,
 	}
 }
 

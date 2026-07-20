@@ -43,8 +43,9 @@ export function NotificationsTab({
           <PreferenceRow
             icon={MessageSquareWarning}
             label="Critical incident SMS"
-            description="Text your duty phone when an emergency or severe incident opens."
+            description="Text your duty phone when an emergency or severe incident opens. Coming soon — this channel is not connected yet, so the toggle has no effect."
             checked={draft.criticalSms}
+            disabled
             onChange={(checked) =>
               setDraft((current) => ({ ...current, criticalSms: checked }))
             }
@@ -52,8 +53,9 @@ export function NotificationsTab({
           <PreferenceRow
             icon={Mail}
             label="Alert-approval email"
-            description="Email you when a public alert is waiting for your approval."
+            description="Email you when a public alert is waiting for your approval. Coming soon — this channel is not connected yet, so the toggle has no effect."
             checked={draft.approvalEmail}
+            disabled
             onChange={(checked) =>
               setDraft((current) => ({ ...current, approvalEmail: checked }))
             }

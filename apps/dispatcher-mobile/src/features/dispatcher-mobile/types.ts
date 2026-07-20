@@ -31,6 +31,7 @@ export type MobileLoadState =
   | { status: "loading"; message: string }
   | { status: "offline"; message: string }
   | { status: "error"; message: string }
+  | { status: "auth_expired"; message: string }
   | { status: "success"; message: string };
 
 export type PushRegistrationState =

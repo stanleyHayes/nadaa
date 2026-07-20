@@ -42,7 +42,10 @@ export type AccountSettingsProps = {
   onUpdateProfile: (patch: DispatcherProfilePatch) => void;
   onUpdatePreferences: (patch: Partial<DispatcherAccountPreferences>) => void;
   onSetMfaEnabled: (enabled: boolean) => void;
-  onChangePassword: (current: string, next: string) => PasswordChangeResult;
+  onChangePassword: (
+    current: string,
+    next: string,
+  ) => Promise<PasswordChangeResult>;
 };
 
 export function AccountSettings({

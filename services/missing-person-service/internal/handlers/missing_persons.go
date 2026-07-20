@@ -49,6 +49,21 @@ func (s *Server) listPublicMissingPersonsHandler(w http.ResponseWriter, r *http.
 }
 
 func (s *Server) createMissingPersonHandler(w http.ResponseWriter, r *http.Request) {
+	// Unauthenticated public intake is rate-limited per client IP and bounded
+	// by a store capacity cap so it cannot grow memory without bound.
+	ip := s.clientIP(r)
+	if !s.checkRateLimit(ip) {
+		// #nosec G706 -- ip is sanitized with utils.SanitizeLogValue.
+		log.Printf("WARN missing-person-service intake rate_limited ip=%s", utils.SanitizeLogValue(ip))
+		utils.WriteError(w, http.StatusTooManyRequests, "rate_limit_exceeded", "too many reports from this client; try again later")
+		return
+	}
+	if s.config.MaxRecords > 0 && s.store.Count() >= s.config.MaxRecords {
+		log.Printf("WARN missing-person-service intake at_capacity count=%d", s.store.Count())
+		utils.WriteError(w, http.StatusServiceUnavailable, "intake_at_capacity", "missing person intake is temporarily at capacity; try again later")
+		return
+	}
+
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var request models.CreateMissingPersonRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {

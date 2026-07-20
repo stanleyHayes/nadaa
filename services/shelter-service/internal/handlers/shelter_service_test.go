@@ -21,9 +21,10 @@ import (
 func newTestServer() *server {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
 	return &server{
-		store:  store.NewMemoryStore(now),
-		now:    func() time.Time { return now },
-		config: &config.Config{AllowMockActors: true},
+		store:       store.NewMemoryStore(now),
+		rateLimiter: newRateLimiter(10, time.Minute, func() time.Time { return now }),
+		now:         func() time.Time { return now },
+		config:      &config.Config{AllowMockActors: true},
 	}
 }
 
@@ -32,9 +33,10 @@ func newTestServer() *server {
 func newTokenTestServer(secret string) *server {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
 	return &server{
-		store:  store.NewMemoryStore(now),
-		now:    func() time.Time { return now },
-		config: &config.Config{TokenSecret: secret},
+		store:       store.NewMemoryStore(now),
+		rateLimiter: newRateLimiter(10, time.Minute, func() time.Time { return now }),
+		now:         func() time.Time { return now },
+		config:      &config.Config{TokenSecret: secret},
 	}
 }
 
@@ -822,8 +824,26 @@ func TestFulfilledAidRequestReopensWhenPledgeCancelled(t *testing.T) {
 	var pledge models.AidPledge
 	decodeResponse(t, pledgeResponse, &pledge)
 
+	// A pledge still pending fraud review must not move the request toward
+	// fulfilled; only an authority-cleared, accepted pledge counts.
+	if status := aidRequestStatus(t, srv, created.ID); status != "approved" {
+		t.Fatalf("expected aid request to stay approved while the pledge is pending review, got %s", status)
+	}
+
+	clearResponse := httptest.NewRecorder()
+	clearRequest := authorityRequest(http.MethodPatch, "/api/v1/aid-requests/"+created.ID+"/pledges/"+pledge.ID+"/review", jsonBody(models.ReviewAidPledgeRequest{
+		Status:       "accepted",
+		ReviewStatus: "cleared",
+	}))
+	clearRequest.SetPathValue("id", created.ID)
+	clearRequest.SetPathValue("pledgeId", pledge.ID)
+	srv.reviewAidPledgeHandler(clearResponse, clearRequest)
+	if clearResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, clearResponse.Code, clearResponse.Body.String())
+	}
+
 	if status := aidRequestStatus(t, srv, created.ID); status != "fulfilled" {
-		t.Fatalf("expected fulfilled aid request after full pledge, got %s", status)
+		t.Fatalf("expected fulfilled aid request after the pledge was cleared and accepted, got %s", status)
 	}
 
 	cancelResponse := httptest.NewRecorder()
@@ -1063,6 +1083,351 @@ func TestAuthorityRejectsTamperedAndExpiredTokens(t *testing.T) {
 	srv.updateShelterOccupancyHandler(expiredResponse, expiredRequest)
 	if expiredResponse.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d for an expired token, got %d", http.StatusUnauthorized, expiredResponse.Code)
+	}
+}
+
+func TestPublicAidListOmitsPledgesAndReviewMetadata(t *testing.T) {
+	srv := newTestServer()
+
+	publicResponse := httptest.NewRecorder()
+	srv.listAidRequestsHandler(publicResponse, httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests", nil))
+	if publicResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, publicResponse.Code, publicResponse.Body.String())
+	}
+	body := publicResponse.Body.String()
+	for _, leaked := range []string{"pledges", "fraudReviewNotes", "reviewedBy", "antiFraudNotes", "approvalNotes", "approvedBy", "createdBy", "aiddesk@example.org", "usr_relief_fixture"} {
+		if strings.Contains(body, leaked) {
+			t.Fatalf("expected anonymous aid list to omit %q, got %s", leaked, body)
+		}
+	}
+	var publicPayload models.PublicAidRequestListResponse
+	decodeResponse(t, publicResponse, &publicPayload)
+	if len(publicPayload.AidRequests) != 1 || publicPayload.AidRequests[0].QuantityPledged != 80 {
+		t.Fatalf("expected the public aid request with its pledged summary, got %#v", publicPayload.AidRequests)
+	}
+
+	authorityResponse := httptest.NewRecorder()
+	srv.listAidRequestsHandler(authorityResponse, authorityRequest(http.MethodGet, "/api/v1/aid-requests?includePrivate=true", nil))
+	if authorityResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, authorityResponse.Code, authorityResponse.Body.String())
+	}
+	var authorityPayload models.AidRequestListResponse
+	decodeResponse(t, authorityResponse, &authorityPayload)
+	found := false
+	for _, request := range authorityPayload.AidRequests {
+		if request.ID != "aid_ama_hygiene_001" {
+			continue
+		}
+		found = true
+		if request.CreatedBy == "" || request.ApprovedBy != "usr_relief_fixture" || request.ApprovalNotes == "" || request.AntiFraudNotes == "" {
+			t.Fatalf("expected authority listing to keep review metadata, got %#v", request)
+		}
+		if len(request.Pledges) != 1 || request.Pledges[0].Contact != "aiddesk@example.org" || request.Pledges[0].ReviewedBy == "" {
+			t.Fatalf("expected authority listing to keep full pledge records, got %#v", request.Pledges)
+		}
+	}
+	if !found {
+		t.Fatalf("expected the seeded aid request in the authority listing, got %#v", authorityPayload.AidRequests)
+	}
+}
+
+func TestCreateAidPledgeRateLimited(t *testing.T) {
+	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+	srv := &server{
+		store:       store.NewMemoryStore(now),
+		rateLimiter: newRateLimiter(1, time.Minute, func() time.Time { return now }),
+		now:         func() time.Time { return now },
+		config:      &config.Config{AllowMockActors: true},
+	}
+	pledgeBody := models.CreateAidPledgeRequest{
+		DonorName: "Rate Test Donor",
+		DonorType: "individual",
+		Contact:   "donor@example.org",
+		Quantity:  5,
+		Unit:      "kits",
+	}
+
+	firstResponse := httptest.NewRecorder()
+	firstRequest := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/aid_ama_hygiene_001/pledges", jsonBody(pledgeBody))
+	firstRequest.SetPathValue("id", "aid_ama_hygiene_001")
+	srv.createAidPledgeHandler(firstResponse, firstRequest)
+	if firstResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, firstResponse.Code, firstResponse.Body.String())
+	}
+
+	secondResponse := httptest.NewRecorder()
+	secondRequest := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/aid_ama_hygiene_001/pledges", jsonBody(pledgeBody))
+	secondRequest.SetPathValue("id", "aid_ama_hygiene_001")
+	srv.createAidPledgeHandler(secondResponse, secondRequest)
+	if secondResponse.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusTooManyRequests, secondResponse.Code, secondResponse.Body.String())
+	}
+}
+
+func TestCreateAidPledgeRejectsNonPublicVisibility(t *testing.T) {
+	srv := newTestServer()
+	createBody := models.CreateAidRequestRequest{
+		Title:                 "Partner-only water for relief hub",
+		Category:              "water",
+		Priority:              "high",
+		Location:              models.Coordinates{Lat: 5.560, Lng: -0.200},
+		ReceivingOrganization: "Madina Emergency Relief Hub",
+		QuantityNeeded:        100,
+		QuantityUnit:          "bottles",
+		Description:           "Bottled water reserved for partner organizations.",
+		NeededBy:              srv.now().Add(24 * time.Hour),
+		Visibility:            "partners_only",
+	}
+
+	createResponse := httptest.NewRecorder()
+	srv.createAidRequestHandler(createResponse, authorityRequest(http.MethodPost, "/api/v1/aid-requests", jsonBody(createBody)))
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, createResponse.Code, createResponse.Body.String())
+	}
+	var created models.AidRequest
+	decodeResponse(t, createResponse, &created)
+
+	reviewResponse := httptest.NewRecorder()
+	reviewRequest := authorityRequest(http.MethodPatch, "/api/v1/aid-requests/"+created.ID+"/review", jsonBody(models.ReviewAidRequestRequest{
+		Status:        "approved",
+		ApprovalNotes: "Verified partner-only receiving desk.",
+	}))
+	reviewRequest.SetPathValue("id", created.ID)
+	srv.reviewAidRequestHandler(reviewResponse, reviewRequest)
+	if reviewResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, reviewResponse.Code, reviewResponse.Body.String())
+	}
+
+	pledgeResponse := httptest.NewRecorder()
+	pledgeRequest := httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/"+created.ID+"/pledges", jsonBody(models.CreateAidPledgeRequest{
+		DonorName: "Walk Up Donor",
+		DonorType: "individual",
+		Contact:   "donor@example.org",
+		Quantity:  10,
+		Unit:      "bottles",
+	}))
+	pledgeRequest.SetPathValue("id", created.ID)
+	srv.createAidPledgeHandler(pledgeResponse, pledgeRequest)
+	if pledgeResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d for a partners_only request, got %d: %s", http.StatusNotFound, pledgeResponse.Code, pledgeResponse.Body.String())
+	}
+}
+
+func TestUpdateHospitalCapacityRejectsSubCapacityAboveTotal(t *testing.T) {
+	srv := newTestServer()
+	icuBeds := 9999
+	body := models.HospitalCapacityUpdateRequest{ICUBedsAvailable: &icuBeds}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPatch, "/api/v1/hospitals/hospital_001/capacity", jsonBody(body))
+	request.SetPathValue("id", "hospital_001")
+	srv.updateHospitalCapacityHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_sub_capacity_beds" {
+		t.Fatalf("expected invalid_sub_capacity_beds, got %#v", payload.Error)
+	}
+}
+
+func TestUpdateHospitalCapacityRejectsSubCapacitySumAboveTotal(t *testing.T) {
+	srv := newTestServer()
+	icu, maternity, pediatric := 200, 200, 30
+	body := models.HospitalCapacityUpdateRequest{
+		ICUBedsAvailable:       &icu,
+		MaternityBedsAvailable: &maternity,
+		PediatricBedsAvailable: &pediatric,
+	}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPatch, "/api/v1/hospitals/hospital_002/capacity", jsonBody(body))
+	request.SetPathValue("id", "hospital_002")
+	srv.updateHospitalCapacityHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_sub_capacity_total" {
+		t.Fatalf("expected invalid_sub_capacity_total, got %#v", payload.Error)
+	}
+}
+
+func TestUpdateHospitalCapacityRejectsSubCapacityAboveProvidedTotal(t *testing.T) {
+	srv := newTestServer()
+	totalBeds, icuBeds := 100, 150
+	body := models.HospitalCapacityUpdateRequest{TotalBeds: &totalBeds, ICUBedsAvailable: &icuBeds}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPatch, "/api/v1/hospitals/hospital_001/capacity", jsonBody(body))
+	request.SetPathValue("id", "hospital_001")
+	srv.updateHospitalCapacityHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+}
+
+func TestHospitalCapacityFixtureImportSkipsInvalidSubCapacityRecords(t *testing.T) {
+	srv := newTestServer()
+	body := models.HospitalCapacityImportRequest{
+		Records: []models.HospitalCapacityFixtureRecord{
+			{FacilityID: "hospital_001", AvailableBeds: 20, ICUBedsAvailable: 9999, EmergencyCapacity: "available"},
+			{FacilityID: "hospital_002", AvailableBeds: 10, ICUBedsAvailable: 2, EmergencyCapacity: "limited"},
+			{FacilityID: "hospital_003", AvailableBeds: 5, ICUBedsAvailable: 200, MaternityBedsAvailable: 200, EmergencyCapacity: "limited"},
+		},
+	}
+
+	response := httptest.NewRecorder()
+	srv.importHospitalCapacityFixtureHandler(response, authorityRequest(http.MethodPost, "/api/v1/hospitals/capacity/imports/fixture", jsonBody(body)))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.HospitalCapacityImportResponse
+	decodeResponse(t, response, &payload)
+	if payload.Imported != 1 || len(payload.Facilities) != 1 || payload.Facilities[0].ID != "hospital_002" {
+		t.Fatalf("expected only the valid record to import, got %#v", payload)
+	}
+
+	listResponse := httptest.NewRecorder()
+	srv.listHospitalCapacityHandler(listResponse, httptest.NewRequest(http.MethodGet, "/api/v1/hospitals/capacity", nil))
+	var listPayload models.HospitalCapacityResponse
+	decodeResponse(t, listResponse, &listPayload)
+	for _, facility := range listPayload.Facilities {
+		if facility.ID == "hospital_001" && facility.ICUBedsAvailable != 4 {
+			t.Fatalf("expected the single-category overflow record to be skipped, got %#v", facility)
+		}
+		if facility.ID == "hospital_003" && facility.ICUBedsAvailable != 0 {
+			t.Fatalf("expected the summed sub-capacity overflow record to be skipped, got %#v", facility)
+		}
+	}
+}
+
+func TestHospitalCapacityFixtureImportPinsProvenanceWhenDefaulting(t *testing.T) {
+	srv := newTestServer()
+	body := models.HospitalCapacityImportRequest{Source: "manual", SourceRef: "caller-chosen-label"}
+
+	response := httptest.NewRecorder()
+	srv.importHospitalCapacityFixtureHandler(response, authorityRequest(http.MethodPost, "/api/v1/hospitals/capacity/imports/fixture", jsonBody(body)))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.HospitalCapacityImportResponse
+	decodeResponse(t, response, &payload)
+	if payload.Imported != 2 || payload.Source != "fixture_adapter" {
+		t.Fatalf("expected fixture-pinned provenance, got %#v", payload)
+	}
+	for _, facility := range payload.Facilities {
+		if facility.Source != "fixture_adapter" || facility.SourceRef != "hospital-capacity-feed" {
+			t.Fatalf("expected fixture-pinned provenance, got %#v", facility)
+		}
+	}
+}
+
+func TestListReliefPointsRejectsInvalidFilters(t *testing.T) {
+	srv := newTestServer()
+	queries := []string{
+		"?status=bogus",
+		"?type=bogus",
+		"?limit=abc",
+		"?limit=0",
+		"?limit=101",
+		"?radius=-5",
+		"?radius=xyz",
+		"?bbox=1,2,3",
+		"?bbox=a,b,c,d",
+		"?lat=5.5",
+		"?lng=-0.2",
+		"?lat=abc&lng=-0.2",
+		"?lat=95&lng=-0.2",
+	}
+	for _, query := range queries {
+		response := httptest.NewRecorder()
+		srv.listReliefPointsHandler(response, httptest.NewRequest(http.MethodGet, "/api/v1/relief-points"+query, nil))
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d for query %s, got %d: %s", http.StatusBadRequest, query, response.Code, response.Body.String())
+		}
+	}
+}
+
+func TestAuthorityRejectsCitizenTypToken(t *testing.T) {
+	srv := newTokenTestServer("test-secret-key")
+	token := signedToken(t, "test-secret-key", map[string]any{
+		"sub":      "usr_citizen_actor",
+		"typ":      "citizen",
+		"role":     "district_officer",
+		"agencyId": "00000000-0000-0000-0000-000000000204",
+		"mfa":      true,
+		"exp":      srv.now().Add(time.Hour).Unix(),
+	})
+	occupancy := 120
+
+	response := httptest.NewRecorder()
+	request := tokenRequest(http.MethodPatch, "/api/v1/shelters/00000000-0000-0000-0000-000000000301/occupancy", jsonBody(models.OccupancyUpdateRequest{CurrentOccupancy: &occupancy}), token)
+	request.SetPathValue("id", "00000000-0000-0000-0000-000000000301")
+	srv.updateShelterOccupancyHandler(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for a citizen-typ token, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestPauseAndCloseAidRequestPreservesApprovalMetadata(t *testing.T) {
+	srv := newTestServer()
+	createBody := models.CreateAidRequestRequest{
+		Title:                 "Hygiene kits approval metadata check",
+		Category:              "hygiene",
+		Priority:              "medium",
+		Location:              models.Coordinates{Lat: 5.560, Lng: -0.200},
+		ReceivingOrganization: "AMA Central Food Distribution",
+		QuantityNeeded:        50,
+		QuantityUnit:          "kits",
+		Description:           "Kits used to verify pause and close preserve approval metadata.",
+		NeededBy:              srv.now().Add(24 * time.Hour),
+		Visibility:            "public",
+	}
+
+	createResponse := httptest.NewRecorder()
+	srv.createAidRequestHandler(createResponse, authorityRequest(http.MethodPost, "/api/v1/aid-requests", jsonBody(createBody)))
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, createResponse.Code, createResponse.Body.String())
+	}
+	var created models.AidRequest
+	decodeResponse(t, createResponse, &created)
+
+	reviewResponse := httptest.NewRecorder()
+	reviewRequest := authorityRequest(http.MethodPatch, "/api/v1/aid-requests/"+created.ID+"/review", jsonBody(models.ReviewAidRequestRequest{
+		Status:         "approved",
+		ApprovalNotes:  "Verified receiving desk.",
+		AntiFraudNotes: "Contact verified against fixture.",
+	}))
+	reviewRequest.SetPathValue("id", created.ID)
+	srv.reviewAidRequestHandler(reviewResponse, reviewRequest)
+	if reviewResponse.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, reviewResponse.Code, reviewResponse.Body.String())
+	}
+
+	for _, status := range []string{"paused", "closed"} {
+		transitionResponse := httptest.NewRecorder()
+		transitionRequest := authorityRequest(http.MethodPatch, "/api/v1/aid-requests/"+created.ID+"/review", jsonBody(models.ReviewAidRequestRequest{Status: status}))
+		transitionRequest.Header.Set("X-NADAA-Actor-ID", "usr_second_reviewer")
+		transitionRequest.SetPathValue("id", created.ID)
+		srv.reviewAidRequestHandler(transitionResponse, transitionRequest)
+		if transitionResponse.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, transitionResponse.Code, transitionResponse.Body.String())
+		}
+		var transitioned models.AidRequest
+		decodeResponse(t, transitionResponse, &transitioned)
+		if transitioned.Status != status ||
+			transitioned.ApprovedBy != "usr_shelter_operator" ||
+			transitioned.ApprovalNotes != "Verified receiving desk." ||
+			transitioned.AntiFraudNotes != "Contact verified against fixture." {
+			t.Fatalf("expected %s to preserve the original approval metadata, got %#v", status, transitioned)
+		}
 	}
 }
 

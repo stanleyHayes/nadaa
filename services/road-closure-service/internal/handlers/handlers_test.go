@@ -78,6 +78,114 @@ func TestListRoadClosuresFiltersByStatus(t *testing.T) {
 	}
 }
 
+// createScheduledClosure creates a scheduled closure with the given validity
+// window and returns its id.
+func createScheduledClosure(t *testing.T, srv *Server, validFrom, validTo time.Time) string {
+	t.Helper()
+	body := models.CreateRoadClosureRequest{
+		RoadName:  "Windowed Scheduled Road",
+		Status:    "scheduled",
+		Severity:  "moderate",
+		ValidFrom: &validFrom,
+		ValidTo:   &validTo,
+		Geometry: models.LineStringGeometry{
+			Type:        "LineString",
+			Coordinates: [][]float64{{-0.220, 5.560}, {-0.215, 5.562}},
+		},
+	}
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPost, "/api/v1/road-closures", jsonBody(body))
+	srv.createRoadClosureHandler(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+	var created models.RoadClosureResponse
+	decodeResponse(t, response, &created)
+	return created.Closure.ID
+}
+
+func listClosureIDs(t *testing.T, srv *Server, query string) models.RoadClosureListResponse {
+	t.Helper()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/road-closures"+query, nil)
+	srv.listRoadClosuresHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.RoadClosureListResponse
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
+func TestScheduledClosureInsideValidityWindowIsActive(t *testing.T) {
+	srv := newTestServer()
+	// Boundary values are inclusive: validFrom == now and validTo == now both
+	// count as inside the window.
+	id := createScheduledClosure(t, srv, testNow, testNow)
+
+	active := listClosureIDs(t, srv, "?status=active")
+	for _, closure := range active.Closures {
+		if closure.ID == id {
+			if closure.Status != "active" {
+				t.Fatalf("expected in-window scheduled closure to be served as active, got %q", closure.Status)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected in-window scheduled closure %s in status=active results, got %#v", id, active.Closures)
+}
+
+func TestScheduledClosureInsideValidityWindowMatchesDefaultAndScheduledQueries(t *testing.T) {
+	srv := newTestServer()
+	id := createScheduledClosure(t, srv, testNow.Add(-time.Hour), testNow.Add(time.Hour))
+
+	defaultList := listClosureIDs(t, srv, "")
+	found := false
+	for _, closure := range defaultList.Closures {
+		if closure.ID == id {
+			found = true
+			if closure.Status != "active" {
+				t.Fatalf("expected in-window scheduled closure served as active, got %q", closure.Status)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected in-window scheduled closure %s in default results, got %#v", id, defaultList.Closures)
+	}
+
+	// A scheduled query must still return it as scheduled: the record itself
+	// is not rewritten, only its route-facing effectiveness.
+	scheduled := listClosureIDs(t, srv, "?status=scheduled")
+	for _, closure := range scheduled.Closures {
+		if closure.ID == id {
+			t.Fatalf("expected in-window closure to stay out of status=scheduled results, got %#v", closure)
+		}
+	}
+}
+
+func TestScheduledClosureOutsideValidityWindowStaysScheduled(t *testing.T) {
+	srv := newTestServer()
+	id := createScheduledClosure(t, srv, testNow.Add(time.Hour), testNow.Add(2*time.Hour))
+
+	active := listClosureIDs(t, srv, "?status=active")
+	for _, closure := range active.Closures {
+		if closure.ID == id {
+			t.Fatalf("expected future scheduled closure to stay out of status=active results, got %#v", closure)
+		}
+	}
+
+	scheduled := listClosureIDs(t, srv, "?status=scheduled")
+	found := false
+	for _, closure := range scheduled.Closures {
+		if closure.ID == id && closure.Status == "scheduled" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected future scheduled closure %s in status=scheduled results, got %#v", id, scheduled.Closures)
+	}
+}
+
 func TestListRoadClosuresNearby(t *testing.T) {
 	srv := newTestServer()
 	response := httptest.NewRecorder()

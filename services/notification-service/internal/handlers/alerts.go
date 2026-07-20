@@ -174,19 +174,38 @@ func (s *Server) deliverAlertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listCitizenAlerts(ctx context.Context, filters models.AlertFeedFilters, now time.Time) ([]models.CitizenAlert, string) {
-	fixtureAlerts := s.store.ListAlerts(filters, now)
-	combined := make([]models.CitizenAlert, 0, len(fixtureAlerts))
+	// Fixture alerts are demo/smoke data that never went through the alert
+	// approval workflow; they are only merged into the live feed and delivery
+	// path when fixtures are enabled (development or explicit opt-in).
+	fixturesEnabled := s.config.FixtureAlertsEnabled()
+	combined := make([]models.CitizenAlert, 0)
 	seen := map[string]bool{}
-	for _, alert := range fixtureAlerts {
-		combined = append(combined, alert)
-		seen[alert.ID] = true
+	fixtureCount := 0
+	if fixturesEnabled {
+		fixtureAlerts := s.store.ListAlerts(filters, now)
+		fixtureCount = len(fixtureAlerts)
+		for _, alert := range fixtureAlerts {
+			combined = append(combined, alert)
+			seen[alert.ID] = true
+		}
 	}
 
 	source := "fixture"
+	if !fixturesEnabled {
+		// Without fixtures there is no fallback: a failed upstream fetch must
+		// surface as an explicit degraded status, never as substituted
+		// fabricated alerts.
+		source = "degraded"
+	}
 	if s.alertClient != nil {
-		utils.LogInfo("alert-service fetch starting", "baseURL", s.alertClient.BaseURL, "fixtureCount", len(fixtureAlerts))
+		utils.LogInfo("alert-service fetch starting", "baseURL", s.alertClient.BaseURL, "fixtureCount", fixtureCount)
 		upstreamAlerts, err := s.alertClient.ListAlerts(ctx, now)
-		if err == nil {
+		switch {
+		case err != nil && fixturesEnabled:
+			utils.LogWarn("alert-service fetch failed using fixture fallback", "error", err, "fixtureCount", fixtureCount)
+		case err != nil:
+			utils.LogWarn("alert-service fetch failed; citizen alert feed degraded", "error", err)
+		default:
 			for _, alert := range upstreamAlerts {
 				if seen[alert.ID] {
 					continue
@@ -196,22 +215,29 @@ func (s *Server) listCitizenAlerts(ctx context.Context, filters models.AlertFeed
 					seen[alert.ID] = true
 				}
 			}
-			if len(upstreamAlerts) > 0 {
-				source = "alert-service+fixture"
-			}
+			source = feedSourceWithUpstream(fixturesEnabled, len(upstreamAlerts))
 			utils.LogInfo(
 				"alert-service fetch completed",
 				"upstreamCount", len(upstreamAlerts),
 				"combinedCount", len(combined),
 				"source", source,
 			)
-		} else {
-			utils.LogWarn("alert-service fetch failed using fixture fallback", "error", err, "fixtureCount", len(fixtureAlerts))
 		}
 	}
 
 	sortCitizenAlerts(combined)
 	return combined, source
+}
+
+// feedSourceWithUpstream labels a feed backed by a healthy alert-service fetch.
+func feedSourceWithUpstream(fixturesEnabled bool, upstreamCount int) string {
+	if !fixturesEnabled {
+		return "alert-service"
+	}
+	if upstreamCount > 0 {
+		return "alert-service+fixture"
+	}
+	return "fixture"
 }
 
 func parseAlertFeedFilters(r *http.Request) (models.AlertFeedFilters, string, string) {

@@ -25,7 +25,7 @@ import type {
   ManagedAgencyUser,
 } from "../types";
 import { formatDateTime, roleLabel, roleOptions } from "../utils";
-import { EmptyState, SectionHeader } from "./shared";
+import { EmptyState, ErrorState, SectionHeader } from "./shared";
 import { DataTable } from "./DataTable";
 
 /** Read-only field with a copy-to-clipboard action for one-time credentials. */
@@ -81,8 +81,11 @@ export function UserManagementPanel({
   busy,
   createdCredentials,
   form,
+  loadError,
+  lockedAgency,
   onClose,
   onFormChange,
+  onRetry,
   onSelectChange,
   onSubmit,
   open,
@@ -95,10 +98,15 @@ export function UserManagementPanel({
   open: boolean;
   actionResult?: AdminActionResult;
   createdCredentials?: CreatedUserCredentials | null;
+  /** Set when the users directory failed to load; replaces the empty state. */
+  loadError?: string | null;
+  /** Agency the form is pinned to for agency admins (server-scoped). */
+  lockedAgency?: { id: string; name: string };
   onClose: () => void;
   onFormChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
+  onRetry?: () => void;
   onSelectChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
@@ -121,7 +129,9 @@ export function UserManagementPanel({
           {actionResult.message}
         </Alert>
       ) : null}
-      {users.length === 0 ? (
+      {users.length === 0 && loadError ? (
+        <ErrorState message={loadError} onRetry={onRetry} />
+      ) : users.length === 0 ? (
         <EmptyState
           title="No users yet"
           detail="Provision authority access with Create user. New users appear here once created."
@@ -254,8 +264,10 @@ export function UserManagementPanel({
               <Stack spacing={1.5} sx={{ mt: 1 }}>
                 <Alert severity="success">
                   {createdCredentials.name} ({createdCredentials.email}) was
-                  provisioned. They need the details below to complete MFA
-                  setup and sign in.
+                  provisioned. They sign in with their email and the temporary
+                  password below, then the MFA setup walkthrough asks for the
+                  account user ID and shows the authenticator setup key
+                  (a base32 secret and otpauth:// link) for them to enrol.
                 </Alert>
                 <Alert severity="warning">
                   The temporary password is shown once and cannot be retrieved
@@ -327,31 +339,43 @@ export function UserManagementPanel({
                     htmlInput: { "aria-invalid": phoneInvalid }
                   }}
                 />
-                <TextField
-                  select
-                  id="user-agency"
-                  name="agencyId"
-                  label="Agency"
-                  size="small"
-                  required
-                  value={form.agencyId}
-                  onChange={onSelectChange}
-                  error={agencyInvalid}
-                  helperText={
-                    agencies.length
-                      ? " "
-                      : "Loading the agency directory requires a system admin session."
-                  }
-                  slotProps={{
-                    htmlInput: { "aria-invalid": agencyInvalid }
-                  }}
-                >
-                  {agencies.map((agency) => (
-                    <MenuItem key={agency.id} value={agency.id}>
-                      {agency.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                {lockedAgency ? (
+                  <TextField
+                    id="user-agency"
+                    name="agencyId"
+                    label="Agency"
+                    size="small"
+                    value={lockedAgency.name}
+                    disabled
+                    helperText="Agency admins provision users within their own agency."
+                  />
+                ) : (
+                  <TextField
+                    select
+                    id="user-agency"
+                    name="agencyId"
+                    label="Agency"
+                    size="small"
+                    required
+                    value={form.agencyId}
+                    onChange={onSelectChange}
+                    error={agencyInvalid}
+                    helperText={
+                      agencies.length
+                        ? " "
+                        : "Loading the agency directory requires a system admin session."
+                    }
+                    slotProps={{
+                      htmlInput: { "aria-invalid": agencyInvalid }
+                    }}
+                  >
+                    {agencies.map((agency) => (
+                      <MenuItem key={agency.id} value={agency.id}>
+                        {agency.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
                 <TextField
                   select
                   id="user-role"

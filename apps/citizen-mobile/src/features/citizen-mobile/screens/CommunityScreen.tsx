@@ -100,16 +100,10 @@ export function CommunityScreen({ actions, state }: CitizenScreenProps) {
           </Text>
           <View style={stylesButtonGrid}>
             <ActionButton
-              icon="user-check"
-              label="Refresh volunteer profile"
-              onPress={actions.registerVolunteer}
-              tone="navy"
-            />
-            <ActionButton
               icon="refresh-cw"
               label="Refresh assignments"
               onPress={actions.refreshVolunteerTasks}
-              tone="plain"
+              tone="navy"
             />
           </View>
         </Card>
@@ -120,6 +114,50 @@ export function CommunityScreen({ actions, state }: CitizenScreenProps) {
             Sign in on the Support tab, then register as a community volunteer
             to receive and update assignments.
           </Text>
+          <Field
+            label="Community"
+            onChangeText={(community) =>
+              actions.saveVolunteerRegistration({
+                ...state.volunteerRegistration,
+                community,
+              })
+            }
+            placeholder="e.g. Jamestown"
+            value={state.volunteerRegistration.community}
+          />
+          <Field
+            label="District"
+            onChangeText={(district) =>
+              actions.saveVolunteerRegistration({
+                ...state.volunteerRegistration,
+                district,
+              })
+            }
+            placeholder="e.g. Accra Metropolitan"
+            value={state.volunteerRegistration.district}
+          />
+          <Field
+            label="Region"
+            onChangeText={(region) =>
+              actions.saveVolunteerRegistration({
+                ...state.volunteerRegistration,
+                region,
+              })
+            }
+            placeholder="e.g. Greater Accra"
+            value={state.volunteerRegistration.region}
+          />
+          <Field
+            label="Skills (comma separated)"
+            onChangeText={(skills) =>
+              actions.saveVolunteerRegistration({
+                ...state.volunteerRegistration,
+                skills,
+              })
+            }
+            placeholder="e.g. first aid, community alerts"
+            value={state.volunteerRegistration.skills}
+          />
           <ActionButton
             icon="user-check"
             label="Register volunteer profile"

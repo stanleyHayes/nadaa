@@ -490,36 +490,6 @@ export function DonationPanel({
     }
   };
 
-  const deleteAidRequest = async (request: DonationAidRequestRecord) => {
-    setBusy(true);
-    setFeedback("");
-    try {
-      const response = await fetch(
-        `${DONATION_API_BASE}/aid-requests/${request.id}`,
-        {
-          method: "DELETE",
-          headers: authorityHeaders(),
-        },
-      );
-      if (!response.ok && response.status !== 404) {
-        throw new Error(`donation API returned ${response.status}`);
-      }
-      setAidRequests((current) =>
-        current.filter((item) => item.id !== request.id),
-      );
-      setFeedback(`${request.reference} removed from the active list.`);
-    } catch {
-      setAidRequests((current) =>
-        current.filter((item) => item.id !== request.id),
-      );
-      setFeedback(
-        "Removed locally. The donation-service does not yet persist deletions.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const submitPledge = async (aidRequestId: string) => {
     const form = pledgeForms[aidRequestId] ?? buildDefaultPledgeForm();
     const quantityPledged = Number(form.quantityPledged);
@@ -531,6 +501,10 @@ export function DonationPanel({
       setFeedback("Choose a donor and enter a positive pledged quantity.");
       return;
     }
+
+    // Pass the donor's registered email through when we know it — the service
+    // uses it to bind the pledge to the donor identity.
+    const donor = donors.find((item) => item.id === form.donorId);
 
     setBusy(true);
     setFeedback("");
@@ -544,6 +518,7 @@ export function DonationPanel({
             donorId: form.donorId,
             quantityPledged,
             deliveryNote: form.deliveryNote.trim(),
+            contactEmail: donor?.contactEmail || undefined,
           }),
         },
       );
@@ -953,14 +928,6 @@ export function DonationPanel({
                       : statusLabel(status)}
                   </Button>
                 ))}
-                <Button
-                  size="small"
-                  color="error"
-                  disabled={busy}
-                  onClick={() => void deleteAidRequest(request)}
-                >
-                  Delete
-                </Button>
               </Stack>
             )}
             emptyState={

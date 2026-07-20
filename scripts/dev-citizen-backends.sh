@@ -17,6 +17,17 @@ export NADAA_AUTH_ALLOW_MOCK_ACTORS=true
 export NADAA_AUTH_TOKEN_SECRET=dev-secret-change-me
 export NADAA_INTERNAL_SERVICE_TOKEN=dev-internal-service-token
 
+# Cross-service URLs matching the 94xx port block below, so services don't fall
+# back to their dead 80xx defaults: route-service enriches plans from
+# road-closure/shelter/risk, damage-claim looks up incidents (its client appends
+# /incidents/<id> to a base that must include /api/v1), and open-data reads the
+# auth-service audit log (auth is started by dev-dashboard-backends.sh on 9426).
+export ROAD_CLOSURE_SERVICE_URL=http://127.0.0.1:9414
+export SHELTER_SERVICE_URL=http://127.0.0.1:9415
+export RISK_SERVICE_URL=http://127.0.0.1:9410
+export INCIDENT_SERVICE_URL=http://127.0.0.1:9413/api/v1
+export AUDIT_LOG_SERVICE_URL=http://127.0.0.1:9426
+
 echo "=== NADAA citizen dev backends (root: $ROOT) ==="
 echo "dev auth: NADAA_ENV=development, mock actor headers on, token secret dev-secret-change-me"
 

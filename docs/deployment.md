@@ -54,8 +54,10 @@ Optional local-only in-memory agency admin bootstrap:
 NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL=admin@nadaa.local
 NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD=change-me-locally
 NADAA_AUTH_BOOTSTRAP_ADMIN_PHONE=+233200000001
-NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE=123456
+NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_SECRET=JBSWY3DPEHPK3PXP
 ```
+
+`NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_SECRET` is a base32 TOTP seed for an authenticator app; when omitted the service generates a random one and logs its otpauth URL once at startup. The retired `NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE` variable is ignored with a warning.
 
 Run incident service:
 
@@ -81,7 +83,7 @@ go run .
 Notification-service runtime logs are structured for staging visibility:
 
 - `INFO` logs cover startup, alert/feed reads, delivery attempts, voice asset generation/review/delivery, SMS/USSD/WhatsApp receipt, menu and conversation decisions, report creation, incident handoff success, and stored access logs/reports.
-- `WARN` logs cover invalid requests, unsupported SMS/USSD/WhatsApp selections, unapproved voice delivery attempts, provider errors, alert-service fixture fallback, skipped delivery, and queued reports when incident-service is not configured or unavailable.
+- `WARN` logs cover invalid requests, unsupported SMS/USSD/WhatsApp selections, unapproved voice delivery attempts, provider errors, alert-service fixture fallback (development) or degraded citizen alert feed (fixtures disabled), skipped delivery, and queued reports when incident-service is not configured or unavailable.
 - `ERROR` logs cover service startup failure, missing provider wiring, response encoding failures, and incident handoff request/response construction errors.
 - Logs use `phoneRef`, provider IDs, command names, path depth, counts, statuses, and report/log IDs. Do not add raw phone numbers, full message bodies, media captions, or full citizen report details to runtime logs.
 
@@ -224,6 +226,7 @@ Initial expected groups:
 - `NADAA_INCIDENT_SERVICE_URL`
 - `NADAA_SHELTER_ADDR`
 - `NADAA_ALERT_SERVICE_URL`
+- `NADAA_NOTIFICATION_ALLOW_FIXTURE_ALERTS`
 - `NADAA_IMAGERY_PUBLIC_BASE_URL`
 - `SMS_PROVIDER`
 - `SMS_API_KEY`
@@ -248,8 +251,8 @@ Do not commit real values. Use `.env.example` when a service needs a template. U
 
 render.yaml shares the auth environment across services through two env var groups so secrets are generated once and stay consistent:
 
-- `nadaa-auth` (attached to every Go service): one generated `NADAA_AUTH_TOKEN_SECRET` — auth-service signs bearer tokens with it and every other service verifies them with the same value — plus `NADAA_AUTH_ALLOW_MOCK_ACTORS=false` (self-asserted `X-NADAA-Actor-*` headers are ignored; local dev scripts set it to `true`) and `NADAA_ENV=production` (disables dev OTPs, sandbox payment auto-verify, and localhost CORS echo).
-- `nadaa-internal-service` (risk-service + ml-service only): one generated `NADAA_INTERNAL_SERVICE_TOKEN`, sent by risk-service as `X-NADAA-Service-Token` on ML calls.
+- `nadaa-auth` (attached to every Go service): one generated `NADAA_AUTH_TOKEN_SECRET` — auth-service signs bearer tokens with it and every other service verifies them with the same value — plus `NADAA_AUTH_ALLOW_MOCK_ACTORS=false` (self-asserted `X-NADAA-Actor-*` headers are ignored; local dev scripts set it to `true`, and services refuse to boot with it set outside `NADAA_ENV=development`) and `NADAA_ENV=production` (disables dev OTPs, sandbox payment auto-verify, localhost CORS echo, alert-service fixture seeding, and notification-service fixture alerts).
+- `nadaa-internal-service` (risk-service, ml-service, and open-data-service): one generated `NADAA_INTERNAL_SERVICE_TOKEN`, sent by risk-service and open-data-service as `X-NADAA-Service-Token` on internal calls (ML forecasts and audit-log forwarding, respectively).
 
 Other per-service notes: imagery-service serves geojson `downloadUrl`s from `NADAA_IMAGERY_PUBLIC_BASE_URL` (falls back to the request host) and writes uploads to `IMAGERY_STORAGE_PATH=/app/uploads`, which the Dockerfile pre-creates for the runtime user — attach a Render disk there for durability. Once `NADAA_SMS_WEBHOOK_SECRET`, `NADAA_USSD_WEBHOOK_SECRET`, or `NADAA_WHATSAPP_WEBHOOK_SECRET` is set, notification-service requires the matching value in the `X-NADAA-Webhook-Secret` header on inbound provider webhooks.
 
@@ -258,7 +261,7 @@ Optional in-memory auth-service bootstrap variables for local/staging fixture en
 - `NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL`
 - `NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD`
 - `NADAA_AUTH_BOOTSTRAP_ADMIN_PHONE`
-- `NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE`
+- `NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_SECRET`
 
 ## CI/CD Expectations
 

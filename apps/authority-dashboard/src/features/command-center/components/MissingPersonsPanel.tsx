@@ -4,11 +4,13 @@ import {
   Box,
   Button,
   Chip,
+  FormControlLabel,
   Grid,
   IconButton,
   MenuItem,
   Paper,
   Stack,
+  Switch,
   TextField,
   Tooltip,
   Typography,
@@ -42,6 +44,7 @@ interface ReviewFormState {
   decision: MissingPersonReviewDecision;
   publicSummary: string;
   reviewNotes: string;
+  consentOverride: boolean;
 }
 
 interface CloseFormState {
@@ -79,6 +82,22 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+/** Read the service error body so 4xx rejections surface their real reason. */
+async function extractError(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as {
+      message?: string;
+      error?: string | { message?: string };
+    };
+    if (body.message) return body.message;
+    if (typeof body.error === "string") return body.error;
+    if (body.error?.message) return body.error.message;
+    return `Request failed (${response.status})`;
+  } catch {
+    return `Request failed (${response.status})`;
+  }
+}
+
 export default function MissingPersonsPanel() {
   const [records, setRecords] = useState<MissingPersonRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -92,6 +111,7 @@ export default function MissingPersonsPanel() {
     decision: "approve_private",
     publicSummary: "",
     reviewNotes: "",
+    consentOverride: false,
   });
   const [closeForm, setCloseForm] = useState<CloseFormState>({
     closureType: "reunited",
@@ -198,6 +218,12 @@ export default function MissingPersonsPanel() {
       publicSummary: reviewForm.publicSummary.trim(),
       reviewNotes: reviewForm.reviewNotes.trim(),
     };
+    // Only a public approval can carry the consent override — the service
+    // requires it when the reporter declined public sharing, and records it
+    // in the audit trail.
+    if (reviewForm.decision === "approve_public" && reviewForm.consentOverride) {
+      request.consentOverride = true;
+    }
     setBusy(true);
     try {
       const response = await fetch(
@@ -209,15 +235,19 @@ export default function MissingPersonsPanel() {
         },
       );
       if (!response.ok) {
-        throw new Error(`review API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
       const record = (await response.json()) as MissingPersonRecord;
       applyRecord(record);
       setFeedback(`${record.reference} review saved.`);
       setLoadState("ready");
       await refreshAudit(record.id);
-    } catch {
-      setFeedback("Review needs the missing-person-service running.");
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "Review needs the missing-person-service running.",
+      );
       setLoadState("error");
     } finally {
       setBusy(false);
@@ -242,15 +272,19 @@ export default function MissingPersonsPanel() {
         },
       );
       if (!response.ok) {
-        throw new Error(`close API returned ${response.status}`);
+        throw new Error(await extractError(response));
       }
       const record = (await response.json()) as MissingPersonRecord;
       applyRecord(record);
       setFeedback(`${record.reference} closure saved.`);
       setLoadState("ready");
       await refreshAudit(record.id);
-    } catch {
-      setFeedback("Closure needs the missing-person-service running.");
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "Closure needs the missing-person-service running.",
+      );
       setLoadState("error");
     } finally {
       setBusy(false);
@@ -426,6 +460,32 @@ export default function MissingPersonsPanel() {
                     fullWidth
                   />
                 </Grid>
+                {reviewForm.decision === "approve_public" &&
+                !selectedRecord.reporter.consentToPublicShare ? (
+                  <Grid size={{ xs: 12 }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={reviewForm.consentOverride}
+                          onChange={(event) =>
+                            setReviewForm((current) => ({
+                              ...current,
+                              consentOverride: event.target.checked,
+                            }))
+                          }
+                        />
+                      }
+                      label="Override the reporter's declined public-share consent"
+                    />
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary",
+                      display: "block"
+                    }}>
+                      The reporter declined public sharing. Publishing requires
+                      this explicit override; it is written to the audit trail.
+                    </Typography>
+                  </Grid>
+                ) : null}
                 <Grid size={{ xs: 12 }}>
                   <Button
                     variant="contained"

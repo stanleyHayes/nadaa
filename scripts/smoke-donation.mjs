@@ -1,9 +1,19 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const baseURL =
   process.env.DONATION_API_URL?.trim() || "http://127.0.0.1:8100/api/v1";
 const rootURL = baseURL.replace("/api/v1", "");
 const serviceDir = "services/donation-service";
+// Build once and spawn the binary directly: "go run" wraps the server in a
+// "go" process, so SIGTERM would kill only the wrapper and orphan a stale
+// server on :8100 that later runs would silently test against.
+const binaryPath = join(
+  tmpdir(),
+  `nadaa-donation-service-smoke-${process.pid}`,
+);
 
 const authorityHeaders = {
   "Content-Type": "application/json",
@@ -49,7 +59,17 @@ async function ensureService() {
     // service is not running; start it below
   }
   console.log("starting donation-service for smoke test...");
-  serviceChild = spawn("go", ["run", "./cmd/server"], {
+  const build = spawnSync(
+    "go",
+    ["build", "-o", binaryPath, "./cmd/server"],
+    { cwd: serviceDir, stdio: "inherit" },
+  );
+  if (build.error || build.status !== 0) {
+    throw new Error(
+      `donation-service build failed: ${build.error?.message ?? `exit ${build.status}`}`,
+    );
+  }
+  serviceChild = spawn(binaryPath, [], {
     cwd: serviceDir,
     stdio: "inherit",
     detached: false,
@@ -74,7 +94,10 @@ function cleanup() {
   }
 }
 
-process.on("exit", cleanup);
+process.on("exit", () => {
+  cleanup();
+  rmSync(binaryPath, { force: true });
+});
 process.on("SIGINT", () => {
   cleanup();
   process.exit(130);
@@ -266,29 +289,8 @@ if (
 }
 console.log(`donation pledge create OK ${pledgePayload.id}`);
 
-const pledgeUpdate = await fetch(`${baseURL}/pledges/${pledgePayload.id}`, {
-  method: "PATCH",
-  headers: authorityHeaders,
-  body: JSON.stringify({
-    status: "delivered",
-    quantityDelivered: 50,
-    deliveryNote: "Smoke test delivery",
-  }),
-});
-if (!pledgeUpdate.ok) {
-  throw new Error(
-    `donation pledge update smoke failed: ${pledgeUpdate.status}`,
-  );
-}
-const pledgeUpdatePayload = await pledgeUpdate.json();
-if (
-  pledgeUpdatePayload.status !== "delivered" ||
-  pledgeUpdatePayload.quantityDelivered !== 50
-) {
-  throw new Error("donation pledge update smoke returned invalid payload");
-}
-console.log("donation pledge update OK");
-
+// Allocate before the PATCH delivery: deliveries accumulate, so allocating
+// after the pledge is fully delivered would be rejected as over-allocation.
 const allocate = await fetch(
   `${baseURL}/aid-requests/${aidRequestPayload.id}/allocate`,
   {
@@ -311,6 +313,29 @@ if (
   throw new Error("donation pledge allocate smoke returned invalid payload");
 }
 console.log("donation pledge allocate OK");
+
+const pledgeUpdate = await fetch(`${baseURL}/pledges/${pledgePayload.id}`, {
+  method: "PATCH",
+  headers: authorityHeaders,
+  body: JSON.stringify({
+    status: "delivered",
+    quantityDelivered: 50,
+    deliveryNote: "Smoke test delivery",
+  }),
+});
+if (!pledgeUpdate.ok) {
+  throw new Error(
+    `donation pledge update smoke failed: ${pledgeUpdate.status}`,
+  );
+}
+const pledgeUpdatePayload = await pledgeUpdate.json();
+if (
+  pledgeUpdatePayload.status !== "delivered" ||
+  pledgeUpdatePayload.quantityDelivered !== 50
+) {
+  throw new Error("donation pledge update smoke returned invalid payload");
+}
+console.log("donation pledge update OK");
 
 console.log("donation smoke passed");
 cleanup();

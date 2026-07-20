@@ -300,6 +300,9 @@ func normalizeCreateSchool(request models.CreateSchoolRequest) (models.CreateSch
 	if request.StudentPopulation < 0 || request.StudentPopulation > 10000 {
 		return request, "invalid_student_population", "studentPopulation must be between 0 and 10000"
 	}
+	if code, message := validateEvacuationPoints(request.EvacuationPoints); code != "" {
+		return request, code, message
+	}
 	return request, "", ""
 }
 
@@ -327,7 +330,21 @@ func normalizeUpdateSchool(request models.UpdateSchoolRequest) (models.UpdateSch
 	if request.StudentPopulation != nil && (*request.StudentPopulation < 0 || *request.StudentPopulation > 10000) {
 		return request, "invalid_student_population", "studentPopulation must be between 0 and 10000"
 	}
+	if code, message := validateEvacuationPoints(request.EvacuationPoints); code != "" {
+		return request, code, message
+	}
 	return request, "", ""
+}
+
+// validateEvacuationPoints rejects evacuation points with out-of-range
+// coordinates or a negative capacity instead of persisting and serving them.
+func validateEvacuationPoints(points []models.EvacuationPoint) (string, string) {
+	for _, point := range points {
+		if !utils.ValidCoordinates(point.Location) || point.Capacity < 0 {
+			return "invalid_evacuation_point", "evacuationPoints must have valid WGS84 coordinates and non-negative capacity"
+		}
+	}
+	return "", ""
 }
 
 func normalizeCreateDrill(request models.CreateDrillRequest, now time.Time) (models.CreateDrillRequest, string, string) {

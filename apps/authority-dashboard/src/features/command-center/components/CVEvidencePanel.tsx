@@ -28,6 +28,7 @@ import type {
   CVReviewStatus,
 } from "@nadaa/shared-types";
 import { CV_API_BASE } from "@/app/config";
+import { authorityHeaders } from "@/app/session";
 import { EmptyState } from "./shared";
 
 const cvConfidenceThreshold = 0.7;
@@ -69,6 +70,7 @@ export function CVEvidencePanel() {
   const [selectedImageId, setSelectedImageId] = useState("");
   const [reviewNote, setReviewNote] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   const refreshCVResults = async (signal?: AbortSignal) => {
     setLoadState("loading");
@@ -76,6 +78,7 @@ export function CVEvidencePanel() {
 
     try {
       const response = await fetch(`${CV_API_BASE}/cv/results`, {
+        headers: authorityHeaders(),
         signal,
       });
       if (!response.ok) {
@@ -149,7 +152,7 @@ export function CVEvidencePanel() {
       };
       const response = await fetch(`${CV_API_BASE}/cv/analyze`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authorityHeaders(),
         body: JSON.stringify(body),
       });
       if (!response.ok) {
@@ -175,32 +178,66 @@ export function CVEvidencePanel() {
     }
   };
 
-  const updateReviewStatus = (image: CVImageItem, status: CVReviewStatus) => {
+  const updateReviewStatus = async (
+    image: CVImageItem,
+    status: CVReviewStatus,
+  ) => {
     if (!image.cvResult) {
       return;
     }
     setReviewBusy(true);
-    setTimeout(() => {
+    setReviewError("");
+    try {
+      const response = await fetch(
+        `${CV_API_BASE}/cv/results/${encodeURIComponent(image.id)}/review`,
+        {
+          method: "PATCH",
+          headers: authorityHeaders(),
+          body: JSON.stringify({
+            decision: status,
+            note: reviewNote.trim() || undefined,
+          }),
+        },
+      );
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+          message?: string;
+        } | null;
+        throw new Error(
+          payload?.error?.message ??
+            payload?.message ??
+            `CV review failed (${response.status}).`,
+        );
+      }
+      const payload = (await response.json()) as {
+        result?: CVAnalysisResult;
+      } & Partial<CVAnalysisResult>;
+      const updated = (payload.result ?? payload) as CVAnalysisResult;
       setImages((current) =>
         current.map((img) =>
           img.id === image.id
             ? {
                 ...img,
-                status,
-                cvResult: {
-                  ...img.cvResult!,
-                  reviewStatus: status,
-                  reviewedBy: "authority-dashboard",
-                  reviewNote: reviewNote.trim() || undefined,
-                },
+                status: (updated.reviewStatus as CVImageItem["status"]) ?? status,
+                cvResult: updated,
               }
             : img,
         ),
       );
       setReviewNote("");
+      setFeedback(
+        `${image.name} marked as ${updated.reviewStatus ?? status} and saved to the CV service.`,
+      );
+    } catch (error) {
+      setReviewError(
+        error instanceof Error
+          ? error.message
+          : "CV review could not be saved.",
+      );
+    } finally {
       setReviewBusy(false);
-      setFeedback(`${image.name} marked as ${status}.`);
-    }, 400);
+    }
   };
 
   return (
@@ -244,6 +281,11 @@ export function CVEvidencePanel() {
           {imagesNeedingReview.length === 1 ? "" : "s"} require human review
         </Alert>
       )}
+      {reviewError ? (
+        <Alert severity="error" onClose={() => setReviewError("")}>
+          {reviewError}
+        </Alert>
+      ) : null}
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Analyzed images</Typography>
         <Stack direction="row" spacing={1} sx={{
@@ -254,7 +296,10 @@ export function CVEvidencePanel() {
               key={image.id}
               size="small"
               variant={image.id === selectedImageId ? "contained" : "outlined"}
-              onClick={() => setSelectedImageId(image.id)}
+              onClick={() => {
+                setSelectedImageId(image.id);
+                setReviewError("");
+              }}
               startIcon={
                 image.cvResult?.humanReviewRequired ? (
                   <AlertTriangle size={14} />

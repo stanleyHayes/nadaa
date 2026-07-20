@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -117,6 +118,34 @@ func UnsafeText(value string) bool {
 // forged lines into structured logs.
 func LogSafe(value string) string {
 	return strings.NewReplacer("\n", " ", "\r", " ").Replace(value)
+}
+
+// ClientIdentifier extracts the best-effort client IP from a request. Proxy
+// headers are honored only when NADAA_TRUST_PROXY_HEADERS=true, i.e. the
+// service sits behind a known reverse proxy that sets them.
+func ClientIdentifier(r *http.Request) string {
+	if trustProxyHeaders() {
+		if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+			parts := strings.Split(forwarded, ",")
+			if first := strings.TrimSpace(parts[0]); first != "" {
+				return first
+			}
+		}
+		if realIP := strings.TrimSpace(r.Header.Get("X-Real-Ip")); realIP != "" {
+			return realIP
+		}
+	}
+
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil || host == "" {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// trustProxyHeaders reports whether client-supplied proxy headers are trusted.
+func trustProxyHeaders() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_TRUST_PROXY_HEADERS")), "true")
 }
 
 // ValidEmail returns true if value looks like a reasonable email address.

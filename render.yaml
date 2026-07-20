@@ -40,7 +40,8 @@ envVarGroups:
         value: "production"
 
   # Service-to-service token shared by internal caller/verifier pairs:
-  # risk-service → ml-service and damage-claim-service → incident-service.
+  # risk-service → ml-service, damage-claim-service → incident-service, and
+  # open-data-service → auth-service (audit ingest).
   # Callers send it as X-NADAA-Service-Token; verifiers gate on it.
   - name: nadaa-internal-service
     envVars:
@@ -78,13 +79,17 @@ services:
       # Production hardening — never expose OTPs.
       - key: NADAA_AUTH_EXPOSE_DEV_OTP
         value: "false"
+      # Shared with open-data-service; verifies X-NADAA-Service-Token on the
+      # POST /api/v1/audit/logs ingest endpoint (stays closed when unset).
+      - fromGroup: nadaa-internal-service
       # Optional: seed the first system admin. Set these in the dashboard to
-      # bootstrap login, then unset. Leave blank to skip bootstrapping.
+      # bootstrap login, then unset. Leave blank to skip bootstrapping. The MFA
+      # secret must be a base32 TOTP seed (no constant fallback).
       - key: NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL
         sync: false
       - key: NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD
         sync: false
-      - key: NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE
+      - key: NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_SECRET
         sync: false
 
   - name: nadaa-risk-service
@@ -102,7 +107,10 @@ services:
       # Shared with ml-service; sent as X-NADAA-Service-Token on ML calls.
       - fromGroup: nadaa-internal-service
       # ml-service base URL for flood scoring; empty falls back to local scoring.
-      # Set to the deployed ml-service URL (its internal or public Render URL).
+      # Set to the deployed ml-service URL INCLUDING the /api/v1 suffix (e.g.
+      # https://nadaa-ml-service.onrender.com/api/v1) — risk-service POSTs
+      # <this value>/ml/flood/predictions, so a bare origin 404s and silently
+      # disables ML enrichment.
       - key: NADAA_ML_API_URL
         sync: false
 
@@ -121,6 +129,14 @@ services:
       # Shared with damage-claim-service; verifies X-NADAA-Service-Token on
       # service-to-service incident lookups (read-only, no reporter contact).
       - fromGroup: nadaa-internal-service
+      # Media bytes write to the container's ephemeral filesystem and are lost
+      # on redeploy. Attach a Render disk mounted here for durable storage.
+      - key: NADAA_INCIDENT_MEDIA_STORAGE_PATH
+        value: /app/uploads/media
+      # Externally reachable base URL used for absolute media uploadUrls. Set
+      # to the deployed service URL (e.g. https://nadaa-incident-service.onrender.com).
+      - key: NADAA_INCIDENT_PUBLIC_BASE_URL
+        sync: false
 
   - name: nadaa-guide-service
     type: web
@@ -180,7 +196,9 @@ services:
     envVars:
       - fromGroup: nadaa-web-origins
       - fromGroup: nadaa-auth
-      # Upstream services (optional enrichment; fixtures used if unreachable).
+      # Upstream services (optional enrichment; with NADAA_ENV=production the
+      # citizen feed reports a degraded status instead of serving fixtures when
+      # alert-service is unreachable).
       - key: NADAA_ALERT_SERVICE_URL
         sync: false
       - key: NADAA_INCIDENT_SERVICE_URL
@@ -259,8 +277,6 @@ services:
     envVars:
       - fromGroup: nadaa-web-origins
       - fromGroup: nadaa-auth
-      - key: RISK_SERVICE_URL
-        sync: false
 
   - name: nadaa-damage-claim-service
     type: web
@@ -345,6 +361,8 @@ services:
     envVars:
       - fromGroup: nadaa-web-origins
       - fromGroup: nadaa-auth
+      # Service token sent as X-NADAA-Service-Token when forwarding audit events.
+      - fromGroup: nadaa-internal-service
       # auth-service base URL (audit-log sink).
       - key: AUDIT_LOG_SERVICE_URL
         sync: false

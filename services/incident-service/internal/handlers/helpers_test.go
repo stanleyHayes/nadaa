@@ -86,7 +86,7 @@ func validIncidentRequest() models.CreateIncidentRequest {
 	return models.CreateIncidentRequest{
 		Type:               "flood",
 		Description:        "Road is flooded and vehicles are trapped",
-		Location:           models.Coordinates{Lat: 5.579, Lng: -0.212},
+		Location:           &models.Coordinates{Lat: 5.579, Lng: -0.212},
 		PeopleAffected:     12,
 		InjuriesReported:   false,
 		Urgency:            "high",
@@ -287,11 +287,22 @@ func reviewAbuseForTest(t *testing.T, srv *server, incidentID string, body model
 	return payload
 }
 
+// citizenClaims builds verified citizen token claims for the given user id.
+func citizenClaims(userID string) tokenClaims {
+	return tokenClaims{
+		UserID:    userID,
+		UserType:  "citizen",
+		Role:      "citizen",
+		ExpiresAt: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
+	}
+}
+
 func registerVolunteerForTest(t *testing.T, srv *server, body models.RegisterVolunteerRequest) models.VolunteerProfile {
 	t.Helper()
 
 	response := httptest.NewRecorder()
-	srv.registerVolunteerHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(body)))
+	request := tokenRequest(http.MethodPost, "/api/v1/volunteers", jsonBody(body), citizenClaims(body.CitizenUserID))
+	srv.registerVolunteerHandler(response, request)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("expected volunteer registration status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
 	}

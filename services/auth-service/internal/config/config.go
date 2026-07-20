@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"log"
 	"os"
 	"strings"
 
@@ -18,28 +19,33 @@ type Config struct {
 	// AllowMockActorHeaders lets agency endpoints accept the shared X-NADAA-*
 	// actor headers instead of a verified session token. Demo/dev only — it
 	// trusts client-supplied role headers, so it must stay false in production.
-	AllowMockActorHeaders  bool
-	BootstrapAdminEmail    string
-	BootstrapAdminPassword string
-	BootstrapAdminPhone    string
-	BootstrapAdminName     string
-	BootstrapAdminMFACode  string
+	AllowMockActorHeaders   bool
+	InternalServiceToken    string
+	BootstrapAdminEmail     string
+	BootstrapAdminPassword  string
+	BootstrapAdminPhone     string
+	BootstrapAdminName      string
+	BootstrapAdminMFASecret string
 }
 
 // Load reads configuration from environment variables.
 func Load() *Config {
+	if strings.TrimSpace(os.Getenv("NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE")) != "" {
+		log.Printf("WARN NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE is no longer supported: static MFA codes were replaced by TOTP; set NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_SECRET to a base32 TOTP secret instead")
+	}
 	return &Config{
-		Addr:                   resolveListenAddr("NADAA_AUTH_ADDR", ":8080"),
-		AllowedOrigins:         utils.AllowedOriginsFromEnv(),
-		TokenSecret:            envOrDefault("NADAA_AUTH_TOKEN_SECRET", InsecureTokenSecret),
-		MockOTP:                strings.TrimSpace(os.Getenv("NADAA_AUTH_MOCK_OTP")),
-		ExposeDevOTP:           os.Getenv("NADAA_AUTH_EXPOSE_DEV_OTP") == "true",
-		AllowMockActorHeaders:  os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
-		BootstrapAdminEmail:    strings.TrimSpace(os.Getenv("NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL")),
-		BootstrapAdminPassword: strings.TrimSpace(os.Getenv("NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD")),
-		BootstrapAdminPhone:    envOrDefault("NADAA_AUTH_BOOTSTRAP_ADMIN_PHONE", "+233200000001"),
-		BootstrapAdminName:     envOrDefault("NADAA_AUTH_BOOTSTRAP_ADMIN_NAME", "NADAA System Admin"),
-		BootstrapAdminMFACode:  strings.TrimSpace(os.Getenv("NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE")),
+		Addr:                    resolveListenAddr("NADAA_AUTH_ADDR", ":8080"),
+		AllowedOrigins:          utils.AllowedOriginsFromEnv(),
+		TokenSecret:             envOrDefault("NADAA_AUTH_TOKEN_SECRET", InsecureTokenSecret),
+		MockOTP:                 strings.TrimSpace(os.Getenv("NADAA_AUTH_MOCK_OTP")),
+		ExposeDevOTP:            os.Getenv("NADAA_AUTH_EXPOSE_DEV_OTP") == "true",
+		AllowMockActorHeaders:   os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
+		InternalServiceToken:    strings.TrimSpace(os.Getenv("NADAA_INTERNAL_SERVICE_TOKEN")),
+		BootstrapAdminEmail:     strings.TrimSpace(os.Getenv("NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL")),
+		BootstrapAdminPassword:  strings.TrimSpace(os.Getenv("NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD")),
+		BootstrapAdminPhone:     envOrDefault("NADAA_AUTH_BOOTSTRAP_ADMIN_PHONE", "+233200000001"),
+		BootstrapAdminName:      envOrDefault("NADAA_AUTH_BOOTSTRAP_ADMIN_NAME", "NADAA System Admin"),
+		BootstrapAdminMFASecret: strings.TrimSpace(os.Getenv("NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_SECRET")),
 	}
 }
 

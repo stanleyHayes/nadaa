@@ -30,7 +30,7 @@ Allowed authority roles are `system_admin`, `nadmo_officer`, `district_officer`,
 
 - `source` — `drone`, `satellite`, or `other` (required)
 - `captureTime` — ISO 8601 timestamp (required)
-- `geometry` — GeoJSON Polygon JSON string (required)
+- `geometry` — GeoJSON Polygon JSON string (required); the payload is capped at 64 KiB and 10000 coordinate positions (it is echoed on the public geojson feed)
 - `coverageAreaKm2` — non-negative number (required)
 - `resolutionMeters` — non-negative number (required)
 - `license` — optional license string
@@ -61,11 +61,11 @@ go test ./...
 - `IMAGERY_STORAGE_PATH` — directory for uploaded files (default `./uploads`)
 - `DEFAULT_RETENTION_DAYS` — retention period in days (default `90`)
 - `NADAA_AUTH_TOKEN_SECRET` — HMAC secret used to verify auth-service bearer tokens; when empty (and mock actors off) authority endpoints return 401
-- `NADAA_AUTH_ALLOW_MOCK_ACTORS` — `true` honors legacy `X-NADAA-Actor-*` headers (local dev/smoke tests only)
+- `NADAA_AUTH_ALLOW_MOCK_ACTORS` — `true` honors legacy `X-NADAA-Actor-*` headers (local dev/smoke tests only); the service refuses to start when this is set without `NADAA_ENV=development`
 - `NADAA_IMAGERY_PUBLIC_BASE_URL` — externally reachable base URL (e.g. `https://imagery.example.com`) used for geojson `downloadUrl`s; falls back to the request scheme/host when unset
 - `NADAA_ENV` — `development` allows localhost/127.0.0.1 CORS origins alongside the allowlist
 
-Expired records are expired automatically by an hourly retention lifecycle tick (in addition to the manual `POST /api/v1/imagery/lifecycle/run` endpoint).
+Expired records are expired automatically by an hourly retention lifecycle tick (in addition to the manual `POST /api/v1/imagery/lifecycle/run` endpoint). Expiry deletes the stored file, and downloads of expired records are refused with `410 Gone`.
 
 ## Notes
 

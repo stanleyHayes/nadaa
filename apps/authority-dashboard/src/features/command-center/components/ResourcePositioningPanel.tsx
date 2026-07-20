@@ -27,6 +27,7 @@ import type {
   StagingSuggestionListResponse,
 } from "@nadaa/shared-types";
 import { FORECAST_API_BASE } from "@/app/config";
+import { authorityHeaders } from "@/app/session";
 import { EmptyState } from "./shared";
 import { severityColors } from "../data";
 
@@ -98,9 +99,11 @@ export function ResourcePositioningPanel() {
       try {
         const [forecastResponse, stagingResponse] = await Promise.all([
           fetch(`${FORECAST_API_BASE}/forecasts`, {
+            headers: authorityHeaders(),
             signal: controller.signal,
           }),
           fetch(`${FORECAST_API_BASE}/staging-suggestions`, {
+            headers: authorityHeaders(),
             signal: controller.signal,
           }),
         ]);
@@ -149,7 +152,7 @@ export function ResourcePositioningPanel() {
     try {
       const response = await fetch(`${FORECAST_API_BASE}/forecasts/compare`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authorityHeaders(),
         body: JSON.stringify(body),
       });
       if (!response.ok) {

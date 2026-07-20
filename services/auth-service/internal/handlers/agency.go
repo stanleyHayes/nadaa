@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -18,7 +19,7 @@ func (s *Server) createAgencyUserHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	var request models.CreateAgencyUserRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
 		return
 	}
@@ -98,7 +99,7 @@ func (s *Server) setupAgencyMFAHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request models.AgencyMFASetupRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
 		return
 	}
@@ -110,13 +111,7 @@ func (s *Server) setupAgencyMFAHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code, err := s.otp.Generate()
-	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "mfa_generation_failed", "could not create MFA challenge")
-		return
-	}
-
-	challenge, err := s.store.StartAgencyMFASetup(userID, request.Email, request.TemporaryPassword, utils.NewMFASecret(), code, s.now())
+	challenge, err := s.store.StartAgencyMFASetup(userID, request.Email, request.TemporaryPassword, utils.NewTOTPSecret(), s.now())
 	if errors.Is(err, store.ErrInvalidCredentials) {
 		s.recordAudit(r, models.AuditActor{}, "auth.agency_mfa.setup_failed", models.AuditTarget{Type: "agency_user", ID: userID}, nil, map[string]any{
 			"reason": "invalid_credentials",
@@ -136,12 +131,18 @@ func (s *Server) setupAgencyMFAHandler(w http.ResponseWriter, r *http.Request) {
 	response := models.AgencyMFASetupResponse{
 		UserID:      userID,
 		ChallengeID: challenge.ID,
-		Method:      "mock_totp",
+		Method:      "totp",
 		Secret:      challenge.Secret,
+		OTPAuthURL:  utils.TOTPAuthURL(challenge.Secret, request.Email),
 		ExpiresAt:   challenge.ExpiresAt,
 	}
-	if s.exposeDevOTP {
-		response.DevCode = challenge.Code
+	if s.exposeDevOTP && utils.IsDevelopment() {
+		// Development only (config validation keeps NADAA_AUTH_EXPOSE_DEV_OTP
+		// off outside NADAA_ENV=development): surface the current TOTP code so
+		// automated tests can complete enrollment without an authenticator.
+		if devCode, err := utils.TOTPCode(challenge.Secret, s.now()); err == nil {
+			response.DevCode = devCode
+		}
 	}
 
 	profile, _ := s.store.AgencyProfileByID(userID)
@@ -161,7 +162,7 @@ func (s *Server) verifyAgencyMFAHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var request models.AgencyMFAVerifyRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
 		return
 	}
@@ -200,7 +201,7 @@ func (s *Server) verifyAgencyMFAHandler(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) loginAgencyHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.LoginAgencyRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
 		return
 	}
@@ -277,4 +278,74 @@ func (s *Server) listAgenciesHandler(w http.ResponseWriter, r *http.Request) {
 	s.recordAudit(r, utils.AuditActorFromAgency(actor), "auth.agencies.listed", models.AuditTarget{Type: "agencies"}, nil, map[string]any{
 		"count": len(agencies),
 	})
+}
+
+func (s *Server) listAgencyUsersHandler(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireAgencyRole(w, r, models.RoleSystemAdmin, models.RoleAgencyAdmin)
+	if !ok {
+		return
+	}
+
+	users := s.store.ListAgencyUsers(s.now())
+	if actor.Role == models.RoleAgencyAdmin {
+		scoped := make([]models.AgencyUserDirectoryEntry, 0, len(users))
+		for _, user := range users {
+			if user.AgencyID == actor.Agency.ID {
+				scoped = append(scoped, user)
+			}
+		}
+		users = scoped
+	}
+
+	utils.WriteJSON(w, http.StatusOK, models.AgencyUserListResponse{Users: users})
+	s.recordAudit(r, utils.AuditActorFromAgency(actor), "auth.agency_users.listed", models.AuditTarget{Type: "agency_users"}, nil, map[string]any{
+		"count": len(users),
+	})
+}
+
+func (s *Server) changeAgencyPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireAgencyRole(w, r, allAgencyRoles...)
+	if !ok {
+		return
+	}
+
+	var request models.ChangeAgencyPasswordRequest
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
+		return
+	}
+
+	request.CurrentPassword = strings.TrimSpace(request.CurrentPassword)
+	request.NewPassword = strings.TrimSpace(request.NewPassword)
+	if request.CurrentPassword == "" || request.NewPassword == "" {
+		utils.WriteError(w, http.StatusBadRequest, "invalid_password_change_request", "currentPassword and newPassword are required")
+		return
+	}
+
+	err := s.store.ChangeAgencyPassword(actor.ID, request.CurrentPassword, request.NewPassword, s.now())
+	if errors.Is(err, store.ErrTooManyAttempts) {
+		s.recordAudit(r, utils.AuditActorFromAgency(actor), "auth.agency_password.change_failed", models.AuditTarget{Type: "agency_user", ID: actor.ID}, nil, map[string]any{
+			"reason": "too_many_attempts",
+		})
+		utils.WriteError(w, http.StatusTooManyRequests, "too_many_attempts", "too many failed attempts; try again later")
+		return
+	}
+	if errors.Is(err, store.ErrInvalidCredentials) {
+		s.recordAudit(r, utils.AuditActorFromAgency(actor), "auth.agency_password.change_failed", models.AuditTarget{Type: "agency_user", ID: actor.ID}, nil, map[string]any{
+			"reason": "invalid_credentials",
+		})
+		utils.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "current password is invalid")
+		return
+	}
+	if errors.Is(err, store.ErrWeakPassword) {
+		utils.WriteError(w, http.StatusBadRequest, "weak_password", fmt.Sprintf("newPassword must be at least %d characters", store.MinAgencyPasswordLength))
+		return
+	}
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "password_change_failed", "could not change password")
+		return
+	}
+
+	s.recordAudit(r, utils.AuditActorFromAgency(actor), "auth.agency_password.changed", models.AuditTarget{Type: "agency_user", ID: actor.ID}, nil, nil)
+	utils.WriteJSON(w, http.StatusOK, models.ChangeAgencyPasswordResponse{OK: true})
 }

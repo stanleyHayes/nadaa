@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 )
@@ -57,4 +58,14 @@ func allowedOriginsFromEnv() map[string]bool {
 		}
 	}
 	return allowed
+}
+
+// Validate fails closed on unsafe configuration. risk-service does not honor
+// mock actor headers at all, but the development escape hatch must still
+// never leak into a deployed environment.
+func (c *Config) Validate() error {
+	if os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true" && os.Getenv("NADAA_ENV") != "development" {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
 }

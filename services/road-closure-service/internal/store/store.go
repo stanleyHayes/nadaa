@@ -57,6 +57,12 @@ func (m *MemoryStore) ListClosures(filter models.ListFilter, now time.Time) []mo
 
 	results := make([]models.RoadClosureRecord, 0, len(m.closures))
 	for _, closure := range m.closures {
+		// A scheduled closure already inside its validity window is active in
+		// practice: surface it as active so status=active list, map, and
+		// route-facing queries do not miss it.
+		if closure.Status == "scheduled" && utils.IsClosureEffective(closure, now) {
+			closure.Status = "active"
+		}
 		if filter.Status != "" && closure.Status != filter.Status {
 			continue
 		}

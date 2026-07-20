@@ -15,15 +15,21 @@ export NADAA_AUTH_ALLOW_MOCK_ACTORS=true
 export NADAA_AUTH_TOKEN_SECRET=dev-secret-change-me
 export NADAA_INTERNAL_SERVICE_TOKEN=dev-internal-service-token
 
+# Cross-service URLs matching the citizen 94xx block, so services don't fall
+# back to their dead 80xx defaults: integration-service imports closures from
+# road-closure-service (dev-citizen-backends.sh runs it on 9414).
+export NADAA_ROAD_CLOSURE_SERVICE_URL=http://127.0.0.1:9414
+
 # Dev agency admin bootstrapped into auth-service. Local dev only: the
-# password clears the 12-character bootstrap minimum and the MFA code must be
-# an explicit 6 digits — the service no longer falls back to a default code.
+# password clears the 12-character bootstrap minimum and the MFA secret is a
+# fixed base32 TOTP seed (same one auth-service's README uses as its example),
+# so current codes can be generated from it with any TOTP tool.
 ADMIN_EMAIL="admin@nadaa.local"
 ADMIN_PASSWORD="change-me-locally"
-ADMIN_MFA_CODE="123456"
+ADMIN_MFA_SECRET="JBSWY3DPEHPK3PXP"
 
 echo "=== NADAA dashboard dev backends (root: $ROOT) ==="
-echo "dev agency admin login: $ADMIN_EMAIL / $ADMIN_PASSWORD (MFA code: $ADMIN_MFA_CODE)"
+echo "dev agency admin login: $ADMIN_EMAIL / $ADMIN_PASSWORD (TOTP seed: $ADMIN_MFA_SECRET)"
 echo "dev auth: NADAA_ENV=development, mock actor headers on, token secret dev-secret-change-me"
 
 stop() {
@@ -61,7 +67,7 @@ start auth-service         auth         NADAA_AUTH_ADDR         9426 \
   NADAA_AUTH_ALLOW_INSECURE_SECRET=true \
   NADAA_AUTH_BOOTSTRAP_ADMIN_EMAIL="$ADMIN_EMAIL" \
   NADAA_AUTH_BOOTSTRAP_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-  NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_CODE="$ADMIN_MFA_CODE"
+  NADAA_AUTH_BOOTSTRAP_ADMIN_MFA_SECRET="$ADMIN_MFA_SECRET"
 start integration-service  integration  NADAA_INTEGRATION_ADDR  9427
 
 sleep 6

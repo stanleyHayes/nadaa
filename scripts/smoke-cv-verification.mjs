@@ -1,5 +1,12 @@
 const baseURL = process.env.CV_API_URL?.trim() || "http://127.0.0.1:8094";
 
+// ml-service gates every non-health endpoint when NADAA_INTERNAL_SERVICE_TOKEN
+// is configured, so send the shared service token on every CV call.
+const serviceTokenHeaders = {
+  "X-NADAA-Service-Token":
+    process.env.NADAA_INTERNAL_SERVICE_TOKEN || "dev-internal-service-token",
+};
+
 async function assertOk(response, label) {
   if (!response.ok) {
     const body = await response.text();
@@ -19,7 +26,7 @@ console.log("[smoke-cv] Health OK");
 // Analyze flood image
 const floodAnalyze = await fetch(`${baseURL}/api/v1/cv/analyze`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", ...serviceTokenHeaders },
   body: JSON.stringify({ imageId: "smoke_flood_001", imageName: "flood-scene.jpg" }),
 });
 await assertOk(floodAnalyze, "CV flood analyze");
@@ -41,7 +48,7 @@ console.log("[smoke-cv] Flood analyze OK", floodResult.result.labels.map((l) => 
 // Analyze sensitive image
 const sensitiveAnalyze = await fetch(`${baseURL}/api/v1/cv/analyze`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", ...serviceTokenHeaders },
   body: JSON.stringify({ imageId: "smoke_sensitive_001", imageName: "injured-person.jpg" }),
 });
 await assertOk(sensitiveAnalyze, "CV sensitive analyze");
@@ -55,7 +62,9 @@ if (sensitiveResult.result.labels[0].label !== "sensitive") {
 console.log("[smoke-cv] Sensitive analyze OK");
 
 // Retrieve cached result
-const getResult = await fetch(`${baseURL}/api/v1/cv/results/smoke_flood_001`);
+const getResult = await fetch(`${baseURL}/api/v1/cv/results/smoke_flood_001`, {
+  headers: serviceTokenHeaders,
+});
 await assertOk(getResult, "CV get result");
 const getBody = await getResult.json();
 if (getBody.result.imageId !== "smoke_flood_001") {
@@ -64,7 +73,9 @@ if (getBody.result.imageId !== "smoke_flood_001") {
 console.log("[smoke-cv] Get result OK");
 
 // List results
-const listResults = await fetch(`${baseURL}/api/v1/cv/results`);
+const listResults = await fetch(`${baseURL}/api/v1/cv/results`, {
+  headers: serviceTokenHeaders,
+});
 await assertOk(listResults, "CV list results");
 const listBody = await listResults.json();
 if (!Array.isArray(listBody.results)) {
@@ -78,7 +89,7 @@ console.log("[smoke-cv] List results OK", listBody.results.length);
 // Verify caching: re-analyze same image should return cached ID
 const cachedAnalyze = await fetch(`${baseURL}/api/v1/cv/analyze`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", ...serviceTokenHeaders },
   body: JSON.stringify({ imageId: "smoke_flood_001", imageName: "flood-scene.jpg" }),
 });
 await assertOk(cachedAnalyze, "CV cached analyze");

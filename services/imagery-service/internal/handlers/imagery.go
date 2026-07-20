@@ -19,6 +19,15 @@ import (
 
 const maxUploadSize = 20 << 20 // 20 MB
 
+const (
+	// maxGeometryBytes caps the raw geometry payload. The geometry is stored
+	// and echoed verbatim on the public geojson feed, so it must stay small.
+	maxGeometryBytes = 64 << 10 // 64 KiB
+	// maxGeometryPositions caps the total number of coordinate positions
+	// across all rings of an uploaded polygon.
+	maxGeometryPositions = 10000
+)
+
 var allowedSources = map[string]bool{
 	"drone":     true,
 	"satellite": true,
@@ -154,6 +163,9 @@ func parseCreateImageryRequest(r *http.Request) (models.ImageryUploadInput, stri
 	if geometryText == "" {
 		return input, "missing_geometry", "geometry is required"
 	}
+	if len(geometryText) > maxGeometryBytes {
+		return input, "invalid_geometry", "geometry payload must be 64 KiB or smaller"
+	}
 	if !json.Valid([]byte(geometryText)) {
 		return input, "invalid_geometry", "geometry must be valid JSON"
 	}
@@ -169,6 +181,9 @@ func parseCreateImageryRequest(r *http.Request) (models.ImageryUploadInput, stri
 	}
 	if !validPolygonCoordinates(geometry.Coordinates) {
 		return input, "invalid_geometry", "geometry coordinates must be a non-empty array of closed linear rings with at least 4 positions each"
+	}
+	if countPolygonPositions(geometry.Coordinates) > maxGeometryPositions {
+		return input, "invalid_geometry", "geometry coordinates must contain 10000 positions or fewer"
 	}
 	input.Geometry = json.RawMessage(geometryText)
 
@@ -238,6 +253,16 @@ func validPolygonCoordinates(rings [][][]float64) bool {
 		}
 	}
 	return true
+}
+
+// countPolygonPositions returns the total number of coordinate positions
+// across all rings of a polygon.
+func countPolygonPositions(rings [][][]float64) int {
+	count := 0
+	for _, ring := range rings {
+		count += len(ring)
+	}
+	return count
 }
 
 func (s *Server) listImageryHandler(w http.ResponseWriter, r *http.Request) {
@@ -310,6 +335,15 @@ func (s *Server) downloadImageryHandler(w http.ResponseWriter, r *http.Request) 
 		// #nosec G706 -- path id and actor id are sanitized with utils.SafeLogValue.
 		log.Printf("WARN imagery-service download_not_found id=%s actor=%s", utils.SafeLogValue(id), utils.SafeLogValue(ctx.ActorUserID))
 		utils.WriteError(w, http.StatusNotFound, "not_found", "imagery record was not found")
+		return
+	}
+
+	// Expired imagery is past its retention window: its file has been removed
+	// by the retention lifecycle and must not be served.
+	if record.Status != "active" {
+		// #nosec G706 -- path id and actor id are sanitized with utils.SafeLogValue.
+		log.Printf("WARN imagery-service download_expired id=%s actor=%s", utils.SafeLogValue(id), utils.SafeLogValue(ctx.ActorUserID))
+		utils.WriteError(w, http.StatusGone, "imagery_expired", "imagery record has expired and its file has been removed")
 		return
 	}
 

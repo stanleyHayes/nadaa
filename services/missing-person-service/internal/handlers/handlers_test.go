@@ -21,13 +21,28 @@ const testTokenSecret = "test-missing-person-token-secret"
 
 func newTestServer() *Server {
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8101", AllowedOrigins: nil, AuthTokenSecret: testTokenSecret, AllowMockActors: true}
+	cfg := &config.Config{
+		Addr:                   ":8101",
+		AllowedOrigins:         nil,
+		AuthTokenSecret:        testTokenSecret,
+		AllowMockActors:        true,
+		RateLimitRequests:      10,
+		RateLimitWindowSeconds: 60,
+		MaxRecords:             100,
+	}
 	return NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
 }
 
 func newTokenOnlyServer() *Server {
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8101", AllowedOrigins: nil, AuthTokenSecret: testTokenSecret}
+	cfg := &config.Config{
+		Addr:                   ":8101",
+		AllowedOrigins:         nil,
+		AuthTokenSecret:        testTokenSecret,
+		RateLimitRequests:      10,
+		RateLimitWindowSeconds: 60,
+		MaxRecords:             100,
+	}
 	return NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
 }
 
@@ -351,6 +366,9 @@ func TestReReviewClearsClosureMetadata(t *testing.T) {
 		Decision:      "approve_public",
 		PublicSummary: "Reopened after duplicate determination was reversed.",
 		ReviewNotes:   "Reopened the case.",
+		// Reopening a closed case requires an explicit status; without one the
+		// record keeps its closure status.
+		Status: "active",
 	}))
 	srv.Routes().ServeHTTP(reviewResponse, reviewReq)
 	if reviewResponse.Code != http.StatusOK {
@@ -360,6 +378,91 @@ func TestReReviewClearsClosureMetadata(t *testing.T) {
 	decodeResponse(t, reviewResponse, &reviewed)
 	if reviewed.Status != "active" || reviewed.ClosureType != "" || reviewed.ClosureNotes != "" || reviewed.ClosedBy != "" || reviewed.ClosedAt != nil {
 		t.Fatalf("expected re-reviewed record free of closure metadata, got %#v", reviewed)
+	}
+}
+
+func TestReReviewWithoutStatusKeepsLocatedStatus(t *testing.T) {
+	srv := newTestServer()
+
+	createResponse := httptest.NewRecorder()
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/missing-persons", jsonBody(createRequest()))
+	createReq.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(createResponse, createReq)
+	var created models.MissingPerson
+	decodeResponse(t, createResponse, &created)
+
+	locateResponse := httptest.NewRecorder()
+	locateReq := authorityRequest(http.MethodPatch, "/api/v1/authority/missing-persons/"+created.ID+"/review", jsonBody(models.ReviewMissingPersonRequest{
+		Decision:    "approve_private",
+		ReviewNotes: "Located safe at a relative's home.",
+		Status:      "located",
+	}))
+	srv.Routes().ServeHTTP(locateResponse, locateReq)
+	if locateResponse.Code != http.StatusOK {
+		t.Fatalf("expected locate review success, got %d: %s", locateResponse.Code, locateResponse.Body.String())
+	}
+
+	// A re-review without an explicit status must not silently reset the
+	// located case back to active.
+	reviewResponse := httptest.NewRecorder()
+	reviewReq := authorityRequest(http.MethodPatch, "/api/v1/authority/missing-persons/"+created.ID+"/review", jsonBody(models.ReviewMissingPersonRequest{
+		Decision:    "approve_private",
+		ReviewNotes: "Re-checked details with the reporter.",
+	}))
+	srv.Routes().ServeHTTP(reviewResponse, reviewReq)
+	if reviewResponse.Code != http.StatusOK {
+		t.Fatalf("expected re-review success, got %d: %s", reviewResponse.Code, reviewResponse.Body.String())
+	}
+	var reviewed models.MissingPerson
+	decodeResponse(t, reviewResponse, &reviewed)
+	if reviewed.Status != "located" {
+		t.Fatalf("expected re-review without status to keep status located, got %q", reviewed.Status)
+	}
+}
+
+func TestPublicIntakeRateLimited(t *testing.T) {
+	srv := newTestServer()
+	for i := range 11 {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/missing-persons", jsonBody(createRequest()))
+		request.Header.Set("Content-Type", "application/json")
+		srv.Routes().ServeHTTP(response, request)
+		if i < 10 && response.Code != http.StatusCreated {
+			t.Fatalf("expected created on request %d, got %d: %s", i, response.Code, response.Body.String())
+		}
+		if i == 10 && response.Code != http.StatusTooManyRequests {
+			t.Fatalf("expected rate limit on request %d, got %d", i, response.Code)
+		}
+	}
+}
+
+func TestPublicIntakeRefusedAtStoreCapacity(t *testing.T) {
+	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
+	cfg := &config.Config{
+		Addr:                   ":8101",
+		AuthTokenSecret:        testTokenSecret,
+		AllowMockActors:        true,
+		RateLimitRequests:      10,
+		RateLimitWindowSeconds: 60,
+		// Two seed records plus one intake fill the store.
+		MaxRecords: 3,
+	}
+	srv := NewServer(store.NewMemoryStore(now), func() time.Time { return now }, cfg)
+
+	first := httptest.NewRecorder()
+	firstReq := httptest.NewRequest(http.MethodPost, "/api/v1/missing-persons", jsonBody(createRequest()))
+	firstReq.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(first, firstReq)
+	if first.Code != http.StatusCreated {
+		t.Fatalf("expected first intake created, got %d: %s", first.Code, first.Body.String())
+	}
+
+	second := httptest.NewRecorder()
+	secondReq := httptest.NewRequest(http.MethodPost, "/api/v1/missing-persons", jsonBody(createRequest()))
+	secondReq.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(second, secondReq)
+	if second.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected intake refused at capacity with %d, got %d", http.StatusServiceUnavailable, second.Code)
 	}
 }
 

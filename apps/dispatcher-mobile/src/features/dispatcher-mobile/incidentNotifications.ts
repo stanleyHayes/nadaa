@@ -58,6 +58,12 @@ export async function configureIncidentNotifications(): Promise<void> {
   }
 }
 
+/** Read the OS notification permission without prompting. */
+export async function getIncidentPermission(): Promise<boolean> {
+  const current = await Notifications.getPermissionsAsync();
+  return current.granted;
+}
+
 /** Ask for notification permission, including iOS critical alerts. */
 export async function requestIncidentPermission(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();

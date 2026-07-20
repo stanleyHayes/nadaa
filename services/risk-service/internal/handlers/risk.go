@@ -24,7 +24,15 @@ func (s *Server) riskHandler(w http.ResponseWriter, r *http.Request) {
 			risk.MLPrediction = &prediction
 			if utils.RiskRank(prediction.Severity) > utils.RiskRank(risk.OverallRisk) {
 				risk.OverallRisk = prediction.Severity
-				risk.RecommendedActions = utils.RecommendedActions(risk.OverallRisk, utils.RisksFloodLevel(risk.Risks))
+				// The ML prediction is a flood prediction, so an elevated
+				// severity must also raise the flood level driving the
+				// guidance; otherwise ML-elevated high/moderate risks keep
+				// the weaker heuristic-level actions.
+				floodLevel := utils.RisksFloodLevel(risk.Risks)
+				if utils.RiskRank(prediction.Severity) > utils.RiskRank(floodLevel) {
+					floodLevel = prediction.Severity
+				}
+				risk.RecommendedActions = utils.RecommendedActions(risk.OverallRisk, floodLevel)
 			}
 		}
 	}

@@ -212,6 +212,103 @@ func TestLifecycleExpiry(t *testing.T) {
 	}
 }
 
+func TestDownloadRefusesExpiredRecord(t *testing.T) {
+	srv := newTestServer(t)
+
+	record := uploadRecord(t, srv, "drone", "expiring-soon.png", []byte("\x89PNG\r\n"), "image/png")
+	if _, ok := srv.store.Expire(record.ID, testNow); !ok {
+		t.Fatalf("expected record %s to expire", record.ID)
+	}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodGet, "/api/v1/imagery/"+record.ID+"/download", nil)
+	request.SetPathValue("id", record.ID)
+	srv.downloadImageryHandler(response, request)
+
+	if response.Code != http.StatusGone {
+		t.Fatalf("expected status %d for expired record download, got %d", http.StatusGone, response.Code)
+	}
+}
+
+func TestLifecycleExpiryDeletesFileAndBlocksDownload(t *testing.T) {
+	srv := newTestServer(t)
+
+	// Seed record img_seed_expiring is past its ExpiresAt; the lifecycle run
+	// must expire it and the download path must then refuse it.
+	lifecycleResponse := httptest.NewRecorder()
+	srv.runLifecycleHandler(lifecycleResponse, authorityRequest(http.MethodPost, "/api/v1/imagery/lifecycle/run", nil))
+	if lifecycleResponse.Code != http.StatusOK {
+		t.Fatalf("expected lifecycle status %d, got %d", http.StatusOK, lifecycleResponse.Code)
+	}
+
+	record, found := srv.store.GetByID("img_seed_expiring")
+	if !found || record.Status != "expired" {
+		t.Fatalf("expected seed record expired after lifecycle, got %#v", record)
+	}
+
+	downloadResponse := httptest.NewRecorder()
+	downloadRequest := authorityRequest(http.MethodGet, "/api/v1/imagery/img_seed_expiring/download", nil)
+	downloadRequest.SetPathValue("id", "img_seed_expiring")
+	srv.downloadImageryHandler(downloadResponse, downloadRequest)
+	if downloadResponse.Code != http.StatusGone {
+		t.Fatalf("expected status %d for expired seed download, got %d", http.StatusGone, downloadResponse.Code)
+	}
+}
+
+func TestCreateImageryRejectsOversizedGeometryPayload(t *testing.T) {
+	srv := newTestServer(t)
+
+	// ~4000 positions at ~17 bytes each exceeds the 64 KiB payload cap while
+	// staying under the position cap.
+	positions := strings.Repeat("[-0.2222,5.5678],", 3999) + "[-0.2222,5.5678]"
+	geometry := `{"type":"Polygon","coordinates":[[` + positions + `]]}`
+
+	fields := map[string]string{
+		"source":           "drone",
+		"captureTime":      "2026-07-05T10:30:00Z",
+		"geometry":         geometry,
+		"coverageAreaKm2":  "4.5",
+		"resolutionMeters": "0.25",
+	}
+	response := httptest.NewRecorder()
+	request := uploadRequest(fields, "test.png", []byte("\x89PNG\r\n\x1a\n"), "image/png")
+	srv.createImageryHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+	if !strings.Contains(response.Body.String(), "64 KiB") {
+		t.Fatalf("expected geometry payload size rejection, got %s", response.Body.String())
+	}
+}
+
+func TestCreateImageryRejectsTooManyGeometryPositions(t *testing.T) {
+	srv := newTestServer(t)
+
+	// 10001 compact positions stay under the 64 KiB payload cap but exceed the
+	// position cap.
+	positions := strings.Repeat("[0,0],", 10000) + "[0,0]"
+	geometry := `{"type":"Polygon","coordinates":[[` + positions + `]]}`
+
+	fields := map[string]string{
+		"source":           "drone",
+		"captureTime":      "2026-07-05T10:30:00Z",
+		"geometry":         geometry,
+		"coverageAreaKm2":  "4.5",
+		"resolutionMeters": "0.25",
+	}
+	response := httptest.NewRecorder()
+	request := uploadRequest(fields, "test.png", []byte("\x89PNG\r\n\x1a\n"), "image/png")
+	srv.createImageryHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+	if !strings.Contains(response.Body.String(), "10000 positions") {
+		t.Fatalf("expected geometry position count rejection, got %s", response.Body.String())
+	}
+}
+
 func TestDeleteImagery(t *testing.T) {
 	srv := newTestServer(t)
 

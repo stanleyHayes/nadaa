@@ -13,7 +13,7 @@ import (
 
 func (s *Server) registerCitizenHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.RegisterCitizenRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
 		return
 	}
@@ -69,7 +69,7 @@ func (s *Server) registerCitizenHandler(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) requestCitizenOTPHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.RequestCitizenOTPRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
 		return
 	}
@@ -114,7 +114,7 @@ func (s *Server) requestCitizenOTPHandler(w http.ResponseWriter, r *http.Request
 
 func (s *Server) loginCitizenHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.LoginCitizenRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
 		return
 	}

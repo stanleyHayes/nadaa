@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type {
   HospitalCapacityRecord,
   IncidentRecord,
@@ -9,7 +10,6 @@ import {
   assignmentAgencyOptions,
   defaultCapacityFilters,
   defaultFilters,
-  fixtureDispatcherSession,
   initialAssignmentForm,
   initialPermissions,
   initialStatusForm,
@@ -18,6 +18,7 @@ import {
 } from "./data";
 import {
   agencyLogin,
+  ApiError,
   assignIncident,
   fetchHospitalCapacity,
   fetchIncidentQueue,
@@ -25,7 +26,7 @@ import {
   updateIncidentStatus,
 } from "./api";
 import {
-  createMemoryStorage,
+  clearSession,
   readCapacityCache,
   readIncidentCache,
   readSelectedIncidentId,
@@ -34,10 +35,12 @@ import {
   writeIncidentCache,
   writeSelectedIncidentId,
   writeSession,
+  type KeyValueStorage,
 } from "./offline";
 import { nextPermissionStatus, permissionMessage } from "./permissions";
 import {
   configureIncidentNotifications,
+  getIncidentPermission,
   notifyNewIncidents,
   requestIncidentPermission,
 } from "./incidentNotifications";
@@ -54,7 +57,9 @@ import type {
   TimelineNoteFormState,
 } from "./types";
 
-const storage = createMemoryStorage();
+// Session, incident queue, and capacity caches persist across cold starts
+// (same AsyncStorage pattern as the citizen app).
+const storage: KeyValueStorage = AsyncStorage;
 const QUEUE_POLL_INTERVAL_MS = 30_000;
 
 export function useDispatcherMobileState() {
@@ -77,9 +82,7 @@ export function useDispatcherMobileState() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     null,
   );
-  const [session, setSession] = useState<DispatcherSession>(
-    fixtureDispatcherSession,
-  );
+  const [session, setSession] = useState<DispatcherSession | null>(null);
   const [authForm, setAuthForm] = useState<AuthFormState>({
     email: "",
     mfaCode: "",
@@ -115,6 +118,11 @@ export function useDispatcherMobileState() {
   // life-threatening incident notifies without waiting for a manual refresh.
   useEffect(() => {
     const poll = () => {
+      // Never fire a request with a dead or missing token — after auth expiry
+      // the session is cleared and polling becomes a no-op until re-login.
+      if (!sessionRef.current?.accessToken) {
+        return;
+      }
       void refreshQueue().catch(() => undefined);
     };
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -131,6 +139,8 @@ export function useDispatcherMobileState() {
     };
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
+        // The OS permission may have changed in Settings while backgrounded.
+        void syncPushPermission().catch(() => undefined);
         poll();
         startPolling();
       } else {
@@ -232,9 +242,35 @@ export function useDispatcherMobileState() {
     selectedIncidentIdRef.current = savedIncidentId;
     setSelectedIncidentId(savedIncidentId);
     setCapacity(capacityCache.facilities as HospitalCapacityRecord[]);
+    setLoadState(
+      savedSession
+        ? {
+            status: "success",
+            message: `Queue loaded: ${(incidentCache.incidents as IncidentRecord[]).length} incidents.`,
+          }
+        : {
+            status: "idle",
+            message: "Sign in from the Profile tab to load the live queue.",
+          },
+    );
+  }
+
+  function isAuthError(error: unknown): boolean {
+    return (
+      error instanceof ApiError &&
+      (error.status === 401 || error.status === 403)
+    );
+  }
+
+  // A 401/403 means the token is dead: drop the stored session so the poller
+  // stops firing, and route the dispatcher back to sign-in.
+  async function handleAuthExpired() {
+    setSession(null);
+    sessionRef.current = null;
+    await clearSession(storage).catch(() => undefined);
     setLoadState({
-      status: "success",
-      message: `Queue loaded: ${(incidentCache.incidents as IncidentRecord[]).length} incidents.`,
+      status: "auth_expired",
+      message: "Session expired. Sign in again from the Profile tab.",
     });
   }
 
@@ -242,6 +278,15 @@ export function useDispatcherMobileState() {
     // Callers that just changed the session (login) pass it in; everyone else
     // — including the foreground poller — reads the latest via the ref.
     const activeSession = sessionOverride ?? sessionRef.current;
+    if (!activeSession?.accessToken) {
+      // Signed out: keep the cached queue and say so instead of firing an
+      // unauthenticated request that would fail as "offline".
+      setLoadState({
+        status: "idle",
+        message: "Sign in from the Profile tab to load the live queue.",
+      });
+      return;
+    }
     setLoadState({ status: "loading", message: "Refreshing incident queue" });
     try {
       const nextIncidents = await fetchIncidentQueue(activeSession);
@@ -270,6 +315,10 @@ export function useDispatcherMobileState() {
         message: `${nextIncidents.length} incidents refreshed.`,
       });
     } catch (error) {
+      if (isAuthError(error)) {
+        await handleAuthExpired();
+        return;
+      }
       setLoadState({
         status: "offline",
         message:
@@ -295,10 +344,18 @@ export function useDispatcherMobileState() {
   }
 
   async function refreshCapacityForIncident(incident: IncidentRecord) {
+    const activeSession = sessionRef.current;
+    if (!activeSession?.accessToken) {
+      setLoadState({
+        status: "idle",
+        message: "Sign in from the Profile tab to look up live capacity.",
+      });
+      return;
+    }
     setLoadState({ status: "loading", message: "Loading nearby capacity" });
     try {
       const response = await fetchHospitalCapacity(
-        sessionRef.current,
+        activeSession,
         incident.location.lat,
         incident.location.lng,
       );
@@ -320,6 +377,10 @@ export function useDispatcherMobileState() {
       if (selectedIncidentIdRef.current !== incident.id) {
         return;
       }
+      if (isAuthError(error)) {
+        await handleAuthExpired();
+        return;
+      }
       setLoadState({
         status: "offline",
         message:
@@ -333,6 +394,10 @@ export function useDispatcherMobileState() {
   async function submitStatusUpdate() {
     if (!selectedIncident) {
       setLoadState({ status: "error", message: "Select an incident first." });
+      return;
+    }
+    if (!session?.accessToken) {
+      setLoadState({ status: "error", message: "Sign in to update incidents." });
       return;
     }
     const { note, resolutionNotes, status } = statusForm;
@@ -353,6 +418,10 @@ export function useDispatcherMobileState() {
         message: `Status updated to ${statusLabel(status)}.`,
       });
     } catch (error) {
+      if (isAuthError(error)) {
+        await handleAuthExpired();
+        return;
+      }
       setLoadState({
         status: "error",
         message:
@@ -364,6 +433,10 @@ export function useDispatcherMobileState() {
   async function submitAssignment() {
     if (!selectedIncident) {
       setLoadState({ status: "error", message: "Select an incident first." });
+      return;
+    }
+    if (!session?.accessToken) {
+      setLoadState({ status: "error", message: "Sign in to assign incidents." });
       return;
     }
     if (!assignmentForm.agencyId) {
@@ -387,6 +460,10 @@ export function useDispatcherMobileState() {
       setAssignmentForm(initialAssignmentForm);
       setLoadState({ status: "success", message: "Incident assigned." });
     } catch (error) {
+      if (isAuthError(error)) {
+        await handleAuthExpired();
+        return;
+      }
       setLoadState({
         status: "error",
         message: error instanceof Error ? error.message : "Assignment failed.",
@@ -397,6 +474,10 @@ export function useDispatcherMobileState() {
   async function submitTimelineNote() {
     if (!selectedIncident) {
       setLoadState({ status: "error", message: "Select an incident first." });
+      return;
+    }
+    if (!session?.accessToken) {
+      setLoadState({ status: "error", message: "Sign in to add notes." });
       return;
     }
     if (!timelineNoteForm.note.trim()) {
@@ -413,6 +494,10 @@ export function useDispatcherMobileState() {
       setTimelineNoteForm(initialTimelineNoteForm);
       setLoadState({ status: "success", message: "Timeline note added." });
     } catch (error) {
+      if (isAuthError(error)) {
+        await handleAuthExpired();
+        return;
+      }
       setLoadState({
         status: "error",
         message:
@@ -443,9 +528,8 @@ export function useDispatcherMobileState() {
       });
       const nextSession: DispatcherSession = {
         accessToken: response.accessToken,
-        agencyId: response.user.agency?.id ?? fixtureDispatcherSession.agencyId,
-        agencyName:
-          response.user.agency?.name ?? fixtureDispatcherSession.agencyName,
+        agencyId: response.user.agency?.id ?? "",
+        agencyName: response.user.agency?.name ?? "",
         mfaCompleted: response.user.mfaEnabled,
         role: response.user.role,
         userId: response.user.id,
@@ -460,15 +544,12 @@ export function useDispatcherMobileState() {
         message: `Signed in as ${nextSession.userName}.`,
       });
       // Refresh with the NEW session — the state closure still holds the
-      // pre-login (fixture) session at this point.
+      // pre-login (signed-out) session at this point.
       await refreshQueue(nextSession);
     } catch (error) {
       setLoadState({
         status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Sign in failed. Dev fixture session is active.",
+        message: error instanceof Error ? error.message : "Sign in failed.",
       });
     }
   }
@@ -518,23 +599,45 @@ export function useDispatcherMobileState() {
     setTimelineNoteForm((current) => ({ ...current, ...values }));
   }
 
+  // The OS notification permission is the source of truth; mirror it into the
+  // in-app state so a change made in device Settings is never mislabeled.
+  async function syncPushPermission(): Promise<boolean> {
+    const granted = await getIncidentPermission();
+    setPermissions((current) => {
+      // "unknown" means the user has not been asked yet — keep the prompt copy
+      // instead of pre-labeling a denial.
+      if (!granted && current.push === "unknown") {
+        return current;
+      }
+      const resolved = granted ? "granted" : "denied";
+      if (current.push === resolved) {
+        return current;
+      }
+      return { ...current, push: resolved };
+    });
+    return granted;
+  }
+
   async function togglePermission(key: keyof DispatcherPermissionState) {
     if (key === "push") {
-      // Tapping while granted turns the in-app toggle off. Any other tap is an
-      // attempt to enable and must ALWAYS consult the OS — a user who
-      // re-enabled notifications in OS Settings must not stay "denied" in-app.
+      // Tapping while granted cannot revoke the OS permission from inside the
+      // app — re-sync from the OS and say so. Any other tap is an attempt to
+      // enable and must ALWAYS consult the OS: a user who re-enabled
+      // notifications in OS Settings must not stay "denied" in-app.
       const enabling = permissions.push !== "granted";
-      let granted = false;
       if (enabling) {
         // requestIncidentPermission checks getPermissionsAsync() first and
         // only prompts when the OS has not already granted.
-        granted = await requestIncidentPermission();
+        await requestIncidentPermission();
       }
-      const resolved = granted ? "granted" : "denied";
-      setPermissions((current) => ({ ...current, push: resolved }));
+      const granted = await syncPushPermission();
       setLoadState({
         status: granted ? "success" : "idle",
-        message: permissionMessage("push", resolved),
+        message: granted
+          ? permissionMessage("push", "granted")
+          : enabling
+            ? permissionMessage("push", "denied")
+            : "Notifications stay on until they are disabled in device Settings.",
       });
       setPushState(await registerPushToken(granted));
       return;

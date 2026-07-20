@@ -52,23 +52,29 @@ export function Field({
   multiline,
   onChangeText,
   placeholder,
+  secure = false,
   value,
 }: {
   label: string;
   multiline?: boolean;
   onChangeText: (value: string) => void;
   placeholder?: string;
+  /** Masks entry and opts out of autofill — use for passwords and MFA codes. */
+  secure?: boolean;
   value: string;
 }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        autoComplete={secure ? "off" : undefined}
         multiline={multiline}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={mobileTheme.colors.muted}
+        secureTextEntry={secure}
         style={[styles.input, multiline ? styles.inputMultiline : null]}
+        textContentType={secure ? "password" : undefined}
         value={value}
       />
     </View>

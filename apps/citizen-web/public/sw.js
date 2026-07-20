@@ -1,4 +1,7 @@
-const CACHE_NAME = "nadaa-citizen-guides-v1";
+// Bump CACHE_VERSION on every change to the precached shell or strategy — the
+// activate handler deletes every cache that does not match the current name.
+const CACHE_VERSION = "v2";
+const CACHE_NAME = `nadaa-citizen-${CACHE_VERSION}`;
 const APP_SHELL = ["/", "/brand/nadaa-logo.png"];
 
 self.addEventListener("install", (event) => {
@@ -15,10 +18,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter(
-              (key) =>
-                key.startsWith("nadaa-citizen-guides-") && key !== CACHE_NAME,
-            )
+            .filter((key) => key.startsWith("nadaa-citizen-") && key !== CACHE_NAME)
             .map((key) => caches.delete(key)),
         ),
       ),
@@ -33,11 +33,23 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   if (
     url.pathname.endsWith("/guides") ||
     url.pathname.includes("/api/v1/guides")
   ) {
     event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // Hashed build bundles (/assets/index-<hash>.js etc.) are immutable, so they
+  // are safe to serve cache-first — this is what lets an offline cold start
+  // boot the app shell after the first visit.
+  if (url.pathname.startsWith("/assets/")) {
+    event.respondWith(cacheFirst(request));
     return;
   }
 
@@ -62,4 +74,17 @@ async function networkFirst(request) {
     const cached = await cache.match(request);
     return cached || Response.error();
   }
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) {
+    return cached;
+  }
+  const response = await fetch(request);
+  if (response.ok) {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(request, response.clone());
+  }
+  return response;
 }

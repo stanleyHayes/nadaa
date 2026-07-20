@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -54,12 +55,15 @@ type mockTransport struct {
 	responses map[string]mockResponse
 	// authorization records the Authorization header seen per request path.
 	authorization map[string]string
+	mu            sync.Mutex
 }
 
 func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	path := req.URL.Path
 	if m.authorization != nil {
+		m.mu.Lock()
 		m.authorization[path] = req.Header.Get("Authorization")
+		m.mu.Unlock()
 	}
 	response, ok := m.responses[path]
 	if !ok {
@@ -138,6 +142,9 @@ func TestPlanRouteValidReturnsRoute(t *testing.T) {
 	}
 	if !payload.DecisionSupport {
 		t.Fatalf("expected decisionSupport to be true")
+	}
+	if payload.Degraded {
+		t.Fatalf("expected non-degraded response when all lookups succeed, got enrichmentStatus=%q", payload.EnrichmentStatus)
 	}
 	if payload.Disclaimer == "" {
 		t.Fatalf("expected disclaimer")
@@ -312,8 +319,26 @@ func TestPlanRouteAvoidsClosureCrossingSegmentMidpoint(t *testing.T) {
 	if len(payload.AvoidedClosures) != 1 || payload.AvoidedClosures[0] != "closure_001" {
 		t.Fatalf("expected closure_001 to be avoided, got %#v", payload.AvoidedClosures)
 	}
-	if len(payload.Route) != 3 {
+	if len(payload.Route) < 3 {
 		t.Fatalf("expected a detour waypoint around the closure, got %#v", payload.Route)
+	}
+	// The final polyline must actually clear the closure it claims to avoid.
+	assertPolylineClearsLine(t, payload.Route, [][]float64{{-0.18, 5.59}, {-0.18, 5.61}}, utils.DefaultClosureBufferMeters)
+}
+
+// assertPolylineClearsLine re-samples every segment of the route and fails if
+// any point comes within buffer of the given closure line.
+func assertPolylineClearsLine(t *testing.T, route []models.Coordinates, line [][]float64, buffer float64) {
+	t.Helper()
+	for i := 0; i+1 < len(route); i++ {
+		a, b := route[i], route[i+1]
+		samples := int(math.Ceil(utils.DistanceMeters(a, b)/50)) + 1
+		for j := 0; j <= samples; j++ {
+			point := utils.Interpolate(a, b, float64(j)/float64(samples))
+			if d := utils.MinDistanceToLineString(point, line); d <= buffer {
+				t.Fatalf("returned polyline passes %.1fm from the closure at %#v", d, point)
+			}
+		}
 	}
 }
 
@@ -375,6 +400,43 @@ func TestPlanRouteRiskLookupFailureStillReturnsRoute(t *testing.T) {
 	decodeResponse(t, response, &payload)
 	if len(payload.AvoidedRiskZones) != 0 {
 		t.Fatalf("expected no avoided risk zones on degraded lookup, got %#v", payload.AvoidedRiskZones)
+	}
+	// A failed risk lookup must be flagged: an empty avoided list is not a
+	// verified hazard-free corridor.
+	if !payload.Degraded {
+		t.Fatalf("expected degraded flag when the risk lookup fails, got %#v", payload)
+	}
+	if payload.EnrichmentStatus != "risk_lookup_failed" {
+		t.Fatalf("expected enrichmentStatus risk_lookup_failed, got %q", payload.EnrichmentStatus)
+	}
+}
+
+func TestPlanRouteClosureLookupFailureMarksDegraded(t *testing.T) {
+	responses := map[string]mockResponse{
+		"/api/v1/road-closures": {status: http.StatusInternalServerError, body: `{"error":"down"}`},
+		"/api/v1/risk":          {status: http.StatusOK, body: `{"overallRisk":"low"}`},
+	}
+	srv := newTestServer(responses)
+
+	body := models.RoutePlanRequest{
+		Origin:       models.Coordinates{Lat: 5.6037, Lng: -0.1870},
+		Destination:  &models.Coordinates{Lat: 5.6100, Lng: -0.1800},
+		WaypointType: "manual",
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/routes/plan", jsonBody(body))
+	request.Header.Set("Content-Type", "application/json")
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.RoutePlanResponse
+	decodeResponse(t, response, &payload)
+	if !payload.Degraded || payload.EnrichmentStatus != "closure_lookup_failed" {
+		t.Fatalf("expected degraded closure_lookup_failed, got degraded=%t status=%q", payload.Degraded, payload.EnrichmentStatus)
 	}
 }
 
@@ -563,5 +625,157 @@ func decodeResponse(t *testing.T, response *httptest.ResponseRecorder, target an
 	t.Helper()
 	if err := json.NewDecoder(response.Body).Decode(target); err != nil {
 		t.Fatalf("decode response: %v", err)
+	}
+}
+
+func TestPlanRouteRechecksPolylineAgainstParallelClosure(t *testing.T) {
+	// A long closure running along the route itself: a single naive detour
+	// re-crosses it near the closure's far end, so only re-sampling the actual
+	// polyline produces a line that truly clears it.
+	responses := map[string]mockResponse{
+		"/api/v1/road-closures": {
+			status: http.StatusOK,
+			body: `{
+				"closures":[
+					{"id":"closure_parallel","status":"active","severity":"high",
+					 "geometry":{"type":"LineString","coordinates":[[-0.185,5.60],[-0.171,5.60]]}}
+				],
+				"generatedAt":"2026-07-06T12:00:00Z"
+			}`,
+		},
+		"/api/v1/risk": {status: http.StatusOK, body: `{"overallRisk":"low"}`},
+	}
+	srv := newTestServer(responses)
+
+	body := models.RoutePlanRequest{
+		Origin:       models.Coordinates{Lat: 5.6000, Lng: -0.1900},
+		Destination:  &models.Coordinates{Lat: 5.6000, Lng: -0.1700},
+		WaypointType: "manual",
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/routes/plan", jsonBody(body))
+	request.Header.Set("Content-Type", "application/json")
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.RoutePlanResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.AvoidedClosures) != 1 || payload.AvoidedClosures[0] != "closure_parallel" {
+		t.Fatalf("expected closure_parallel to be avoided, got %#v", payload.AvoidedClosures)
+	}
+
+	// Re-sample the returned polyline: every point must clear the closure by
+	// more than the default buffer.
+	assertPolylineClearsLine(t, payload.Route, [][]float64{{-0.185, 5.60}, {-0.171, 5.60}}, utils.DefaultClosureBufferMeters)
+}
+
+func TestPlanRouteDoesNotClaimUnclearedClosure(t *testing.T) {
+	// A closure longer than any detour offset cannot be rounded: the final
+	// polyline still crosses it, so it must not be reported as avoided.
+	responses := map[string]mockResponse{
+		"/api/v1/road-closures": {
+			status: http.StatusOK,
+			body: `{
+				"closures":[
+					{"id":"closure_wall","status":"active","severity":"high",
+					 "geometry":{"type":"LineString","coordinates":[[-0.18,5.50],[-0.18,5.70]]}}
+				],
+				"generatedAt":"2026-07-06T12:00:00Z"
+			}`,
+		},
+		"/api/v1/risk": {status: http.StatusOK, body: `{"overallRisk":"low"}`},
+	}
+	srv := newTestServer(responses)
+
+	body := models.RoutePlanRequest{
+		Origin:       models.Coordinates{Lat: 5.6000, Lng: -0.1900},
+		Destination:  &models.Coordinates{Lat: 5.6000, Lng: -0.1700},
+		WaypointType: "manual",
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/routes/plan", jsonBody(body))
+	request.Header.Set("Content-Type", "application/json")
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.RoutePlanResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.AvoidedClosures) != 0 {
+		t.Fatalf("expected no avoided closures while the route still crosses the closure, got %#v", payload.AvoidedClosures)
+	}
+}
+
+type slowTransport struct {
+	delay time.Duration
+}
+
+func (m *slowTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	time.Sleep(m.delay)
+	body := `{"overallRisk":"low"}`
+	if strings.HasPrefix(req.URL.Path, "/api/v1/road-closures") {
+		body = `{"closures":[],"generatedAt":"2026-07-06T12:00:00Z"}`
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}, nil
+}
+
+func TestPlanRouteRiskProbesStayWithinBudget(t *testing.T) {
+	srv, _ := newTestServerWithTransport(nil)
+	srv.httpClient = &http.Client{Transport: &slowTransport{delay: 200 * time.Millisecond}}
+
+	// Long enough route to hit the 12-probe sample cap.
+	body := models.RoutePlanRequest{
+		Origin:       models.Coordinates{Lat: 5.6000, Lng: -0.1900},
+		Destination:  &models.Coordinates{Lat: 5.6000, Lng: -0.1500},
+		WaypointType: "manual",
+	}
+
+	start := time.Now()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/routes/plan", jsonBody(body))
+	request.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(response, request)
+	elapsed := time.Since(start)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	// Twelve sequential 200ms probes would take ~2.4s; concurrent probes must
+	// fit well within the 5s request budget.
+	if elapsed > 1500*time.Millisecond {
+		t.Fatalf("expected concurrent probes to finish well under the request budget, took %v", elapsed)
+	}
+}
+
+func TestPlanRouteRejectsOversizedBody(t *testing.T) {
+	srv := newTestServer(nil)
+
+	// A syntactically valid but oversized payload (>1 MiB) must be rejected.
+	payload := map[string]any{
+		"origin":          map[string]float64{"lat": 5.6037, "lng": -0.1870},
+		"destination":     map[string]float64{"lat": 5.6100, "lng": -0.1800},
+		"waypointType":    "manual",
+		"avoidRiskLevels": []string{strings.Repeat("a", 2<<20)},
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/routes/plan", jsonBody(payload))
+	request.Header.Set("Content-Type", "application/json")
+
+	srv.Routes().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d for oversized body, got %d", http.StatusBadRequest, response.Code)
 	}
 }

@@ -10,12 +10,12 @@ import type {
   VolunteerTaskStatus,
 } from "@nadaa/shared-types";
 import {
-  fallbackRisk,
   fetchAlertFeed,
   fetchAreaRisk,
   fetchGuides,
   fetchNearbyShelters,
   fetchVolunteerTasks,
+  isAuthError,
   loginCitizen,
   registerCitizen,
   registerVolunteerProfile,
@@ -32,6 +32,7 @@ import {
   initialReportDraft,
   initialSession,
   initialSignIn,
+  initialVolunteerRegistration,
   mobileAreaPresets,
 } from "./data";
 import type { KeyValueStorage } from "./offline";
@@ -47,7 +48,11 @@ import {
   writeVolunteerProfile,
   writeVolunteerTasks,
 } from "./offline";
-import { permissionMessage, requestOSPermission } from "./permissions";
+import {
+  permissionMessage,
+  readDevicePosition,
+  requestOSPermission,
+} from "./permissions";
 import {
   configureAlertNotifications,
   getAlertPermissionStatus,
@@ -63,6 +68,7 @@ import type {
   ReportDraft,
   SignInDraft,
   VolunteerObservationDraft,
+  VolunteerRegistrationDraft,
 } from "./types";
 
 // Drafts, session, guide cache, and volunteer data persist across cold starts.
@@ -92,7 +98,9 @@ export function useCitizenMobileState() {
   });
   const [reportDraft, setReportDraft] =
     useState<ReportDraft>(initialReportDraft);
-  const [risk, setRisk] = useState<AreaRiskResponse>(() => fallbackRisk());
+  // Live-only: risk starts empty and is loaded by refreshAll on startup — a
+  // fixture is never rendered as if it were live data.
+  const [risk, setRisk] = useState<AreaRiskResponse | null>(null);
   const [selectedArea, setSelectedArea] = useState(mobileAreaPresets[0]);
   const [session, setSession] = useState<MobileSession>(initialSession);
   const [shelters, setShelters] =
@@ -106,6 +114,8 @@ export function useCitizenMobileState() {
     });
   const [volunteerProfile, setVolunteerProfile] =
     useState<VolunteerProfile | null>(null);
+  const [volunteerRegistration, setVolunteerRegistration] =
+    useState<VolunteerRegistrationDraft>(initialVolunteerRegistration);
   const [volunteerTasks, setVolunteerTasks] = useState<VolunteerTaskRecord[]>(
     [],
   );
@@ -117,6 +127,9 @@ export function useCitizenMobileState() {
     void hydrate();
     void configureAlertNotifications();
     void hydratePushPermission();
+    // Load the live feed on cold start so the home screen never sits on
+    // empty/placeholder data until a manual refresh.
+    void refreshAll();
   }, []);
 
   const visibleAlerts = useMemo(
@@ -174,15 +187,15 @@ export function useCitizenMobileState() {
     }
   }
 
-  async function refreshAll() {
+  async function refreshAll(area = selectedArea) {
     setLoadState({ status: "loading", message: "Refreshing citizen mobile" });
     try {
-      const [nextRisk, nextAlerts, nextGuides, nextShelters] =
+      const [nextRisk, nextAlerts, guideResult, nextShelters] =
         await Promise.all([
-          fetchAreaRisk(selectedArea.lat, selectedArea.lng),
+          fetchAreaRisk(area.lat, area.lng),
           fetchAlertFeed(),
           fetchGuides(session.preferredLanguage),
-          fetchNearbyShelters(selectedArea.lat, selectedArea.lng),
+          fetchNearbyShelters(area.lat, area.lng),
         ]);
       setRisk(nextRisk);
       setAlerts(nextAlerts);
@@ -199,8 +212,18 @@ export function useCitizenMobileState() {
           .forEach((alert) => seenAlertIds.current.add(alert.id));
       }
       alertsSeeded.current = true;
-      setGuides(nextGuides);
       setShelters(nextShelters);
+      // Only overwrite the guide cache when the fetch was live. On failure the
+      // cached/bundled guides stay on screen and the status message says the
+      // guides are the offline cache — never a false "refreshed".
+      if (guideResult.live) {
+        setGuides(guideResult.guides);
+        await writeGuideCache(storage, {
+          cachedAt: new Date().toISOString(),
+          guides: guideResult.guides,
+          language: session.preferredLanguage,
+        });
+      }
       // Volunteer tasks require a signed-in citizen token; skip without one.
       if (volunteerProfile && session.accessToken) {
         const nextTasks = await fetchVolunteerTasks(
@@ -210,14 +233,11 @@ export function useCitizenMobileState() {
         setVolunteerTasks(nextTasks);
         await writeVolunteerTasks(storage, nextTasks);
       }
-      await writeGuideCache(storage, {
-        cachedAt: new Date().toISOString(),
-        guides: nextGuides,
-        language: session.preferredLanguage,
-      });
       setLoadState({
         status: "success",
-        message: "Alerts, risk, guides, and shelters refreshed.",
+        message: guideResult.live
+          ? "Alerts, risk, guides, and shelters refreshed."
+          : "Alerts, risk, and shelters refreshed. Guides are showing the offline cache — the guide service could not be reached.",
       });
     } catch (error) {
       setLoadState({
@@ -356,12 +376,27 @@ export function useCitizenMobileState() {
       });
       return;
     }
+    if (
+      volunteerRegistration.community.trim().length < 2 ||
+      volunteerRegistration.district.trim().length < 2 ||
+      volunteerRegistration.region.trim().length < 2
+    ) {
+      setLoadState({
+        status: "error",
+        message:
+          "Enter your community, district, and region so assignments reach the right area.",
+      });
+      return;
+    }
     setLoadState({
       status: "loading",
       message: "Registering community volunteer profile",
     });
     try {
-      const response = await registerVolunteerProfile(session);
+      const response = await registerVolunteerProfile(
+        session,
+        volunteerRegistration,
+      );
       setVolunteerProfile(response.volunteer);
       await writeVolunteerProfile(storage, response.volunteer);
       const tasks = await fetchVolunteerTasks(
@@ -377,7 +412,9 @@ export function useCitizenMobileState() {
     } catch (error) {
       setLoadState({
         status: "error",
-        message: `${errorMessage(error, "Could not register the volunteer profile.")} Check your connection and retry.`,
+        message: isAuthError(error)
+          ? "Your sign-in has expired. Sign in again on the Support tab, then retry."
+          : `${errorMessage(error, "Could not register the volunteer profile.")} Check your connection and retry.`,
       });
     }
   }
@@ -406,7 +443,9 @@ export function useCitizenMobileState() {
     } catch (error) {
       setLoadState({
         status: "error",
-        message: `${errorMessage(error, "Could not load volunteer tasks.")} Check your connection and retry.`,
+        message: isAuthError(error)
+          ? "Your sign-in has expired. Sign in again on the Support tab, then retry."
+          : `${errorMessage(error, "Could not load volunteer tasks.")} Check your connection and retry.`,
       });
     }
   }
@@ -459,6 +498,10 @@ export function useCitizenMobileState() {
     nextDraft: VolunteerObservationDraft,
   ) {
     setVolunteerObservation(nextDraft);
+  }
+
+  function saveVolunteerRegistration(nextDraft: VolunteerRegistrationDraft) {
+    setVolunteerRegistration(nextDraft);
   }
 
   async function submitVolunteerObservation(taskId: string) {
@@ -547,6 +590,29 @@ export function useCitizenMobileState() {
     });
     const resolved = await requestOSPermission(key);
     setPermissions((current) => ({ ...current, [key]: resolved }));
+    if (key === "location" && resolved === "granted") {
+      // Use the real device position for the risk/shelter fetch and to prefill
+      // the report draft. When no reading is available the draft coordinates
+      // stay empty — they are never filled with a hardcoded city.
+      const position = await readDevicePosition();
+      if (position) {
+        const area = {
+          label: "Current location",
+          lat: position.lat,
+          lng: position.lng,
+        };
+        setSelectedArea(area);
+        const nextDraft: ReportDraft = {
+          ...reportDraft,
+          lat: position.lat.toFixed(6),
+          lng: position.lng.toFixed(6),
+        };
+        setReportDraft(nextDraft);
+        await writeReportDraft(storage, nextDraft);
+        await refreshAll(area);
+        return;
+      }
+    }
     setLoadState({
       status: resolved === "granted" ? "success" : "idle",
       message: permissionMessage(key, resolved),
@@ -568,6 +634,7 @@ export function useCitizenMobileState() {
       saveDraft,
       saveSignInDraft,
       saveVolunteerObservation,
+      saveVolunteerRegistration,
       setAlertView,
       submitDraft,
       submitVolunteerObservation,
@@ -594,6 +661,7 @@ export function useCitizenMobileState() {
       visibleAlerts,
       volunteerObservation,
       volunteerProfile,
+      volunteerRegistration,
       volunteerTasks,
     },
   };

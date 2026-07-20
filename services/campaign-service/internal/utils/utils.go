@@ -56,8 +56,14 @@ func SanitizeLogValue(value string) string {
 	}, value)
 }
 
-// DecodeJSON decodes a JSON request body into target.
-func DecodeJSON(r *http.Request, target any) error {
+// maxJSONBodySize caps JSON request bodies at 1 MiB so a hostile or broken
+// client cannot exhaust memory through an unbounded decode.
+const maxJSONBodySize = 1 << 20
+
+// DecodeJSON decodes a JSON request body into target. The body is capped at
+// 1 MiB; larger payloads fail the decode.
+func DecodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodySize)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(target)

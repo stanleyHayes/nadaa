@@ -185,6 +185,45 @@ func TestMissingForgedOrInvalidTokensAreUnauthorized(t *testing.T) {
 	}
 }
 
+func TestCitizenTokenGetsPublicAlertView(t *testing.T) {
+	srv := newTokenTestServer()
+
+	createResponse := httptest.NewRecorder()
+	srv.createAlertHandler(createResponse, tokenRequest(http.MethodPost, "/api/v1/alerts", alertBodyWithSourcePrediction(), drafterToken(t)))
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("create alert: %s", createResponse.Body.String())
+	}
+
+	// A verified citizen token (self-service OTP, same signing secret) — even
+	// one claiming an agency role — must get the public view: no draft or
+	// submitted alerts and no source prediction metadata.
+	citizen := signTestToken(t, testTokenSecret, tokenClaims{
+		UserID:    "usr_citizen",
+		UserType:  "citizen",
+		Role:      "system_admin",
+		MFA:       true,
+		ExpiresAt: time.Now().Add(time.Hour).Unix(),
+	})
+
+	response := httptest.NewRecorder()
+	srv.listAlertsHandler(response, tokenRequest(http.MethodGet, "/api/v1/alerts", "", citizen))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected list status %d, got %d", http.StatusOK, response.Code)
+	}
+	var payload models.AlertListResponse
+	decodeResponse(t, response, &payload)
+	if len(payload.Alerts) != 0 {
+		t.Fatalf("expected citizen token to see no workflow alerts, got %#v", payload.Alerts)
+	}
+
+	// Citizen tokens cannot invoke authority workflow actions.
+	writeResponse := httptest.NewRecorder()
+	srv.createAlertHandler(writeResponse, tokenRequest(http.MethodPost, "/api/v1/alerts", validAlertBody(), citizen))
+	if writeResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d for citizen token write, got %d", http.StatusUnauthorized, writeResponse.Code)
+	}
+}
+
 func TestListAlertsTreatsForgedHeadersAsPublic(t *testing.T) {
 	srv := newTokenTestServer()
 

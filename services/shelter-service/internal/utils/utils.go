@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -193,19 +194,25 @@ var AllowedAidPledgeReviewStatuses = map[string]bool{
 	"flagged":        true,
 }
 
-// DecodeJSON decodes a JSON request body into target.
-func DecodeJSON(r *http.Request, target any) error {
+// maxJSONBodyBytes caps inbound JSON bodies at 1 MiB so a single request
+// cannot exhaust memory while decoding.
+const maxJSONBodyBytes = 1 << 20
+
+// DecodeJSON decodes a JSON request body into target, capping the body at
+// 1 MiB; oversized bodies fail decoding with an error.
+func DecodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(target)
 }
 
 // OptionalDecodeJSON decodes a JSON body when one is present.
-func OptionalDecodeJSON(r *http.Request, target any) error {
+func OptionalDecodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
 	if r.Body == nil || r.ContentLength == 0 {
 		return nil
 	}
-	return DecodeJSON(r, target)
+	return DecodeJSON(w, r, target)
 }
 
 // WriteJSON writes a JSON response with the given status code.
@@ -467,6 +474,32 @@ func NormalizeHospitalCapacityUpdate(request models.HospitalCapacityUpdateReques
 	if request.TotalBeds != nil && request.AvailableBeds != nil && *request.AvailableBeds > *request.TotalBeds {
 		return request, "invalid_available_beds", "availableBeds cannot exceed totalBeds"
 	}
+	// When totalBeds is supplied, the sub-capacity beds supplied in the same
+	// PATCH must fit within it, individually and in sum; the store re-checks
+	// the post-merge record so partial updates cannot bypass this.
+	if request.TotalBeds != nil {
+		subTotal := 0
+		for _, item := range []struct {
+			name  string
+			value *int
+		}{
+			{"icuBedsAvailable", request.ICUBedsAvailable},
+			{"maternityBedsAvailable", request.MaternityBedsAvailable},
+			{"pediatricBedsAvailable", request.PediatricBedsAvailable},
+			{"isolationBedsAvailable", request.IsolationBedsAvailable},
+		} {
+			if item.value == nil {
+				continue
+			}
+			if *item.value > *request.TotalBeds {
+				return request, "invalid_sub_capacity_beds", item.name + " cannot exceed totalBeds"
+			}
+			subTotal += *item.value
+		}
+		if subTotal > *request.TotalBeds {
+			return request, "invalid_sub_capacity_total", "icu, maternity, pediatric, and isolation beds cannot exceed totalBeds in sum"
+		}
+	}
 	if request.EmergencyCapacity != "" && !AllowedEmergencyCapacityStatuses[request.EmergencyCapacity] {
 		return request, "invalid_emergency_capacity", "emergencyCapacity must be available, limited, full, offline, or unknown"
 	}
@@ -491,6 +524,13 @@ func NormalizeHospitalCapacityUpdate(request models.HospitalCapacityUpdateReques
 func NormalizeHospitalCapacityImport(request models.HospitalCapacityImportRequest) (models.HospitalCapacityImportRequest, string, string) {
 	request.Source = NormalizeToken(request.Source)
 	request.SourceRef = strings.TrimSpace(request.SourceRef)
+	if len(request.Records) == 0 {
+		// An empty import falls back to the built-in demo fixture, so its
+		// provenance is pinned to the fixture adapter regardless of the
+		// caller-supplied label.
+		request.Source = "fixture_adapter"
+		request.SourceRef = "hospital-capacity-feed"
+	}
 	if request.Source == "" {
 		request.Source = "fixture_adapter"
 	}
@@ -837,6 +877,30 @@ func NormalizeReviewAidPledge(request models.ReviewAidPledgeRequest) (models.Rev
 // inject forged lines into logs.
 func SafeLogValue(value string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(value, "\r", ""), "\n", "")
+}
+
+// ClientIdentifier derives the rate-limit key for a request. Proxy headers
+// are only trusted when the service runs behind a known proxy
+// (NADAA_TRUST_PROXY_HEADERS=true); otherwise the peer address is used so a
+// client cannot rotate identities by forging headers.
+func ClientIdentifier(r *http.Request) string {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_TRUST_PROXY_HEADERS")), "true") {
+		if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+			parts := strings.Split(forwarded, ",")
+			if first := strings.TrimSpace(parts[0]); first != "" {
+				return first
+			}
+		}
+		if realIP := strings.TrimSpace(r.Header.Get("X-Real-Ip")); realIP != "" {
+			return realIP
+		}
+	}
+
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil || host == "" {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 // CSVSafeCell prefixes a leading spreadsheet formula character with a single

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -17,13 +18,21 @@ import (
 type CVStore interface {
 	AnalyzeImage(req models.CVAnalysisRequest, now time.Time) (models.CVAnalysisResult, error)
 	GetCVResult(imageID string) (models.CVAnalysisResult, bool)
-	ListCVResults() []models.CVAnalysisResult
+	ListCVResults(limit, offset int) ([]models.CVAnalysisResult, int)
+	ReviewCVResult(id string, req models.CVReviewRequest, reviewedBy string, now time.Time) (models.CVAnalysisResult, bool)
 }
+
+// maxCVResults bounds the in-memory CV result cache; the oldest results are
+// evicted FIFO once the cap is reached.
+const maxCVResults = 500
 
 // cvResultCache holds cached CV analysis results in memory.
 type cvResultCache struct {
 	results map[string]models.CVAnalysisResult
-	mu      sync.RWMutex
+	// order tracks insertion order (oldest first) for FIFO eviction and a
+	// stable newest-first listing.
+	order []string
+	mu    sync.RWMutex
 }
 
 func newCVResultCache() *cvResultCache {
@@ -40,17 +49,51 @@ func (c *cvResultCache) get(imageID string) (models.CVAnalysisResult, bool) {
 func (c *cvResultCache) set(result models.CVAnalysisResult) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if _, exists := c.results[result.ImageID]; !exists {
+		c.order = append(c.order, result.ImageID)
+	}
 	c.results[result.ImageID] = result
+	// FIFO eviction keeps the cache bounded.
+	for len(c.order) > maxCVResults {
+		delete(c.results, c.order[0])
+		c.order = c.order[1:]
+	}
 }
 
 func (c *cvResultCache) list() []models.CVAnalysisResult {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	out := make([]models.CVAnalysisResult, 0, len(c.results))
-	for _, result := range c.results {
-		out = append(out, result)
+	out := make([]models.CVAnalysisResult, 0, len(c.order))
+	for _, imageID := range slices.Backward(c.order) {
+		out = append(out, c.results[imageID])
 	}
 	return out
+}
+
+// review records a human review decision on the result identified by result
+// ID or image ID.
+func (c *cvResultCache) review(id string, req models.CVReviewRequest, reviewedBy, reviewedAt string) (models.CVAnalysisResult, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	result, ok := c.results[id]
+	if !ok {
+		for _, candidate := range c.results {
+			if candidate.ID == id {
+				result = candidate
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return models.CVAnalysisResult{}, false
+		}
+	}
+	result.ReviewStatus = req.Decision
+	result.ReviewNote = strings.TrimSpace(req.Note)
+	result.ReviewedBy = reviewedBy
+	result.ReviewedAt = reviewedAt
+	c.results[result.ImageID] = result
+	return result, true
 }
 
 // AnalyzeImage performs a deterministic rule-based mock CV analysis.
@@ -86,9 +129,16 @@ func (m *MemoryStore) GetCVResult(imageID string) (models.CVAnalysisResult, bool
 	return m.cvCache.get(imageID)
 }
 
-// ListCVResults returns all cached CV results.
-func (m *MemoryStore) ListCVResults() []models.CVAnalysisResult {
-	return m.cvCache.list()
+// ListCVResults returns a page of cached CV results, newest first, with the
+// total number of retained results.
+func (m *MemoryStore) ListCVResults(limit, offset int) ([]models.CVAnalysisResult, int) {
+	return paginate(m.cvCache.list(), limit, offset)
+}
+
+// ReviewCVResult records a human review decision for a cached CV result,
+// looked up by result ID or image ID.
+func (m *MemoryStore) ReviewCVResult(id string, req models.CVReviewRequest, reviewedBy string, now time.Time) (models.CVAnalysisResult, bool) {
+	return m.cvCache.review(id, req, reviewedBy, now.Format(time.RFC3339))
 }
 
 func randomFloat64(minVal, maxVal float64) float64 {

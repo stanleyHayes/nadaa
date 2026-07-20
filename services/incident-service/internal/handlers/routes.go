@@ -24,6 +24,8 @@ func (s *server) Routes(allowedOrigins map[string]bool) http.Handler {
 	mux.HandleFunc("POST /api/v1/incidents/{id}/assignments", s.assignIncidentHandler)
 	mux.HandleFunc("POST /api/v1/incidents/{id}/volunteer-tasks", s.assignVolunteerTaskHandler)
 	mux.HandleFunc("POST /api/v1/media/uploads", s.initiateMediaUploadHandler)
+	mux.HandleFunc("PUT /api/v1/media/{id}/content", s.putMediaContentHandler)
+	mux.HandleFunc("GET /api/v1/media/{id}/content", s.getMediaContentHandler)
 	mux.HandleFunc("GET /api/v1/media", s.listMediaHandler)
 	mux.HandleFunc("POST /api/v1/volunteers", s.registerVolunteerHandler)
 	mux.HandleFunc("GET /api/v1/volunteers", s.listVolunteersHandler)

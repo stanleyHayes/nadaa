@@ -1,11 +1,16 @@
 package utils
 
 import (
+	"crypto/hmac"
 	"crypto/pbkdf2"
 	"crypto/rand"
+	//nolint:gosec // G505: HMAC-SHA1 is mandated by RFC 6238 (TOTP); not used for password storage.
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base32"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -13,6 +18,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"slices"
@@ -56,8 +62,14 @@ func (f FixedOTPGenerator) Generate() (string, error) {
 	return f.Code, nil
 }
 
-// DecodeJSON decodes a JSON request body into target.
-func DecodeJSON(r *http.Request, target any) error {
+// maxJSONBodyBytes caps request bodies at 1 MiB so a single POST cannot
+// exhaust memory while decoding.
+const maxJSONBodyBytes = 1 << 20
+
+// DecodeJSON decodes a JSON request body into target, capping the body at
+// 1 MiB; oversized bodies fail decoding with an error.
+func DecodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(target)
@@ -407,9 +419,102 @@ func NewTemporaryPassword() string {
 	return NewID("tmp")
 }
 
-// NewMFASecret returns a new random MFA secret identifier.
-func NewMFASecret() string {
-	return NewID("mfa_secret")
+// TOTP parameters (RFC 6238): HMAC-SHA1, 30-second step, six-digit codes.
+// Verification accepts the codes one step before and after the current step
+// to tolerate authenticator clock skew.
+const (
+	totpStepSeconds    = 30
+	totpSecretBytes    = 20
+	totpMinSecretBytes = 10
+	totpVerifyWindow   = 1
+	totpIssuer         = "NADAA"
+	totpCodeModulus    = 1000000
+)
+
+// base32NoPadding is the authenticator-app secret encoding (RFC 4648 §3.2).
+var base32NoPadding = base32.StdEncoding.WithPadding(base32.NoPadding)
+
+// NewTOTPSecret returns a new random base32-encoded TOTP seed suitable for
+// authenticator enrollment.
+func NewTOTPSecret() string {
+	secret := make([]byte, totpSecretBytes)
+	if _, err := rand.Read(secret); err != nil {
+		// A failing CSPRNG means the platform entropy source is broken; there
+		// is no safe fallback for secret generation.
+		panic(fmt.Sprintf("auth: read TOTP secret: %v", err))
+	}
+	return base32NoPadding.EncodeToString(secret)
+}
+
+// ValidTOTPSecret reports whether secret is a decodable base32 TOTP seed of
+// adequate length (at least 80 bits once decoded).
+func ValidTOTPSecret(secret string) bool {
+	key, err := decodeTOTPSecret(secret)
+	return err == nil && len(key) >= totpMinSecretBytes
+}
+
+// TOTPAuthURL returns the otpauth:// URL used to enroll secret for the given
+// account in an authenticator app.
+func TOTPAuthURL(secret string, accountName string) string {
+	query := url.Values{}
+	query.Set("secret", secret)
+	query.Set("issuer", totpIssuer)
+	return "otpauth://totp/" + url.PathEscape(totpIssuer+":"+accountName) + "?" + query.Encode()
+}
+
+// TOTPCode returns the six-digit RFC 6238 code for secret at the given time.
+func TOTPCode(secret string, at time.Time) (string, error) {
+	key, err := decodeTOTPSecret(secret)
+	if err != nil {
+		return "", err
+	}
+	return totpCodeAtCounter(key, at.Unix()/totpStepSeconds), nil
+}
+
+// VerifyTOTP reports whether code matches secret within one 30-second step of
+// the current step in either direction.
+func VerifyTOTP(secret string, code string, at time.Time) bool {
+	if !ValidSixDigitCode(code) {
+		return false
+	}
+	key, err := decodeTOTPSecret(secret)
+	if err != nil {
+		return false
+	}
+	counter := at.Unix() / totpStepSeconds
+	for offset := int64(-totpVerifyWindow); offset <= totpVerifyWindow; offset++ {
+		step := counter + offset
+		if step < 0 {
+			continue
+		}
+		if SecureCompare(totpCodeAtCounter(key, step), code) {
+			return true
+		}
+	}
+	return false
+}
+
+// decodeTOTPSecret decodes a base32 TOTP seed, tolerating lowercase input.
+func decodeTOTPSecret(secret string) ([]byte, error) {
+	normalized := strings.ToUpper(strings.TrimSpace(secret))
+	return base32NoPadding.DecodeString(normalized)
+}
+
+// totpCodeAtCounter computes the six-digit HOTP truncation (RFC 4226 §5.3)
+// of HMAC-SHA1(key, counter).
+func totpCodeAtCounter(key []byte, counter int64) string {
+	var buf [8]byte
+	//nolint:gosec // G115: callers guarantee counter is a non-negative time step.
+	binary.BigEndian.PutUint64(buf[:], uint64(counter))
+	mac := hmac.New(sha1.New, key)
+	mac.Write(buf[:])
+	sum := mac.Sum(nil)
+	offset := sum[len(sum)-1] & 0x0f
+	truncated := (uint32(sum[offset])&0x7f)<<24 |
+		uint32(sum[offset+1])<<16 |
+		uint32(sum[offset+2])<<8 |
+		uint32(sum[offset+3])
+	return fmt.Sprintf("%06d", truncated%totpCodeModulus)
 }
 
 // NewID returns a random identifier with the given prefix.

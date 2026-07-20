@@ -28,9 +28,11 @@ func (s *Server) listRequestPledgesHandler(w http.ResponseWriter, r *http.Reques
 
 // createPledgeHandler records a pledge against an aid request. The pledge must
 // be bound to a registered donor identity: donorId must reference an existing
-// donor and contactEmail must match that donor's registered email
-// (case-insensitively), so unauthenticated callers cannot corrupt
-// aid-fulfillment state with fake pledges.
+// donor and, for public callers, contactEmail must match that donor's
+// registered email (case-insensitively), so unauthenticated callers cannot
+// corrupt aid-fulfillment state with fake pledges. A verified authority caller
+// pledges on behalf of the donor (the dashboard form sends no contactEmail),
+// so the email match is skipped and the donor's registered email is inherited.
 func (s *Server) createPledgeHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.CreatePledgeRequest
 	if err := utils.DecodeJSON(r, &request); err != nil {
@@ -52,7 +54,11 @@ func (s *Server) createPledgeHandler(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusForbidden, "donor_not_registered", "donorId must reference a registered donor")
 		return
 	}
-	if !strings.EqualFold(normalized.ContactEmail, donor.ContactEmail) {
+	if s.verifiedAuthorityCaller(r) {
+		if normalized.ContactEmail == "" {
+			normalized.ContactEmail = donor.ContactEmail
+		}
+	} else if !strings.EqualFold(normalized.ContactEmail, donor.ContactEmail) {
 		log.Printf("WARN donation-service pledge_create email_mismatch aidRequestId=%s donorId=%s", utils.LogSafe(r.PathValue("id")), utils.LogSafe(normalized.DonorID)) // #nosec G706 -- values sanitized by utils.LogSafe (strips \n and \r)
 		utils.WriteError(w, http.StatusForbidden, "donor_email_mismatch", "contactEmail must match the donor's registered email")
 		return

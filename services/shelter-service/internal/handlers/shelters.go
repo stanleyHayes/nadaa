@@ -43,7 +43,7 @@ func (s *server) updateShelterOccupancyHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	var request models.OccupancyUpdateRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}

@@ -5,12 +5,38 @@ import {
   Button,
   Snackbar,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import { KeyRound, Save, ShieldCheck, Smartphone } from "lucide-react";
 import type { AdminSession } from "@/app/session";
+import {
+  AuthApiError,
+  AuthUnavailableError,
+  changeAdminPassword,
+} from "@/app/auth";
 import { OtpInput } from "../components/OtpInput";
 import { formatDateTime, SettingCard, StatusChip } from "./primitives";
+
+/** Human-facing message for a failed password change. */
+function passwordChangeErrorMessage(error: unknown): string {
+  if (error instanceof AuthUnavailableError) {
+    return error.message;
+  }
+  if (error instanceof AuthApiError) {
+    if (error.code === "invalid_credentials") {
+      return "The current password you entered is incorrect.";
+    }
+    if (error.code === "weak_password") {
+      return error.message;
+    }
+    if (error.code === "locked" || error.code === "too_many_attempts") {
+      return "This account is temporarily locked — wait before trying again.";
+    }
+    return error.message;
+  }
+  return "Password change failed. Try again.";
+}
 
 function MutedNote({ children }: { children: ReactNode }) {
   return (
@@ -51,7 +77,12 @@ export function SecurityTab({
   const mfaEnabled = Boolean(user.mfaEnabled);
   const [enrolling, setEnrolling] = useState(false);
   const [code, setCode] = useState("");
-  const [mfaToast, setMfaToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
 
   const startEnrolment = () => {
     setEnrolling(true);
@@ -70,14 +101,42 @@ export function SecurityTab({
     onSetMfaEnabled(true);
     setEnrolling(false);
     setCode("");
-    setMfaToast("Multi-factor authentication enabled.");
+    setToast("Multi-factor authentication enabled.");
   };
 
   const disableMfa = () => {
     onSetMfaEnabled(false);
     setEnrolling(false);
     setCode("");
-    setMfaToast("Multi-factor authentication disabled.");
+    setToast("Multi-factor authentication disabled.");
+  };
+
+  const submitPasswordChange = async () => {
+    if (!currentPassword) {
+      setPasswordError("Enter your current password.");
+      return;
+    }
+    if (newPassword.length < 12) {
+      setPasswordError("Choose a new password of at least 12 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("The new passwords do not match.");
+      return;
+    }
+    setPasswordError("");
+    setPasswordBusy(true);
+    try {
+      await changeAdminPassword(currentPassword, newPassword);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setToast("Password updated.");
+    } catch (cause) {
+      setPasswordError(passwordChangeErrorMessage(cause));
+    } finally {
+      setPasswordBusy(false);
+    }
   };
 
   return (
@@ -211,11 +270,38 @@ export function SecurityTab({
         description="Password changes are managed by the auth service."
       >
         <Stack spacing={2}>
-          <Alert severity="info" variant="outlined">
-            Password change is not available in this release: the auth service
-            does not expose a password-change endpoint yet. If you need a new
-            password, ask a system administrator to re-provision your account.
-          </Alert>
+          {passwordError ? (
+            <Alert severity="error" variant="outlined">
+              {passwordError}
+            </Alert>
+          ) : null}
+          <TextField
+            label="Current password"
+            type="password"
+            size="small"
+            fullWidth
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+          />
+          <TextField
+            label="New password"
+            type="password"
+            size="small"
+            fullWidth
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+          />
+          <TextField
+            label="Confirm new password"
+            type="password"
+            size="small"
+            fullWidth
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+          />
           <Box>
             <Button
               type="button"
@@ -223,27 +309,27 @@ export function SecurityTab({
               color="primary"
               startIcon={<Save size={17} />}
               sx={{ px: 2.5 }}
-              disabled
-              title="Unavailable in this release"
+              disabled={passwordBusy}
+              onClick={() => void submitPasswordChange()}
             >
-              Update password
+              {passwordBusy ? "Updating" : "Update password"}
             </Button>
           </Box>
         </Stack>
       </SettingCard>
       <Snackbar
-        open={Boolean(mfaToast)}
+        open={Boolean(toast)}
         autoHideDuration={3000}
-        onClose={() => setMfaToast(null)}
+        onClose={() => setToast(null)}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
-          onClose={() => setMfaToast(null)}
+          onClose={() => setToast(null)}
           severity="success"
           variant="filled"
           sx={{ width: "100%" }}
         >
-          {mfaToast}
+          {toast}
         </Alert>
       </Snackbar>
     </Stack>

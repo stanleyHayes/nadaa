@@ -303,8 +303,8 @@ func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 	}
 	var req models.AidRequest
 	decodeResponse(t, requestResponse, &req)
-	if req.Status != "partially_fulfilled" || req.QuantityFulfilled != 300 {
-		t.Fatalf("expected partially fulfilled request, got %#v", req)
+	if req.Status != "open" || req.QuantityFulfilled != 0 {
+		t.Fatalf("expected undelivered pledge to leave the request open and unfulfilled, got %#v", req)
 	}
 
 	pledgeBody2 := models.CreatePledgeRequest{
@@ -330,8 +330,8 @@ func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 	}
 	var reqAfterPledge models.AidRequest
 	decodeResponse(t, requestResponse2, &reqAfterPledge)
-	if reqAfterPledge.Status != "fulfilled" || reqAfterPledge.QuantityFulfilled != 500 {
-		t.Fatalf("expected fulfilled request after second pledge, got %#v", reqAfterPledge)
+	if reqAfterPledge.Status != "open" || reqAfterPledge.QuantityFulfilled != 0 {
+		t.Fatalf("expected pledged-but-undelivered quantities to leave the request open, got %#v", reqAfterPledge)
 	}
 
 	allocateResponse := httptest.NewRecorder()
@@ -342,6 +342,18 @@ func TestPledgeCreatesAndUpdatesRequestStatus(t *testing.T) {
 	srv.Routes().ServeHTTP(allocateResponse, allocateRequest)
 	if allocateResponse.Code != http.StatusOK {
 		t.Fatalf("expected allocate success, got %d: %s", allocateResponse.Code, allocateResponse.Body.String())
+	}
+
+	deliveredResponse := httptest.NewRecorder()
+	deliveredRequest := httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests/request_001", nil)
+	srv.Routes().ServeHTTP(deliveredResponse, deliveredRequest)
+	if deliveredResponse.Code != http.StatusOK {
+		t.Fatalf("expected request found after allocation, got %d: %s", deliveredResponse.Code, deliveredResponse.Body.String())
+	}
+	var reqAfterDelivery models.AidRequest
+	decodeResponse(t, deliveredResponse, &reqAfterDelivery)
+	if reqAfterDelivery.Status != "partially_fulfilled" || reqAfterDelivery.QuantityFulfilled != 300 {
+		t.Fatalf("expected delivered quantity to partially fulfill the request, got %#v", reqAfterDelivery)
 	}
 
 	pledgeListRecorder := httptest.NewRecorder()
@@ -636,5 +648,246 @@ func TestUpdateDonorStatusPreservesNotes(t *testing.T) {
 	}
 	if updated.Notes != "verified via field visit" {
 		t.Fatalf("expected notes preserved on a status-only update, got %q", updated.Notes)
+	}
+}
+
+func createTestDonor(t *testing.T, srv *Server, name, email string) models.Donor {
+	t.Helper()
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/donors", jsonBody(models.CreateDonorRequest{
+		Name:         name,
+		Type:         "organization",
+		ContactEmail: email,
+		Region:       "Greater Accra",
+		District:     "Accra Metropolitan",
+	}))
+	request.Header.Set("Content-Type", "application/json")
+	srv.Routes().ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected donor created, got %d: %s", response.Code, response.Body.String())
+	}
+	var donor models.Donor
+	decodeResponse(t, response, &donor)
+	return donor
+}
+
+func postPledge(t *testing.T, srv *Server, request *http.Request) *httptest.ResponseRecorder {
+	t.Helper()
+	response := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(response, request)
+	return response
+}
+
+func TestCreatePledgeAuthoritySkipsEmailMatch(t *testing.T) {
+	srv := newTestServer()
+	donor := createTestDonor(t, srv, "Authority Pledge Donor", "authority-donor@example.com")
+
+	// A verified authority pledges on behalf of the donor: the dashboard form
+	// sends no contactEmail, so the donor's registered email is inherited.
+	authorityResponse := postPledge(t, srv, authorityRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(models.CreatePledgeRequest{
+		DonorID:         donor.ID,
+		QuantityPledged: 25,
+		DeliveryNote:    "dashboard pledge",
+	})))
+	if authorityResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d for an authority pledge without contactEmail, got %d: %s", http.StatusCreated, authorityResponse.Code, authorityResponse.Body.String())
+	}
+	var authorityPledge models.Pledge
+	decodeResponse(t, authorityResponse, &authorityPledge)
+	if authorityPledge.ContactEmail != donor.ContactEmail {
+		t.Fatalf("expected the donor's registered email to be inherited, got %q", authorityPledge.ContactEmail)
+	}
+
+	// The same holds for a cryptographically verified bearer token caller.
+	tokenResponse := postPledge(t, srv, tokenRequest(t, http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(models.CreatePledgeRequest{
+		DonorID:         donor.ID,
+		QuantityPledged: 25,
+	})))
+	if tokenResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d for a token authority pledge without contactEmail, got %d: %s", http.StatusCreated, tokenResponse.Code, tokenResponse.Body.String())
+	}
+
+	// An authority may also record a different contact email for the pledge.
+	overrideResponse := postPledge(t, srv, authorityRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(models.CreatePledgeRequest{
+		DonorID:         donor.ID,
+		QuantityPledged: 10,
+		ContactEmail:    "field-contact@example.com",
+	})))
+	if overrideResponse.Code != http.StatusCreated {
+		t.Fatalf("expected status %d for an authority pledge with its own contactEmail, got %d: %s", http.StatusCreated, overrideResponse.Code, overrideResponse.Body.String())
+	}
+	var overridePledge models.Pledge
+	decodeResponse(t, overrideResponse, &overridePledge)
+	if overridePledge.ContactEmail != "field-contact@example.com" {
+		t.Fatalf("expected the supplied contact email to be kept, got %q", overridePledge.ContactEmail)
+	}
+
+	// Public callers are still bound to the donor's registered email.
+	publicResponse := postPledge(t, srv, httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(models.CreatePledgeRequest{
+		DonorID:         donor.ID,
+		QuantityPledged: 25,
+	})))
+	if publicResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d for a public pledge without contactEmail, got %d: %s", http.StatusForbidden, publicResponse.Code, publicResponse.Body.String())
+	}
+}
+
+func TestPledgeDoesNotFulfillUntilDelivered(t *testing.T) {
+	srv := newTestServer()
+	donor := createTestDonor(t, srv, "Fake Promise Donor", "fake-promise@example.com")
+
+	// A pledge covering the full requested quantity must not fulfill the
+	// request: only delivered aid counts.
+	pledgeResponse := postPledge(t, srv, httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_002/pledges", jsonBody(models.CreatePledgeRequest{
+		DonorID:         donor.ID,
+		QuantityPledged: 200,
+		ContactEmail:    "fake-promise@example.com",
+	})))
+	if pledgeResponse.Code != http.StatusCreated {
+		t.Fatalf("expected pledge created, got %d: %s", pledgeResponse.Code, pledgeResponse.Body.String())
+	}
+	var pledge models.Pledge
+	decodeResponse(t, pledgeResponse, &pledge)
+
+	requestResponse := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(requestResponse, httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests/request_002", nil))
+	var req models.AidRequest
+	decodeResponse(t, requestResponse, &req)
+	if req.Status == "fulfilled" || req.QuantityFulfilled != 0 {
+		t.Fatalf("expected an undelivered pledge to leave the request unfulfilled, got %#v", req)
+	}
+
+	// Delivering the pledge in full flips the request to fulfilled.
+	allocateResponse := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(allocateResponse, authorityRequest(http.MethodPost, "/api/v1/aid-requests/request_002/allocate", jsonBody(models.AllocateRequest{
+		PledgeID: pledge.ID,
+		Quantity: 200,
+	})))
+	if allocateResponse.Code != http.StatusOK {
+		t.Fatalf("expected allocate success, got %d: %s", allocateResponse.Code, allocateResponse.Body.String())
+	}
+
+	fulfilledResponse := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(fulfilledResponse, httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests/request_002", nil))
+	var fulfilled models.AidRequest
+	decodeResponse(t, fulfilledResponse, &fulfilled)
+	if fulfilled.Status != "fulfilled" || fulfilled.QuantityFulfilled != 200 {
+		t.Fatalf("expected the request to be fulfilled after full delivery, got %#v", fulfilled)
+	}
+}
+
+func TestAllocatePledgeAccumulatesTranches(t *testing.T) {
+	srv := newTestServer()
+	donor := createTestDonor(t, srv, "Tranche Donor", "tranche@example.com")
+
+	pledgeResponse := postPledge(t, srv, httptest.NewRequest(http.MethodPost, "/api/v1/aid-requests/request_001/pledges", jsonBody(models.CreatePledgeRequest{
+		DonorID:         donor.ID,
+		QuantityPledged: 100,
+		ContactEmail:    "tranche@example.com",
+	})))
+	if pledgeResponse.Code != http.StatusCreated {
+		t.Fatalf("expected pledge created, got %d: %s", pledgeResponse.Code, pledgeResponse.Body.String())
+	}
+	var pledge models.Pledge
+	decodeResponse(t, pledgeResponse, &pledge)
+
+	allocate := func(quantity int) *httptest.ResponseRecorder {
+		t.Helper()
+		response := httptest.NewRecorder()
+		srv.Routes().ServeHTTP(response, authorityRequest(http.MethodPost, "/api/v1/aid-requests/request_001/allocate", jsonBody(models.AllocateRequest{
+			PledgeID: pledge.ID,
+			Quantity: quantity,
+		})))
+		return response
+	}
+
+	// Partial tranches accumulate and keep the pledge in pledged status.
+	first := allocate(30)
+	if first.Code != http.StatusOK {
+		t.Fatalf("expected first tranche accepted, got %d: %s", first.Code, first.Body.String())
+	}
+	var firstPledge models.Pledge
+	decodeResponse(t, first, &firstPledge)
+	if firstPledge.QuantityDelivered != 30 || firstPledge.Status != "pledged" {
+		t.Fatalf("expected 30 delivered and still pledged, got %#v", firstPledge)
+	}
+
+	second := allocate(40)
+	if second.Code != http.StatusOK {
+		t.Fatalf("expected second tranche accepted, got %d: %s", second.Code, second.Body.String())
+	}
+	var secondPledge models.Pledge
+	decodeResponse(t, second, &secondPledge)
+	if secondPledge.QuantityDelivered != 70 || secondPledge.Status != "pledged" {
+		t.Fatalf("expected 70 delivered and still pledged, got %#v", secondPledge)
+	}
+
+	// Delivered quantities drive the request state: 70 of 500 delivered.
+	partialResponse := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(partialResponse, httptest.NewRequest(http.MethodGet, "/api/v1/aid-requests/request_001", nil))
+	var partial models.AidRequest
+	decodeResponse(t, partialResponse, &partial)
+	if partial.Status != "partially_fulfilled" || partial.QuantityFulfilled != 70 {
+		t.Fatalf("expected partially fulfilled request with 70 delivered, got %#v", partial)
+	}
+
+	// The final tranche completes the pledge.
+	third := allocate(30)
+	if third.Code != http.StatusOK {
+		t.Fatalf("expected final tranche accepted, got %d: %s", third.Code, third.Body.String())
+	}
+	var thirdPledge models.Pledge
+	decodeResponse(t, third, &thirdPledge)
+	if thirdPledge.QuantityDelivered != 100 || thirdPledge.Status != "delivered" {
+		t.Fatalf("expected 100 delivered and delivered status, got %#v", thirdPledge)
+	}
+
+	// Anything beyond the remaining pledged quantity is rejected.
+	over := allocate(1)
+	if over.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d for over-allocation, got %d: %s", http.StatusBadRequest, over.Code, over.Body.String())
+	}
+}
+
+func TestCreateDonationRateLimited(t *testing.T) {
+	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
+	cfg := &config.Config{
+		Addr:                   ":8100",
+		AuthTokenSecret:        testTokenSecret,
+		AllowMockActors:        true,
+		DonationRateLimit:      2,
+		DonationRateWindowSecs: 60,
+	}
+	srv := NewServer(store.NewMemoryStore(now), models.SandboxPaymentProvider{CreditPayments: true}, func() time.Time { return now }, cfg)
+
+	body, _ := json.Marshal(models.CreateDonationRequest{DonorName: "Ama", Email: "ama@example.com", Amount: 50})
+	post := func(remoteAddr string) *httptest.ResponseRecorder {
+		t.Helper()
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/donations", bytes.NewReader(body))
+		request.RemoteAddr = remoteAddr
+		srv.Routes().ServeHTTP(response, request)
+		return response
+	}
+
+	if response := post("192.0.2.10:1000"); response.Code != http.StatusCreated {
+		t.Fatalf("first donation status = %d, want 201: %s", response.Code, response.Body.String())
+	}
+	if response := post("192.0.2.10:1001"); response.Code != http.StatusCreated {
+		t.Fatalf("second donation status = %d, want 201: %s", response.Code, response.Body.String())
+	}
+	limited := post("192.0.2.10:1002")
+	if limited.Code != http.StatusTooManyRequests {
+		t.Fatalf("third donation status = %d, want 429: %s", limited.Code, limited.Body.String())
+	}
+	var apiError models.APIError
+	decodeResponse(t, limited, &apiError)
+	if apiError.Error.Code != "rate_limited" {
+		t.Fatalf("expected error code rate_limited, got %q", apiError.Error.Code)
+	}
+
+	// A different client is not affected by the first client's limit.
+	if response := post("203.0.113.8:1000"); response.Code != http.StatusCreated {
+		t.Fatalf("donation from another client status = %d, want 201: %s", response.Code, response.Body.String())
 	}
 }

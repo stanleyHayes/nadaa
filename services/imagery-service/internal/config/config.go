@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -46,6 +47,16 @@ func Load() *Config {
 		AllowMockActors: os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
 		Development:     os.Getenv("NADAA_ENV") == "development",
 	}
+}
+
+// Validate fails closed on unsafe configuration: mock actor headers trust
+// client-supplied identity, so they are only allowed with NADAA_ENV=development
+// and can never leak into a deployed environment.
+func (c *Config) Validate() error {
+	if c.AllowMockActors && !c.Development {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
 }
 
 // resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare

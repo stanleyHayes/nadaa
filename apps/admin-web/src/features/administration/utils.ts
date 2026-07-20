@@ -12,6 +12,8 @@ import type {
 import type {
   AdminMetric,
   AdminUserFormState,
+  AgencyOperationalStatus,
+  AgencyUserDirectoryEntry,
   AlertRuleSummary,
   DataSourceSummary,
   ManagedAgency,
@@ -65,6 +67,11 @@ export function roleLabel(role: AgencyUserRole) {
 
 export function agencyTypeLabel(type: AgencyType) {
   return agencyTypeLabels[type];
+}
+
+/** Display label for an agency's operational status, honest about gaps. */
+export function agencyStatusLabel(status: AgencyOperationalStatus) {
+  return status === "unknown" ? "status not reported" : status;
 }
 
 export function formatDateTime(value?: string) {
@@ -163,23 +170,73 @@ export function managedUserFromCreateResponse(
 }
 
 /**
+ * Project a users-directory entry onto the console row model. The directory
+ * endpoint exposes identity fields only, so the agency display name is
+ * resolved by the caller (from the agency directory or the admin's session)
+ * and the scope line is derived from the role rather than fabricated.
+ */
+export function managedUserFromDirectoryEntry(
+  entry: AgencyUserDirectoryEntry,
+  agencyName: string,
+): ManagedAgencyUser {
+  const locked = Boolean(
+    entry.lockedUntil && new Date(entry.lockedUntil).getTime() > Date.now(),
+  );
+  return {
+    id: entry.id,
+    name: entry.name,
+    email: entry.email,
+    role: entry.role,
+    agency: { id: entry.agencyId, name: agencyName },
+    mfaEnabled: entry.mfaEnabled,
+    createdAt: entry.createdAt,
+    lockedUntil: entry.lockedUntil,
+    status: locked ? "locked" : entry.mfaEnabled ? "active" : "mfa_pending",
+    accessScope: `${roleLabel(entry.role)} access`,
+  };
+}
+
+/**
  * Project a directory entry onto the governance view model. The directory API
- * only exposes identity fields, so operational metrics start at zero and the
- * scope line is derived from the agency type and district rather than
- * fabricated.
+ * only exposes identity fields, so the operational status reads "unknown",
+ * user/MFA metrics stay null until the users directory loads (see
+ * {@link withAgencyUserMetrics}), and the scope line is derived from the
+ * agency type and district rather than fabricated.
  */
 export function managedAgencyFromSummary(
   summary: AgencySummary,
 ): ManagedAgency {
   return {
     ...summary,
-    status: "active",
-    users: 0,
-    openAssignments: 0,
-    mfaCoverage: 0,
+    status: "unknown",
+    users: null,
+    openAssignments: null,
+    mfaCoverage: null,
     dataScope: `${agencyTypeLabel(summary.type)} operations — ${summary.district || summary.region}`,
     lastAuditAt: "",
   };
+}
+
+/**
+ * Fill per-agency user counts and MFA coverage from the loaded users
+ * directory. When the users directory did not load (`users` is null) the
+ * metrics stay null so the console never presents fabricated zeros as live
+ * governance data.
+ */
+export function withAgencyUserMetrics(
+  agencies: ManagedAgency[],
+  users: ManagedAgencyUser[] | null,
+): ManagedAgency[] {
+  return agencies.map((agency) => {
+    if (!users) {
+      return { ...agency, users: null, mfaCoverage: null };
+    }
+    return {
+      ...agency,
+      users: users.filter((user) => user.agency.id === agency.id).length,
+      mfaCoverage: mfaCoverageFor(users, agency.id),
+    };
+  });
 }
 
 export function auditTargetSummary(log: AuditLogRecord) {
@@ -228,6 +285,11 @@ export function dataSourceFromContract(
   };
 }
 
+/**
+ * Derive the alert-governance cards from live alert records. This is a
+ * read-only projection for review — the console has no rule-editing API, so
+ * nothing here should be presented as an editable control.
+ */
 export function buildAlertRulesFromAlerts(
   alerts: AuthorityAlertRecord[],
 ): AlertRuleSummary[] {

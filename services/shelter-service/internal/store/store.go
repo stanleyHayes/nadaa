@@ -520,9 +520,14 @@ func (m *MemoryStore) ReviewAidRequest(id string, request models.ReviewAidReques
 		}
 		next := m.aidRequests[index]
 		next.Status = request.Status
-		next.ApprovedBy = ctx.ActorUserID
-		next.ApprovalNotes = request.ApprovalNotes
-		next.AntiFraudNotes = request.AntiFraudNotes
+		// Approval metadata belongs to the original approval review: pausing,
+		// closing, or rejecting the request must not overwrite it. Only an
+		// explicit (re-)approval refreshes these fields.
+		if request.Status == "approved" {
+			next.ApprovedBy = ctx.ActorUserID
+			next.ApprovalNotes = request.ApprovalNotes
+			next.AntiFraudNotes = request.AntiFraudNotes
+		}
 		next.UpdatedAt = now
 		m.aidRequests[index] = next
 		return m.copyAidRequestWithPledgesLocked(next), "", ""
@@ -574,6 +579,11 @@ func (m *MemoryStore) CreateAidPledge(aidRequestID string, request models.Create
 	}
 	if !utils.PublicAidRequestStatuses[m.aidRequests[requestIndex].Status] {
 		return models.AidPledge{}, "aid_request_not_open", "pledges are only accepted for approved or open aid requests"
+	}
+	// Pledge creation is anonymous, so non-public requests behave as if they
+	// do not exist: returning not_found avoids confirming their presence.
+	if m.aidRequests[requestIndex].Visibility != "public" {
+		return models.AidPledge{}, "not_found", "aid request was not found"
 	}
 
 	pledge := models.AidPledge{
@@ -768,6 +778,11 @@ func (m *MemoryStore) UpdateHospitalCapacity(id string, request models.HospitalC
 		if request.IsolationBedsAvailable != nil {
 			next.IsolationBedsAvailable = *request.IsolationBedsAvailable
 		}
+		// Sub-capacity beds are bounded by the post-merge totalBeds,
+		// individually and in sum, mirroring the availableBeds invariant.
+		if code, message := validateHospitalSubCapacity(next); code != "" {
+			return models.HospitalCapacity{}, code, message
+		}
 		if request.EmergencyCapacity != "" {
 			next.EmergencyCapacity = request.EmergencyCapacity
 		} else {
@@ -811,6 +826,10 @@ func (m *MemoryStore) ImportHospitalCapacityFixture(request models.HospitalCapac
 	updates := request.Records
 	if len(updates) == 0 {
 		updates = utils.DefaultHospitalCapacityFixture()
+		// Demo fixture rows must not masquerade under a caller-chosen source
+		// label: provenance is pinned to the fixture adapter.
+		request.Source = "fixture_adapter"
+		request.SourceRef = "hospital-capacity-feed"
 	}
 	byID := map[string]models.HospitalCapacityFixtureRecord{}
 	for _, record := range updates {
@@ -835,6 +854,12 @@ func (m *MemoryStore) ImportHospitalCapacityFixture(request models.HospitalCapac
 		next.MaternityBedsAvailable = update.MaternityBedsAvailable
 		next.PediatricBedsAvailable = update.PediatricBedsAvailable
 		next.IsolationBedsAvailable = update.IsolationBedsAvailable
+		// Skip feed records whose sub-capacity beds would exceed totalBeds,
+		// individually or in sum (the manual update path rejects the same
+		// condition); next is a copy, so skipping leaves the record untouched.
+		if code, _ := validateHospitalSubCapacity(next); code != "" {
+			continue
+		}
 		next.EmergencyCapacity = update.EmergencyCapacity
 		if update.EmergencyUnitStatus != "" {
 			next.EmergencyUnitStatus = update.EmergencyUnitStatus
@@ -955,6 +980,30 @@ func hospitalCapacityFromBeds(totalBeds int, availableBeds int, fallback string)
 	return "available"
 }
 
+// validateHospitalSubCapacity enforces the sub-capacity invariants against a
+// facility's total beds: each category must fit within totalBeds and the
+// categories together may not exceed it.
+func validateHospitalSubCapacity(facility models.HospitalCapacity) (string, string) {
+	for _, item := range []struct {
+		name  string
+		value int
+	}{
+		{"icuBedsAvailable", facility.ICUBedsAvailable},
+		{"maternityBedsAvailable", facility.MaternityBedsAvailable},
+		{"pediatricBedsAvailable", facility.PediatricBedsAvailable},
+		{"isolationBedsAvailable", facility.IsolationBedsAvailable},
+	} {
+		if item.value > facility.TotalBeds {
+			return "invalid_sub_capacity_beds", item.name + " cannot exceed totalBeds"
+		}
+	}
+	subTotal := facility.ICUBedsAvailable + facility.MaternityBedsAvailable + facility.PediatricBedsAvailable + facility.IsolationBedsAvailable
+	if subTotal > facility.TotalBeds {
+		return "invalid_sub_capacity_total", "icu, maternity, pediatric, and isolation beds cannot exceed totalBeds in sum"
+	}
+	return "", ""
+}
+
 func withHospitalStaleness(facility models.HospitalCapacity, now time.Time) models.HospitalCapacity {
 	facility.Stale = false
 	facility.StaleReason = ""
@@ -1002,10 +1051,17 @@ func pointInBBox(location models.Coordinates, box models.BoundingBox) bool {
 		location.Lng >= box.MinLng && location.Lng <= box.MaxLng
 }
 
+// totalActivePledgedQuantity sums the pledges that count toward fulfillment.
+// Only pledges an authority has both cleared in fraud review and accepted or
+// received contribute: anonymous pledges start as pending_review/pledged and
+// must never move a request toward fulfilled on their own.
 func totalActivePledgedQuantity(pledges []models.AidPledge) int {
 	total := 0
 	for _, pledge := range pledges {
-		if pledge.ReviewStatus == "flagged" || pledge.Status == "flagged" || pledge.Status == "cancelled" {
+		if pledge.ReviewStatus != "cleared" {
+			continue
+		}
+		if pledge.Status != "accepted" && pledge.Status != "received" {
 			continue
 		}
 		total += pledge.Quantity

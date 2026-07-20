@@ -24,8 +24,15 @@ type CVAnalysisResult struct {
 	HumanReviewRequired bool      `json:"humanReviewRequired"`
 	CreatedAt           string    `json:"createdAt"`
 	ReviewedBy          string    `json:"reviewedBy,omitempty"`
+	ReviewedAt          string    `json:"reviewedAt,omitempty"`
 	ReviewStatus        string    `json:"reviewStatus,omitempty"`
 	ReviewNote          string    `json:"reviewNote,omitempty"`
+}
+
+// CVReviewRequest is the body of a CV human-review decision.
+type CVReviewRequest struct {
+	Decision string `json:"decision"`
+	Note     string `json:"note,omitempty"`
 }
 
 // CVAnalysisResponse is the top-level response envelope.
@@ -37,6 +44,9 @@ type CVAnalysisResponse struct {
 // CVResultListResponse is returned when listing cached CV results.
 type CVResultListResponse struct {
 	Results []CVAnalysisResult `json:"results"`
+	Total   int                `json:"total"`
+	Limit   int                `json:"limit"`
+	Offset  int                `json:"offset"`
 }
 
 // CVResultDetailResponse is returned when fetching a single CV result.

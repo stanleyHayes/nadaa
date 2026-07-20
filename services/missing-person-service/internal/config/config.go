@@ -17,15 +17,26 @@ type Config struct {
 	// AllowMockActors honors legacy X-NADAA-Actor-* headers for local
 	// development and smoke tests (NADAA_AUTH_ALLOW_MOCK_ACTORS=true).
 	AllowMockActors bool
+	// RateLimitRequests bounds public intake requests per client IP per window;
+	// a value <= 0 disables the limiter.
+	RateLimitRequests int
+	// RateLimitWindowSeconds is the rate limit window in seconds.
+	RateLimitWindowSeconds int
+	// MaxRecords caps the number of stored records; public intake is refused
+	// once the cap is reached. A value <= 0 means no cap.
+	MaxRecords int
 }
 
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:            resolveListenAddr("", ":8101"),
-		AllowedOrigins:  utils.AllowedOriginsFromEnv(),
-		AuthTokenSecret: strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
-		AllowMockActors: strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")), "true"),
+		Addr:                   resolveListenAddr("", ":8101"),
+		AllowedOrigins:         utils.AllowedOriginsFromEnv(),
+		AuthTokenSecret:        strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
+		AllowMockActors:        strings.EqualFold(strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")), "true"),
+		RateLimitRequests:      utils.EnvOrDefaultInt("RATE_LIMIT_REQUESTS", 10),
+		RateLimitWindowSeconds: utils.EnvOrDefaultInt("RATE_LIMIT_WINDOW_SECONDS", 60),
+		MaxRecords:             utils.EnvOrDefaultInt("MISSING_PERSON_MAX_RECORDS", 10000),
 	}
 }
 

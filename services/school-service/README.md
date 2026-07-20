@@ -41,7 +41,8 @@ All preparedness endpoints require a verified bearer token
 (`Authorization: Bearer nadaa...` issued by auth-service). Actor identity,
 role, agency, district, and MFA status come from the token claims. The legacy
 `X-NADAA-Actor-*` / `X-NADAA-MFA-Completed` headers are honored only when
-`NADAA_AUTH_ALLOW_MOCK_ACTORS=true` (local development and smoke tests).
+`NADAA_AUTH_ALLOW_MOCK_ACTORS=true` (local development and smoke tests); the
+service refuses to start with that setting unless `NADAA_ENV=development`.
 `X-NADAA-Request-ID` remains an optional request-correlation header.
 
 `system_admin` and `nadmo_officer` users can view and manage schools across

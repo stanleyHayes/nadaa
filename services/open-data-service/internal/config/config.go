@@ -17,6 +17,10 @@ type Config struct {
 	AuthTokenSecret        string
 	AllowMockActors        bool
 	TrustProxyHeaders      bool
+	// InternalServiceToken authenticates service-to-service calls (sent as
+	// X-NADAA-Service-Token) when forwarding audit events to the audit log
+	// service.
+	InternalServiceToken string
 }
 
 // Load reads configuration from environment variables.
@@ -30,6 +34,7 @@ func Load() *Config {
 		AuthTokenSecret:        os.Getenv("NADAA_AUTH_TOKEN_SECRET"),
 		AllowMockActors:        os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
 		TrustProxyHeaders:      os.Getenv("NADAA_TRUST_PROXY_HEADERS") == "true",
+		InternalServiceToken:   strings.TrimSpace(os.Getenv("NADAA_INTERNAL_SERVICE_TOKEN")),
 	}
 }
 

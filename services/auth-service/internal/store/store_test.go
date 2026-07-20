@@ -25,7 +25,7 @@ func newTestMemoryStore(t *testing.T) *MemoryStore {
 	return m
 }
 
-func TestSeedBootstrapAgencyAdminGeneratesRandomMFACode(t *testing.T) {
+func TestSeedBootstrapAgencyAdminGeneratesRandomMFASecret(t *testing.T) {
 	m := newTestMemoryStore(t)
 	cfg := &config.Config{
 		BootstrapAdminEmail:    "admin@nadaa.local",
@@ -45,22 +45,32 @@ func TestSeedBootstrapAgencyAdminGeneratesRandomMFACode(t *testing.T) {
 		t.Fatal("expected bootstrap admin to be seeded")
 	}
 	user := m.agencyUsersByID[userID]
-	if !user.MFAEnabled || !utils.ValidSixDigitCode(user.MFACode) {
-		t.Fatalf("expected generated 6-digit MFA code, got %#v", user)
+	if !user.MFAEnabled || !utils.ValidTOTPSecret(user.MFASecret) {
+		t.Fatalf("expected generated TOTP secret, got %#v", user)
 	}
 	if user.Role != models.RoleSystemAdmin {
 		t.Fatalf("expected system_admin role, got %q", user.Role)
 	}
+
+	// The generated secret must be a usable TOTP seed: the current code from
+	// it has to pass login verification.
+	code, err := utils.TOTPCode(user.MFASecret, storeTestNow)
+	if err != nil {
+		t.Fatalf("compute bootstrap TOTP code: %v", err)
+	}
+	if _, err := m.LoginAgencyUser("admin@nadaa.local", "bootstrap-pass-123", code, storeTestNow); err != nil {
+		t.Fatalf("expected bootstrap admin login with TOTP code, got %v", err)
+	}
 }
 
-func TestSeedBootstrapAgencyAdminHonorsExplicitMFACode(t *testing.T) {
+func TestSeedBootstrapAgencyAdminHonorsExplicitMFASecret(t *testing.T) {
 	m := newTestMemoryStore(t)
 	cfg := &config.Config{
-		BootstrapAdminEmail:    "admin@nadaa.local",
-		BootstrapAdminPassword: "bootstrap-pass-123",
-		BootstrapAdminPhone:    "+233200000001",
-		BootstrapAdminName:     "NADAA System Admin",
-		BootstrapAdminMFACode:  "456789",
+		BootstrapAdminEmail:     "admin@nadaa.local",
+		BootstrapAdminPassword:  "bootstrap-pass-123",
+		BootstrapAdminPhone:     "+233200000001",
+		BootstrapAdminName:      "NADAA System Admin",
+		BootstrapAdminMFASecret: "JBSWY3DPEHPK3PXP",
 	}
 
 	if err := seedBootstrapAgencyAdmin(m, cfg, storeTestNow); err != nil {
@@ -68,18 +78,18 @@ func TestSeedBootstrapAgencyAdminHonorsExplicitMFACode(t *testing.T) {
 	}
 
 	user := m.agencyUsersByID[m.agencyUsersByEmail["admin@nadaa.local"]]
-	if user.MFACode != "456789" {
-		t.Fatalf("expected explicit MFA code to be stored, got %q", user.MFACode)
+	if user.MFASecret != "JBSWY3DPEHPK3PXP" {
+		t.Fatalf("expected explicit MFA secret to be stored, got %q", user.MFASecret)
 	}
 }
 
 func TestSeedBootstrapAgencyAdminValidatesCredentialComplexity(t *testing.T) {
 	base := config.Config{
-		BootstrapAdminEmail:    "admin@nadaa.local",
-		BootstrapAdminPassword: "bootstrap-pass-123",
-		BootstrapAdminPhone:    "+233200000001",
-		BootstrapAdminName:     "NADAA System Admin",
-		BootstrapAdminMFACode:  "456789",
+		BootstrapAdminEmail:     "admin@nadaa.local",
+		BootstrapAdminPassword:  "bootstrap-pass-123",
+		BootstrapAdminPhone:     "+233200000001",
+		BootstrapAdminName:      "NADAA System Admin",
+		BootstrapAdminMFASecret: "JBSWY3DPEHPK3PXP",
 	}
 
 	shortPassword := base
@@ -88,11 +98,11 @@ func TestSeedBootstrapAgencyAdminValidatesCredentialComplexity(t *testing.T) {
 		t.Fatal("expected short bootstrap password to be rejected")
 	}
 
-	for _, code := range []string{"12345", "1234567", "abcdef", "12345 "} {
-		invalidCode := base
-		invalidCode.BootstrapAdminMFACode = code
-		if err := seedBootstrapAgencyAdmin(newTestMemoryStore(t), &invalidCode, storeTestNow); err == nil {
-			t.Fatalf("expected MFA code %q to be rejected", code)
+	for _, secret := range []string{"!!!!!!", "ABC", "AB", "123456", "mfa_secret_1234"} {
+		invalidSecret := base
+		invalidSecret.BootstrapAdminMFASecret = secret
+		if err := seedBootstrapAgencyAdmin(newTestMemoryStore(t), &invalidSecret, storeTestNow); err == nil {
+			t.Fatalf("expected MFA secret %q to be rejected", secret)
 		}
 	}
 
@@ -148,7 +158,7 @@ func TestLoginAgencyUserAcceptsLegacyPasswordHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create agency user: %v", err)
 	}
-	m.enableAgencyMFA(profile.ID, "123456", storeTestNow)
+	m.enableAgencyMFA(profile.ID, "JBSWY3DPEHPK3PXP", storeTestNow)
 
 	// Rewrite the stored hash to the legacy unsalted SHA-256 format.
 	user := m.agencyUsersByID[profile.ID]
@@ -156,7 +166,11 @@ func TestLoginAgencyUserAcceptsLegacyPasswordHash(t *testing.T) {
 	user.PasswordHash = hex.EncodeToString(sum[:])
 	m.agencyUsersByID[profile.ID] = user
 
-	if _, err := m.LoginAgencyUser("dispatcher@nadaa.local", "Password123!", "123456", storeTestNow); err != nil {
+	code, err := utils.TOTPCode("JBSWY3DPEHPK3PXP", storeTestNow)
+	if err != nil {
+		t.Fatalf("compute TOTP code: %v", err)
+	}
+	if _, err := m.LoginAgencyUser("dispatcher@nadaa.local", "Password123!", code, storeTestNow); err != nil {
 		t.Fatalf("expected legacy hash to verify, got %v", err)
 	}
 }
@@ -173,19 +187,103 @@ func TestLoginAgencyUserLockoutExpires(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create agency user: %v", err)
 	}
-	m.enableAgencyMFA(profile.ID, "123456", storeTestNow)
+	m.enableAgencyMFA(profile.ID, "JBSWY3DPEHPK3PXP", storeTestNow)
 
 	for attempt := range maxFailedAttempts {
 		if _, err := m.LoginAgencyUser("dispatcher@nadaa.local", "wrong-password", "", storeTestNow); !errors.Is(err, ErrInvalidCredentials) {
 			t.Fatalf("attempt %d: expected ErrInvalidCredentials, got %v", attempt+1, err)
 		}
 	}
-	if _, err := m.LoginAgencyUser("dispatcher@nadaa.local", "Password123!", "123456", storeTestNow); !errors.Is(err, ErrTooManyAttempts) {
+	code, err := utils.TOTPCode("JBSWY3DPEHPK3PXP", storeTestNow)
+	if err != nil {
+		t.Fatalf("compute TOTP code: %v", err)
+	}
+	if _, err := m.LoginAgencyUser("dispatcher@nadaa.local", "Password123!", code, storeTestNow); !errors.Is(err, ErrTooManyAttempts) {
 		t.Fatalf("expected ErrTooManyAttempts during lockout, got %v", err)
 	}
 
 	afterLockout := storeTestNow.Add(attemptLockout + time.Minute)
-	if _, err := m.LoginAgencyUser("dispatcher@nadaa.local", "Password123!", "123456", afterLockout); err != nil {
+	freshCode, err := utils.TOTPCode("JBSWY3DPEHPK3PXP", afterLockout)
+	if err != nil {
+		t.Fatalf("compute TOTP code: %v", err)
+	}
+	if _, err := m.LoginAgencyUser("dispatcher@nadaa.local", "Password123!", freshCode, afterLockout); err != nil {
 		t.Fatalf("expected login to succeed after lockout expiry, got %v", err)
+	}
+}
+
+func TestChangeAgencyPasswordVerifiesCurrentAndLocksOut(t *testing.T) {
+	m := newTestMemoryStore(t)
+	profile, err := m.CreateAgencyUser(models.CreateAgencyUserRequest{
+		Name:     "Dispatcher One",
+		Email:    "dispatcher@nadaa.local",
+		Phone:    "+233200000002",
+		AgencyID: models.DefaultAgencyID,
+		Role:     models.RoleDispatcher,
+	}, "Password123!", storeTestNow)
+	if err != nil {
+		t.Fatalf("create agency user: %v", err)
+	}
+
+	if err := m.ChangeAgencyPassword(profile.ID, "wrong-password", "NewPassword456!", storeTestNow); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials for wrong current password, got %v", err)
+	}
+	if err := m.ChangeAgencyPassword(profile.ID, "Password123!", "short", storeTestNow); !errors.Is(err, ErrWeakPassword) {
+		t.Fatalf("expected ErrWeakPassword for weak new password, got %v", err)
+	}
+	if err := m.ChangeAgencyPassword(profile.ID, "Password123!", "NewPassword456!", storeTestNow); err != nil {
+		t.Fatalf("expected password change to succeed, got %v", err)
+	}
+
+	user := m.agencyUsersByID[profile.ID]
+	if !utils.VerifyCredential("NewPassword456!", user.PasswordHash) {
+		t.Fatal("expected stored hash to match the new password")
+	}
+	if utils.VerifyCredential("Password123!", user.PasswordHash) {
+		t.Fatal("expected stored hash to reject the old password")
+	}
+
+	for attempt := range maxFailedAttempts {
+		if err := m.ChangeAgencyPassword(profile.ID, "wrong-password", "AnotherPassword789!", storeTestNow); !errors.Is(err, ErrInvalidCredentials) {
+			t.Fatalf("attempt %d: expected ErrInvalidCredentials, got %v", attempt+1, err)
+		}
+	}
+	if err := m.ChangeAgencyPassword(profile.ID, "NewPassword456!", "AnotherPassword789!", storeTestNow); !errors.Is(err, ErrTooManyAttempts) {
+		t.Fatalf("expected ErrTooManyAttempts during lockout, got %v", err)
+	}
+}
+
+func TestListAgencyUsersSanitizesAndReportsLockout(t *testing.T) {
+	m := newTestMemoryStore(t)
+	profile, err := m.CreateAgencyUser(models.CreateAgencyUserRequest{
+		Name:     "Dispatcher One",
+		Email:    "dispatcher@nadaa.local",
+		Phone:    "+233200000002",
+		AgencyID: models.DefaultAgencyID,
+		Role:     models.RoleDispatcher,
+	}, "Password123!", storeTestNow)
+	if err != nil {
+		t.Fatalf("create agency user: %v", err)
+	}
+
+	users := m.ListAgencyUsers(storeTestNow)
+	if len(users) != 1 {
+		t.Fatalf("expected one directory entry, got %#v", users)
+	}
+	entry := users[0]
+	if entry.ID != profile.ID || entry.Email != "dispatcher@nadaa.local" || entry.Role != models.RoleDispatcher || entry.AgencyID != models.DefaultAgencyID {
+		t.Fatalf("unexpected directory entry: %#v", entry)
+	}
+	if entry.MFAEnabled || entry.LockedUntil != nil {
+		t.Fatalf("expected mfaEnabled=false and no lockout, got %#v", entry)
+	}
+
+	// Drive the login lockout and confirm the directory reports its deadline.
+	for range maxFailedAttempts {
+		_, _ = m.LoginAgencyUser("dispatcher@nadaa.local", "wrong-password", "", storeTestNow)
+	}
+	users = m.ListAgencyUsers(storeTestNow)
+	if users[0].LockedUntil == nil || !users[0].LockedUntil.After(storeTestNow) {
+		t.Fatalf("expected active lockout deadline, got %#v", users[0])
 	}
 }

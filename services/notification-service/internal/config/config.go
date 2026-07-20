@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -12,10 +13,15 @@ type Config struct {
 	Addr              string
 	AllowedOrigins    map[string]bool
 	CellBroadcastMode string
+	Env               string
 	TokenSecret       string
 	AllowMockActors   bool
-	WebhookSecrets    WebhookSecretConfig
-	Providers         ProviderConfig
+	// AllowFixtureAlerts re-enables serving seeded fixture alerts outside
+	// NADAA_ENV=development. Fixture alerts never went through the alert
+	// approval workflow, so production must leave this off.
+	AllowFixtureAlerts bool
+	WebhookSecrets     WebhookSecretConfig
+	Providers          ProviderConfig
 }
 
 // WebhookSecretConfig carries the per-channel shared secrets inbound provider
@@ -56,11 +62,13 @@ type ProviderConfig struct {
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
-		Addr:              resolveListenAddr("NADAA_NOTIFICATION_ADDR", ":8090"),
-		AllowedOrigins:    utils.AllowedOriginsFromEnv(),
-		CellBroadcastMode: utils.EnvOrDefault("NADAA_CELL_BROADCAST_MODE", "disabled"),
-		TokenSecret:       strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
-		AllowMockActors:   strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")) == "true",
+		Addr:               resolveListenAddr("NADAA_NOTIFICATION_ADDR", ":8090"),
+		AllowedOrigins:     utils.AllowedOriginsFromEnv(),
+		CellBroadcastMode:  utils.EnvOrDefault("NADAA_CELL_BROADCAST_MODE", "disabled"),
+		Env:                strings.TrimSpace(os.Getenv("NADAA_ENV")),
+		TokenSecret:        strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
+		AllowMockActors:    strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")) == "true",
+		AllowFixtureAlerts: utils.EnvBool("NADAA_NOTIFICATION_ALLOW_FIXTURE_ALERTS", false),
 		WebhookSecrets: WebhookSecretConfig{
 			SMS:      strings.TrimSpace(os.Getenv("NADAA_SMS_WEBHOOK_SECRET")),
 			USSD:     strings.TrimSpace(os.Getenv("NADAA_USSD_WEBHOOK_SECRET")),
@@ -80,6 +88,25 @@ func Load() *Config {
 			ExpoBaseURL:     utils.EnvOrDefault("NADAA_EXPO_BASE_URL", ""),
 		},
 	}
+}
+
+// FixtureAlertsEnabled reports whether seeded fixture alerts may be merged into
+// the citizen feed and delivery path. Fixtures are demo/smoke data that never
+// went through the alert approval workflow, so they are limited to
+// NADAA_ENV=development unless explicitly re-enabled with
+// NADAA_NOTIFICATION_ALLOW_FIXTURE_ALERTS=true.
+func (c *Config) FixtureAlertsEnabled() bool {
+	return c.AllowFixtureAlerts || utils.NormalizeQueryValue(c.Env) == "development"
+}
+
+// Validate fails closed on unsafe configuration. Mock actor headers trust
+// self-asserted X-NADAA-Actor-* identity, so they are only allowed when
+// NADAA_ENV=development (local development and smoke tests).
+func (c *Config) Validate() error {
+	if c.AllowMockActors && utils.NormalizeQueryValue(c.Env) != "development" {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
 }
 
 // resolveListenAddr honors a platform-provided PORT (e.g. Render sets a bare

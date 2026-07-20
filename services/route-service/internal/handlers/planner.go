@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/stanleyHayes/nadaa/services/route-service/internal/models"
@@ -23,6 +24,14 @@ const (
 	// maxRiskSamples caps how many points along a route are probed for risk so
 	// a long route cannot fan out into unbounded upstream calls.
 	maxRiskSamples = 12
+	// maxPlanBodyBytes caps the unauthenticated plan request body at 1 MiB.
+	maxPlanBodyBytes = 1 << 20
+	// maxDetourPasses caps how many times the polyline is re-sampled and
+	// re-routed so pathological hazard layouts cannot loop forever.
+	maxDetourPasses = 6
+	// maxDetourOffsetMeters bounds how far a detour waypoint may push away
+	// from a blocked sample while searching for a clearing side.
+	maxDetourOffsetMeters = 8 * utils.DefaultDetourOffsetMeters
 )
 
 var allowedWaypointTypes = map[string]bool{
@@ -40,6 +49,7 @@ func (s *Server) optionsHandler(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) planRouteHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.RoutePlanRequest
+	r.Body = http.MaxBytesReader(w, r.Body, maxPlanBodyBytes)
 	if err := utils.DecodeJSON(r, &request); err != nil {
 		log.Printf("WARN route-service plan_route invalid_json error=%v", err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
@@ -81,16 +91,34 @@ func (s *Server) planRouteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	closures := s.fetchClosures(ctx, request.Origin, *destination, request.ClosureBufferMeters, authHeader)
-	riskAreas := s.fetchRiskZones(ctx, request.Origin, *destination, request.AvoidRiskLevels, authHeader)
+	closures, closuresOK := s.fetchClosures(ctx, request.Origin, *destination, request.ClosureBufferMeters, authHeader)
+	riskAreas, riskOK := s.fetchRiskZones(ctx, request.Origin, *destination, request.AvoidRiskLevels, authHeader)
 
 	response := buildRoute(request, *destination, targetShelter, closures, riskAreas, s.now().UTC())
-	log.Printf("INFO route-service plan_route completed origin=%.5f,%.5f destination=%.5f,%.5f distance=%d duration=%d closures=%d risk=%d",
+	// A failed hazard lookup must not be indistinguishable from a verified
+	// hazard-free corridor: flag the response degraded and say what failed.
+	if !closuresOK || !riskOK {
+		response.Degraded = true
+		response.EnrichmentStatus = enrichmentStatus(closuresOK, riskOK)
+	}
+	log.Printf("INFO route-service plan_route completed origin=%.5f,%.5f destination=%.5f,%.5f distance=%d duration=%d closures=%d risk=%d degraded=%t",
 		request.Origin.Lat, request.Origin.Lng,
 		destination.Lat, destination.Lng,
 		response.DistanceMeters, response.EstimatedDurationMinutes,
-		len(response.AvoidedClosures), len(response.AvoidedRiskZones))
+		len(response.AvoidedClosures), len(response.AvoidedRiskZones), response.Degraded)
 	utils.WriteJSON(w, http.StatusOK, response)
+}
+
+// enrichmentStatus names the failed hazard lookups for degraded responses.
+func enrichmentStatus(closuresOK, riskOK bool) string {
+	switch {
+	case !closuresOK && !riskOK:
+		return "closure_lookup_failed,risk_lookup_failed"
+	case !closuresOK:
+		return "closure_lookup_failed"
+	default:
+		return "risk_lookup_failed"
+	}
 }
 
 func validateRequest(request models.RoutePlanRequest) (string, string) {
@@ -184,11 +212,11 @@ func shelterOpen(status string) bool {
 	}
 }
 
-func (s *Server) fetchClosures(ctx context.Context, origin, destination models.Coordinates, bufferMeters float64, authHeader string) []models.RoadClosure {
+func (s *Server) fetchClosures(ctx context.Context, origin, destination models.Coordinates, bufferMeters float64, authHeader string) ([]models.RoadClosure, bool) {
 	endpoint, err := url.JoinPath(s.config.RoadClosureServiceURL, "/api/v1/road-closures")
 	if err != nil {
 		log.Printf("WARN route-service invalid_closure_url error=%v", err)
-		return nil
+		return nil, false
 	}
 	query := url.Values{}
 	query.Set("status", "active")
@@ -200,16 +228,18 @@ func (s *Server) fetchClosures(ctx context.Context, origin, destination models.C
 	var response models.RoadClosureListResponse
 	if err := s.fetchJSON(ctx, endpoint, authHeader, &response); err != nil {
 		log.Printf("WARN route-service closure_lookup_failed error=%v", err)
-		return nil
+		return nil, false
 	}
-	return response.Closures
+	return response.Closures, true
 }
 
 // fetchRiskZones probes the risk-service at sample points along the route and
 // turns every sample whose overallRisk should be avoided into a circular zone
 // covering its stretch of the corridor. Risk-service has no areas endpoint, so
-// sampling is the only supported contract. Failures degrade to no zones.
-func (s *Server) fetchRiskZones(ctx context.Context, origin, destination models.Coordinates, avoidLevels []string, authHeader string) []models.RiskArea {
+// sampling is the only supported contract. Probes run concurrently so up to
+// maxRiskSamples slow upstream calls still fit the request budget; any failed
+// probe marks the lookup degraded.
+func (s *Server) fetchRiskZones(ctx context.Context, origin, destination models.Coordinates, avoidLevels []string, authHeader string) ([]models.RiskArea, bool) {
 	distance := utils.DistanceMeters(origin, destination)
 	sampleCount := int(math.Ceil(distance/utils.DefaultSampleStepMeters)) + 1
 	sampleCount = min(max(sampleCount, 2), maxRiskSamples)
@@ -217,25 +247,44 @@ func (s *Server) fetchRiskZones(ctx context.Context, origin, destination models.
 	// included, and always cover the nearest route sample point.
 	radius := distance / float64(sampleCount-1)
 
-	var zones []models.RiskArea
+	type sampleResult struct {
+		level string
+		err   error
+	}
+	results := make([]sampleResult, sampleCount)
+	var wg sync.WaitGroup
 	for i := range sampleCount {
-		sample := utils.Interpolate(origin, destination, float64(i)/float64(sampleCount-1))
-		level, err := s.fetchRiskLevel(ctx, sample, authHeader)
-		if err != nil {
-			log.Printf("WARN route-service risk_sample_failed error=%v", err)
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			sample := utils.Interpolate(origin, destination, float64(i)/float64(sampleCount-1))
+			level, err := s.fetchRiskLevel(ctx, sample, authHeader)
+			if err != nil {
+				log.Printf("WARN route-service risk_sample_failed error=%v", err)
+			}
+			results[i] = sampleResult{level: level, err: err}
+		}(i)
+	}
+	wg.Wait()
+
+	ok := true
+	var zones []models.RiskArea
+	for i, result := range results {
+		if result.err != nil {
+			ok = false
 			continue
 		}
-		if !utils.ShouldAvoidRisk(level, avoidLevels) {
+		if !utils.ShouldAvoidRisk(result.level, avoidLevels) {
 			continue
 		}
 		zones = append(zones, models.RiskArea{
 			ID:           fmt.Sprintf("risk_sample_%d", i),
-			RiskLevel:    level,
-			Center:       sample,
+			RiskLevel:    result.level,
+			Center:       utils.Interpolate(origin, destination, float64(i)/float64(sampleCount-1)),
 			RadiusMeters: radius,
 		})
 	}
-	return zones
+	return zones, ok
 }
 
 func (s *Server) fetchRiskLevel(ctx context.Context, location models.Coordinates, authHeader string) (string, error) {
@@ -284,49 +333,37 @@ func (s *Server) fetchJSON(ctx context.Context, endpoint, authHeader string, tar
 }
 
 func buildRoute(request models.RoutePlanRequest, destination models.Coordinates, targetShelter *models.Shelter, closures []models.RoadClosure, riskAreas []models.RiskArea, now time.Time) models.RoutePlanResponse {
-	route := []models.Coordinates{request.Origin}
+	route := []models.Coordinates{request.Origin, destination}
+	encounteredClosures := map[string]bool{}
+	encounteredRiskZones := map[string]bool{}
 
-	totalDistance := utils.DistanceMeters(request.Origin, destination)
-	sampleCount := 2
-	if totalDistance > utils.DefaultSampleStepMeters {
-		sampleCount = int(math.Ceil(totalDistance/utils.DefaultSampleStepMeters)) + 1
+	// Re-sample the actual polyline after every detour insertion: a detour can
+	// re-cross the same or another hazard, so only the final line decides
+	// which hazards were truly avoided.
+	for range maxDetourPasses {
+		insertions := detourInsertions(route, closures, riskAreas, request, encounteredClosures, encounteredRiskZones)
+		if len(insertions) == 0 {
+			break
+		}
+		route = applyDetours(route, insertions)
 	}
 
+	// Only hazards the final polyline fully clears may be reported as avoided.
+	stillClosures := map[string]bool{}
+	stillRiskZones := map[string]bool{}
+	detourInsertions(route, closures, riskAreas, request, stillClosures, stillRiskZones)
 	avoidedClosureIDs := map[string]bool{}
-	avoidedRiskIDs := map[string]bool{}
-
-	for i := 1; i < sampleCount; i++ {
-		t := float64(i) / float64(sampleCount-1)
-		if t >= 1 {
-			continue
-		}
-		sample := utils.Interpolate(request.Origin, destination, t)
-
-		blocked, byClosureID, byRiskID := sampleBlocked(sample, closures, riskAreas, request)
-		if !blocked {
-			continue
-		}
-
-		// Add a single detour for each contiguous blocked segment.
-		if i > 1 {
-			prev := utils.Interpolate(request.Origin, destination, float64(i-1)/float64(sampleCount-1))
-			if _, prevClosureID, prevRiskID := sampleBlocked(prev, closures, riskAreas, request); prevClosureID != "" || prevRiskID != "" {
-				// Still inside the same blocked region; do not add another detour.
-				continue
-			}
-		}
-
-		detour := perpendicularDetour(request.Origin, destination, sample, utils.DefaultDetourOffsetMeters)
-		route = append(route, detour)
-		if byClosureID != "" {
-			avoidedClosureIDs[byClosureID] = true
-		}
-		if byRiskID != "" {
-			avoidedRiskIDs[byRiskID] = true
+	for id := range encounteredClosures {
+		if !stillClosures[id] {
+			avoidedClosureIDs[id] = true
 		}
 	}
-
-	route = append(route, destination)
+	avoidedRiskIDs := map[string]bool{}
+	for id := range encounteredRiskZones {
+		if !stillRiskZones[id] {
+			avoidedRiskIDs[id] = true
+		}
+	}
 
 	distance := 0.0
 	segments := make([]models.RouteSegment, 0, len(route)-1)
@@ -360,13 +397,101 @@ func buildRoute(request models.RoutePlanRequest, destination models.Coordinates,
 	}
 }
 
-func sampleBlocked(sample models.Coordinates, closures []models.RoadClosure, riskAreas []models.RiskArea, request models.RoutePlanRequest) (bool, string, string) {
+// detourInsertions samples the polyline segment by segment and returns the
+// detour waypoints to insert, keyed by segment start index. Each contiguous
+// run of blocked samples on a segment yields one detour at the run's first
+// sample; blocking hazards are recorded in the encountered sets.
+func detourInsertions(route []models.Coordinates, closures []models.RoadClosure, riskAreas []models.RiskArea, request models.RoutePlanRequest, encounteredClosures, encounteredRiskZones map[string]bool) map[int][]models.Coordinates {
+	insertions := map[int][]models.Coordinates{}
+	origin, destination := route[0], route[len(route)-1]
+	// Sample finely and treat anything within the buffer plus a half-step
+	// margin as blocked, so a graze within the closure buffer or a zone
+	// radius cannot slip between two sample points undetected.
+	step := min(utils.DefaultSampleStepMeters, max(request.ClosureBufferMeters, 25))
+	margin := step / 2
+	for i := 0; i+1 < len(route); i++ {
+		a, b := route[i], route[i+1]
+		sampleCount := int(math.Ceil(utils.DistanceMeters(a, b)/step)) + 1
+		sampleCount = max(sampleCount, 2)
+
+		runStart := -1
+		var runClosureID, runRiskID string
+		flush := func() {
+			if runStart < 0 {
+				return
+			}
+			blocked := utils.Interpolate(a, b, float64(runStart)/float64(sampleCount-1))
+			insertions[i] = append(insertions[i], clearingDetour(a, b, blocked, closures, riskAreas, request, margin))
+			if runClosureID != "" {
+				encounteredClosures[runClosureID] = true
+			}
+			if runRiskID != "" {
+				encounteredRiskZones[runRiskID] = true
+			}
+			runStart, runClosureID, runRiskID = -1, "", ""
+		}
+
+		for j := range sampleCount {
+			sample := utils.Interpolate(a, b, float64(j)/float64(sampleCount-1))
+			// The journey's origin and destination are fixed: the traveler
+			// starts and ends there regardless of hazards, so those exact
+			// points are never detoured around.
+			if utils.DistanceMeters(sample, origin) < 1 || utils.DistanceMeters(sample, destination) < 1 {
+				continue
+			}
+			blocked, closureID, riskID := sampleBlocked(sample, closures, riskAreas, request, margin)
+			if !blocked {
+				flush()
+				continue
+			}
+			if runStart < 0 {
+				runStart, runClosureID, runRiskID = j, closureID, riskID
+			}
+		}
+		flush()
+	}
+	return insertions
+}
+
+// applyDetours returns a new polyline with each segment's detour waypoints
+// inserted between its start and end.
+func applyDetours(route []models.Coordinates, insertions map[int][]models.Coordinates) []models.Coordinates {
+	updated := make([]models.Coordinates, 0, len(route)+len(insertions))
+	for i, point := range route {
+		updated = append(updated, point)
+		if i+1 < len(route) {
+			updated = append(updated, insertions[i]...)
+		}
+	}
+	return updated
+}
+
+// clearingDetour searches both sides of the blocked sample at growing
+// perpendicular offsets for a waypoint that itself clears every hazard,
+// falling back to the default right-hand offset when nothing clears.
+func clearingDetour(a, b, blocked models.Coordinates, closures []models.RoadClosure, riskAreas []models.RiskArea, request models.RoutePlanRequest, margin float64) models.Coordinates {
+	bearing := utils.Bearing(a, b)
+	for offset := utils.DefaultDetourOffsetMeters; offset <= maxDetourOffsetMeters; offset += utils.DefaultDetourOffsetMeters {
+		for _, side := range []float64{90, -90} {
+			candidate := utils.DestinationPoint(blocked, offset, math.Mod(bearing+side+360, 360))
+			if ok, _, _ := sampleBlocked(candidate, closures, riskAreas, request, margin); !ok {
+				return candidate
+			}
+		}
+	}
+	return utils.DestinationPoint(blocked, utils.DefaultDetourOffsetMeters, math.Mod(bearing+90, 360))
+}
+
+// sampleBlocked reports whether sample lies within the closure buffer (plus
+// margin) of an active closure or inside an avoid-listed risk zone (plus
+// margin), returning the blocking hazard IDs.
+func sampleBlocked(sample models.Coordinates, closures []models.RoadClosure, riskAreas []models.RiskArea, request models.RoutePlanRequest, margin float64) (bool, string, string) {
 	for _, closure := range closures {
 		if utils.NormalizeString(closure.Status) != "active" {
 			continue
 		}
 		d := utils.MinDistanceToLineString(sample, closure.Geometry.Coordinates)
-		if d <= request.ClosureBufferMeters {
+		if d <= request.ClosureBufferMeters+margin {
 			return true, closure.ID, ""
 		}
 	}
@@ -381,18 +506,11 @@ func sampleBlocked(sample models.Coordinates, closures []models.RoadClosure, ris
 			continue
 		}
 		d := utils.DistanceMeters(sample, area.Center)
-		if area.RadiusMeters > 0 && d <= area.RadiusMeters {
+		if area.RadiusMeters > 0 && d <= area.RadiusMeters+margin {
 			return true, "", area.ID
 		}
 	}
 	return false, "", ""
-}
-
-func perpendicularDetour(origin, destination, sample models.Coordinates, offsetMeters float64) models.Coordinates {
-	bearing := utils.Bearing(origin, destination)
-	// Push to the right of the forward direction.
-	detourBearing := math.Mod(bearing+90, 360)
-	return utils.DestinationPoint(sample, offsetMeters, detourBearing)
 }
 
 func keys(set map[string]bool) []string {

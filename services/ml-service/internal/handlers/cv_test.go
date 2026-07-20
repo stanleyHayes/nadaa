@@ -15,7 +15,7 @@ func TestCVAnalyzeFloodImage(t *testing.T) {
 	payload := models.CVAnalysisRequest{ImageID: "img_flood_001", ImageName: "flooded-road.jpg"}
 	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -53,7 +53,7 @@ func TestCVAnalyzeFireImage(t *testing.T) {
 	payload := models.CVAnalysisRequest{ImageID: "img_fire_001", ImageName: "fire-building.jpg"}
 	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -72,7 +72,7 @@ func TestCVAnalyzeSensitiveImageRequiresReview(t *testing.T) {
 	payload := models.CVAnalysisRequest{ImageID: "img_injured_001", ImageName: "injured-person.jpg"}
 	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -94,7 +94,7 @@ func TestCVAnalyzeLowConfidenceRequiresReview(t *testing.T) {
 	payload := models.CVAnalysisRequest{ImageID: "img_random_001", ImageName: "random-test.jpg"}
 	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -113,7 +113,7 @@ func TestCVAnalyzeRequiresImageID(t *testing.T) {
 	payload := models.CVAnalysisRequest{ImageName: "no-id.jpg"}
 	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -127,7 +127,7 @@ func TestCVGetResult(t *testing.T) {
 	payload := models.CVAnalysisRequest{ImageID: "img_cached_001", ImageName: "flood-scene.jpg"}
 	body, _ := json.Marshal(payload)
 
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
+	createReq := authedRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
 	createRR := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(createRR, createReq)
 
@@ -135,7 +135,7 @@ func TestCVGetResult(t *testing.T) {
 		t.Fatalf("expected status 200 got %d", createRR.Code)
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/cv/results/img_cached_001", nil)
+	getReq := authedRequest(http.MethodGet, "/api/v1/cv/results/img_cached_001", nil)
 	getRR := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(getRR, getReq)
 
@@ -154,7 +154,7 @@ func TestCVGetResult(t *testing.T) {
 
 func TestCVGetResultNotFound(t *testing.T) {
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/cv/results/does-not-exist", nil)
+	req := authedRequest(http.MethodGet, "/api/v1/cv/results/does-not-exist", nil)
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -168,12 +168,12 @@ func TestCVListResults(t *testing.T) {
 	for _, imageID := range []string{"img_a", "img_b"} {
 		payload := models.CVAnalysisRequest{ImageID: imageID, ImageName: "flood.jpg"}
 		body, _ := json.Marshal(payload)
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
+		req := authedRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
 		rr := httptest.NewRecorder()
 		srv.Routes().ServeHTTP(rr, req)
 	}
 
-	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/cv/results", nil)
+	listReq := authedRequest(http.MethodGet, "/api/v1/cv/results", nil)
 	listRR := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(listRR, listReq)
 
@@ -195,7 +195,7 @@ func TestCVResultCaching(t *testing.T) {
 	payload := models.CVAnalysisRequest{ImageID: "img_cache_test", ImageName: "fire-scene.jpg"}
 	body, _ := json.Marshal(payload)
 
-	req1 := httptest.NewRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
+	req1 := authedRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
 	rr1 := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr1, req1)
 
@@ -204,7 +204,7 @@ func TestCVResultCaching(t *testing.T) {
 		t.Fatalf("decode first response: %v", err)
 	}
 
-	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
+	req2 := authedRequest(http.MethodPost, "/api/v1/cv/analyze", bytes.NewReader(body))
 	rr2 := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr2, req2)
 

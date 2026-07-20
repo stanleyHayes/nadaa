@@ -69,10 +69,29 @@ export const nativeTheme = {
 
 export type NativeTheme = typeof nativeTheme;
 
+/**
+ * Severity names used across the apps that are not badge-role keys, mapped
+ * onto the closest role. Covers the @nadaa/shared-types severity unions:
+ * RiskLevel/RoadClosureSeverity (moderate, emergency), IncidentUrgency
+ * (life_threatening), AlertSeverity (advisory, watch, warning,
+ * severe_warning), and IncidentTriageSeverity (moderate, emergency).
+ */
+const severityAliases: Record<string, keyof typeof severityRoles> = {
+  advisory: "info",
+  emergency: "severe",
+  life_threatening: "severe",
+  moderate: "medium",
+  normal: "low",
+  severe_warning: "severe",
+  watch: "medium",
+  warning: "high",
+};
+
 /** Accessible severity badge styles for React Native. */
 export function severityBadgeFor(severity: string) {
   const key = severity.toLowerCase() as keyof typeof severityRoles;
-  const role = severityRoles[key] ?? severityRoles.info;
+  const role =
+    severityRoles[key] ?? severityRoles[severityAliases[key] ?? "info"];
   return {
     background: role.background,
     color: role.foreground,

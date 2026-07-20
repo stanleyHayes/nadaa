@@ -86,17 +86,36 @@ if (!download.ok) {
     `open-data-service download smoke failed: ${download.status}`,
   );
 }
-const downloadPayload = await download.json();
+const contentDisposition = download.headers.get("content-disposition") ?? "";
 if (
-  typeof downloadPayload.download !== "object" ||
-  downloadPayload.download.datasetId !== approvedDataset.id ||
-  typeof downloadPayload.rateLimit.remaining !== "number" ||
-  downloadPayload.auditLogged !== true
+  !contentDisposition.includes("attachment") ||
+  !contentDisposition.includes(`${approvedDataset.id}.csv`)
 ) {
-  throw new Error("open-data-service download smoke returned invalid payload");
+  throw new Error(
+    "open-data-service download smoke returned no attachment disposition",
+  );
+}
+const csvBody = await download.text();
+const csvLines = csvBody.trim().split("\n");
+if (csvLines.length < 2 || csvLines[0].length === 0) {
+  throw new Error(
+    "open-data-service download smoke returned no real CSV bytes",
+  );
+}
+if (download.headers.get("x-nadaa-audit-logged") !== "true") {
+  throw new Error(
+    "open-data-service download smoke expected X-NADAA-Audit-Logged true",
+  );
+}
+if (
+  Number.isNaN(Number(download.headers.get("x-ratelimit-remaining") ?? ""))
+) {
+  throw new Error(
+    "open-data-service download smoke returned no rate limit headers",
+  );
 }
 console.log(
-  `open-data-service download OK ${downloadPayload.download.format} remaining=${downloadPayload.rateLimit.remaining}`,
+  `open-data-service download OK ${approvedDataset.id}.csv ${csvLines.length - 1} rows`,
 );
 
 const requestBody = {
@@ -174,3 +193,18 @@ if (reviewPayload.request.status !== "approved") {
   throw new Error("open-data-service review smoke returned invalid payload");
 }
 console.log(`open-data-service review OK ${reviewPayload.request.status}`);
+
+const reReview = await fetch(
+  `${baseURL}/open-data/requests/${requestPayload.request.id}/approve`,
+  {
+    method: "POST",
+    headers: adminHeaders,
+    body: JSON.stringify({ approved: false, note: "Attempted re-review." }),
+  },
+);
+if (reReview.status !== 409) {
+  throw new Error(
+    `open-data-service re-review smoke expected 409, got ${reReview.status}`,
+  );
+}
+console.log("open-data-service re-review conflict OK 409");

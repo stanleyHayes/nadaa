@@ -87,6 +87,49 @@ const requiredServiceColumns = [
   "abuse_score",
 ];
 
+// Columns added by 008 so incident-service can persist abuse-review and
+// status-lifecycle fields (IncidentRecord in services/incident-service).
+const requiredIncidentLifecycleColumns = [
+  "abuse_review_required",
+  "abuse_review_reason",
+  "abuse_review_decision",
+  "abuse_reviewed_by",
+  "abuse_reviewed_at",
+  "verified_at",
+  "status_updated_by",
+  "resolution_notes",
+  "closed_at",
+  "merged_into_id",
+  "merged_by",
+  "merged_at",
+  "merge_reason",
+];
+
+// TEXT ID conversions from 008 for service-owned string IDs (usr_*, inc_*,
+// road_closure_*, relief_*, aid_*) that can never cast to UUID. The child
+// columns are included because PostgreSQL refuses ALTER COLUMN ... TYPE TEXT
+// on a PK while a typed FK references it, so both sides must convert.
+const requiredTextIdStatements = [
+  "ALTER TABLE IF EXISTS incidents ALTER COLUMN id TYPE TEXT",
+  "ALTER TABLE IF EXISTS users ALTER COLUMN id TYPE TEXT",
+  "ALTER TABLE IF EXISTS road_closures ALTER COLUMN id TYPE TEXT",
+  "ALTER TABLE IF EXISTS relief_points ALTER COLUMN id TYPE TEXT",
+  "ALTER TABLE IF EXISTS aid_requests ALTER COLUMN id TYPE TEXT",
+  "ALTER TABLE IF EXISTS incident_media ALTER COLUMN incident_id TYPE TEXT",
+  "ALTER TABLE IF EXISTS incident_timeline_events ALTER COLUMN incident_id TYPE TEXT",
+  "ALTER TABLE IF EXISTS relief_point_stock_history ALTER COLUMN relief_point_id TYPE TEXT",
+  "ALTER TABLE IF EXISTS aid_pledges ALTER COLUMN aid_request_id TYPE TEXT",
+];
+
+// Seed agency IDs must match the incident-service triage fixtures
+// (triageSuggestedAgency in services/incident-service/internal/store).
+const requiredSeedAgencyIds = [
+  "00000000-0000-0000-0000-000000000201",
+  "00000000-0000-0000-0000-000000000202",
+  "00000000-0000-0000-0000-000000000203",
+  "00000000-0000-0000-0000-000000000204",
+];
+
 for (const enumName of requiredEnums) {
   if (!migration.includes(`CREATE TYPE ${enumName}`)) {
     throw new Error(`Missing enum: ${enumName}`);
@@ -106,6 +149,24 @@ for (const [enumName, value] of requiredEnumValues) {
 for (const column of requiredServiceColumns) {
   if (!migration.includes(column)) {
     throw new Error(`Missing service-alignment column: ${column}`);
+  }
+}
+
+for (const column of requiredIncidentLifecycleColumns) {
+  if (!migration.includes(column)) {
+    throw new Error(`Missing incident lifecycle column: ${column}`);
+  }
+}
+
+for (const statement of requiredTextIdStatements) {
+  if (!migration.includes(statement)) {
+    throw new Error(`Missing TEXT ID alignment: ${statement}`);
+  }
+}
+
+for (const id of requiredSeedAgencyIds) {
+  if (!seed.includes(`'${id}'`)) {
+    throw new Error(`Missing seed agency matching triage fixture: ${id}`);
   }
 }
 

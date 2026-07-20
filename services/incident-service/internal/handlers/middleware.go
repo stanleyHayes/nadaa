@@ -87,6 +87,16 @@ var (
 		"district_officer": true,
 		"dispatcher":       true,
 	}
+	// volunteerTaskWorkflowRoles gates authority actors on volunteer-task
+	// mutations; read-only roles (agency_viewer, internal_service) are excluded.
+	volunteerTaskWorkflowRoles = map[string]bool{
+		"system_admin":     true,
+		"agency_admin":     true,
+		"nadmo_officer":    true,
+		"district_officer": true,
+		"dispatcher":       true,
+		"responder":        true,
+	}
 )
 
 func (s *server) requireAuthority(w http.ResponseWriter, r *http.Request, allowedRoles map[string]bool) (models.AuthorityContext, bool) {
@@ -143,11 +153,11 @@ func (s *server) serviceTokenContext(r *http.Request) (models.AuthorityContext, 
 }
 
 // requireVolunteerActor authenticates volunteer task endpoints: either a
-// verified authority user, or the citizen whose token subject matches the
-// volunteer profile's registered user id.
-func (s *server) requireVolunteerActor(w http.ResponseWriter, r *http.Request, citizenUserID string) (models.AuthorityContext, bool) {
+// verified authority user whose role is in allowedAgencyRoles, or the citizen
+// whose token subject matches the volunteer profile's registered user id.
+func (s *server) requireVolunteerActor(w http.ResponseWriter, r *http.Request, citizenUserID string, allowedAgencyRoles map[string]bool) (models.AuthorityContext, bool) {
 	if s.allowMockActors && hasMockActorHeaders(r) {
-		return s.requireMockAuthority(w, r, incidentReadRoles)
+		return s.requireMockAuthority(w, r, allowedAgencyRoles)
 	}
 
 	token, ok := bearerToken(r)
@@ -165,6 +175,10 @@ func (s *server) requireVolunteerActor(w http.ResponseWriter, r *http.Request, c
 		ctx := authorityContextFromClaims(claims, r)
 		if ctx.ActorUserID == "" || ctx.ActorRole == "" {
 			utils.WriteError(w, http.StatusUnauthorized, "missing_authority_context", "token must carry an authority user id and role")
+			return models.AuthorityContext{}, false
+		}
+		if !allowedAgencyRoles[ctx.ActorRole] {
+			utils.WriteError(w, http.StatusForbidden, "forbidden", "actor role is not allowed for volunteer task workflow actions")
 			return models.AuthorityContext{}, false
 		}
 		return ctx, true

@@ -7,6 +7,16 @@ import (
 	"github.com/stanleyHayes/nadaa/services/ml-service/internal/utils"
 )
 
-func (s *server) listPredictionLogsHandler(w http.ResponseWriter, _ *http.Request) {
-	utils.WriteJSON(w, http.StatusOK, models.PredictionLogListResponse{Logs: s.store.ListLogs()})
+func (s *server) listPredictionLogsHandler(w http.ResponseWriter, r *http.Request) {
+	limit, offset, ok := parsePagination(w, r)
+	if !ok {
+		return
+	}
+	logs, total := s.store.ListLogs(limit, offset)
+	utils.WriteJSON(w, http.StatusOK, models.PredictionLogListResponse{
+		Logs:   logs,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	})
 }

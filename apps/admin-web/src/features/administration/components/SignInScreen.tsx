@@ -23,16 +23,14 @@ import {
   Smartphone,
 } from "lucide-react";
 import { OtpInput } from "./OtpInput";
-import type {
-  AgencyMFASetupResponse,
-  LoginAgencyResponse,
-} from "@nadaa/shared-types";
+import type { LoginAgencyResponse } from "@nadaa/shared-types";
 import {
   AuthApiError,
   AuthUnavailableError,
   loginAgency,
   setupAgencyMfa,
   verifyAgencyMfa,
+  type AgencyMfaSetupChallenge,
 } from "@/app/auth";
 import { signInAdmin, type AdminSession } from "@/app/session";
 
@@ -105,7 +103,7 @@ export function SignInScreen() {
   const [busy, setBusy] = useState(false);
   const [setupUserId, setSetupUserId] = useState("");
   const [setupChallenge, setSetupChallenge] =
-    useState<AgencyMFASetupResponse | null>(null);
+    useState<AgencyMfaSetupChallenge | null>(null);
 
   /** Open the console with the identity and token from the login response. */
   const establishSession = (payload: LoginAgencyResponse) => {
@@ -511,10 +509,23 @@ export function SignInScreen() {
               {setupChallenge ? (
                 <>
                   <Alert severity="info">
-                    Add this setup key to your authenticator app, then enter the
-                    6-digit code it shows:{" "}
+                    Add this setup key to your authenticator app, then enter
+                    the current 6-digit code it shows:{" "}
                     <strong>{setupChallenge.secret}</strong>
                   </Alert>
+                  {setupChallenge.otpauthUrl ? (
+                    <TextField
+                      label="Authenticator setup link"
+                      value={setupChallenge.otpauthUrl}
+                      size="small"
+                      fullWidth
+                      multiline
+                      helperText="If your authenticator imports otpauth:// links, paste this instead of typing the key."
+                      slotProps={{
+                        input: { readOnly: true }
+                      }}
+                    />
+                  ) : null}
                   {setupChallenge.devCode ? (
                     <Alert severity="warning">
                       Development build — setup code:{" "}
@@ -527,7 +538,7 @@ export function SignInScreen() {
                       variant="subtitle2"
                       sx={{ display: "block", mb: 1, fontWeight: 700 }}
                     >
-                      Setup code
+                      Authenticator code
                     </Typography>
                     <OtpInput
                       autoFocus
@@ -537,6 +548,7 @@ export function SignInScreen() {
                     />
                   </Box>
                   <p id="cc-auth-setup-hint" className="cc-auth__hint">
+                    Codes rotate every 30 seconds in your authenticator app.
                     The setup challenge expires 10 minutes after it was issued.
                   </p>
                 </>

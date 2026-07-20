@@ -157,11 +157,36 @@ func TestInternalAccessMockActors(t *testing.T) {
 	}
 }
 
-func TestInternalAccessOpenWhenServiceTokenUnset(t *testing.T) {
-	// The development default (no NADAA_INTERNAL_SERVICE_TOKEN) keeps the
-	// service-token path open, as exercised by the remaining handler tests.
-	srv := newTestServer(t)
-	if rr := getForecasts(t, srv, nil); rr.Code != http.StatusOK {
-		t.Fatalf("expected status 200 in development default got %d", rr.Code)
+func TestInternalAccessRejectsCitizenBearerToken(t *testing.T) {
+	srv := newSecuredTestServer(t)
+	claims := utils.TokenClaims{
+		UserID:    "citizen_001",
+		UserType:  "citizen",
+		Role:      "citizen",
+		ExpiresAt: testNow.Add(time.Hour).Unix(),
+	}
+	token := signTestToken(t, testTokenSecret, claims)
+
+	rr := getForecasts(t, srv, map[string]string{"Authorization": "Bearer " + token})
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403 with a verified citizen token got %d", rr.Code)
+	}
+}
+
+func TestInternalAccessClosedWhenServiceTokenUnset(t *testing.T) {
+	// With no NADAA_INTERNAL_SERVICE_TOKEN configured the service-token path
+	// fails closed: the header is ignored and credentials are still required.
+	cfg := &config.Config{Addr: ":8094", TokenSecret: testTokenSecret}
+	s, err := store.NewMemoryStore("../../../../data/flood-risk/models")
+	if err != nil {
+		t.Fatalf("new memory store: %v", err)
+	}
+	srv := NewServer(s, func() time.Time { return testNow }, cfg)
+
+	if rr := getForecasts(t, srv, nil); rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401 without credentials when the service token is unset got %d", rr.Code)
+	}
+	if rr := getForecasts(t, srv, map[string]string{serviceTokenHeader: "any-token"}); rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401: the service-token header must be ignored when unset got %d", rr.Code)
 	}
 }

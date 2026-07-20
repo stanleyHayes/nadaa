@@ -17,6 +17,12 @@ func (s *Server) authorityContext(r *http.Request) (models.AuthorityContext, boo
 		if err != nil {
 			return models.AuthorityContext{}, false
 		}
+		// A verified citizen token (self-service OTP, same signing secret) is
+		// not an authority identity: it must not unlock the internal alert
+		// list or workflow actions.
+		if claims.UserType != "agency" {
+			return models.AuthorityContext{}, false
+		}
 		return models.AuthorityContext{
 			ActorUserID:   claims.UserID,
 			ActorAgencyID: claims.AgencyID,

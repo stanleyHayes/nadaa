@@ -10,10 +10,11 @@ import { useSyncExternalStore } from "react";
  *
  * Signed-in citizens also get a small account area (dashboard, report history,
  * notifications, profile, security, preferences). The editable profile — and the
- * multi-factor toggle — live on the session itself; preferences and the mock
- * notifications feed are persisted under their own versioned keys. Everything
- * here is local-only — there is no backend auth yet, so `changePassword` and
- * `setMfaEnabled` are mocks that only flip local state.
+ * multi-factor toggle — live on the session itself; preferences and the
+ * notifications feed are persisted under their own versioned keys. The feed
+ * starts empty and only grows from real events — nothing is fabricated.
+ * Everything here is local-only — there is no backend auth yet, so
+ * `changePassword` and `setMfaEnabled` are mocks that only flip local state.
  */
 
 /** How the citizen prefers to be reached about their reports. */
@@ -206,47 +207,6 @@ function defaultPreferences(session: CitizenSession | null): CitizenPreferences 
   };
 }
 
-/** Seed a short, believable notifications feed the first time the app loads. */
-function seedNotifications(): CitizenNotification[] {
-  const now = Date.now();
-  const hoursAgo = (hours: number) =>
-    new Date(now - hours * 60 * 60 * 1000).toISOString();
-  return [
-    {
-      id: "ntf_flood_watch",
-      category: "alert",
-      title: "Flood watch issued for Greater Accra",
-      body: "NADMO has issued a flood watch for low-lying areas near the Odaw river. Keep drains clear and be ready to move to higher ground.",
-      at: hoursAgo(3),
-      read: false,
-    },
-    {
-      id: "ntf_report_verified",
-      category: "report",
-      title: "Your report is being reviewed",
-      body: "Thank you. A NADMO officer has picked up your latest incident report and is verifying it before any public alert.",
-      at: hoursAgo(20),
-      read: false,
-    },
-    {
-      id: "ntf_shelter_open",
-      category: "shelter",
-      title: "New shelter open near you",
-      body: "Kaneshie Community Centre is now open and accepting families. Capacity and directions are on the Shelters page.",
-      at: hoursAgo(52),
-      read: true,
-    },
-    {
-      id: "ntf_welcome",
-      category: "system",
-      title: "Welcome to your NADAA account",
-      body: "Your dashboard keeps your reports, alerts and preferences in one place. Update how we reach you under Settings.",
-      at: hoursAgo(96),
-      read: true,
-    },
-  ];
-}
-
 type StoreState = {
   session: CitizenSession | null;
   savedReports: SavedReport[];
@@ -259,12 +219,9 @@ type StoreState = {
 };
 
 const initialSession = readJSON(SESSION_KEY, isSession);
-const persistedNotifications = readJSON(NOTIFICATIONS_KEY, isNotifications);
-const initialNotifications = persistedNotifications ?? seedNotifications();
-if (!persistedNotifications) {
-  // Persist the seed so read/unread state survives reloads.
-  writeJSON(NOTIFICATIONS_KEY, initialNotifications);
-}
+// The notifications feed starts empty — only real events append to it, so a
+// first-run user never sees fabricated alerts about their account or area.
+const initialNotifications = readJSON(NOTIFICATIONS_KEY, isNotifications) ?? [];
 
 let state: StoreState = {
   session: initialSession,

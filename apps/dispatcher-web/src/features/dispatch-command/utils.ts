@@ -199,35 +199,63 @@ export function enrichIncidentFromAPI(
   };
 }
 
+/** Districts the console can label confidently, keyed by catalog district id. */
+const catalogDistrictLocalities: Record<string, string> = {
+  "ablekuma-west": "Ablekuma",
+  "accra-metropolitan": "Accra Central",
+  "tema-metropolitan": "Tema",
+};
+
+export const DISTRICT_UNAVAILABLE_LABEL = "District unavailable";
+
+/**
+ * Label an incident location from the cataloged district whose coverage
+ * contains it (nearest center wins when coverages overlap). Coordinates
+ * outside every catalog district are genuinely unknown: they must surface as
+ * "District unavailable" and never be presented as a Greater Accra district.
+ */
 export function districtFromCoordinates(location: {
   lat: number;
   lng: number;
 }) {
-  if (location.lng > -0.08) {
+  let nearest: AlertTargetCatalogItem | null = null;
+  let nearestMeters = Number.POSITIVE_INFINITY;
+  for (const item of Object.values(alertTargetCatalog)) {
+    if (item.type !== "district") {
+      continue;
+    }
+    const [pointX, pointY] = lonLatToMeters(
+      location.lng,
+      location.lat,
+      item.center.lat,
+    );
+    const [centerX, centerY] = lonLatToMeters(
+      item.center.lng,
+      item.center.lat,
+      item.center.lat,
+    );
+    const meters = Math.hypot(pointX - centerX, pointY - centerY);
+    if (meters <= item.radiusMeters && meters < nearestMeters) {
+      nearest = item;
+      nearestMeters = meters;
+    }
+  }
+  if (!nearest) {
     return {
-      region: "Greater Accra",
-      district: "Tema Metropolitan",
-      locality: "Tema",
+      region: "—",
+      district: DISTRICT_UNAVAILABLE_LABEL,
+      locality: "—",
     };
   }
-  if (location.lng < -0.25) {
-    return {
-      region: "Greater Accra",
-      district: "Ablekuma West",
-      locality: "Ablekuma",
-    };
-  }
-  if (location.lat < 5.56) {
-    return {
-      region: "Greater Accra",
-      district: "Accra Metropolitan",
-      locality: "Korle Gonno",
-    };
-  }
+  // Every cataloged district is in Greater Accra today; finer locality detail
+  // only exists inside Accra Metropolitan.
   return {
     region: "Greater Accra",
-    district: "Accra Metropolitan",
-    locality: "Accra Central",
+    district: nearest.label,
+    locality:
+      nearest.id === "accra-metropolitan" && location.lat < 5.56
+        ? "Korle Gonno"
+        : (catalogDistrictLocalities[nearest.id] ?? nearest.label),
   };
 }
 
@@ -249,16 +277,9 @@ export function assignmentForIncident(incident: IncidentRecord) {
       ? "Ready for assignment"
       : "Unassigned";
   }
-  if (incident.type === "fire") {
-    return "Ghana National Fire Service";
-  }
-  if (incident.type === "road_crash" || incident.type === "medical_emergency") {
-    return "Ambulance + Police";
-  }
-  if (incident.type === "blocked_drain") {
-    return "District Assembly";
-  }
-  return "NADMO District Desk";
+  // No active assignment on record. Hazard-based agency guesses used to sit
+  // here and were displayed as live incident facts — show unavailable instead.
+  return "—";
 }
 
 export function timelineEntriesForIncident(incident: IncidentRecord) {
@@ -293,14 +314,11 @@ export function formatTimelineEvent(event: IncidentTimelineEvent) {
   return `${formatShortTime(event.createdAt)} ${event.message}${actor}`;
 }
 
-export function etaForIncident(incident: IncidentRecord) {
-  if (incident.severity === "emergency" || incident.severity === "severe") {
-    return "5 min";
-  }
-  if (incident.priorityReview) {
-    return "12 min";
-  }
-  return "30 min";
+export function etaForIncident(_incident: IncidentRecord) {
+  // The incident API exposes no responder ETA field, and deriving one from
+  // severity fabricates a live incident fact. Unavailable until real
+  // assignment ETA data exists.
+  return "—";
 }
 
 export function alertReadiness(incident: CommandIncident) {
@@ -868,6 +886,12 @@ export function buildDefaultAlertForm(
   const hazard = incident ? hazardLabel(incident.type).toLowerCase() : "flood";
   const district = incident?.district ?? "Accra Metropolitan";
   const districtId = districtSlug(district);
+  // Pre-select the target only when the district is in the alert catalog; an
+  // unmapped district leaves the target unselected — a fabricated slug must
+  // never become the draft target.
+  const districtCataloged = Boolean(
+    alertTargetCatalog[`district:${districtId}`],
+  );
   const severity = riskToAlertSeverity(incident?.severity ?? "high");
   const center = incident?.location ?? { lat: 5.56, lng: -0.2 };
 
@@ -878,8 +902,8 @@ export function buildDefaultAlertForm(
       ? `${incident.description} Avoid the affected area and follow official NADMO instructions.`
       : "Avoid low-lying roads and follow official NADMO instructions.",
     targetType: "district",
-    targetIds: districtId,
-    targetLabel: district,
+    targetIds: districtCataloged ? districtId : "",
+    targetLabel: districtCataloged ? district : "",
     targetLatitude: `${center.lat}`,
     targetLongitude: `${center.lng}`,
     targetRadiusMeters: "5000",

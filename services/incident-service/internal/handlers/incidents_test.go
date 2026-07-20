@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func TestCreateAnonymousIncidentHidesReporter(t *testing.T) {
 func TestCreateIncidentRejectsInvalidLocation(t *testing.T) {
 	srv := newTestServer()
 	body := validIncidentRequest()
-	body.Location = models.Coordinates{Lat: 100, Lng: -0.212}
+	body.Location = &models.Coordinates{Lat: 100, Lng: -0.212}
 
 	response := httptest.NewRecorder()
 	srv.createIncidentHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
@@ -309,7 +310,7 @@ func TestDuplicateCandidatesIncludeNearbyReport(t *testing.T) {
 
 	body := validIncidentRequest()
 	body.Description = "Flood water is rising near the same trapped vehicles"
-	body.Location = models.Coordinates{Lat: 5.581, Lng: -0.211}
+	body.Location = &models.Coordinates{Lat: 5.581, Lng: -0.211}
 	body.Reporter = &models.ReporterRef{UserID: "usr_003", Phone: "+233200000003"}
 	second := createIncidentForTest(t, srv, body)
 
@@ -1369,5 +1370,172 @@ func TestRoutesResolveIncidentByIDAndAudit(t *testing.T) {
 	handler.ServeHTTP(auditResponse, auditRequest)
 	if auditResponse.Code != http.StatusOK {
 		t.Fatalf("expected audit route status %d, got %d: %s", http.StatusOK, auditResponse.Code, auditResponse.Body.String())
+	}
+}
+
+func TestCreateIncidentRejectsZeroCoordinates(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.Location = &models.Coordinates{Lat: 0, Lng: 0}
+
+	response := httptest.NewRecorder()
+	srv.createIncidentHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_location" {
+		t.Fatalf("expected invalid_location error code, got %q", payload.Error.Code)
+	}
+}
+
+func TestCreateIncidentWithoutLocationRoundTripsNull(t *testing.T) {
+	srv := newTestServer()
+
+	// A located same-hazard report exists; locationless reports must not be
+	// distance-scored against it.
+	located := createIncidentForTest(t, srv, validIncidentRequest())
+
+	body := validIncidentRequest()
+	body.Location = nil
+	body.Description = "USSD report: drain overflow flooding the Circle underpass."
+	body.Reporter = &models.ReporterRef{UserID: "usr_ussd_001", Phone: "+233200000009"}
+	locationless := createIncidentForTest(t, srv, body)
+
+	if len(locationless.DuplicateCandidates) != 0 {
+		t.Fatalf("expected locationless report to skip duplicate scoring, got %#v", locationless.DuplicateCandidates)
+	}
+
+	stored, found := srv.store.GetIncident(locationless.ID)
+	if !found {
+		t.Fatalf("expected stored incident %s", locationless.ID)
+	}
+	if stored.Location != nil {
+		t.Fatalf("expected stored location to be nil, got %#v", stored.Location)
+	}
+
+	// Locationless pairs must not be scored against each other either.
+	second := validIncidentRequest()
+	second.Location = nil
+	second.Description = "Another USSD report about the flooded underpass."
+	second.Reporter = &models.ReporterRef{UserID: "usr_ussd_002", Phone: "+233200000010"}
+	secondLocationless := createIncidentForTest(t, srv, second)
+	if len(secondLocationless.DuplicateCandidates) != 0 {
+		t.Fatalf("expected locationless pair to skip duplicate scoring, got %#v", secondLocationless.DuplicateCandidates)
+	}
+
+	// The located incident must not gain reverse candidates from locationless reports.
+	locatedStored, found := srv.store.GetIncident(located.ID)
+	if !found || len(locatedStored.DuplicateCandidates) != 0 {
+		t.Fatalf("expected located incident to keep zero candidates, got %#v", locatedStored.DuplicateCandidates)
+	}
+
+	// The authority read round-trips the missing location as JSON null.
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodGet, "/api/v1/incidents/"+locationless.ID, nil)
+	request.SetPathValue("id", locationless.ID)
+	srv.getIncidentHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"location":null`) {
+		t.Fatalf("expected location to round-trip as null, got %s", response.Body.String())
+	}
+}
+
+func TestUpdateIncidentStatusRejectsFalseReportForNonAbuseRoles(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	falseReportBody := models.IncidentStatusRequest{
+		Status:          "false_report",
+		Note:            "Responder attempting to hide a report.",
+		ResolutionNotes: "Responder claims nothing is happening at the scene.",
+	}
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPatch, "/api/v1/incidents/"+incident.ID+"/status", jsonBody(falseReportBody))
+	request.Header.Set("X-NADAA-Actor-Role", "responder")
+	request.SetPathValue("id", incident.ID)
+	srv.updateIncidentStatusHandler(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected responder false_report status %d, got %d: %s", http.StatusForbidden, response.Code, response.Body.String())
+	}
+
+	incidents := srv.store.ListIncidents("")
+	if incidents[0].Status != "reported" {
+		t.Fatalf("expected incident to remain reported, got %#v", incidents[0])
+	}
+
+	// Abuse-review roles keep the ability to mark false reports via status.
+	allowed := httptest.NewRecorder()
+	allowedRequest := authorityRequest(http.MethodPatch, "/api/v1/incidents/"+incident.ID+"/status", jsonBody(falseReportBody))
+	allowedRequest.Header.Set("X-NADAA-Actor-Role", "dispatcher")
+	allowedRequest.SetPathValue("id", incident.ID)
+	srv.updateIncidentStatusHandler(allowed, allowedRequest)
+	if allowed.Code != http.StatusOK {
+		t.Fatalf("expected dispatcher false_report status %d, got %d: %s", http.StatusOK, allowed.Code, allowed.Body.String())
+	}
+}
+
+func TestUpdateIncidentStatusAllowsResponderToClose(t *testing.T) {
+	srv := newTestServer()
+	incident := createIncidentForTest(t, srv, validIncidentRequest())
+
+	// closed is an operational terminal status, not owned by the abuse flow;
+	// responders keep the ability to close after response.
+	for _, next := range []string{"under_review", "verified", "assigned", "response_en_route", "on_scene", "contained", "recovery_ongoing"} {
+		updated := updateIncidentStatusForTest(t, srv, incident.ID, "", models.IncidentStatusRequest{Status: next, Note: "Operational step."})
+		if updated.Status != next {
+			t.Fatalf("expected status %s, got %#v", next, updated)
+		}
+	}
+
+	closed := updateIncidentStatusForTest(t, srv, incident.ID, "responder", models.IncidentStatusRequest{
+		Status:          "closed",
+		Note:            "Response complete.",
+		ResolutionNotes: "Waters receded and the road reopened.",
+	})
+	if closed.Status != "closed" || closed.ClosedAt == nil {
+		t.Fatalf("expected responder to close incident, got %#v", closed)
+	}
+}
+
+func updateIncidentStatusForTest(t *testing.T, srv *server, incidentID string, role string, body models.IncidentStatusRequest) models.IncidentRecord {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPatch, "/api/v1/incidents/"+incidentID+"/status", jsonBody(body))
+	if role != "" {
+		request.Header.Set("X-NADAA-Actor-Role", role)
+	}
+	request.SetPathValue("id", incidentID)
+	srv.updateIncidentStatusHandler(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status update %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+
+	var payload models.IncidentRecord
+	decodeResponse(t, response, &payload)
+	return payload
+}
+
+func TestCreateIncidentRejectsOversizedBody(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.Description = strings.Repeat("flood", 300000) // ~1.5 MB, over the 1 MiB cap
+
+	response := httptest.NewRecorder()
+	srv.createIncidentHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+	var payload models.APIError
+	decodeResponse(t, response, &payload)
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json error code, got %q", payload.Error.Code)
 	}
 }

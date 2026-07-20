@@ -24,18 +24,30 @@ import {
   RISK_API_BASE,
   SHELTER_API_BASE,
 } from "../../app/config";
-import {
-  buildFallbackGuides,
-  GUEST_PLACEHOLDER_PHONE,
-  sampleRisk,
-} from "./data";
+import { buildFallbackGuides, GUEST_PLACEHOLDER_PHONE } from "./data";
 import type {
   CitizenLoginResult,
   CitizenOtpChallenge,
   MobileSession,
   PushRegistrationState,
   ReportDraft,
+  VolunteerRegistrationDraft,
 } from "./types";
+
+/** API failure that keeps the HTTP status so callers can react to 401s. */
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+export function isAuthError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
 
 export async function registerCitizen(request: {
   contactPermission: boolean;
@@ -116,7 +128,19 @@ export async function fetchAlertFeed(): Promise<CitizenAlertFeedItem[]> {
   return payload.alerts.filter((alert) => alert.source !== "fixture");
 }
 
-export async function fetchGuides(language: string) {
+export type GuideFetchResult = {
+  guides: EmergencyGuideRecord[];
+  /** False when the guide service was unreachable or empty — guides are the
+   * bundled offline cache, not fresh content, and the UI must say so. */
+  live: boolean;
+};
+
+/**
+ * Guides degrade to the bundled offline cache instead of throwing: they are
+ * safety content that must always render. `live` tells the caller whether the
+ * fetch actually succeeded so it never reports a false "refreshed".
+ */
+export async function fetchGuides(language: string): Promise<GuideFetchResult> {
   try {
     const params = new URLSearchParams({ language, offline: "true" });
     const response = await fetch(`${GUIDE_API_BASE}/guides?${params}`);
@@ -124,9 +148,11 @@ export async function fetchGuides(language: string) {
       throw new Error(await extractAPIError(response));
     }
     const payload = (await response.json()) as GuideListResponse;
-    return payload.guides.length > 0 ? payload.guides : buildFallbackGuides();
+    return payload.guides.length > 0
+      ? { guides: payload.guides, live: true }
+      : { guides: buildFallbackGuides(), live: false };
   } catch {
-    return buildFallbackGuides();
+    return { guides: buildFallbackGuides(), live: false };
   }
 }
 
@@ -238,27 +264,39 @@ export async function registerPushToken(
   };
 }
 
+/**
+ * Register the signed-in citizen as a community volunteer. The incident-service
+ * requires the citizen bearer token (it derives citizenUserId from the token
+ * claims) and is idempotent per citizenUserId — a repeat registration returns
+ * the existing profile. Community/district/region and skills come from the
+ * registration form, never from client-side constants.
+ */
 export async function registerVolunteerProfile(
   session: MobileSession,
+  registration: VolunteerRegistrationDraft,
 ): Promise<VolunteerProfileResponse> {
+  const skills = registration.skills
+    .split(",")
+    .map((skill) => skill.trim())
+    .filter((skill) => skill.length > 0);
   const payload: RegisterVolunteerRequest = {
     availabilityStatus: "available",
     citizenUserId: session.userId,
-    community: "Jamestown",
-    district: "Accra Metropolitan",
+    community: registration.community.trim(),
+    district: registration.district.trim(),
     languages: [session.preferredLanguage || "en"],
     name: session.name,
     phone: session.phone,
-    region: "Greater Accra",
-    skills: ["first aid", "community alerts"],
+    region: registration.region.trim(),
+    skills,
   };
   const response = await fetch(`${INCIDENT_API_BASE}/volunteers`, {
     body: JSON.stringify(payload),
-    headers: { "Content-Type": "application/json" },
+    headers: bearerHeaders(session.accessToken),
     method: "POST",
   });
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   return (await response.json()) as VolunteerProfileResponse;
 }
@@ -272,7 +310,7 @@ export async function fetchVolunteerTasks(
     { headers: bearerHeaders(accessToken) },
   );
   if (!response.ok) {
-    throw new Error(await extractAPIError(response));
+    throw new ApiError(response.status, await extractAPIError(response));
   }
   const payload = (await response.json()) as VolunteerTaskListResponse;
   return payload.tasks;
@@ -319,10 +357,6 @@ export async function submitVolunteerObservation(
     throw new Error(await extractAPIError(response));
   }
   return (await response.json()) as VolunteerTaskRecord;
-}
-
-export function fallbackRisk() {
-  return sampleRisk;
 }
 
 export function filterOfflineGuides(guides: EmergencyGuideRecord[]) {

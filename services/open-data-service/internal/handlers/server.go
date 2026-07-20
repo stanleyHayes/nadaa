@@ -109,7 +109,9 @@ func (s *Server) checkRateLimit(ip string) (models.RateLimitStatus, bool) {
 
 // sendAuditEvent forwards an already-persisted audit event to the audit log
 // service on a best-effort basis. Local persistence is the source of truth for
-// auditLogged; a forwarding failure is logged, never reported as success.
+// auditLogged; a forwarding failure is logged, never reported as success. The
+// forward authenticates with the shared internal service token
+// (X-NADAA-Service-Token); the caller's credentials are never forwarded.
 func (s *Server) sendAuditEvent(r *http.Request, event models.AuditEvent) {
 	if s.config.AuditLogServiceURL == "" {
 		return
@@ -117,8 +119,6 @@ func (s *Server) sendAuditEvent(r *http.Request, event models.AuditEvent) {
 	// Detach from the request's cancellation so the fire-and-forget attempt can
 	// outlive the handler, while still inheriting request-scoped values.
 	parent := context.WithoutCancel(r.Context())
-	// Forward the caller's credentials, never a fabricated actor header.
-	authorization := r.Header.Get("Authorization")
 	// Production should queue reliably rather than fire-and-forget.
 	go func(evt models.AuditEvent) {
 		body, err := json.Marshal(evt)
@@ -133,8 +133,8 @@ func (s *Server) sendAuditEvent(r *http.Request, event models.AuditEvent) {
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
-		if authorization != "" {
-			req.Header.Set("Authorization", authorization)
+		if s.config.InternalServiceToken != "" {
+			req.Header.Set("X-NADAA-Service-Token", s.config.InternalServiceToken)
 		}
 		resp, err := s.httpClient.Do(req)
 		if err != nil {

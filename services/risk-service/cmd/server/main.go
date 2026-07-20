@@ -19,6 +19,9 @@ const serviceName = "risk-service"
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
 	s := store.NewMemoryStore()
 	srv := handlers.NewServer(s, cfg)
 

@@ -1,6 +1,10 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/csv"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -68,6 +72,10 @@ func (s *Server) downloadDatasetHandler(w http.ResponseWriter, r *http.Request) 
 	if format == "" {
 		format = "csv"
 	}
+	if format != "csv" && format != "json" {
+		utils.WriteError(w, http.StatusBadRequest, "unsupported_format", "format must be csv or json")
+		return
+	}
 
 	dataset, ok := s.store.GetDataset(id)
 	if !ok {
@@ -89,8 +97,11 @@ func (s *Server) downloadDatasetHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	payload, contentType := serializeDatasetRows(dataset, format)
+
 	now := s.now().UTC()
-	download := s.store.RecordDownload(id, format, ip, now)
+	// The recorded artifact size is the exact byte size served below.
+	download := s.store.RecordDownload(id, format, ip, int64(len(payload)), now)
 
 	// Local persistence is the audit trail of record; forwarding to the audit
 	// log service is best-effort on top and never claimed here.
@@ -113,11 +124,71 @@ func (s *Server) downloadDatasetHandler(w http.ResponseWriter, r *http.Request) 
 	// #nosec G706 -- dataset id, format, and ip are sanitized with utils.SafeLog.
 	log.Printf("INFO open-data-service dataset_download dataset=%s format=%s download=%s ip=%s remaining=%d",
 		utils.SafeLog(id), utils.SafeLog(format), download.ID, utils.SafeLog(ip), status.Remaining)
-	utils.WriteJSON(w, http.StatusOK, models.DatasetDownloadResponse{
-		Download:    download,
-		RateLimit:   status,
-		AuditLogged: persisted.ID != "",
-	})
+
+	// The download record, rate limit state, and local-audit outcome travel in
+	// headers because the body carries the dataset bytes themselves.
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", id+"."+format))
+	w.Header().Set("X-RateLimit-Limit", strconv.Itoa(status.Limit))
+	w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(status.Remaining))
+	w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(status.ResetAt.Unix(), 10))
+	w.Header().Set("X-NADAA-Download-Id", download.ID)
+	w.Header().Set("X-NADAA-Audit-Logged", strconv.FormatBool(persisted.ID != ""))
+	w.WriteHeader(http.StatusOK)
+	// #nosec G705 -- dataset rows are served as a file attachment
+	// (Content-Disposition) with a non-HTML content type, never as markup.
+	if _, err := w.Write(payload); err != nil {
+		// #nosec G706 -- dataset id is sanitized with utils.SafeLog; the error is a client-connection failure, not request data.
+		log.Printf("ERROR open-data-service write_download_failed dataset=%s error=%v", utils.SafeLog(id), err)
+	}
+}
+
+// serializeDatasetRows renders the dataset's actual rows in the requested
+// format and returns the bytes served to the caller together with the
+// matching Content-Type.
+func serializeDatasetRows(dataset models.Dataset, format string) ([]byte, string) {
+	if format == "json" {
+		rows := dataset.SampleRows
+		if rows == nil {
+			rows = []map[string]any{}
+		}
+		payload, err := json.Marshal(rows)
+		if err != nil {
+			// map[string]any rows seeded from literals cannot fail to marshal;
+			// fall back to an empty array rather than fabricating content.
+			return []byte("[]"), "application/json"
+		}
+		return payload, "application/json"
+	}
+
+	var buf bytes.Buffer
+	writer := csv.NewWriter(&buf)
+	header := make([]string, 0, len(dataset.Columns))
+	for _, column := range dataset.Columns {
+		header = append(header, column.Name)
+	}
+	_ = writer.Write(header)
+	for _, row := range dataset.SampleRows {
+		record := make([]string, 0, len(dataset.Columns))
+		for _, column := range dataset.Columns {
+			record = append(record, csvCell(row[column.Name]))
+		}
+		_ = writer.Write(record)
+	}
+	writer.Flush()
+	return buf.Bytes(), "text/csv"
+}
+
+// csvCell renders a row value as a CSV cell string.
+func csvCell(value any) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return typed
+	default:
+		return fmt.Sprint(typed)
+	}
 }
 
 func (s *Server) createRequestHandler(w http.ResponseWriter, r *http.Request) {
@@ -194,6 +265,13 @@ func (s *Server) approveRequestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A decided request is final: re-review would silently overwrite the
+	// original decision and its audit trail.
+	if record.Status != models.OpenDataRequestPending {
+		utils.WriteError(w, http.StatusConflict, "request_already_reviewed", "request has already been reviewed and cannot be reviewed again")
+		return
+	}
+
 	var req models.ReviewOpenDataRequest
 	if err := utils.DecodeJSON(r, &req); err != nil {
 		log.Printf("WARN open-data-service approve_request invalid_json error=%v", err)
@@ -202,8 +280,10 @@ func (s *Server) approveRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := s.now().UTC()
+	decision := "rejected"
 	if req.Approved {
 		record.Status = models.OpenDataRequestApproved
+		decision = "approved"
 	} else {
 		record.Status = models.OpenDataRequestRejected
 	}
@@ -213,6 +293,25 @@ func (s *Server) approveRequestHandler(w http.ResponseWriter, r *http.Request) {
 	record.ReviewNote = req.Note
 
 	updated := s.store.UpdateRequest(record)
+
+	// Every review decision is audit-logged with the verified admin actor.
+	// Local persistence is the record of truth; forwarding is best-effort.
+	persisted := s.store.RecordAuditEvent(models.AuditEvent{
+		Action:     "access_request_review",
+		TargetType: "access_request",
+		TargetID:   updated.ID,
+		ActorRole:  actor.Role,
+		IPAddress:  s.clientIP(r),
+		UserAgent:  r.UserAgent(),
+		Metadata: map[string]string{
+			"datasetId": updated.DatasetID,
+			"decision":  decision,
+			"reviewer":  actor.ID,
+		},
+		CreatedAt: now,
+	})
+	s.sendAuditEvent(r, persisted)
+
 	log.Printf("INFO open-data-service access_request_reviewed request=%s approved=%t reviewer=%s", updated.ID, req.Approved, utils.SafeLog(actor.ID))
 	utils.WriteJSON(w, http.StatusOK, models.OpenDataRequestResponse{Request: updated})
 }

@@ -278,6 +278,33 @@ func TestCreateCampaignRejectsStaleWindow(t *testing.T) {
 	}
 }
 
+func TestCreateCampaignRejectsOversizedBody(t *testing.T) {
+	srv := newTestServer()
+	oversized := bytes.NewReader(append([]byte(`{"title":"`), bytes.Repeat([]byte("a"), 2<<20)...))
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPost, "/api/v1/campaigns", oversized)
+
+	srv.createCampaignHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
+
+func TestUpdateCampaignRejectsOversizedBody(t *testing.T) {
+	srv := newTestServer()
+	oversized := bytes.NewReader(append([]byte(`{"title":"`), bytes.Repeat([]byte("a"), 2<<20)...))
+	response := httptest.NewRecorder()
+	request := authorityRequest(http.MethodPut, "/api/v1/campaigns/campaign_001", oversized)
+	request.SetPathValue("id", "campaign_001")
+
+	srv.updateCampaignHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
+
 func TestUpdateCampaign(t *testing.T) {
 	srv := newTestServer()
 	body := models.UpdateCampaignRequest{

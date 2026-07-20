@@ -125,7 +125,10 @@ type PredictionLog struct {
 
 // PredictionLogListResponse is the payload returned when listing prediction logs.
 type PredictionLogListResponse struct {
-	Logs []PredictionLog `json:"logs"`
+	Logs   []PredictionLog `json:"logs"`
+	Total  int             `json:"total"`
+	Limit  int             `json:"limit"`
+	Offset int             `json:"offset"`
 }
 
 // SafetyPolicy communicates the review and publication rules for model output.
@@ -246,6 +249,9 @@ type SimulationRun struct {
 // SimulationListResponse is returned when listing simulation jobs.
 type SimulationListResponse struct {
 	Simulations []SimulationRun `json:"simulations"`
+	Total       int             `json:"total"`
+	Limit       int             `json:"limit"`
+	Offset      int             `json:"offset"`
 	GeneratedAt string          `json:"generatedAt"`
 }
 

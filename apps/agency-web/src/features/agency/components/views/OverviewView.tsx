@@ -49,6 +49,8 @@ export function OverviewView({
     hospitals,
     reliefPoints,
     aidRequests,
+    capacityLoadState,
+    capacityError,
   } = data;
 
   const totalCapacity = shelters.reduce(
@@ -120,6 +122,11 @@ export function OverviewView({
       {incidentLoadState === "error" ? (
         <Alert severity="error" className="feed-alert">
           {data.incidentError ?? "Incident API unavailable."}
+        </Alert>
+      ) : null}
+      {capacityLoadState === "error" ? (
+        <Alert severity="error" className="feed-alert">
+          {capacityError ?? "Capacity API unavailable."}
         </Alert>
       ) : null}
       <Grid container spacing={2}>
@@ -229,8 +236,9 @@ export function OverviewView({
               ) : null}
             </Stack>
             <p className="cc-muted-note">
-              {utilization}% overall shelter occupancy · {hospitalBeds}{" "}
-              hospital beds available nearby.
+              {capacityLoadState === "error"
+                ? "Capacity data unavailable — figures hidden until the service responds."
+                : `${utilization}% overall shelter occupancy · ${hospitalBeds} hospital beds available nearby.`}
             </p>
           </SectionCard>
         </Grid>
@@ -300,25 +308,32 @@ export function OverviewView({
             icon={Gauge}
             accent="green"
           >
-            <Stack
-              direction="row"
-              spacing={2.5}
-              sx={{ alignItems: "center", flexWrap: "wrap" }}
-            >
-              <ProgressRing
-                value={utilization}
-                color={occupancyColor}
-                label="occupied"
-              />
-              <Stack spacing={0.5}>
-                <span className="cc-pipeline__value">
-                  {totalOccupancy}/{totalCapacity}
-                </span>
-                <span className="cc-pipeline__label">
-                  occupied of total capacity
-                </span>
+            {capacityLoadState === "error" ? (
+              <p className="cc-muted-note">
+                Live capacity is unavailable. Retry from Nearby capacity before
+                relying on occupancy figures.
+              </p>
+            ) : (
+              <Stack
+                direction="row"
+                spacing={2.5}
+                sx={{ alignItems: "center", flexWrap: "wrap" }}
+              >
+                <ProgressRing
+                  value={utilization}
+                  color={occupancyColor}
+                  label="occupied"
+                />
+                <Stack spacing={0.5}>
+                  <span className="cc-pipeline__value">
+                    {totalOccupancy}/{totalCapacity}
+                  </span>
+                  <span className="cc-pipeline__label">
+                    occupied of total capacity
+                  </span>
+                </Stack>
               </Stack>
-            </Stack>
+            )}
           </SectionCard>
         </Grid>
         <Grid size={{ xs: 12, lg: 6 }}>

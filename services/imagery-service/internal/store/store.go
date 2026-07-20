@@ -4,6 +4,8 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stanleyHayes/nadaa/services/imagery-service/internal/models"
+	"github.com/stanleyHayes/nadaa/services/imagery-service/internal/utils"
 )
 
 // Store is the persistence interface for imagery data.
@@ -240,7 +243,11 @@ func (m *MemoryStore) Expire(id string, now time.Time) (models.ImageryRecord, bo
 	return models.ImageryRecord{}, false
 }
 
-// RunLifecycle expires records whose ExpiresAt has passed.
+// RunLifecycle expires records whose ExpiresAt has passed and deletes their
+// stored files, so expired imagery is neither retained on disk nor
+// downloadable. File deletion is best-effort: a missing file is fine (nothing
+// to retain), other failures are logged and the record is still marked
+// expired so the download path refuses it.
 func (m *MemoryStore) RunLifecycle(now time.Time) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -253,6 +260,12 @@ func (m *MemoryStore) RunLifecycle(now time.Time) int {
 		if now.After(m.records[index].ExpiresAt) {
 			m.records[index].Status = "expired"
 			count++
+			if path := m.records[index].StoragePath; path != "" {
+				if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+					// #nosec G706 -- record id and path are sanitized with utils.SafeLogValue.
+					log.Printf("ERROR imagery-service lifecycle_file_delete_failed id=%s path=%s error=%v", utils.SafeLogValue(m.records[index].ID), utils.SafeLogValue(path), err)
+				}
+			}
 		}
 	}
 	return count

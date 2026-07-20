@@ -77,7 +77,7 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request models.CreateIncidentRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON")
 		return
 	}
@@ -192,7 +192,7 @@ func (s *server) verifyIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request models.IncidentWorkflowRequest
-	if err := utils.OptionalDecodeJSON(r, &request); err != nil {
+	if err := utils.OptionalDecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
@@ -217,7 +217,7 @@ func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	var request models.IncidentStatusRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
@@ -232,6 +232,13 @@ func (s *server) updateIncidentStatusHandler(w http.ResponseWriter, r *http.Requ
 	// not let broader workflow roles (e.g. responder) verify incidents.
 	if normalized.Status == "verified" && !verificationRoles[ctx.ActorRole] {
 		utils.WriteError(w, http.StatusForbidden, "forbidden", "actor role is not allowed to verify incidents")
+		return
+	}
+
+	// false_report is owned by the abuse-review flow; the status endpoint must
+	// not let broader workflow roles (e.g. responder) mark incidents false.
+	if normalized.Status == "false_report" && !abuseReviewRoles[ctx.ActorRole] {
+		utils.WriteError(w, http.StatusForbidden, "forbidden", "actor role is not allowed to mark incidents as false reports")
 		return
 	}
 
@@ -256,7 +263,7 @@ func (s *server) mergeIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request models.MergeIncidentsRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
@@ -282,7 +289,7 @@ func (s *server) reviewAbuseHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request models.AbuseReviewRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
@@ -308,7 +315,7 @@ func (s *server) assignIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request models.AssignmentRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
@@ -348,7 +355,7 @@ func (s *server) reviewTriageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request models.TriageReviewRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
@@ -387,7 +394,7 @@ func normalizeIncidentRequest(request models.CreateIncidentRequest) (models.Crea
 		return request, errValidation
 	}
 
-	if !utils.ValidCoordinates(request.Location) {
+	if request.Location != nil && (!utils.ValidCoordinates(*request.Location) || (request.Location.Lat == 0 && request.Location.Lng == 0)) {
 		request.Type = "invalid_location"
 		return request, errValidation
 	}
@@ -630,7 +637,7 @@ func validationMessage(request models.CreateIncidentRequest) string {
 	case "invalid_description":
 		return "description must be 5 to 2000 safe characters"
 	case "invalid_location":
-		return "location must contain valid lat and lng values"
+		return "location is optional, but when supplied it must contain valid lat and lng values and cannot be 0,0"
 	case "invalid_people_affected":
 		return "peopleAffected must be between 0 and 1000000"
 	case "invalid_urgency":

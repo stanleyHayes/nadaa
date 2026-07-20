@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { AgencyUserRole } from "@nadaa/shared-types";
+import { AUTH_API_BASE } from "./config";
 
 /**
  * Roles allowed to reach the dispatch console. Field responders and viewers are
@@ -64,7 +65,7 @@ export type DispatcherProfilePatch = {
   department?: string;
 };
 
-/** Result of the mock {@link changeDispatcherPassword} action. */
+/** Result of the {@link changeDispatcherPassword} action. */
 export type PasswordChangeResult = {
   ok: boolean;
   message: string;
@@ -89,7 +90,7 @@ export type DispatcherSessionState = {
   updateProfile: (patch: DispatcherProfilePatch) => void;
   updatePreferences: (patch: Partial<DispatcherAccountPreferences>) => void;
   setMfaEnabled: (enabled: boolean) => void;
-  changePassword: (current: string, next: string) => PasswordChangeResult;
+  changePassword: (current: string, next: string) => Promise<PasswordChangeResult>;
 };
 
 /**
@@ -370,7 +371,7 @@ export function signOutDispatcher() {
 /**
  * Update the signed-in controller's editable profile fields. Email stays fixed —
  * it is presented as administrator-managed — so only name and department move.
- * TODO: wire to real profile/password/MFA API.
+ * TODO: wire to real profile API.
  */
 export function updateDispatcherProfile(patch: DispatcherProfilePatch) {
   if (!currentSession) {
@@ -396,9 +397,10 @@ export function updateDispatcherPreferences(
 }
 
 /**
- * Toggle whether an authenticator is enrolled. This never clears the current
- * session's completed-MFA gate, so disabling never locks the controller out mid
- * shift. TODO: wire to real profile/password/MFA API.
+ * Record whether an authenticator is enrolled, as confirmed by auth-service.
+ * The SecurityTab calls this only after the MFA verify endpoint answers — it
+ * never drives enrolment itself. This never clears the current session's
+ * completed-MFA gate, so the flag cannot lock the controller out mid shift.
  */
 export function setDispatcherMfaEnabled(enabled: boolean) {
   if (!currentSession) {
@@ -410,13 +412,15 @@ export function setDispatcherMfaEnabled(enabled: boolean) {
 }
 
 /**
- * Mock password change. Validates locally and returns a result; there is no
- * backend in this build. TODO: wire to real profile/password/MFA API.
+ * Change the signed-in controller's password through auth-service
+ * (`POST /auth/agency/password`). The server enforces the current-password
+ * check (401), payload validation (400), and rate limiting (429); only the
+ * cheap format checks run locally.
  */
-export function changeDispatcherPassword(
+export async function changeDispatcherPassword(
   current: string,
   next: string,
-): PasswordChangeResult {
+): Promise<PasswordChangeResult> {
   if (!current.trim()) {
     return { ok: false, message: "Enter your current password." };
   }
@@ -432,10 +436,48 @@ export function changeDispatcherPassword(
       message: "New password must be different from your current password.",
     };
   }
-  return {
-    ok: true,
-    message: "Password updated. Use it the next time you sign in.",
-  };
+  if (!currentSession?.accessToken) {
+    return { ok: false, message: "Sign in again to change your password." };
+  }
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/auth/agency/password`, {
+      method: "POST",
+      headers: dispatcherHeaders(),
+      body: JSON.stringify({ currentPassword: current, newPassword: next }),
+    });
+    if (response.ok) {
+      return {
+        ok: true,
+        message: "Password updated. Use it the next time you sign in.",
+      };
+    }
+    if (response.status === 401) {
+      return { ok: false, message: "Your current password is incorrect." };
+    }
+    if (response.status === 429) {
+      return {
+        ok: false,
+        message: "Too many attempts. Try again in a few minutes.",
+      };
+    }
+    const body = (await response.json().catch(() => null)) as {
+      error?: { message?: string };
+      message?: string;
+    } | null;
+    return {
+      ok: false,
+      message:
+        body?.error?.message ??
+        body?.message ??
+        `Password change failed (${response.status}).`,
+    };
+  } catch {
+    return {
+      ok: false,
+      message:
+        "Auth service unavailable. Check your connection and try again.",
+    };
+  }
 }
 
 /**

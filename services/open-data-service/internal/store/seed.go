@@ -179,17 +179,3 @@ func generateID(prefix string, now time.Time) string {
 	sum := sha256.Sum256(fmt.Appendf(nil, "%s-%d", prefix, now.UnixNano()))
 	return fmt.Sprintf("%s_%x", prefix, sum[:8])
 }
-
-func estimateSize(datasetID, format string) int64 {
-	base := int64(len(datasetID) * 1024)
-	switch format {
-	case "csv":
-		return base
-	case "json":
-		return base * 2
-	case "parquet":
-		return base / 2
-	default:
-		return base
-	}
-}

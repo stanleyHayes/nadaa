@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -47,4 +48,14 @@ func Load() *Config {
 		// headers instead of a verified bearer token.
 		AllowMockActorHeaders: os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
 	}
+}
+
+// Validate fails closed on unsafe configuration: honoring self-asserted
+// X-NADAA-Actor-* headers is a development-only relaxation, so it is rejected
+// unless NADAA_ENV=development.
+func (c *Config) Validate() error {
+	if c.AllowMockActorHeaders && os.Getenv("NADAA_ENV") != "development" {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
 }

@@ -47,27 +47,66 @@ var (
 )
 
 func (s *server) registerVolunteerHandler(w http.ResponseWriter, r *http.Request) {
+	clientID := utils.ClientIdentifier(r)
+	if !s.rateLimiter.Allow(clientID) {
+		utils.WriteError(w, http.StatusTooManyRequests, "rate_limited", "too many volunteer registration requests; please wait before trying again")
+		return
+	}
+
+	// Registration is citizen self-service: a verified citizen bearer token is
+	// required and the profile's citizenUserId is derived from its subject,
+	// never from self-asserted body fields alone.
+	token, ok := bearerToken(r)
+	if !ok {
+		utils.WriteError(w, http.StatusUnauthorized, "missing_token", "Bearer token is required")
+		return
+	}
+	claims, err := verifyAuthToken(s.tokenSecret, s.now, token)
+	if err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, "invalid_token", "token is invalid or expired")
+		return
+	}
+	citizenUserID := strings.TrimSpace(claims.UserID)
+	if claims.UserType != "citizen" || citizenUserID == "" {
+		utils.WriteError(w, http.StatusForbidden, "forbidden", "volunteer registration requires a citizen account")
+		return
+	}
+
 	var request models.RegisterVolunteerRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
-		log.Printf("WARN incident-service volunteer_register invalid_json remote=%s error=%v", utils.SafeLogValue(utils.ClientIdentifier(r)), err)
+		log.Printf("WARN incident-service volunteer_register invalid_json remote=%s error=%v", utils.SafeLogValue(clientID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
 	// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
-	log.Printf("INFO incident-service volunteer_register received citizenUserId=%s district=%s community=%s", utils.SafeLogValue(request.CitizenUserID), utils.SafeLogValue(request.District), utils.SafeLogValue(request.Community))
+	log.Printf("INFO incident-service volunteer_register received citizenUserId=%s district=%s community=%s", utils.SafeLogValue(citizenUserID), utils.SafeLogValue(request.District), utils.SafeLogValue(request.Community))
+
+	if bodyUserID := strings.TrimSpace(request.CitizenUserID); bodyUserID != "" && bodyUserID != citizenUserID {
+		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN incident-service volunteer_register citizen_mismatch token=%s body=%s", utils.SafeLogValue(citizenUserID), utils.SafeLogValue(bodyUserID))
+		utils.WriteError(w, http.StatusForbidden, "forbidden", "citizenUserId must match the authenticated citizen account")
+		return
+	}
+	request.CitizenUserID = citizenUserID
 
 	normalized, code, message := normalizeVolunteerRegistrationRequest(request)
 	if code != "" {
 		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
-		log.Printf("WARN incident-service volunteer_register validation_failed citizenUserId=%s code=%s", utils.SafeLogValue(request.CitizenUserID), code)
+		log.Printf("WARN incident-service volunteer_register validation_failed citizenUserId=%s code=%s", utils.SafeLogValue(citizenUserID), code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
-	volunteer := s.store.RegisterVolunteer(normalized, s.now())
-	log.Printf("INFO incident-service volunteer_register created volunteerId=%s groupId=%s verificationStatus=%s", volunteer.ID, volunteer.GroupID, volunteer.VerificationStatus)
-	utils.WriteJSON(w, http.StatusCreated, models.VolunteerProfileResponse{Volunteer: volunteer})
+	volunteer, created := s.store.RegisterVolunteer(normalized, s.now())
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+		log.Printf("INFO incident-service volunteer_register created volunteerId=%s groupId=%s verificationStatus=%s", volunteer.ID, volunteer.GroupID, volunteer.VerificationStatus)
+	} else {
+		log.Printf("INFO incident-service volunteer_register idempotent_return volunteerId=%s citizenUserId=%s", volunteer.ID, utils.SafeLogValue(citizenUserID))
+	}
+	utils.WriteJSON(w, status, models.VolunteerProfileResponse{Volunteer: volunteer})
 }
 
 func (s *server) listVolunteersHandler(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +129,7 @@ func (s *server) verifyVolunteerHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var request models.VerifyVolunteerRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		// #nosec G706 -- volunteer id and actor are sanitized with utils.SafeLogValue.
 		log.Printf("WARN incident-service volunteer_verify invalid_json volunteerId=%s actor=%s error=%v", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
@@ -123,7 +162,7 @@ func (s *server) listVolunteerTasksHandler(w http.ResponseWriter, r *http.Reques
 	if volunteer, found := s.store.VolunteerByID(volunteerID); found {
 		citizenUserID = volunteer.CitizenUserID
 	}
-	if _, ok := s.requireVolunteerActor(w, r, citizenUserID); !ok {
+	if _, ok := s.requireVolunteerActor(w, r, citizenUserID, incidentReadRoles); !ok {
 		return
 	}
 
@@ -146,7 +185,7 @@ func (s *server) assignVolunteerTaskHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	var request models.VolunteerTaskRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		// #nosec G706 -- incident id and actor are sanitized with utils.SafeLogValue.
 		log.Printf("WARN incident-service volunteer_task_assign invalid_json incidentId=%s actor=%s error=%v", utils.SafeLogValue(r.PathValue("id")), utils.SafeLogValue(ctx.ActorUserID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
@@ -180,12 +219,13 @@ func (s *server) assignVolunteerTaskHandler(w http.ResponseWriter, r *http.Reque
 
 func (s *server) updateVolunteerTaskStatusHandler(w http.ResponseWriter, r *http.Request) {
 	taskID := strings.TrimSpace(r.PathValue("id"))
-	if _, ok := s.requireVolunteerActor(w, r, s.volunteerOwnerForTask(taskID)); !ok {
+	ctx, ok := s.requireVolunteerActor(w, r, s.volunteerOwnerForTask(taskID), volunteerTaskWorkflowRoles)
+	if !ok {
 		return
 	}
 
 	var request models.VolunteerTaskStatusRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
 		log.Printf("WARN incident-service volunteer_task_status invalid_json taskId=%s error=%v", utils.SafeLogValue(taskID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
@@ -202,7 +242,7 @@ func (s *server) updateVolunteerTaskStatusHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	task, code, message := s.store.UpdateVolunteerTaskStatus(taskID, normalized, s.now())
+	task, code, message := s.store.UpdateVolunteerTaskStatus(taskID, normalized, ctx, s.now())
 	if code != "" {
 		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
 		log.Printf("WARN incident-service volunteer_task_status failed taskId=%s volunteerId=%s code=%s", utils.SafeLogValue(taskID), utils.SafeLogValue(normalized.VolunteerID), utils.SafeLogValue(code))
@@ -216,12 +256,13 @@ func (s *server) updateVolunteerTaskStatusHandler(w http.ResponseWriter, r *http
 
 func (s *server) submitVolunteerObservationHandler(w http.ResponseWriter, r *http.Request) {
 	taskID := strings.TrimSpace(r.PathValue("id"))
-	if _, ok := s.requireVolunteerActor(w, r, s.volunteerOwnerForTask(taskID)); !ok {
+	ctx, ok := s.requireVolunteerActor(w, r, s.volunteerOwnerForTask(taskID), volunteerTaskWorkflowRoles)
+	if !ok {
 		return
 	}
 
 	var request models.VolunteerObservationRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
 		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
 		log.Printf("WARN incident-service volunteer_observation invalid_json taskId=%s error=%v", utils.SafeLogValue(taskID), err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
@@ -250,7 +291,7 @@ func (s *server) submitVolunteerObservationHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	task, code, message := s.store.AddVolunteerObservation(taskID, normalized, s.now())
+	task, code, message := s.store.AddVolunteerObservation(taskID, normalized, ctx, s.now())
 	if code != "" {
 		// #nosec G706 -- logged values are sanitized with utils.SafeLogValue.
 		log.Printf("WARN incident-service volunteer_observation failed taskId=%s volunteerId=%s code=%s", utils.SafeLogValue(taskID), utils.SafeLogValue(normalized.VolunteerID), utils.SafeLogValue(code))

@@ -23,15 +23,21 @@ export function ProfileScreen({ actions, state }: DispatcherScreenProps) {
       />
 
       <Card tone="navy">
-        <Text style={stylesHeroTitle}>{session.userName}</Text>
-        <Text style={stylesHeroText}>{session.agencyName}</Text>
-        <View style={stylesRow}>
-          <StatusPill label={session.role} tone="gold" />
-          <StatusPill
-            label={session.mfaCompleted ? "MFA verified" : "MFA needed"}
-            tone={session.mfaCompleted ? "green" : "danger"}
-          />
-        </View>
+        <Text style={stylesHeroTitle}>
+          {session?.userName ?? "Not signed in"}
+        </Text>
+        <Text style={stylesHeroText}>
+          {session?.agencyName ?? "Sign in with your agency account below."}
+        </Text>
+        {session ? (
+          <View style={stylesRow}>
+            <StatusPill label={session.role} tone="gold" />
+            <StatusPill
+              label={session.mfaCompleted ? "MFA verified" : "MFA needed"}
+              tone={session.mfaCompleted ? "green" : "danger"}
+            />
+          </View>
+        ) : null}
       </Card>
 
       <Card>
@@ -46,12 +52,14 @@ export function ProfileScreen({ actions, state }: DispatcherScreenProps) {
           label="Password"
           onChangeText={(value) => actions.updateAuthForm({ password: value })}
           placeholder="••••••••"
+          secure
           value={state.authForm.password}
         />
         <Field
           label="MFA code"
           onChangeText={(value) => actions.updateAuthForm({ mfaCode: value })}
           placeholder="000000"
+          secure
           value={state.authForm.mfaCode}
         />
         <ActionButton
@@ -62,7 +70,8 @@ export function ProfileScreen({ actions, state }: DispatcherScreenProps) {
           tone="green"
         />
         <Text style={stylesMuted}>
-          Dev fixture session is active when auth-service is unavailable.
+          Your session persists on this device until it expires or sign-in is
+          required again.
         </Text>
       </Card>
 

@@ -4,6 +4,7 @@ import type {
   LoginAgencyResponse,
 } from "@nadaa/shared-types";
 import { AUTH_API_BASE } from "@/app/config";
+import { adminHeaders } from "@/app/session";
 
 /**
  * Error raised for any non-OK auth-service response. `code` carries the
@@ -85,6 +86,17 @@ export function loginAgency(
 }
 
 /**
+ * MFA enrolment challenge returned by the setup endpoint. The auth service
+ * issues a real TOTP seed: `secret` is the base32 setup key and `otpauthUrl`
+ * the matching otpauth:// link for authenticator apps that import links.
+ * (`otpauthUrl` rides along as an optional field until shared-types catches
+ * up with the auth-service contract.)
+ */
+export type AgencyMfaSetupChallenge = AgencyMFASetupResponse & {
+  otpauthUrl?: string;
+};
+
+/**
  * Start MFA enrolment for a freshly provisioned agency user. The user id comes
  * from the provisioning administrator; the password entered at sign-in is the
  * account's temporary password at this point.
@@ -93,8 +105,8 @@ export function setupAgencyMfa(
   userId: string,
   email: string,
   temporaryPassword: string,
-): Promise<AgencyMFASetupResponse> {
-  return post<AgencyMFASetupResponse>(
+): Promise<AgencyMfaSetupChallenge> {
+  return post<AgencyMfaSetupChallenge>(
     `/auth/agency-users/${encodeURIComponent(userId)}/mfa/setup`,
     { email, temporaryPassword },
   );
@@ -111,4 +123,32 @@ export function verifyAgencyMfa(
     `/auth/agency-users/${encodeURIComponent(userId)}/mfa/verify`,
     { email, temporaryPassword, code },
   );
+}
+
+/**
+ * Change the signed-in admin's password (`POST /auth/agency/password`).
+ * Resolves only on 200. The service answers 400 `weak_password`, 401
+ * `invalid_credentials` (the current password did not match), and 429
+ * `locked`; the error body is surfaced via {@link AuthApiError} so the
+ * settings screen can show the real reason. A 401 here reports the submitted
+ * password, not an expired session, so it is parsed rather than routed
+ * through the 401 sign-out path.
+ */
+export async function changeAdminPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${AUTH_API_BASE}/auth/agency/password`, {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  } catch {
+    throw new AuthUnavailableError();
+  }
+  if (!response.ok) {
+    throw await parseError(response);
+  }
 }

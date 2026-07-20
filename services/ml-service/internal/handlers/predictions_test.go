@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -80,12 +81,22 @@ func TestPredictionLogsListStoredPredictions(t *testing.T) {
 
 func newTestServer(t *testing.T) *server {
 	t.Helper()
-	cfg := &config.Config{Addr: ":8094"}
+	// Mock actors emulate the local-development gate so handler tests can
+	// exercise the full middleware stack.
+	cfg := &config.Config{Addr: ":8094", AllowMockActors: true}
 	s, err := store.NewMemoryStore("../../../../data/flood-risk/models")
 	if err != nil {
 		t.Fatalf("new memory store: %v", err)
 	}
 	return NewServer(s, func() time.Time { return time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC) }, cfg)
+}
+
+// authedRequest builds a test request carrying the mock actor credential the
+// development-mode test server accepts.
+func authedRequest(method, target string, body io.Reader) *http.Request {
+	req := httptest.NewRequest(method, target, body)
+	req.Header.Set("X-NADAA-Actor-ID", "test-actor")
+	return req
 }
 
 func postPrediction(t *testing.T, srv *server, payload models.PredictionRequest) models.PredictionResponse {

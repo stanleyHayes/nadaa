@@ -26,9 +26,16 @@ func (s *server) createSimulationHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *server) listSimulationsHandler(w http.ResponseWriter, r *http.Request) {
-	jobs := s.store.ListSimulationJobs()
+	limit, offset, ok := parsePagination(w, r)
+	if !ok {
+		return
+	}
+	jobs, total := s.store.ListSimulationJobs(limit, offset)
 	utils.WriteJSON(w, http.StatusOK, models.SimulationListResponse{
 		Simulations: jobs,
+		Total:       total,
+		Limit:       limit,
+		Offset:      offset,
 		GeneratedAt: s.now().UTC().Format(time.RFC3339),
 	})
 }

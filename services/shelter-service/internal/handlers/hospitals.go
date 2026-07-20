@@ -30,24 +30,31 @@ func (s *server) updateHospitalCapacityHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Sanitize user-controlled path values before logging (G706).
+	facilityIDLog := utils.SafeLogValue(r.PathValue("id"))
+
 	var request models.HospitalCapacityUpdateRequest
-	if err := utils.DecodeJSON(r, &request); err != nil {
-		log.Printf("WARN shelter-service hospital_capacity_update invalid_json facilityId=%s actor=%s error=%v", r.PathValue("id"), ctx.ActorUserID, err)
+	if err := utils.DecodeJSON(w, r, &request); err != nil {
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service hospital_capacity_update invalid_json facilityId=%s actor=%s error=%v", facilityIDLog, ctx.ActorUserID, err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return
 	}
-	log.Printf("INFO shelter-service hospital_capacity_update received facilityId=%s actor=%s source=%s", r.PathValue("id"), ctx.ActorUserID, request.Source)
+	// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+	log.Printf("INFO shelter-service hospital_capacity_update received facilityId=%s actor=%s source=%s", facilityIDLog, ctx.ActorUserID, request.Source)
 
 	normalized, code, message := utils.NormalizeHospitalCapacityUpdate(request)
 	if code != "" {
-		log.Printf("WARN shelter-service hospital_capacity_update validation_failed facilityId=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service hospital_capacity_update validation_failed facilityId=%s actor=%s code=%s", facilityIDLog, ctx.ActorUserID, code)
 		utils.WriteError(w, http.StatusBadRequest, code, message)
 		return
 	}
 
 	facility, code, message := s.store.UpdateHospitalCapacity(r.PathValue("id"), normalized, ctx, s.now().UTC())
 	if code != "" {
-		log.Printf("WARN shelter-service hospital_capacity_update failed facilityId=%s actor=%s code=%s", r.PathValue("id"), ctx.ActorUserID, code)
+		// #nosec G706 -- path values are sanitized with utils.SafeLogValue.
+		log.Printf("WARN shelter-service hospital_capacity_update failed facilityId=%s actor=%s code=%s", facilityIDLog, ctx.ActorUserID, code)
 		utils.WriteError(w, utils.StatusForCode(code), code, message)
 		return
 	}
@@ -62,7 +69,7 @@ func (s *server) importHospitalCapacityFixtureHandler(w http.ResponseWriter, r *
 	}
 
 	var request models.HospitalCapacityImportRequest
-	if err := utils.OptionalDecodeJSON(r, &request); err != nil {
+	if err := utils.OptionalDecodeJSON(w, r, &request); err != nil {
 		log.Printf("WARN shelter-service hospital_capacity_fixture_import invalid_json actor=%s error=%v", ctx.ActorUserID, err)
 		utils.WriteError(w, http.StatusBadRequest, "invalid_json", "request body must be valid JSON")
 		return

@@ -2,7 +2,9 @@
 // scripts/dev-citizen-backends.sh) running with NADAA_ENV=development,
 // NADAA_AUTH_ALLOW_MOCK_ACTORS=true and
 // NADAA_AUTH_TOKEN_SECRET=dev-secret-change-me so the mock X-NADAA-Actor-*
-// headers below satisfy the authority gate on the deliver endpoint.
+// headers below satisfy the authority gate on the deliver endpoint. The
+// fixture alert referenced below is served only in development; outside it,
+// start the service with NADAA_NOTIFICATION_ALLOW_FIXTURE_ALERTS=true.
 const baseURL =
   process.env.NOTIFICATION_API_URL?.trim() || "http://127.0.0.1:8090/api/v1";
 

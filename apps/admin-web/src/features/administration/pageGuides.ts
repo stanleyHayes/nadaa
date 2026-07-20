@@ -106,11 +106,11 @@ export const PAGE_GUIDES: PageGuide[] = [
     key: "alertRules",
     section: "Governance",
     title: "Alert rules",
-    description: "Approval, override, targeting, and audit rules.",
+    description: "Approval, override, targeting, and audit posture derived from live alerts.",
     steps: [
-      "Open a rule to check its approver roles, emergency-override roles, and targeting scope.",
+      "Remember this is a read-only view: each card is derived from a live alert, not an editable rule.",
+      "Review each card's approver roles, emergency-override roles, and targeting scope.",
       "Confirm MFA is required and the audit action is set, since every alert stays human-approved.",
-      "Keep rules in review until the governance details are correct before they take effect.",
     ],
   },
   {

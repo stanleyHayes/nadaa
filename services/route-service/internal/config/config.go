@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -28,7 +29,7 @@ func Load() *Config {
 		Addr:                  resolveListenAddr("", ":8096"),
 		RoadClosureServiceURL: utils.EnvOrDefault("ROAD_CLOSURE_SERVICE_URL", "http://localhost:8095"),
 		ShelterServiceURL:     utils.EnvOrDefault("SHELTER_SERVICE_URL", "http://localhost:8093"),
-		RiskServiceURL:        utils.EnvOrDefault("RISK_SERVICE_URL", "http://localhost:8082"),
+		RiskServiceURL:        utils.EnvOrDefault("RISK_SERVICE_URL", "http://localhost:8081"),
 		AllowedOrigins:        utils.AllowedOriginsFromEnv(),
 		TokenSecret:           os.Getenv("NADAA_AUTH_TOKEN_SECRET"),
 		AllowMockActors:       os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS") == "true",
@@ -52,4 +53,14 @@ func resolveListenAddr(addrKey, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+// Validate fails closed on unsafe configuration: honoring self-asserted
+// X-NADAA-Actor-* headers is a development-only relaxation, so it is rejected
+// unless NADAA_ENV=development.
+func (c *Config) Validate() error {
+	if c.AllowMockActors && os.Getenv("NADAA_ENV") != "development" {
+		return errors.New("NADAA_AUTH_ALLOW_MOCK_ACTORS is only allowed when NADAA_ENV=development")
+	}
+	return nil
 }

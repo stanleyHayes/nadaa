@@ -272,6 +272,8 @@ Response:
 
 `POST /api/v1/auth/agency-users/{id}/mfa/setup`
 
+Starts TOTP enrollment (RFC 6238: HMAC-SHA1, 30-second step, 6-digit codes, ±1 step window for clock skew). There are no static or reusable MFA codes in any environment.
+
 ```json
 {
   "email": "dispatcher@nadaa.example",
@@ -285,13 +287,14 @@ Response:
 {
   "userId": "usr_...",
   "challengeId": "mfa_...",
-  "method": "mock_totp",
-  "secret": "mfa_secret_...",
+  "method": "totp",
+  "secret": "JBSWY3DPEHPK3PXP...",
+  "otpauthUrl": "otpauth://totp/NADAA:dispatcher@nadaa.example?issuer=NADAA&secret=...",
   "expiresAt": "2026-07-06T12:10:00Z"
 }
 ```
 
-In local development, `NADAA_AUTH_MOCK_OTP=123456` can force the MFA challenge code and `NADAA_AUTH_EXPOSE_DEV_OTP=true` includes `devCode` in the setup response.
+`secret` and `otpauthUrl` are shown once so the user can enroll an authenticator app; verification must complete before the challenge expires. In local development (`NADAA_ENV=development` with `NADAA_AUTH_EXPOSE_DEV_OTP=true`) the response also includes `devCode`, the current TOTP code, so automated tests can complete enrollment without an authenticator.
 
 `POST /api/v1/auth/agency-users/{id}/mfa/verify`
 
@@ -368,7 +371,45 @@ Response:
 }
 ```
 
-Agency login returns 403 `mfa_setup_required` until setup and verification are complete, 401 `mfa_required` when a verified agency user omits the MFA code, 401 `invalid_credentials` for wrong credentials or code, and 429 `too_many_attempts` after repeated failed attempts.
+Agency login returns 403 `mfa_setup_required` until setup and verification are complete, 401 `mfa_required` when a verified agency user omits the MFA code, 401 `invalid_credentials` for wrong credentials or code, and 429 `too_many_attempts` after repeated failed attempts. The `mfaCode` is the current 6-digit code from the enrolled authenticator (TOTP, ±1 step window).
+
+`GET /api/v1/auth/agency-users`
+
+Requires an agency `system_admin` or `agency_admin` bearer token with MFA completed. `system_admin` sees every agency user; `agency_admin` sees only users in its own agency. The directory never exposes password hashes or MFA secrets.
+
+Response:
+
+```json
+{
+  "users": [
+    {
+      "id": "usr_...",
+      "name": "Dispatcher One",
+      "email": "dispatcher@nadaa.example",
+      "role": "dispatcher",
+      "agencyId": "00000000-0000-0000-0000-000000000101",
+      "mfaEnabled": true,
+      "lockedUntil": "2026-07-06T12:15:00Z",
+      "createdAt": "2026-07-06T12:00:00Z"
+    }
+  ]
+}
+```
+
+`lockedUntil` is present only while the user is locked out of login.
+
+`POST /api/v1/auth/agency/password`
+
+Requires any agency bearer token with MFA completed. Verifies `currentPassword` through the same brute-force lockout machinery as login (429 `too_many_attempts` while locked, 401 `invalid_credentials` for a wrong current password), enforces the 12-character minimum on `newPassword` (400 `weak_password`), replaces the hash, and records an audit event.
+
+```json
+{
+  "currentPassword": "tmp_...",
+  "newPassword": "correct horse battery staple"
+}
+```
+
+Response: `200 {"ok": true}`
 
 ### Audit Logs
 
@@ -405,7 +446,25 @@ Response:
 }
 ```
 
-Current auth-service audit actions include citizen registration/login, agency login, agency-user creation, MFA setup/verification, RBAC denial, and audit-log viewing. Audit snapshots must not include OTPs, MFA codes, temporary passwords, tokens, or provider secrets.
+Current auth-service audit actions include citizen registration/login, agency login, agency-user creation, MFA setup/verification, password change, RBAC denial, and audit-log viewing. Audit snapshots must not include OTPs, MFA codes or secrets, temporary passwords, tokens, or provider secrets.
+
+`POST /api/v1/audit/logs`
+
+Service-to-service audit ingestion for events forwarded by other services. Requires the `X-NADAA-Service-Token` header matching `NADAA_INTERNAL_SERVICE_TOKEN` (401 `invalid_service_token` when missing or wrong; the endpoint stays closed while the token is unset). `eventType` must be non-empty (400 `invalid_event`).
+
+```json
+{
+  "eventType": "open_data.dataset.downloaded",
+  "actorId": "usr_...",
+  "actorRole": "agency_viewer",
+  "resourceType": "dataset",
+  "resourceId": "ds_...",
+  "summary": "downloaded flood extent CSV",
+  "metadata": { "format": "csv" }
+}
+```
+
+Response: `201 {"id": "aud_..."}`
 
 ### Incident Reporting
 
@@ -466,7 +525,7 @@ Response:
 Rules:
 
 - `type` must be a supported hazard.
-- `location.lat` and `location.lng` must be valid coordinates.
+- `location` is optional (channels without GPS, such as USSD, omit it) and round-trips as `null`; when supplied, `location.lat` and `location.lng` must be valid coordinates and `0,0` is rejected with `invalid_location`.
 - `description` must be 5 to 2000 safe characters.
 - `urgency` must be `low`, `moderate`, `high`, or `life_threatening`.
 - `life_threatening` or injury reports are flagged for priority review.
@@ -475,7 +534,7 @@ Rules:
 - Starter service rate-limits repeated reports by client address.
 - Suspicious report signals are stored as transparent `abuseSignals` with a weighted `abuseScore` and `abuseReviewRequired` flag for dispatchers.
 - Automated suspicion does not block report creation or suppress life-threatening reports.
-- Duplicate candidates are review hints only. The starter baseline compares same-hazard reports within 750 meters and 3 hours using distance, time, and description similarity.
+- Duplicate candidates are review hints only. The starter baseline compares same-hazard reports within 750 meters and 3 hours using distance, time, and description similarity; reports without a location are never distance-scored, so locationless pairs produce no candidates.
 - No duplicate candidate is automatically merged, hidden, deleted, or downgraded.
 
 `GET /api/v1/incidents`
@@ -520,12 +579,12 @@ Privacy rules:
 }
 ```
 
-Returns a signed upload URL or controlled upload target.
+Returns an absolute upload URL for the media content endpoint (built from `NADAA_INCIDENT_PUBLIC_BASE_URL`, default `http://localhost:8084`).
 
 ```json
 {
   "mediaId": "media_...",
-  "uploadUrl": "/dev/uploads/media_.../flooded-road.jpg",
+  "uploadUrl": "http://localhost:8084/api/v1/media/media_.../content",
   "method": "PUT",
   "headers": {
     "Content-Type": "image/jpeg"
@@ -535,6 +594,14 @@ Returns a signed upload URL or controlled upload target.
   "access": "private"
 }
 ```
+
+`PUT /api/v1/media/{id}/content`
+
+Stores the raw bytes on disk (under `NADAA_INCIDENT_MEDIA_STORAGE_PATH`) and moves the record to `uploaded`. Requires a verified bearer token: the citizen token whose subject matches the uploader that initiated the record, or an MFA-verified authority token. When initiation carries a verified bearer token, its subject becomes the uploader of record. Bodies larger than the content type's limit are rejected with `413 payload_too_large`.
+
+`GET /api/v1/media/{id}/content`
+
+Returns the stored bytes with the recorded content type, to the same uploader or authority readers; returns `404 file_not_found` before bytes are uploaded.
 
 Starter service rules:
 
@@ -586,6 +653,7 @@ Supported statuses are `reported`, `under_review`, `verified`, `assigned`, `resp
 Rules:
 
 - Allowed workflow roles are `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`, and `responder`.
+- Transitions to `verified` are restricted to the verification roles, and transitions to `false_report` are restricted to the abuse-review roles (`system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`); other workflow roles receive `403`.
 - Status changes must follow the configured transition graph; for example, `reported` can move to `under_review`, `verified`, or `false_report`, but not directly to `closed`.
 - `closed` and `false_report` are terminal.
 - `resolutionNotes` are required for `closed` and `false_report`.
@@ -627,7 +695,7 @@ Accepted assignments append an active assignment record, move a `verified` incid
 
 `POST /api/v1/volunteers`
 
-Registers a citizen as a community volunteer candidate and joins them to a district/community response group. Profiles start as `pending` until an authorized officer verifies them.
+Registers a citizen as a community volunteer candidate and joins them to a district/community response group. Profiles start as `pending` until an authorized officer verifies them. Requires a verified citizen bearer token (`typ=citizen`); `citizenUserId` is derived from the token subject and a mismatched body value is rejected with `403`. Registration is idempotent per citizen: re-registering returns the existing profile with `200` instead of creating a duplicate. The endpoint is rate-limited like incident reporting.
 
 ```json
 {
@@ -690,7 +758,7 @@ Returns assigned volunteer tasks for the mobile/PWA task view.
 }
 ```
 
-Allowed statuses are `accepted`, `en_route`, `on_scene`, `completed`, `cancelled`, and `needs_escalation`. `needs_escalation`, `unsafe`, or `needs_authority` updates append escalation timeline events.
+Allowed statuses are `accepted`, `en_route`, `on_scene`, `completed`, `cancelled`, and `needs_escalation`. `needs_escalation`, `unsafe`, or `needs_authority` updates append escalation timeline events. Callers authenticate as the owning citizen (token `sub` matches the volunteer's `citizenUserId`) or as an agency actor with a volunteer-task workflow role (`system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`, `responder`); read-only `agency_viewer` is rejected on mutations. Timeline and audit events are attributed to the verified actor, not the client-supplied `volunteerId`.
 
 `POST /api/v1/volunteer-tasks/{id}/observations`
 
@@ -705,7 +773,7 @@ Allowed statuses are `accepted`, `en_route`, `on_scene`, `completed`, `cancelled
 }
 ```
 
-Volunteer observations append `incident.volunteer_observation` to the incident timeline. Escalated observations also append `incident.volunteer_escalation` so dispatchers and agency users can see field risk without switching tools.
+Volunteer observations append `incident.volunteer_observation` to the incident timeline. Escalated observations also append `incident.volunteer_escalation` so dispatchers and agency users can see field risk without switching tools. Escalating an observation moves the task to `needs_escalation` under the same transition guard as status updates, so terminal (`completed`, `cancelled`) tasks reject it with `invalid_transition`.
 
 `GET /api/v1/incidents/{id}/duplicates`
 
@@ -945,7 +1013,7 @@ Updates a `draft` or `rejected` alert using the same body as create.
 
 `GET /api/v1/alerts?current=true&lat=5.6037&lng=-0.1870`
 
-Without an authority bearer token, alert listing returns only approved or published public alerts. With an authority bearer token, the service returns draft, submitted, approved, and rejected workflow records. `status` may filter by `draft`, `submitted`, `approved`, `rejected`, `published`, `expired`, or `cancelled`.
+Without an agency authority bearer token, alert listing returns only approved or published public alerts — a verified citizen token receives the same public view. With an agency authority bearer token, the service returns draft, submitted, approved, and rejected workflow records. `status` may filter by `draft`, `submitted`, `approved`, `rejected`, `published`, `expired`, or `cancelled`.
 
 `GET /api/v1/alerts/audit?limit=50`
 
@@ -956,7 +1024,7 @@ Rules:
 - Draft/update/submit actions allow `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, and `dispatcher`.
 - Approve/reject actions allow `system_admin`, `agency_admin`, and `nadmo_officer`.
 - Non-system approvers cannot approve their own draft.
-- Emergency override allows only `system_admin` and `nadmo_officer`, requires a reason, marks the alert approved, and creates an `alert.emergency_override` audit event.
+- Emergency override allows only `system_admin` and `nadmo_officer`, requires a reason, marks the alert approved, and creates an `alert.emergency_override` audit event; as with approval, a non-system officer cannot override their own draft.
 - Alert expiry is mandatory and must be after `startsAt`.
 - Delivery and notification logs are owned by the notification service; this endpoint stops at approved workflow state.
 
@@ -964,7 +1032,7 @@ Rules:
 
 `GET /api/v1/notifications/alerts?includeExpired=true`
 
-Returns citizen-facing alert feed records. The notification service reads approved/published alerts from alert-service when available and includes fixture fallback records for local development.
+Returns citizen-facing alert feed records. The notification service reads approved/published alerts from alert-service. Seeded fixture records are merged in only when fixtures are enabled (`NADAA_ENV=development` or `NADAA_NOTIFICATION_ALLOW_FIXTURE_ALERTS=true`); otherwise the feed is upstream-only and `source` reports `degraded` when alert-service is unreachable, and fixture alerts are never served or eligible for delivery.
 
 ```json
 {
@@ -995,7 +1063,7 @@ Supported filters: `status=current|expired|upcoming|all`, `includeExpired=true`,
 
 `POST /api/v1/notifications/alerts/{id}/deliver`
 
-Creates push and/or SMS delivery attempts through the configured provider abstraction.
+Creates push and/or SMS delivery attempts through the configured provider abstraction. Only alerts present in the citizen feed are deliverable, so seeded fixture alert ids are rejected with `404 alert_not_found` unless fixtures are enabled (development or explicit opt-in).
 
 ```json
 {
@@ -1850,7 +1918,7 @@ Response:
 
 `GET /api/v1/ml/prediction-logs`
 
-Returns in-memory MVP prediction log records. Each record is aligned to the `ml_predictions` storage target and includes model version and input feature set version.
+Returns in-memory MVP prediction log records. Each record is aligned to the `ml_predictions` storage target and includes model version and input feature set version. Paginated with `limit` (default 50, max 200) and `offset`; the response includes `total`, `limit`, and `offset`. At most 500 logs are retained (oldest evicted first).
 
 ### Flood Simulations
 
@@ -1934,7 +2002,7 @@ Response:
 
 `GET /api/v1/ml/flood/simulations`
 
-Returns the list of simulation jobs sorted newest first.
+Returns the list of simulation jobs sorted newest first. Paginated with `limit` (default 50, max 200) and `offset`; the response includes `total`, `limit`, and `offset`. At most 100 runs are retained (oldest evicted first). Creation rejects non-positive `durationHours`/`timeStepHours` and names over 200 characters with `400`.
 
 `GET /api/v1/ml/flood/simulations/{id}`
 
@@ -2070,7 +2138,20 @@ Retrieves a cached CV analysis result by image ID. Returns 404 if not found.
 
 `GET /api/v1/cv/results`
 
-Lists all cached CV analysis results.
+Lists cached CV analysis results, newest first. Paginated with `limit` (default 50, max 200) and `offset`; the response includes `total`, `limit`, and `offset`. At most 500 results are retained (oldest evicted first).
+
+`PATCH /api/v1/cv/results/{id}/review`
+
+Records a human review decision on a CV result, looked up by result ID or image ID. Requires a verified agency bearer token (service tokens are not accepted for review).
+
+```json
+{
+  "decision": "approved",
+  "note": "Confirmed against field report."
+}
+```
+
+`decision` must be `approved` or `rejected` (`400 invalid_decision` otherwise); unknown IDs return `404`. Returns `200` with the updated result (`reviewStatus`, `reviewedBy` from the verified token claims, `reviewedAt`).
 
 ## Resource Planning
 
@@ -2297,29 +2378,15 @@ Response:
 
 ### Download Dataset
 
-`GET /api/v1/open-data/datasets/{id}/download?format=csv|json|parquet`
+`GET /api/v1/open-data/datasets/{id}/download?format=csv|json`
 
-Response:
+Returns the dataset's actual rows serialized in the requested format — `text/csv` (header row from the dataset's column layout) or `application/json` (array of row objects) — with `Content-Disposition: attachment; filename="<datasetId>.<format>"`. Other formats are rejected with `400 unsupported_format`.
 
-```json
-{
-  "download": {
-    "id": "dl_...",
-    "datasetId": "dataset_flood_reports_2026",
-    "format": "csv",
-    "url": "/api/v1/open-data/datasets/dataset_flood_reports_2026/download?format=csv",
-    "size": 23552,
-    "checksum": "sha256:...",
-    "createdAt": "2026-07-10T08:00:00Z"
-  },
-  "rateLimit": {
-    "limit": 10,
-    "remaining": 9,
-    "resetAt": "2026-07-10T08:01:00Z"
-  },
-  "auditLogged": true
-}
-```
+Download metadata travels in response headers because the body carries the dataset bytes:
+
+- `X-NADAA-Download-Id` — id of the recorded download artifact; its recorded URL is this route and its size is the exact byte size served.
+- `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` — token-bucket state.
+- `X-NADAA-Audit-Logged` — `true` when the download audit event was persisted locally.
 
 Rules:
 
@@ -2411,6 +2478,12 @@ Response:
   }
 }
 ```
+
+Rules:
+
+- `reviewedBy` is set from the verified admin actor, never from the request body.
+- Every review decision is recorded in the audit trail with the verified actor.
+- A request that is no longer `pending` cannot be re-reviewed: the endpoint returns `409 request_already_reviewed`.
 
 ## Public Disaster Education Campaigns
 

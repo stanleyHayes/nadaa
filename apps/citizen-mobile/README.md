@@ -8,7 +8,7 @@ Expo/React Native foundation for the Phase 2 citizen mobile app.
 - Current alert feed, area risk, incident report draft/submission, offline guides, shelter/recovery support, and session/permission setup screens.
 - Shared contracts from `@nadaa/shared-types` and brand tokens from `@nadaa/brand`.
 - Offline primitives for guide cache, report draft, and session persistence (AsyncStorage).
-- Citizen OTP sign-in against auth-service; the citizen Bearer token is attached to volunteer task endpoints.
+- Citizen OTP sign-in against auth-service; the citizen Bearer token is attached to volunteer registration and task endpoints.
 - Push registration obtains the real Expo push token and honestly reports when the server has no registration endpoint.
 
 ## Local Checks

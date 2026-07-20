@@ -65,7 +65,7 @@ export function OverviewView({
   ];
 
   const coverageBoard = [...agencies].sort(
-    (a, b) => a.mfaCoverage - b.mfaCoverage,
+    (a, b) => (a.mfaCoverage ?? -1) - (b.mfaCoverage ?? -1),
   );
   const recentAudit = auditLogs.slice(0, 5);
 
@@ -162,12 +162,18 @@ export function OverviewView({
               <div className="cc-shelter-row__head">
                 <span className="cc-shelter-row__name">{agency.name}</span>
                 <span className="cc-shelter-row__figure">
-                  {agency.users} users · {formatPercent(agency.mfaCoverage)}
+                  {agency.mfaCoverage === null
+                    ? "users unavailable"
+                    : `${agency.users} users · ${formatPercent(agency.mfaCoverage)}`}
                 </span>
               </div>
               <CoverageMeter
-                value={agency.mfaCoverage}
-                tone={coverageTone(agency.mfaCoverage)}
+                value={agency.mfaCoverage ?? 0}
+                tone={
+                  agency.mfaCoverage === null
+                    ? "red"
+                    : coverageTone(agency.mfaCoverage)
+                }
               />
             </div>
           ))}

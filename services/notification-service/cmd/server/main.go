@@ -22,6 +22,9 @@ const serviceName = "notification-service"
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("%s: invalid configuration: %v", serviceName, err)
+	}
 	now := time.Now().UTC()
 	s := store.NewMemoryStore(now)
 	alertClient := client.NewAlertServiceClient(utils.EnvOrDefault("NADAA_ALERT_SERVICE_URL", "http://localhost:8089/api/v1"))

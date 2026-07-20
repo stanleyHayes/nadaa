@@ -26,7 +26,12 @@ var (
 	ErrMFASetupRequired   = errors.New("mfa setup required")
 	ErrTooManyAttempts    = errors.New("too many attempts")
 	ErrUnknownAgency      = errors.New("unknown agency")
+	ErrWeakPassword       = errors.New("weak password")
 )
+
+// MinAgencyPasswordLength is the minimum length for agency user passwords;
+// the most privileged accounts on the platform must not use weak credentials.
+const MinAgencyPasswordLength = 12
 
 // Brute-force protection: after maxFailedAttempts consecutive failures on a
 // credential path, the account key locks for attemptLockout.
@@ -48,10 +53,12 @@ type Store interface {
 	VerifyOTP(phone string, code string, now time.Time) (models.CitizenProfile, error)
 	ProfileByID(id string) (models.CitizenProfile, bool)
 	CreateAgencyUser(request models.CreateAgencyUserRequest, temporaryPassword string, now time.Time) (models.AgencyUserProfile, error)
-	StartAgencyMFASetup(userID string, email string, temporaryPassword string, secret string, code string, now time.Time) (models.MFAChallenge, error)
+	StartAgencyMFASetup(userID string, email string, temporaryPassword string, secret string, now time.Time) (models.MFAChallenge, error)
 	VerifyAgencyMFA(userID string, email string, temporaryPassword string, code string, now time.Time) (models.AgencyUserProfile, error)
 	LoginAgencyUser(email string, password string, mfaCode string, now time.Time) (models.AgencyUserProfile, error)
+	ChangeAgencyPassword(userID string, currentPassword string, newPassword string, now time.Time) error
 	AgencyProfileByID(id string) (models.AgencyUserProfile, bool)
+	ListAgencyUsers(now time.Time) []models.AgencyUserDirectoryEntry
 	ListAgencies() []models.AgencySummary
 	AppendAuditLog(record models.AuditLogRecord) models.AuditLogRecord
 	ListAuditLogs(limit int) []models.AuditLogRecord
@@ -209,8 +216,9 @@ func (m *MemoryStore) CreateAgencyUser(request models.CreateAgencyUserRequest, t
 	return utils.AgencyProfileFromUser(user, agency), nil
 }
 
-// StartAgencyMFASetup begins MFA enrollment for an agency user.
-func (m *MemoryStore) StartAgencyMFASetup(userID string, email string, temporaryPassword string, secret string, code string, now time.Time) (models.MFAChallenge, error) {
+// StartAgencyMFASetup begins TOTP enrollment for an agency user, storing the
+// secret as a pending challenge until verification completes.
+func (m *MemoryStore) StartAgencyMFASetup(userID string, email string, temporaryPassword string, secret string, now time.Time) (models.MFAChallenge, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -226,7 +234,6 @@ func (m *MemoryStore) StartAgencyMFASetup(userID string, email string, temporary
 		ID:        utils.NewID("mfa"),
 		UserID:    user.ID,
 		Secret:    secret,
-		Code:      code,
 		ExpiresAt: now.Add(10 * time.Minute).UTC(),
 	}
 	m.mfaChallengesByUser[user.ID] = challenge
@@ -234,7 +241,8 @@ func (m *MemoryStore) StartAgencyMFASetup(userID string, email string, temporary
 	return challenge, nil
 }
 
-// VerifyAgencyMFA confirms an MFA setup challenge and enables MFA.
+// VerifyAgencyMFA confirms a TOTP enrollment challenge and enables MFA. The
+// verified secret becomes the account's persistent TOTP seed.
 func (m *MemoryStore) VerifyAgencyMFA(userID string, email string, temporaryPassword string, code string, now time.Time) (models.AgencyUserProfile, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -253,7 +261,7 @@ func (m *MemoryStore) VerifyAgencyMFA(userID string, email string, temporaryPass
 	}
 
 	challenge, exists := m.mfaChallengesByUser[user.ID]
-	if !exists || !utils.SecureCompare(challenge.Code, code) || now.After(challenge.ExpiresAt) {
+	if !exists || now.After(challenge.ExpiresAt) || !utils.VerifyTOTP(challenge.Secret, code, now) {
 		m.recordFailure(attemptKey, now)
 		return models.AgencyUserProfile{}, ErrInvalidCredentials
 	}
@@ -261,14 +269,14 @@ func (m *MemoryStore) VerifyAgencyMFA(userID string, email string, temporaryPass
 	delete(m.mfaChallengesByUser, user.ID)
 	m.resetFailures(attemptKey)
 	user.MFAEnabled = true
-	user.MFACode = code
+	user.MFASecret = challenge.Secret
 	user.UpdatedAt = now.UTC()
 	m.agencyUsersByID[user.ID] = user
 
 	return utils.AgencyProfileFromUser(user, agency), nil
 }
 
-func (m *MemoryStore) enableAgencyMFA(userID string, code string, now time.Time) {
+func (m *MemoryStore) enableAgencyMFA(userID string, secret string, now time.Time) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -277,7 +285,7 @@ func (m *MemoryStore) enableAgencyMFA(userID string, code string, now time.Time)
 		return
 	}
 	user.MFAEnabled = true
-	user.MFACode = code
+	user.MFASecret = secret
 	user.UpdatedAt = now.UTC()
 	m.agencyUsersByID[user.ID] = user
 }
@@ -309,7 +317,7 @@ func (m *MemoryStore) LoginAgencyUser(email string, password string, mfaCode str
 	if user.MFARequired && mfaCode == "" {
 		return models.AgencyUserProfile{}, ErrMFARequired
 	}
-	if user.MFARequired && !utils.SecureCompare(user.MFACode, mfaCode) {
+	if user.MFARequired && !utils.VerifyTOTP(user.MFASecret, mfaCode, now) {
 		m.recordFailure(attemptKey, now)
 		return models.AgencyUserProfile{}, ErrInvalidCredentials
 	}
@@ -321,6 +329,35 @@ func (m *MemoryStore) LoginAgencyUser(email string, password string, mfaCode str
 
 	m.resetFailures(attemptKey)
 	return utils.AgencyProfileFromUser(user, agency), nil
+}
+
+// ChangeAgencyPassword replaces an agency user's password after verifying the
+// current one. Failed verifications share the brute-force lockout machinery;
+// the new password must satisfy the agency password complexity rule.
+func (m *MemoryStore) ChangeAgencyPassword(userID string, currentPassword string, newPassword string, now time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	attemptKey := "agency-password:" + userID
+	if m.lockedOut(attemptKey, now) {
+		return ErrTooManyAttempts
+	}
+
+	user, exists := m.agencyUsersByID[userID]
+	if !exists || !utils.VerifyCredential(currentPassword, user.PasswordHash) {
+		m.recordFailure(attemptKey, now)
+		return ErrInvalidCredentials
+	}
+	if len(newPassword) < MinAgencyPasswordLength {
+		return ErrWeakPassword
+	}
+
+	user.PasswordHash = utils.HashCredential(newPassword)
+	user.UpdatedAt = now.UTC()
+	m.agencyUsersByID[user.ID] = user
+	m.resetFailures(attemptKey)
+
+	return nil
 }
 
 func (m *MemoryStore) authorityUserByCredentials(userID string, email string, password string) (models.AgencyUser, models.AgencyRecord, error) {
@@ -421,6 +458,37 @@ func (m *MemoryStore) AgencyProfileByID(id string) (models.AgencyUserProfile, bo
 	}
 
 	return utils.AgencyProfileFromUser(user, agency), true
+}
+
+// ListAgencyUsers returns the sanitized agency user directory, sorted by
+// email for a stable response order. Users locked out of login report their
+// lockout deadline via LockedUntil.
+func (m *MemoryStore) ListAgencyUsers(now time.Time) []models.AgencyUserDirectoryEntry {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	users := make([]models.AgencyUserDirectoryEntry, 0, len(m.agencyUsersByID))
+	for _, user := range m.agencyUsersByID {
+		entry := models.AgencyUserDirectoryEntry{
+			ID:         user.ID,
+			Name:       user.Name,
+			Email:      user.Email,
+			Role:       user.Role,
+			AgencyID:   user.AgencyID,
+			MFAEnabled: user.MFAEnabled,
+			CreatedAt:  user.CreatedAt,
+		}
+		if attempts, exists := m.failedAttempts["agency-login:"+user.Email]; exists && attempts.lockedUntil.After(now) {
+			lockedUntil := attempts.lockedUntil
+			entry.LockedUntil = &lockedUntil
+		}
+		users = append(users, entry)
+	}
+	slices.SortFunc(users, func(a, b models.AgencyUserDirectoryEntry) int {
+		return strings.Compare(a.Email, b.Email)
+	})
+
+	return users
 }
 
 // ListAgencies returns the agency directory, sorted by name for a stable

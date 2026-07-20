@@ -27,7 +27,7 @@ Base path: `/api/v1`
 - `POST /api/v1/campaigns`
 - `PUT /api/v1/campaigns/{id}`
 
-Authority endpoints require an auth-service bearer token (`Authorization: Bearer nadaa.<payload>.<sig>`) whose claims carry an allowed role, an agency id, and `mfa: true`. Allowed roles: `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`. For local development and smoke tests only, setting `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` also honors the legacy `X-NADAA-Actor-ID`, `X-NADAA-Actor-Role`, `X-NADAA-Agency-ID`, and `X-NADAA-MFA-Completed: true` headers.
+Authority endpoints require an auth-service bearer token (`Authorization: Bearer nadaa.<payload>.<sig>`) whose claims carry an allowed role, an agency id, and `mfa: true`. Allowed roles: `system_admin`, `agency_admin`, `nadmo_officer`, `district_officer`, `dispatcher`. For local development and smoke tests only, setting `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` also honors the legacy `X-NADAA-Actor-ID`, `X-NADAA-Actor-Role`, `X-NADAA-Agency-ID`, and `X-NADAA-MFA-Completed: true` headers. The service refuses to start when `NADAA_AUTH_ALLOW_MOCK_ACTORS=true` is set without `NADAA_ENV=development`.
 
 A create request without an explicit `status` defaults to `draft`. Public callers may only filter by `status=published`; any other status filter returns `403 forbidden`.
 

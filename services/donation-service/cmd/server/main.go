@@ -19,6 +19,9 @@ const serviceName = "donation-service"
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("%s: invalid configuration: %v", serviceName, err)
+	}
 	s := store.NewMemoryStore(time.Now().UTC())
 	payments := handlers.BuildPaymentProvider(cfg.Payment, cfg.IsDevelopment())
 	srv := handlers.NewServer(s, payments, time.Now, cfg)

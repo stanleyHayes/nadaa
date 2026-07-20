@@ -223,12 +223,15 @@ export function PreferenceRow({
   label,
   description,
   checked,
+  disabled = false,
   onChange,
 }: {
   icon?: LucideIcon;
   label: string;
   description: string;
   checked: boolean;
+  /** Renders the switch inert — for channels that are not connected yet. */
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   const labelId = useId();
@@ -243,6 +246,7 @@ export function PreferenceRow({
         border: "1px solid var(--nadaa-border, #dfeaf2)",
         borderRadius: "12px",
         backgroundColor: "var(--nadaa-mist, #f5f8fc)",
+        opacity: disabled ? 0.62 : 1,
         transition: "border-color 150ms ease",
         "&:focus-within": {
           borderColor: "var(--nadaa-gold, #f4c20d)",
@@ -302,6 +306,7 @@ export function PreferenceRow({
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         color="primary"
+        disabled={disabled}
         slotProps={{ input: { "aria-describedby": descriptionId } }}
         sx={{ flex: "0 0 auto", mt: -0.25 }}
       />

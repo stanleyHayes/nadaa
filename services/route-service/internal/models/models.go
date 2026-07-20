@@ -82,9 +82,15 @@ type RoutePlanResponse struct {
 	TargetShelter            *Shelter       `json:"targetShelter,omitempty"`
 	AvoidedClosures          []string       `json:"avoidedClosures"`
 	AvoidedRiskZones         []string       `json:"avoidedRiskZones"`
-	Disclaimer               string         `json:"disclaimer"`
-	GeneratedAt              time.Time      `json:"generatedAt"`
-	DecisionSupport          bool           `json:"decisionSupport"`
+	// Degraded is true when a hazard lookup failed, meaning an empty
+	// AvoidedClosures/AvoidedRiskZones reflects missing data rather than a
+	// verified hazard-free corridor.
+	Degraded bool `json:"degraded"`
+	// EnrichmentStatus briefly names the failed hazard lookup when Degraded.
+	EnrichmentStatus string    `json:"enrichmentStatus,omitempty"`
+	Disclaimer       string    `json:"disclaimer"`
+	GeneratedAt      time.Time `json:"generatedAt"`
+	DecisionSupport  bool      `json:"decisionSupport"`
 }
 
 // OptionsResponse returns supported enum values.

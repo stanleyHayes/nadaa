@@ -129,6 +129,39 @@ func TestCreateAlertStoresSourcePredictionInAudit(t *testing.T) {
 	}
 }
 
+func TestAuditSnapshotCapturesCitizenFacingContent(t *testing.T) {
+	srv := newTestServer()
+	body := strings.Replace(validAlertBody(), `"evacuationRequired": false`, `"evacuationRequired": true`, 1)
+	draft := createAlertWithBody(t, srv, body)
+
+	logs := srv.store.ListAudit(10)
+	if len(logs) != 1 || logs[0].Action != "alert.created" {
+		t.Fatalf("expected alert.created audit log, got %#v", logs)
+	}
+	snapshot := logs[0].After
+	if snapshot["message"] != draft.Message {
+		t.Fatalf("expected message in audit snapshot, got %#v", snapshot)
+	}
+	if snapshot["recommendedAction"] != draft.RecommendedAction {
+		t.Fatalf("expected recommendedAction in audit snapshot, got %#v", snapshot)
+	}
+	if snapshot["evacuationRequired"] != true {
+		t.Fatalf("expected evacuationRequired in audit snapshot, got %#v", snapshot)
+	}
+	startsAt, ok := snapshot["startsAt"].(time.Time)
+	if !ok || !startsAt.Equal(draft.StartsAt) {
+		t.Fatalf("expected startsAt in audit snapshot, got %#v", snapshot)
+	}
+	expiresAt, ok := snapshot["expiresAt"].(time.Time)
+	if !ok || !expiresAt.Equal(draft.ExpiresAt) {
+		t.Fatalf("expected expiresAt in audit snapshot, got %#v", snapshot)
+	}
+	shelterIDs, ok := snapshot["shelterIds"].([]string)
+	if !ok || len(shelterIDs) != 1 || shelterIDs[0] != "00000000-0000-0000-0000-000000000301" {
+		t.Fatalf("expected shelterIds in audit snapshot, got %#v", snapshot)
+	}
+}
+
 func TestCreateAlertRejectsUnsafeSourcePrediction(t *testing.T) {
 	srv := newTestServer()
 
@@ -220,6 +253,53 @@ func TestEmergencyOverrideRequiresAuthorizedRoleAndAudit(t *testing.T) {
 	logs := srv.store.ListAudit(10)
 	if logs[0].Action != "alert.emergency_override" {
 		t.Fatalf("expected emergency override audit log first, got %#v", logs)
+	}
+}
+
+func TestEmergencyOverrideRequiresDifferentActor(t *testing.T) {
+	srv := newTestServer()
+	draft := createAlert(t, srv)
+
+	// The drafter cannot self-publish their own draft via emergency override.
+	selfResponse := httptest.NewRecorder()
+	selfRequest := authorizedRequest(http.MethodPost, "/api/v1/alerts/"+draft.ID+"/emergency-override", `{"reason":"Immediate life-safety warning"}`)
+	selfRequest.Header.Set("X-NADAA-Actor-Role", "nadmo_officer")
+	srv.emergencyOverrideHandler(selfResponse, selfRequest)
+
+	if selfResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected self-override status %d, got %d: %s", http.StatusForbidden, selfResponse.Code, selfResponse.Body.String())
+	}
+
+	// A different officer with an override role still can.
+	overrideResponse := httptest.NewRecorder()
+	overrideRequest := approverRequest(http.MethodPost, "/api/v1/alerts/"+draft.ID+"/emergency-override", `{"reason":"Immediate life-safety warning"}`)
+	srv.emergencyOverrideHandler(overrideResponse, overrideRequest)
+
+	if overrideResponse.Code != http.StatusOK {
+		t.Fatalf("expected override status %d, got %d: %s", http.StatusOK, overrideResponse.Code, overrideResponse.Body.String())
+	}
+}
+
+func TestEmergencyOverrideAllowsSystemAdminSelfOverride(t *testing.T) {
+	srv := newTestServer()
+
+	createResponse := httptest.NewRecorder()
+	createRequest := authorizedRequest(http.MethodPost, "/api/v1/alerts", validAlertBody())
+	createRequest.Header.Set("X-NADAA-Actor-Role", "system_admin")
+	srv.createAlertHandler(createResponse, createRequest)
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("create alert: %s", createResponse.Body.String())
+	}
+	var draft models.AuthorityAlert
+	decodeResponse(t, createResponse, &draft)
+
+	overrideResponse := httptest.NewRecorder()
+	overrideRequest := authorizedRequest(http.MethodPost, "/api/v1/alerts/"+draft.ID+"/emergency-override", `{"reason":"Immediate life-safety warning"}`)
+	overrideRequest.Header.Set("X-NADAA-Actor-Role", "system_admin")
+	srv.emergencyOverrideHandler(overrideResponse, overrideRequest)
+
+	if overrideResponse.Code != http.StatusOK {
+		t.Fatalf("expected system_admin self-override status %d, got %d: %s", http.StatusOK, overrideResponse.Code, overrideResponse.Body.String())
 	}
 }
 

@@ -61,7 +61,9 @@ if (!serviceWorker.ok) {
   );
 }
 const serviceWorkerSource = await serviceWorker.text();
-if (!serviceWorkerSource.includes("nadaa-citizen-guides")) {
+// The service worker must keep the network-first guide cache handling (the
+// cache name itself is versioned and changes between releases).
+if (!serviceWorkerSource.includes("/api/v1/guides")) {
   throw new Error("citizen service worker is missing guide cache logic");
 }
 console.log("citizen guide UI shell OK");

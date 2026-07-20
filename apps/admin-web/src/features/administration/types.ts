@@ -1,7 +1,6 @@
 import type {
   AgencySummary,
   AgencyType,
-  AgencyUserProfile,
   AgencyUserRole,
   AlertSeverity,
   AlertStatus,
@@ -14,21 +13,60 @@ import type {
 
 export type AdminLoadState = "loading" | "ready" | "error";
 
-export type AgencyOperationalStatus = "active" | "pilot" | "review";
+/**
+ * Operational status of an agency. The directory API does not report one, so
+ * agencies load as "unknown" rather than with a fabricated status.
+ */
+export type AgencyOperationalStatus = "active" | "pilot" | "review" | "unknown";
 
 export interface ManagedAgency extends AgencySummary {
   status: AgencyOperationalStatus;
-  users: number;
-  openAssignments: number;
-  mfaCoverage: number;
+  /** Authority users in the agency; null while the users directory is unavailable. */
+  users: number | null;
+  /** Open dispatch assignments; no governance API reports these yet (null). */
+  openAssignments: number | null;
+  /** Share of the agency's users with MFA enrolled; null when unknown. */
+  mfaCoverage: number | null;
   dataScope: string;
+  /** Latest audit event for the agency; empty when no audit data is loaded. */
   lastAuditAt: string;
 }
 
-export interface ManagedAgencyUser extends AgencyUserProfile {
-  status: "active" | "mfa_pending" | "review";
+/**
+ * An authority user row in the console. Built either from the users directory
+ * (`GET /auth/agency-users`, which exposes identity fields only) or from the
+ * fuller profile returned by user provisioning, so only shared display fields
+ * are guaranteed here.
+ */
+export interface ManagedAgencyUser {
+  id: string;
+  name: string;
+  email: string;
+  role: AgencyUserRole;
+  agency: Pick<AgencySummary, "id" | "name">;
+  mfaEnabled: boolean;
+  createdAt?: string;
+  /** Set while the account is locked after too many failed attempts. */
+  lockedUntil?: string;
+  status: "active" | "mfa_pending" | "review" | "locked";
   lastLoginAt?: string;
   accessScope: string;
+}
+
+/**
+ * Entry of `GET /auth/agency-users` (contract landed with the auth-service
+ * directory endpoint; not yet exported from shared-types). system_admin
+ * receives every agency's users, agency_admin only their own.
+ */
+export interface AgencyUserDirectoryEntry {
+  id: string;
+  name: string;
+  email: string;
+  role: AgencyUserRole;
+  agencyId: string;
+  mfaEnabled: boolean;
+  lockedUntil?: string;
+  createdAt: string;
 }
 
 export interface AdminMetric {

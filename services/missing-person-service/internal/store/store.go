@@ -20,6 +20,7 @@ type Store interface {
 	ReviewMissingPerson(id string, request models.ReviewMissingPersonRequest, ctx models.AuthorityContext, now time.Time) (models.MissingPerson, string, string)
 	CloseMissingPerson(id string, request models.CloseMissingPersonRequest, ctx models.AuthorityContext, now time.Time) (models.MissingPerson, string, string)
 	ListAudit(id string) []models.MissingPersonAuditEntry
+	Count() int
 }
 
 // MemoryStore is an in-memory implementation of Store.
@@ -245,11 +246,11 @@ func (m *MemoryStore) ReviewMissingPerson(id string, request models.ReviewMissin
 			}
 			next.ReviewStatus = "approved"
 			next.PublicVisibility = "public"
-			next.Status = statusOrDefault(request.Status, "active")
+			next.Status = reviewApprovalStatus(request.Status, next.Status)
 		case "approve_private":
 			next.ReviewStatus = "approved"
 			next.PublicVisibility = "private"
-			next.Status = statusOrDefault(request.Status, "active")
+			next.Status = reviewApprovalStatus(request.Status, next.Status)
 		case "reject":
 			next.ReviewStatus = "rejected"
 			next.PublicVisibility = "private"
@@ -325,6 +326,14 @@ func (m *MemoryStore) ListAudit(id string) []models.MissingPersonAuditEntry {
 	return append([]models.MissingPersonAuditEntry{}, entries...)
 }
 
+// Count returns the number of stored records so intake can refuse to grow the
+// store past its configured capacity.
+func (m *MemoryStore) Count() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.records)
+}
+
 func (m *MemoryStore) appendAuditLocked(recordID string, action string, ctx models.AuthorityContext, notes string, now time.Time) {
 	m.auditSeq++
 	m.audits = append(m.audits, models.MissingPersonAuditEntry{
@@ -339,11 +348,19 @@ func (m *MemoryStore) appendAuditLocked(recordID string, action string, ctx mode
 	})
 }
 
-func statusOrDefault(value string, fallback string) string {
-	if strings.TrimSpace(value) == "" {
-		return fallback
+// reviewApprovalStatus resolves the record status after an approval. An
+// explicit status in the review always wins. Without one, a first review
+// activates the pending record — the documented intake flow — while any later
+// re-review leaves the current status untouched so a located or closed case
+// is never silently reset back to active.
+func reviewApprovalStatus(requested, current string) string {
+	if strings.TrimSpace(requested) != "" {
+		return requested
 	}
-	return value
+	if current == "pending_review" {
+		return "active"
+	}
+	return current
 }
 
 func matchesFilter(record models.MissingPerson, filter models.MissingPersonFilter) bool {

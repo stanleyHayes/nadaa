@@ -69,7 +69,6 @@ export function AgencyShell({ session }: { session: AgencySession }) {
     preferences,
     updateProfile,
     updatePreferences,
-    setMfaEnabled,
     changePassword,
   } = useAgencySession();
   const [activeView, setActiveView] = useState<ShellView>(readInitialView);
@@ -223,7 +222,6 @@ export function AgencyShell({ session }: { session: AgencySession }) {
             preferences={preferences}
             onUpdateProfile={updateProfile}
             onUpdatePreferences={updatePreferences}
-            onSetMfaEnabled={setMfaEnabled}
             onChangePassword={changePassword}
           />
         );

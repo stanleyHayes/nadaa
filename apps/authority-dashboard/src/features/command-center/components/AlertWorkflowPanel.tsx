@@ -320,7 +320,9 @@ export function AlertWorkflowPanel({
           </Alert>
         ) : null}
         {queueAlerts.length ? (
-          queueAlerts.slice(0, 4).map((alert) => (
+          <Box sx={{ maxHeight: 420, overflowY: "auto" }}>
+            <Stack spacing={1.25}>
+              {queueAlerts.map((alert) => (
             <Box key={alert.id} className="alert-queue-row">
               <Stack
                 direction="row"
@@ -396,7 +398,9 @@ export function AlertWorkflowPanel({
                 ) : null}
               </Stack>
             </Box>
-          ))
+              ))}
+            </Stack>
+          </Box>
         ) : (
           <EmptyState
             title="No alerts in queue"

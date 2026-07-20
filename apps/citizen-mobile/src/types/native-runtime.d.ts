@@ -155,8 +155,32 @@ declare module "expo-location" {
     granted: boolean;
     status: "granted" | "denied" | "undetermined";
   };
+  export enum Accuracy {
+    Lowest = 1,
+    Low = 2,
+    Balanced = 3,
+    High = 4,
+    Highest = 5,
+    BestForNavigation = 6,
+  }
+  export type LocationObject = {
+    coords: {
+      latitude: number;
+      longitude: number;
+      accuracy: number | null;
+      altitude: number | null;
+      altitudeAccuracy: number | null;
+      heading: number | null;
+      speed: number | null;
+    };
+    timestamp: number;
+  };
   export function getForegroundPermissionsAsync(): Promise<LocationPermissionResponse>;
   export function requestForegroundPermissionsAsync(): Promise<LocationPermissionResponse>;
+  export function getCurrentPositionAsync(options?: {
+    accuracy?: Accuracy;
+    mayShowUserSettingsDialog?: boolean;
+  }): Promise<LocationObject>;
 }
 
 declare module "expo-notifications" {

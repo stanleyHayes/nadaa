@@ -1,5 +1,38 @@
+import { createHmac } from "node:crypto";
+
 const baseURL =
   process.env.INCIDENT_API_URL?.trim() || "http://127.0.0.1:8084/api/v1";
+
+// Citizen endpoints (volunteer registration, volunteer task self-access)
+// require a verified citizen bearer token. Dev backends run with
+// NADAA_AUTH_TOKEN_SECRET=dev-secret-change-me (see
+// scripts/dev-citizen-backends.sh), so the smoke signs its own token.
+const tokenSecret =
+  process.env.NADAA_AUTH_TOKEN_SECRET?.trim() || "dev-secret-change-me";
+
+function base64url(value) {
+  return Buffer.from(value).toString("base64url");
+}
+
+function citizenToken(subject) {
+  const payload = base64url(
+    JSON.stringify({
+      sub: subject,
+      typ: "citizen",
+      role: "citizen",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    }),
+  );
+  const signature = createHmac("sha256", tokenSecret)
+    .update(payload)
+    .digest("base64url");
+  return `nadaa.${payload}.${signature}`;
+}
+
+const citizenHeaders = {
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${citizenToken("usr_smoke_volunteer_001")}`,
+};
 
 const authorityHeaders = {
   "Content-Type": "application/json",
@@ -35,9 +68,7 @@ const report = {
   urgency: "high",
 };
 
-const volunteer = await postJSON("/volunteers", volunteerProfile, {
-  "Content-Type": "application/json",
-});
+const volunteer = await postJSON("/volunteers", volunteerProfile, citizenHeaders);
 if (
   !volunteer.volunteer?.id ||
   volunteer.volunteer.verificationStatus !== "pending"
@@ -88,13 +119,17 @@ if (task.status !== "assigned" || task.volunteerId !== volunteer.volunteer.id) {
 }
 console.log(`community volunteer task assign OK ${task.id}`);
 
-const accepted = await patchJSON(`/volunteer-tasks/${task.id}/status`, {
-  location: { lat: 5.561, lng: -0.201 },
-  note: "Accepted from smoke script.",
-  safetyStatus: "safe",
-  status: "accepted",
-  volunteerId: volunteer.volunteer.id,
-});
+const accepted = await patchJSON(
+  `/volunteer-tasks/${task.id}/status`,
+  {
+    location: { lat: 5.561, lng: -0.201 },
+    note: "Accepted from smoke script.",
+    safetyStatus: "safe",
+    status: "accepted",
+    volunteerId: volunteer.volunteer.id,
+  },
+  citizenHeaders,
+);
 if (accepted.status !== "accepted" || !accepted.acceptedAt) {
   throw new Error("community volunteer task status update invalid");
 }
@@ -110,14 +145,17 @@ const observed = await postJSON(
     safetyStatus: "needs_authority",
     volunteerId: volunteer.volunteer.id,
   },
-  { "Content-Type": "application/json" },
+  citizenHeaders,
 );
 if (observed.status !== "needs_escalation" || !observed.escalationRequired) {
   throw new Error("community volunteer observation did not escalate task");
 }
 console.log("community volunteer observation OK needs_escalation");
 
-const tasks = await getJSON(`/volunteers/${volunteer.volunteer.id}/tasks`);
+const tasks = await getJSON(
+  `/volunteers/${volunteer.volunteer.id}/tasks`,
+  citizenHeaders,
+);
 if (!tasks.tasks?.some((item) => item.id === task.id)) {
   throw new Error("community volunteer task list missing assigned task");
 }
@@ -157,10 +195,10 @@ async function postJSON(path, body, headers) {
   return response.json();
 }
 
-async function patchJSON(path, body) {
+async function patchJSON(path, body, headers) {
   const response = await fetch(`${baseURL}${path}`, {
     body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
+    headers,
     method: "PATCH",
   });
   if (!response.ok) {

@@ -22,6 +22,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
 
 	s, err := store.NewMemoryStore(cfg.ModelDir)
 	if err != nil {
@@ -29,7 +32,7 @@ func main() {
 	}
 
 	if cfg.InternalServiceToken == "" {
-		log.Printf("WARN %s NADAA_INTERNAL_SERVICE_TOKEN is not set; internal endpoints accept unauthenticated requests (development default)", serviceName)
+		log.Printf("WARN %s NADAA_INTERNAL_SERVICE_TOKEN is not set; the service-token path is closed and only verified agency bearer tokens (or mock actors in development) are accepted", serviceName)
 	}
 
 	srv := handlers.NewServer(s, time.Now, cfg)

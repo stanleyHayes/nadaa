@@ -505,9 +505,127 @@ func TestAlertFeedRejectsInvalidStatus(t *testing.T) {
 	}
 }
 
-func newTestServer() *Server {
+func TestFixtureAlertsExcludedFromFeedAndDeliveryInProduction(t *testing.T) {
+	srv := newTestServerWithEnv("production")
+
+	// The live citizen feed must not contain fabricated fixture alerts, and
+	// with no reachable upstream it must report an explicit degraded status.
+	response := httptest.NewRecorder()
+	srv.listAlertsHandler(response, httptest.NewRequest(http.MethodGet, "/api/v1/notifications/alerts?status=all", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.CitizenAlertListResponse
+	decodeResponse(t, response, &payload)
+	if payload.Source != "degraded" {
+		t.Fatalf("expected degraded source without an upstream, got %q", payload.Source)
+	}
+	if len(payload.Alerts) != 0 {
+		t.Fatalf("expected no fixture alerts in production feed, got %#v", payload.Alerts)
+	}
+
+	// A delivery attempt against a fixture alert id must fail, not send.
+	deliverResponse := httptest.NewRecorder()
+	deliverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/alerts/alert_feed_current_flood/deliver", bytes.NewBufferString(`{"recipientId":"usr_demo_citizen","pushToken":"ExponentPushToken-demo","channels":["push"]}`))
+	deliverRequest.SetPathValue("id", "alert_feed_current_flood")
+	withAuthority(deliverRequest)
+	srv.deliverAlertHandler(deliverResponse, deliverRequest)
+	if deliverResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected fixture delivery status %d, got %d: %s", http.StatusNotFound, deliverResponse.Code, deliverResponse.Body.String())
+	}
+	if logs := srv.store.ListDeliveryLogs(models.LogFilters{}); len(logs) != 0 {
+		t.Fatalf("expected no delivery attempts logged for a fixture alert, got %#v", logs)
+	}
+}
+
+func TestProductionFeedServesUpstreamAlertsWithoutFixtures(t *testing.T) {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
-	cfg := &config.Config{Addr: ":8090", AllowMockActors: true}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		utils.WriteJSON(w, http.StatusOK, models.AuthorityAlertListResponse{Alerts: []models.AuthorityAlert{
+			{
+				ID:                 "alert_upstream_001",
+				Title:              "Approved flood warning",
+				HazardType:         "flood",
+				Severity:           "warning",
+				Message:            "Approved upstream alert message for the feed test.",
+				Target:             models.AlertTarget{Type: "district", IDs: []string{"accra-metropolitan"}, Label: "Accra Metropolitan"},
+				StartsAt:           now.Add(-time.Hour),
+				ExpiresAt:          now.Add(8 * time.Hour),
+				RecommendedAction:  "Move to higher ground.",
+				EvacuationRequired: true,
+				ShelterIDs:         []string{"shelter-ama-001"},
+				Status:             "approved",
+				UpdatedAt:          now,
+			},
+		}})
+	}))
+	defer upstream.Close()
+
+	srv := newTestServerWithEnv("production")
+	srv.alertClient = client.NewAlertServiceClient(upstream.URL + "/api/v1")
+
+	response := httptest.NewRecorder()
+	srv.listAlertsHandler(response, httptest.NewRequest(http.MethodGet, "/api/v1/notifications/alerts?status=all", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.CitizenAlertListResponse
+	decodeResponse(t, response, &payload)
+	if payload.Source != "alert-service" {
+		t.Fatalf("expected alert-service source, got %q", payload.Source)
+	}
+	if len(payload.Alerts) != 1 || payload.Alerts[0].ID != "alert_upstream_001" || payload.Alerts[0].Source != "alert-service" {
+		t.Fatalf("expected only the upstream alert, got %#v", payload.Alerts)
+	}
+}
+
+func TestProductionFeedReportsDegradedWhenUpstreamFails(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		utils.WriteError(w, http.StatusInternalServerError, "upstream_error", "boom")
+	}))
+	defer upstream.Close()
+
+	srv := newTestServerWithEnv("production")
+	srv.alertClient = client.NewAlertServiceClient(upstream.URL)
+
+	response := httptest.NewRecorder()
+	srv.listAlertsHandler(response, httptest.NewRequest(http.MethodGet, "/api/v1/notifications/alerts", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.CitizenAlertListResponse
+	decodeResponse(t, response, &payload)
+	if payload.Source != "degraded" {
+		t.Fatalf("expected degraded source on upstream failure, got %q", payload.Source)
+	}
+	if len(payload.Alerts) != 0 {
+		t.Fatalf("expected no substituted fixture alerts on upstream failure, got %#v", payload.Alerts)
+	}
+}
+
+func TestFixtureAlertsServedWithExplicitOptIn(t *testing.T) {
+	srv := newTestServerWithEnv("production")
+	srv.config.AllowFixtureAlerts = true
+
+	response := httptest.NewRecorder()
+	srv.listAlertsHandler(response, httptest.NewRequest(http.MethodGet, "/api/v1/notifications/alerts", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	var payload models.CitizenAlertListResponse
+	decodeResponse(t, response, &payload)
+	if payload.Source != "fixture" || len(payload.Alerts) == 0 {
+		t.Fatalf("expected fixture alerts with explicit opt-in, got source=%q alerts=%#v", payload.Source, payload.Alerts)
+	}
+}
+
+func newTestServer() *Server {
+	return newTestServerWithEnv("development")
+}
+
+func newTestServerWithEnv(env string) *Server {
+	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
+	cfg := &config.Config{Addr: ":8090", AllowMockActors: true, Env: env}
 	return NewServer(
 		store.NewMemoryStore(now),
 		nil,

@@ -16,7 +16,7 @@ func TestCreateSimulation(t *testing.T) {
 	payload := models.CreateSimulationRequest{Name: "Test simulation", RainfallMmOverride: 30, DurationHours: 3, TimeStepHours: 1}
 	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -50,7 +50,7 @@ func TestCreateSimulationRequiresName(t *testing.T) {
 	payload := models.CreateSimulationRequest{DurationHours: 2}
 	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -61,10 +61,10 @@ func TestCreateSimulationRequiresName(t *testing.T) {
 
 func TestListAndGetSimulation(t *testing.T) {
 	srv := newTestServer(t)
-	payload := models.CreateSimulationRequest{Name: "Listable simulation", DurationHours: 2}
+	payload := models.CreateSimulationRequest{Name: "Listable simulation", DurationHours: 2, TimeStepHours: 1}
 	body, _ := json.Marshal(payload)
 
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
+	createReq := authedRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
 	createRR := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(createRR, createReq)
 
@@ -73,7 +73,7 @@ func TestListAndGetSimulation(t *testing.T) {
 		t.Fatalf("decode created: %v", err)
 	}
 
-	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/ml/flood/simulations", nil)
+	listReq := authedRequest(http.MethodGet, "/api/v1/ml/flood/simulations", nil)
 	listRR := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(listRR, listReq)
 
@@ -88,7 +88,7 @@ func TestListAndGetSimulation(t *testing.T) {
 		t.Errorf("expected 1 simulation got %d", len(list.Simulations))
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/ml/flood/simulations/"+created.Simulation.ID, nil)
+	getReq := authedRequest(http.MethodGet, "/api/v1/ml/flood/simulations/"+created.Simulation.ID, nil)
 	getRR := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(getRR, getReq)
 
@@ -106,7 +106,7 @@ func TestListAndGetSimulation(t *testing.T) {
 
 func TestGetSimulationNotFound(t *testing.T) {
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/ml/flood/simulations/does-not-exist", nil)
+	req := authedRequest(http.MethodGet, "/api/v1/ml/flood/simulations/does-not-exist", nil)
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -121,7 +121,7 @@ func TestCreateSimulationRejectsExcessiveDuration(t *testing.T) {
 		payload := models.CreateSimulationRequest{Name: "Too long", DurationHours: hours, TimeStepHours: 1}
 		body, _ := json.Marshal(payload)
 
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
+		req := authedRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
 		rr := httptest.NewRecorder()
 		srv.Routes().ServeHTTP(rr, req)
 
@@ -136,7 +136,7 @@ func TestCreateSimulationAcceptsMaxDuration(t *testing.T) {
 	payload := models.CreateSimulationRequest{Name: "One week", DurationHours: 168, TimeStepHours: 24}
 	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
+	req := authedRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(rr, req)
 
@@ -157,9 +157,9 @@ func TestSimulationIDsUniqueWithinSameSecond(t *testing.T) {
 
 	create := func(name string) models.SimulationRun {
 		t.Helper()
-		payload := models.CreateSimulationRequest{Name: name, DurationHours: 2}
+		payload := models.CreateSimulationRequest{Name: name, DurationHours: 2, TimeStepHours: 1}
 		body, _ := json.Marshal(payload)
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
+		req := authedRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
 		rr := httptest.NewRecorder()
 		srv.Routes().ServeHTTP(rr, req)
 		if rr.Code != http.StatusCreated {
@@ -188,7 +188,7 @@ func TestSimulationIDsUniqueWithinSameSecond(t *testing.T) {
 
 	// The completion update must not clobber the other same-second run: the
 	// second job must be retrievable under its own ID with its own name.
-	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/ml/flood/simulations/"+second.ID, nil)
+	getReq := authedRequest(http.MethodGet, "/api/v1/ml/flood/simulations/"+second.ID, nil)
 	getRR := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(getRR, getReq)
 	if getRR.Code != http.StatusOK {
@@ -202,7 +202,7 @@ func TestSimulationIDsUniqueWithinSameSecond(t *testing.T) {
 		t.Fatalf("completion update clobbered another run: got %+v", got.Simulation)
 	}
 
-	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/ml/flood/simulations", nil)
+	listReq := authedRequest(http.MethodGet, "/api/v1/ml/flood/simulations", nil)
 	listRR := httptest.NewRecorder()
 	srv.Routes().ServeHTTP(listRR, listReq)
 	var list models.SimulationListResponse
@@ -213,5 +213,48 @@ func TestSimulationIDsUniqueWithinSameSecond(t *testing.T) {
 		if run.Status != "completed" {
 			t.Fatalf("found stuck %q simulation %s", run.Status, run.ID)
 		}
+	}
+}
+
+func TestCreateSimulationRejectsNonPositiveParameters(t *testing.T) {
+	srv := newTestServer(t)
+	cases := []models.CreateSimulationRequest{
+		{Name: "zero duration", DurationHours: 0, TimeStepHours: 1},
+		{Name: "negative duration", DurationHours: -5, TimeStepHours: 1},
+		{Name: "zero timestep", DurationHours: 2, TimeStepHours: 0},
+		{Name: "negative timestep", DurationHours: 2, TimeStepHours: -1},
+	}
+	for _, payload := range cases {
+		body, _ := json.Marshal(payload)
+		req := authedRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(body))
+		rr := httptest.NewRecorder()
+		srv.Routes().ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected status 400 for %+v got %d", payload, rr.Code)
+		}
+	}
+}
+
+func TestCreateSimulationNameLengthCapped(t *testing.T) {
+	srv := newTestServer(t)
+
+	tooLong, _ := json.Marshal(models.CreateSimulationRequest{
+		Name: strings.Repeat("x", 201), DurationHours: 2, TimeStepHours: 1,
+	})
+	req := authedRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(tooLong))
+	rr := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for a 201-character name got %d", rr.Code)
+	}
+
+	atCap, _ := json.Marshal(models.CreateSimulationRequest{
+		Name: strings.Repeat("x", 200), DurationHours: 2, TimeStepHours: 1,
+	})
+	req = authedRequest(http.MethodPost, "/api/v1/ml/flood/simulations", bytes.NewReader(atCap))
+	rr = httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected status 201 for a 200-character name got %d: %s", rr.Code, rr.Body.String())
 	}
 }

@@ -68,6 +68,7 @@ export default function CampaignManagerPanel() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const [form, setForm] = useState<CreateCampaignRequest>(buildDefaultForm());
 
@@ -143,6 +144,7 @@ export default function CampaignManagerPanel() {
   const openNew = () => {
     setEditingCampaign(null);
     setForm(buildDefaultForm());
+    setFormError("");
     setDialogOpen(true);
   };
 
@@ -159,6 +161,7 @@ export default function CampaignManagerPanel() {
       linkedGuideIds: campaign.linkedGuideIds ?? [],
       linkedAlertIds: campaign.linkedAlertIds ?? [],
     });
+    setFormError("");
     setDialogOpen(true);
   };
 
@@ -178,6 +181,22 @@ export default function CampaignManagerPanel() {
     value: CreateCampaignRequest[Key],
   ) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  // A cleared datetime field is an Invalid Date — converting it with
+  // toISOString() throws a RangeError, so validate first and say so in the
+  // form instead of letting the save blow up as an apparent API failure.
+  const updatePublishWindow = (key: "startsAt" | "endsAt", raw: string) => {
+    const parsed = new Date(raw);
+    if (!raw || Number.isNaN(parsed.getTime())) {
+      setFormError("Choose a valid publish date and time.");
+      return;
+    }
+    setFormError("");
+    updateForm("publishWindow", {
+      ...form.publishWindow,
+      [key]: parsed.toISOString(),
+    });
   };
 
   const updateBlock = (index: number, patch: Partial<CampaignContentBlock>) => {
@@ -442,6 +461,11 @@ export default function CampaignManagerPanel() {
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 0.5 }}>
+            {formError ? (
+              <Alert severity="error" onClose={() => setFormError("")}>
+                {formError}
+              </Alert>
+            ) : null}
             <FormControl fullWidth size="small">
               <InputLabel id="campaign-template-label">Template</InputLabel>
               <Select
@@ -523,10 +547,7 @@ export default function CampaignManagerPanel() {
                 type="datetime-local"
                 value={formatDateTimeLocal(form.publishWindow.startsAt)}
                 onChange={(event) =>
-                  updateForm("publishWindow", {
-                    ...form.publishWindow,
-                    startsAt: new Date(event.target.value).toISOString(),
-                  })
+                  updatePublishWindow("startsAt", event.target.value)
                 }
                 fullWidth
                 slotProps={{
@@ -538,10 +559,7 @@ export default function CampaignManagerPanel() {
                 type="datetime-local"
                 value={formatDateTimeLocal(form.publishWindow.endsAt)}
                 onChange={(event) =>
-                  updateForm("publishWindow", {
-                    ...form.publishWindow,
-                    endsAt: new Date(event.target.value).toISOString(),
-                  })
+                  updatePublishWindow("endsAt", event.target.value)
                 }
                 fullWidth
                 slotProps={{

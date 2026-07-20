@@ -24,6 +24,8 @@ coverage/
 bin/
 *.test
 services/*/*-service
+# Local media upload storage (never commit citizen-uploaded bytes)
+services/*/uploads/
 
 # Python
 __pycache__/

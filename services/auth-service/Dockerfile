@@ -12,5 +12,5 @@ RUN adduser -D -H -u 10001 appuser
 COPY --from=build /out/auth-service /usr/local/bin/auth-service
 
 USER appuser
-EXPOSE 8082
+EXPOSE 8080
 ENTRYPOINT ["auth-service"]

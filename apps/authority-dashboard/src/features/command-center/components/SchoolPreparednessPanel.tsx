@@ -37,6 +37,7 @@ import type {
   ReadinessCheck,
   RiskLevel,
   SchoolDetailResponse,
+  SchoolEvacuationPoint,
   SchoolListResponse,
   SchoolProfile,
   SchoolReadinessStatus,
@@ -203,9 +204,7 @@ function parseContacts(
     .filter((c) => c.name);
 }
 
-function parseEvacuationPoints(
-  value: string,
-): { label: string; lat: number; lng: number }[] {
+function parseEvacuationPoints(value: string): SchoolEvacuationPoint[] {
   return value
     .split("\n")
     .map((line) => line.trim())
@@ -216,8 +215,10 @@ function parseEvacuationPoints(
       const lng = Number(parts[2]);
       return {
         label: parts[0] ?? "",
-        lat: Number.isFinite(lat) ? lat : 0,
-        lng: Number.isFinite(lng) ? lng : 0,
+        location: {
+          lat: Number.isFinite(lat) ? lat : 0,
+          lng: Number.isFinite(lng) ? lng : 0,
+        },
       };
     })
     .filter((p) => p.label);
@@ -586,8 +587,13 @@ export function SchoolPreparednessPanel() {
       setFeedback("Drill participants must be a valid number.");
       return;
     }
+    const drillDate = new Date(drillForm.date);
+    if (!drillForm.date || Number.isNaN(drillDate.getTime())) {
+      setFeedback("Choose a valid drill date and time before saving.");
+      return;
+    }
     const payload = {
-      date: new Date(drillForm.date).toISOString(),
+      date: drillDate.toISOString(),
       type: drillForm.type,
       participants,
       notes: drillForm.notes.trim(),
@@ -626,8 +632,13 @@ export function SchoolPreparednessPanel() {
     if (!selectedSchool) {
       return;
     }
+    const checkDate = new Date(readinessForm.checkDate);
+    if (!readinessForm.checkDate || Number.isNaN(checkDate.getTime())) {
+      setFeedback("Choose a valid readiness check date before submitting.");
+      return;
+    }
     const payload = {
-      checkDate: new Date(readinessForm.checkDate).toISOString(),
+      checkDate: checkDate.toISOString(),
       riskLevel: readinessForm.riskLevel,
       areaRiskRef: readinessForm.areaRiskRef.trim(),
       overallStatus: readinessForm.overallStatus,

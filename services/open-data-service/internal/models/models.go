@@ -159,13 +159,6 @@ type DatasetDetailResponse struct {
 	Dataset Dataset `json:"dataset"`
 }
 
-// DatasetDownloadResponse returns the download artifact.
-type DatasetDownloadResponse struct {
-	Download    DatasetDownload `json:"download"`
-	RateLimit   RateLimitStatus `json:"rateLimit"`
-	AuditLogged bool            `json:"auditLogged"`
-}
-
 // RateLimitStatus reports current rate limit state.
 type RateLimitStatus struct {
 	Limit     int       `json:"limit"`

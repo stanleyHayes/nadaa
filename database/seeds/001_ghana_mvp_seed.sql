@@ -1,3 +1,7 @@
+-- Agency IDs align with the incident-service triage suggestions
+-- (triageSuggestedAgency in services/incident-service/internal/store/store.go),
+-- which reference 0101 (NADMO), 0201 (fire), 0202 (ambulance), 0203 (police),
+-- and 0204 (district assembly).
 INSERT INTO agencies (id, name, type, region, district, contact_number, service_area_geometry)
 VALUES
   (
@@ -10,7 +14,7 @@ VALUES
     ST_Multi(ST_GeomFromText('POLYGON((-0.250 5.520, -0.110 5.520, -0.110 5.650, -0.250 5.650, -0.250 5.520))', 4326))
   ),
   (
-    '00000000-0000-0000-0000-000000000102',
+    '00000000-0000-0000-0000-000000000201',
     'Ghana National Fire Service Accra',
     'fire',
     'Greater Accra',
@@ -19,13 +23,31 @@ VALUES
     ST_Multi(ST_GeomFromText('POLYGON((-0.260 5.510, -0.090 5.510, -0.090 5.660, -0.260 5.660, -0.260 5.510))', 4326))
   ),
   (
-    '00000000-0000-0000-0000-000000000103',
+    '00000000-0000-0000-0000-000000000202',
     'National Ambulance Service Accra',
     'ambulance',
     'Greater Accra',
     'Accra Metropolitan',
     '112',
     ST_Multi(ST_GeomFromText('POLYGON((-0.280 5.500, -0.080 5.500, -0.080 5.670, -0.280 5.670, -0.280 5.500))', 4326))
+  ),
+  (
+    '00000000-0000-0000-0000-000000000203',
+    'Ghana Police Service',
+    'police',
+    'Greater Accra',
+    'Accra Metropolitan',
+    '112',
+    ST_Multi(ST_GeomFromText('POLYGON((-0.270 5.505, -0.100 5.505, -0.100 5.655, -0.270 5.655, -0.270 5.505))', 4326))
+  ),
+  (
+    '00000000-0000-0000-0000-000000000204',
+    'Accra Metropolitan Assembly',
+    'district_assembly',
+    'Greater Accra',
+    'Accra Metropolitan',
+    '112',
+    ST_Multi(ST_GeomFromText('POLYGON((-0.255 5.515, -0.105 5.515, -0.105 5.645, -0.255 5.645, -0.255 5.515))', 4326))
   )
 ON CONFLICT (id) DO NOTHING;
 

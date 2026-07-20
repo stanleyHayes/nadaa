@@ -72,7 +72,6 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
     preferences,
     updateProfile,
     updatePreferences,
-    setMfaEnabled,
     changePassword,
   } = useAuthoritySession();
   const [activeView, setActiveView] = useState<ShellView>(readInitialView);
@@ -231,7 +230,6 @@ export function CommandCenterShell({ session }: { session: AuthoritySession }) {
             preferences={preferences}
             onUpdateProfile={updateProfile}
             onUpdatePreferences={updatePreferences}
-            onSetMfaEnabled={setMfaEnabled}
             onChangePassword={changePassword}
           />
         );
