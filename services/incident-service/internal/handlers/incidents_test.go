@@ -144,6 +144,51 @@ func TestLifeThreateningIncidentIsPriorityReview(t *testing.T) {
 	}
 }
 
+func TestCreateDistressRequestForcesRescuePriorityAndAudit(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.RequestKind = "distress_request"
+	body.Urgency = "low"
+	body.PeopleAffected = 0
+	body.Description = "I am trapped by rising water and need rescue now"
+
+	response := httptest.NewRecorder()
+	srv.createIncidentHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, response.Code, response.Body.String())
+	}
+
+	var payload models.CreateIncidentResponse
+	decodeResponse(t, response, &payload)
+	if payload.Reference != "SOS-000001" || payload.RequestKind != "distress_request" || !payload.RescueRequested || !payload.PriorityReview || payload.Severity != "emergency" {
+		t.Fatalf("expected emergency rescue request, got %#v", payload)
+	}
+
+	incidents := srv.store.ListIncidents("")
+	if len(incidents) != 1 || incidents[0].PeopleAffected != 1 || incidents[0].Urgency != "life_threatening" || !containsTimelineType(incidents[0].Timeline, "incident.distress_requested") {
+		t.Fatalf("expected normalized distress incident and timeline, got %#v", incidents)
+	}
+	logs := srv.store.ListAudit(10)
+	if len(logs) != 1 || logs[0].Action != "incident.distress_requested" || logs[0].After["rescueRequested"] != true {
+		t.Fatalf("expected distress audit event, got %#v", logs)
+	}
+}
+
+func TestCreateDistressRequestRequiresLocation(t *testing.T) {
+	srv := newTestServer()
+	body := validIncidentRequest()
+	body.RequestKind = "distress_request"
+	body.Location = nil
+
+	response := httptest.NewRecorder()
+	srv.createIncidentHandler(response, httptest.NewRequest(http.MethodPost, "/api/v1/incidents", jsonBody(body)))
+
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "missing_distress_location") {
+		t.Fatalf("expected missing distress location error, got %d: %s", response.Code, response.Body.String())
+	}
+}
+
 func TestCreateIncidentFlagsSuspiciousReportSignalsWithoutBlocking(t *testing.T) {
 	srv := newTestServer()
 	body := validIncidentRequest()

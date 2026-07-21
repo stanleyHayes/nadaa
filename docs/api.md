@@ -524,6 +524,9 @@ Response:
 
 Rules:
 
+- `requestKind` defaults to `incident_report`. Use `distress_request` only when the citizen is personally in immediate danger and requesting rescue.
+- Distress requests require a valid GPS `location`, receive an `SOS-...` reference, are normalized to `life_threatening` / `emergency`, set `rescueRequested` and `priorityReview`, and create a dedicated `incident.distress_requested` audit/timeline event.
+- A distress request enters the dispatcher response queue and sorts ahead of routine reports. It never auto-publishes a public alert; alert publication still requires the authority approval workflow.
 - `type` must be a supported hazard.
 - `location` is optional (channels without GPS, such as USSD, omit it) and round-trips as `null`; when supplied, `location.lat` and `location.lng` must be valid coordinates and `0,0` is rejected with `invalid_location`.
 - `description` must be 5 to 2000 safe characters.

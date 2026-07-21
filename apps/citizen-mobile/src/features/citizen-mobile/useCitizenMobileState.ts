@@ -275,6 +275,37 @@ export function useCitizenMobileState() {
     }
   }
 
+  async function submitDistress() {
+    setLoadState({ status: "loading", message: "Sending rescue request" });
+    const distressDraft: ReportDraft = {
+      ...reportDraft,
+      description:
+        reportDraft.description.trim() || "I am in danger and need rescue now.",
+      peopleAffected: reportDraft.peopleAffected || "1",
+      urgency: "life_threatening",
+    };
+    try {
+      const response = await submitIncidentDraft(
+        distressDraft,
+        session,
+        "distress_request",
+      );
+      setReportDraft(initialReportDraft);
+      await writeReportDraft(storage, initialReportDraft);
+      setLoadState({
+        status: "success",
+        message: `SOS sent: ${response.reference}. Keep your phone nearby and call 112 if possible.`,
+      });
+    } catch (error) {
+      setReportDraft(distressDraft);
+      await writeReportDraft(storage, distressDraft);
+      setLoadState({
+        status: "error",
+        message: `${errorMessage(error, "Could not send SOS.")} Rescue details saved on this phone for retry. Call 112 now if possible.`,
+      });
+    }
+  }
+
   function saveSignInDraft(nextDraft: SignInDraft) {
     setSignIn(nextDraft);
   }
@@ -637,6 +668,7 @@ export function useCitizenMobileState() {
       saveVolunteerRegistration,
       setAlertView,
       submitDraft,
+      submitDistress,
       submitVolunteerObservation,
       togglePermission,
       updateVolunteerStatus,

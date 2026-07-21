@@ -35,6 +35,10 @@ var (
 		"high":             true,
 		"life_threatening": true,
 	}
+	allowedRequestKinds = map[string]bool{
+		"incident_report":  true,
+		"distress_request": true,
+	}
 	allowedAgencyTypes = map[string]bool{
 		"nadmo":             true,
 		"district_assembly": true,
@@ -108,6 +112,8 @@ func (s *server) createIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusCreated, models.CreateIncidentResponse{
 		ID:                  record.ID,
 		Reference:           record.Reference,
+		RequestKind:         record.RequestKind,
+		RescueRequested:     record.RescueRequested,
 		Status:              record.Status,
 		Severity:            record.Severity,
 		PriorityReview:      record.PriorityReview,
@@ -383,6 +389,11 @@ func normalizeIncidentRequest(request models.CreateIncidentRequest) (models.Crea
 	if request.Urgency == "" {
 		request.Urgency = "moderate"
 	}
+	var err error
+	request, err = normalizeRequestKind(request)
+	if err != nil {
+		return request, err
+	}
 
 	if !allowedHazards[request.Type] {
 		request.Type = "invalid_type"
@@ -444,6 +455,30 @@ func normalizeIncidentRequest(request models.CreateIncidentRequest) (models.Crea
 		return request, errValidation
 	}
 
+	return request, nil
+}
+
+func normalizeRequestKind(request models.CreateIncidentRequest) (models.CreateIncidentRequest, error) {
+	request.RequestKind = strings.TrimSpace(strings.ToLower(request.RequestKind))
+	if request.RequestKind == "" {
+		request.RequestKind = "incident_report"
+	}
+	if !allowedRequestKinds[request.RequestKind] {
+		request.Type = "invalid_request_kind"
+		return request, errValidation
+	}
+	if request.RequestKind != "distress_request" {
+		return request, nil
+	}
+
+	request.Urgency = "life_threatening"
+	if request.PeopleAffected < 1 {
+		request.PeopleAffected = 1
+	}
+	if request.Location == nil {
+		request.Type = "missing_distress_location"
+		return request, errValidation
+	}
 	return request, nil
 }
 
@@ -609,6 +644,10 @@ func validationCode(request models.CreateIncidentRequest) string {
 	switch request.Type {
 	case "invalid_type":
 		return "unsupported_hazard"
+	case "invalid_request_kind":
+		return "invalid_request_kind"
+	case "missing_distress_location":
+		return "missing_distress_location"
 	case "invalid_description":
 		return "invalid_description"
 	case "invalid_location":
@@ -634,6 +673,10 @@ func validationMessage(request models.CreateIncidentRequest) string {
 	switch validationCode(request) {
 	case "unsupported_hazard":
 		return "type must be a supported hazard"
+	case "invalid_request_kind":
+		return "requestKind must be incident_report or distress_request"
+	case "missing_distress_location":
+		return "distress requests require a valid location so rescuers can respond"
 	case "invalid_description":
 		return "description must be 5 to 2000 safe characters"
 	case "invalid_location":

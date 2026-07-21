@@ -65,9 +65,7 @@ export default function CitizenMobileApp() {
         <Pressable
           accessibilityLabel="Call 112"
           accessibilityRole="button"
-          onPress={() =>
-            void Linking.openURL(`tel:${nadaaBrand.supportLine}`)
-          }
+          onPress={() => void Linking.openURL(`tel:${nadaaBrand.supportLine}`)}
           style={styles.callButton}
         >
           <Feather
@@ -76,6 +74,20 @@ export default function CitizenMobileApp() {
             size={17}
           />
           <Text style={styles.callText}>{nadaaBrand.supportLine}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityHint="Opens the rescue request screen"
+          accessibilityLabel="SOS request rescue"
+          accessibilityRole="button"
+          onPress={() => setActiveTab("report")}
+          style={styles.sosButton}
+        >
+          <Feather
+            color={mobileTheme.colors.white}
+            name="alert-octagon"
+            size={17}
+          />
+          <Text style={styles.callText}>SOS</Text>
         </Pressable>
       </View>
 
@@ -186,6 +198,16 @@ const styles = StyleSheet.create({
     color: hexToRgba(mobileTheme.colors.white, 0.74),
     fontFamily: mobileTheme.font.regular,
     fontSize: 12,
+  },
+  sosButton: {
+    alignItems: "center",
+    backgroundColor: mobileTheme.colors.danger,
+    borderRadius: mobileTheme.radius.md,
+    flexDirection: "row",
+    gap: mobileTheme.spacing.sm,
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: mobileTheme.spacing.md,
   },
   tab: {
     alignItems: "center",

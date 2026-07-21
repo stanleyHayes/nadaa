@@ -55,6 +55,8 @@ export type IncidentStatus =
 
 export type IncidentUrgency = "low" | "moderate" | "high" | "life_threatening";
 
+export type IncidentRequestKind = "incident_report" | "distress_request";
+
 export type AlertSeverity =
   "advisory" | "watch" | "warning" | "severe_warning" | "emergency";
 
@@ -935,6 +937,7 @@ export interface IncidentTimelineEvent {
 }
 
 export interface CreateIncidentRequest {
+  requestKind?: IncidentRequestKind;
   type: HazardType;
   description: string;
   location: Coordinates;
@@ -962,6 +965,8 @@ export interface IncidentPrivacyPolicy {
 export interface IncidentRecord {
   id: string;
   reference: string;
+  requestKind?: IncidentRequestKind;
+  rescueRequested?: boolean;
   type: HazardType;
   severity: RiskLevel;
   status: IncidentStatus;
@@ -1005,6 +1010,8 @@ export interface IncidentRecord {
 export interface CreateIncidentResponse {
   id: string;
   reference: string;
+  requestKind: IncidentRequestKind;
+  rescueRequested: boolean;
   status: "reported";
   severity: RiskLevel;
   priorityReview: boolean;

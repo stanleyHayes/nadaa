@@ -7,8 +7,9 @@
 #
 # Ports: each service binds Render's injected $PORT (see resolveListenAddr in
 # each service's config). Region is frankfurt (closest Render region to Ghana);
-# change if you prefer another. Plan is starter; see the deploy doc for costs
-# and the free-tier trade-off.
+# change if you prefer another. Every web service uses Render's free instance
+# type for preview/demo deployments; see the deploy doc for cold-start, shared
+# monthly-hour, private-network, and ephemeral-storage limitations.
 #
 # Secrets (Arkesel, Paystack, auth token, inter-service URLs) are sync:false or
 # generateValue — they are set in the Render dashboard, never committed. Until an
@@ -53,7 +54,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/alert-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -66,7 +67,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/auth-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -96,7 +97,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/risk-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -118,7 +119,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/incident-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -129,8 +130,8 @@ services:
       # Shared with damage-claim-service; verifies X-NADAA-Service-Token on
       # service-to-service incident lookups (read-only, no reporter contact).
       - fromGroup: nadaa-internal-service
-      # Media bytes write to the container's ephemeral filesystem and are lost
-      # on redeploy. Attach a Render disk mounted here for durable storage.
+      # Media bytes use the free instance's ephemeral filesystem and are lost
+      # on restart, spin-down, or redeploy. Persistent disks require a paid plan.
       - key: NADAA_INCIDENT_MEDIA_STORAGE_PATH
         value: /app/uploads/media
       # Externally reachable base URL used for absolute media uploadUrls. Set
@@ -142,7 +143,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/guide-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -155,7 +156,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/integration-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -171,7 +172,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/ml-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -188,7 +189,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/notification-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -223,7 +224,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/shelter-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -236,7 +237,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/road-closure-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -249,7 +250,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/route-service/Dockerfile
     dockerContext: .
     healthCheckPath: /health
@@ -269,7 +270,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/school-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -282,7 +283,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/damage-claim-service/Dockerfile
     dockerContext: .
     healthCheckPath: /health
@@ -300,7 +301,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/donation-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -319,7 +320,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/missing-person-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -332,7 +333,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/imagery-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -340,8 +341,8 @@ services:
     envVars:
       - fromGroup: nadaa-web-origins
       - fromGroup: nadaa-auth
-      # Uploads write to the container's ephemeral filesystem and are lost on
-      # redeploy. Attach a Render disk mounted here for durable storage.
+      # Uploads use the free instance's ephemeral filesystem and are lost on
+      # restart, spin-down, or redeploy. Persistent disks require a paid plan.
       - key: IMAGERY_STORAGE_PATH
         value: /app/uploads
       # Externally reachable base URL used for geojson downloadUrls; falls back
@@ -353,7 +354,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/open-data-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -371,7 +372,7 @@ services:
     type: web
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./services/campaign-service/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz

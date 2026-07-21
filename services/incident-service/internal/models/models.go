@@ -11,6 +11,7 @@ type Coordinates struct {
 // CreateIncidentRequest is the payload for reporting a new incident.
 // Location is optional: channels without GPS (e.g. USSD) omit it entirely.
 type CreateIncidentRequest struct {
+	RequestKind        string       `json:"requestKind"`
 	Type               string       `json:"type"`
 	Description        string       `json:"description"`
 	Location           *Coordinates `json:"location"`
@@ -34,6 +35,8 @@ type ReporterRef struct {
 type IncidentRecord struct {
 	ID                  string               `json:"id"`
 	Reference           string               `json:"reference"`
+	RequestKind         string               `json:"requestKind"`
+	RescueRequested     bool                 `json:"rescueRequested"`
 	Type                string               `json:"type"`
 	Severity            string               `json:"severity"`
 	Status              string               `json:"status"`
@@ -106,6 +109,8 @@ type AbuseSignal struct {
 type CreateIncidentResponse struct {
 	ID                  string               `json:"id"`
 	Reference           string               `json:"reference"`
+	RequestKind         string               `json:"requestKind"`
+	RescueRequested     bool                 `json:"rescueRequested"`
 	Status              string               `json:"status"`
 	Severity            string               `json:"severity"`
 	PriorityReview      bool                 `json:"priorityReview"`

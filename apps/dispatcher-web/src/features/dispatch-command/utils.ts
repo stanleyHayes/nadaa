@@ -185,6 +185,8 @@ export function enrichIncidentFromAPI(
     abuseSignals: incident.abuseSignals ?? [],
     abuseScore: incident.abuseScore ?? 0,
     abuseReviewRequired: incident.abuseReviewRequired ?? false,
+    requestKind: incident.requestKind ?? "incident_report",
+    rescueRequested: incident.rescueRequested ?? false,
   };
   const district = districtFromCoordinates(incident.location);
   return {
@@ -866,10 +868,7 @@ export function roundArea(value: number) {
 export function alertDatesError(form: AlertFormState): string {
   const startsAt = new Date(form.startsAt);
   const expiresAt = new Date(form.expiresAt);
-  if (
-    Number.isNaN(startsAt.getTime()) ||
-    Number.isNaN(expiresAt.getTime())
-  ) {
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(expiresAt.getTime())) {
     return "Enter a valid start and expiry date before creating the draft.";
   }
   if (expiresAt.getTime() <= startsAt.getTime()) {

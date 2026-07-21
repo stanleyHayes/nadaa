@@ -58,6 +58,7 @@
     "smoke:incident-assignment": "node scripts/smoke-incident-assignment.mjs",
     "smoke:incident-merge": "node scripts/smoke-incident-merge.mjs",
     "smoke:incident-workflow": "node scripts/smoke-incident-workflow.mjs",
+    "smoke:distress": "node scripts/smoke-distress.mjs",
     "smoke:ai-triage": "node scripts/smoke-ai-triage.mjs",
     "smoke:ml": "node scripts/smoke-ml.mjs",
     "smoke:ml-review": "node scripts/smoke-ml-review.mjs",

@@ -178,6 +178,7 @@ function isRealPhone(phone: string): boolean {
 export async function submitIncidentDraft(
   draft: ReportDraft,
   session: MobileSession,
+  requestKind: "incident_report" | "distress_request" = "incident_report",
 ): Promise<CreateIncidentResponse> {
   const lat = Number(draft.lat);
   const lng = Number(draft.lng);
@@ -196,6 +197,7 @@ export async function submitIncidentDraft(
       ? session.phone.trim()
       : undefined;
   const payload: CreateIncidentRequest = {
+    requestKind,
     anonymous: draft.anonymous,
     contactPermission: draft.anonymous
       ? false
@@ -204,7 +206,12 @@ export async function submitIncidentDraft(
     injuriesReported: draft.injuriesReported,
     location: { lat, lng },
     media: draft.mediaRefs,
-    peopleAffected: Number.isFinite(peopleAffected) ? peopleAffected : 0,
+    peopleAffected:
+      requestKind === "distress_request"
+        ? Math.max(1, Number.isFinite(peopleAffected) ? peopleAffected : 0)
+        : Number.isFinite(peopleAffected)
+          ? peopleAffected
+          : 0,
     reporter: draft.anonymous
       ? undefined
       : {
@@ -212,7 +219,8 @@ export async function submitIncidentDraft(
           userId: session.userId,
         },
     type: draft.hazard,
-    urgency: draft.urgency,
+    urgency:
+      requestKind === "distress_request" ? "life_threatening" : draft.urgency,
   };
 
   const response = await fetch(`${INCIDENT_API_BASE}/incidents`, {

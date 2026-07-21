@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -102,16 +103,30 @@ export function IncidentsView({ data }: { data: DispatchData }) {
 
   return (
     <Stack spacing={2.5}>
+      {filteredIncidents.some(
+        (incident) =>
+          incident.rescueRequested &&
+          !["closed", "false_report"].includes(incident.status),
+      ) ? (
+        <Alert severity="error" icon={<LocateFixed size={20} />}>
+          <strong>Active rescue request:</strong> A citizen has sent an SOS with
+          their location. Open the marked request and coordinate a responder
+          now.
+        </Alert>
+      ) : null}
       <Stack
         direction={{ xs: "column", sm: "row" }}
         sx={{
           justifyContent: "space-between",
           alignItems: { xs: "flex-start", sm: "center" },
-          gap: 1.5
-        }}>
-        <Typography sx={{
-          color: "text.secondary"
-        }}>
+          gap: 1.5,
+        }}
+      >
+        <Typography
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           Monitor emergencies by place, severity, hazard, time, and response
           status.
         </Typography>
@@ -120,8 +135,9 @@ export function IncidentsView({ data }: { data: DispatchData }) {
           spacing={1}
           sx={{
             alignItems: "center",
-            flexWrap: "wrap"
-          }}>
+            flexWrap: "wrap",
+          }}
+        >
           <span className={`cc-feed-chip cc-feed-chip--${loadState}`}>
             <Eye size={13} />
             {loadState === "ready"
@@ -222,9 +238,13 @@ export function IncidentsView({ data }: { data: DispatchData }) {
           eyebrow={`${filteredIncidents.length} visible of ${incidents.length}`}
           icon={MapPinned}
           action={
-            <Stack direction="row" spacing={0.75} sx={{
-              flexWrap: "wrap"
-            }}>
+            <Stack
+              direction="row"
+              spacing={0.75}
+              sx={{
+                flexWrap: "wrap",
+              }}
+            >
               {filterOptions.hazards.slice(0, 4).map((hazard) => (
                 <HazardChip key={hazard} hazard={hazard} />
               ))}
@@ -277,15 +297,26 @@ export function IncidentsView({ data }: { data: DispatchData }) {
                       hover
                       selected={incident.id === selectedIncident?.id}
                       onClick={() => openIncident(incident.id)}
-                      className="incident-row"
+                      className={`incident-row${incident.rescueRequested ? " incident-row--distress" : ""}`}
                     >
                       <TableCell>
                         <Typography variant="subtitle2">
                           {incident.reference}
                         </Typography>
-                        <Typography variant="caption" sx={{
-                          color: "text.secondary"
-                        }}>
+                        {incident.rescueRequested ? (
+                          <Chip
+                            color="error"
+                            label="SOS · Rescue requested"
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                          />
+                        ) : null}
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: "text.secondary",
+                          }}
+                        >
                           {incident.locality}
                         </Typography>
                       </TableCell>
@@ -334,7 +365,10 @@ export function IncidentsView({ data }: { data: DispatchData }) {
           }}
         >
           <Box>
-            <Typography component="span" sx={{ display: "block", fontWeight: 800 }}>
+            <Typography
+              component="span"
+              sx={{ display: "block", fontWeight: 800 }}
+            >
               {selectedIncident?.reference ?? "Incident"}
             </Typography>
             {selectedIncident ? (

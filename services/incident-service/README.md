@@ -2,6 +2,8 @@
 
 The incident service owns citizen disaster reports, media references, verification workflow, duplicate candidates, abuse/spam review, agency assignments, and incident timelines.
 
+Citizen SOS submissions use the same protected response workflow with `requestKind: "distress_request"`. They require a valid GPS location, receive an `SOS-...` reference, are normalized to life-threatening/emergency priority, stay live regardless of automated suspicion, sort ahead of routine reports, and create `incident.distress_requested` timeline and audit events. This requests rescue coordination only; it never publishes a public alert automatically.
+
 Current NADAA-030/NADAA-033/NADAA-041/NADAA-042/NADAA-043/NADAA-091 endpoints:
 
 - `GET /healthz`
@@ -121,6 +123,7 @@ Run a live local workflow smoke after starting the service on `:8084`:
 
 ```bash
 pnpm smoke:incident-workflow
+pnpm smoke:distress
 pnpm smoke:incident-abuse
 pnpm smoke:incident-assignment
 pnpm smoke:incident-merge

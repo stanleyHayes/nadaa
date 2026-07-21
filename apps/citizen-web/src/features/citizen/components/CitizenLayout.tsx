@@ -41,6 +41,7 @@ import { useCitizenSession } from "../session";
 import { accountNavItems } from "../pages/account/data";
 import { initialsOf } from "../pages/account/components/shared";
 import { EmergencyBand } from "./EmergencyBand";
+import { DistressCall } from "./DistressCall";
 import { SignInDialog } from "./SignInDialog";
 
 const EMERGENCY_TEL = "tel:112";
@@ -126,7 +127,6 @@ export function CitizenLayout() {
 
   return (
     <div className="citizen-app-shell">
-
       <div className="citizen-utility">
         <span className="citizen-utility__org">
           <span className="citizen-status-dot" aria-hidden="true" />
@@ -308,6 +308,8 @@ export function CitizenLayout() {
         open={signInOpen}
       />
 
+      <DistressCall />
+
       <Drawer
         anchor="right"
         id="citizen-drawer"
@@ -341,7 +343,10 @@ export function CitizenLayout() {
             <>
               <Divider />
               <p className="citizen-drawer__label">Your account</p>
-              <nav aria-label="Account sections" className="citizen-drawer__nav">
+              <nav
+                aria-label="Account sections"
+                className="citizen-drawer__nav"
+              >
                 {accountNavItems.map((item) => (
                   <NavLink
                     className={navClass}

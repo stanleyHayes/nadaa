@@ -776,7 +776,7 @@
     "estimatedEffortPoints": 13,
     "actualEffortHours": 2,
     "progressPercentage": 100,
-    "lastUpdated": "2026-07-06",
+    "lastUpdated": "2026-07-21",
     "dependencies": ["NADAA-001"],
     "blockers": [],
     "verification": [
@@ -790,7 +790,7 @@
       "Local pnpm smoke:staging against 127.0.0.1 web apps",
       "Local Docker builds for citizen-web, authority-dashboard, auth-service, incident-service, and risk-service"
     ],
-    "notes": "GitHub Actions CI, Docker build validation, manual staging smoke workflow/script, staging env template, and runbook added. Registry push and deploy credentials remain environment-owned."
+    "notes": "GitHub Actions CI, Docker build validation, manual staging smoke workflow/script, staging env template, and runbook added. On 2026-07-21 the Render Blueprint was updated so all 18 Docker web services use free instances, with cold starts, shared free hours, public sibling URLs, and ephemeral storage limitations documented. Registry push and deploy credentials remain environment-owned."
   },
   {
     "client": "NADAA Ghana",
@@ -1879,5 +1879,34 @@
       "git diff --check"
     ],
     "notes": "Public disaster education campaigns completed with dedicated services/campaign-service Go API (campaigns, templates, mocked metrics), authority-dashboard CampaignManagerPanel, citizen-web PublicCampaignsPanel, shared TypeScript contracts, smoke script, docs, dashboard record, and CI/Docker wiring. Publishing window validation prevents premature or stale campaigns."
+  },
+  {
+    "client": "NADAA Ghana",
+    "project": "Ghana Emergency Preparedness, Warning & Disaster Response Platform",
+    "phase": "Phase 4",
+    "sprint": "Sprint 18",
+    "epic": "EPIC 18: Cross-Platform UX Maturity",
+    "story": "SOS / Panic Quick Action",
+    "jiraKey": "NADAA-189",
+    "branchName": "feature/NADAA-189-sos-distress-call",
+    "pullRequestUrl": "",
+    "status": "Done",
+    "assignedTeamMember": "Codex",
+    "estimatedEffortPoints": 8,
+    "actualEffortHours": 4,
+    "progressPercentage": 100,
+    "lastUpdated": "2026-07-21",
+    "dependencies": ["NADAA-030"],
+    "blockers": [],
+    "verification": [
+      "services/incident-service go test ./...",
+      "pnpm smoke:distress",
+      "pnpm --filter @nadaa/citizen-web typecheck and build",
+      "pnpm --filter @nadaa/dispatcher-web typecheck and build",
+      "pnpm validate:dashboard",
+      "pnpm lint",
+      "git diff --check"
+    ],
+    "notes": "Completed an always-reachable citizen SOS across web and mobile with GPS rescue intake, hold-to-send guard, saved/offline retry behavior, callback consent, dedicated distress contract and audit metadata, emergency-priority dispatcher treatment, 112 guidance, live smoke coverage, and focused citizen/dispatcher polish. Public alerts remain human-approved only."
   }
 ]

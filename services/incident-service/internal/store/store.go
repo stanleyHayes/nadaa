@@ -216,7 +216,11 @@ func (m *MemoryStore) GetIncident(id string) (models.IncidentRecord, bool) {
 
 func (m *MemoryStore) createIncidentLocked(request models.CreateIncidentRequest, now time.Time) models.IncidentRecord {
 	m.sequence++
-	reference := fmt.Sprintf("INC-%06d", m.sequence)
+	referencePrefix := "INC"
+	if request.RequestKind == "distress_request" {
+		referencePrefix = "SOS"
+	}
+	reference := fmt.Sprintf("%s-%06d", referencePrefix, m.sequence)
 	timestamp := now.UTC()
 	var location *models.Coordinates
 	if request.Location != nil {
@@ -226,6 +230,8 @@ func (m *MemoryStore) createIncidentLocked(request models.CreateIncidentRequest,
 	record := models.IncidentRecord{
 		ID:                 utils.NewID("inc"),
 		Reference:          reference,
+		RequestKind:        request.RequestKind,
+		RescueRequested:    request.RequestKind == "distress_request",
 		Type:               request.Type,
 		Severity:           severityFromUrgency(request.Urgency),
 		Status:             "reported",
@@ -243,10 +249,11 @@ func (m *MemoryStore) createIncidentLocked(request models.CreateIncidentRequest,
 		MergedIncidentIDs:  []string{},
 		Assignments:        []models.IncidentAssignment{},
 		Timeline: []models.TimelineEvent{
-			newTimelineEvent("incident.reported", "Citizen report received", models.AuthorityContext{}, map[string]string{
-				"reference": reference,
-				"hazard":    request.Type,
-				"urgency":   request.Urgency,
+			newTimelineEvent(timelineTypeForRequest(request), timelineMessageForRequest(request), models.AuthorityContext{}, map[string]string{
+				"reference":   reference,
+				"hazard":      request.Type,
+				"urgency":     request.Urgency,
+				"requestKind": request.RequestKind,
 			}, timestamp),
 		},
 		CreatedAt: timestamp,
@@ -264,8 +271,30 @@ func (m *MemoryStore) createIncidentLocked(request models.CreateIncidentRequest,
 		}, timestamp))
 	}
 	m.incidents[record.ID] = record
+	if record.RescueRequested {
+		m.appendAuditLocked("incident.distress_requested", models.AuthorityContext{}, record.ID, nil, map[string]any{
+			"reference":       record.Reference,
+			"hazard":          record.Type,
+			"status":          record.Status,
+			"rescueRequested": true,
+		}, timestamp)
+	}
 	m.linkReverseDuplicateCandidatesLocked(record)
 	return record
+}
+
+func timelineTypeForRequest(request models.CreateIncidentRequest) string {
+	if request.RequestKind == "distress_request" {
+		return "incident.distress_requested"
+	}
+	return "incident.reported"
+}
+
+func timelineMessageForRequest(request models.CreateIncidentRequest) string {
+	if request.RequestKind == "distress_request" {
+		return "Citizen distress request received; rescue assistance requested"
+	}
+	return "Citizen report received"
 }
 
 // ListIncidents returns incidents filtered by assigned agency when supplied.
@@ -281,6 +310,9 @@ func (m *MemoryStore) ListIncidents(assignedAgencyID string) []models.IncidentRe
 		incidents = append(incidents, incident)
 	}
 	sort.Slice(incidents, func(i, j int) bool {
+		if incidents[i].RescueRequested != incidents[j].RescueRequested {
+			return incidents[i].RescueRequested
+		}
 		return incidents[i].CreatedAt.After(incidents[j].CreatedAt)
 	})
 	return incidents
@@ -1534,7 +1566,7 @@ func severityFromUrgency(urgency string) string {
 }
 
 func priorityReview(request models.CreateIncidentRequest) bool {
-	return request.Urgency == "life_threatening" || request.InjuriesReported
+	return request.RequestKind == "distress_request" || request.Urgency == "life_threatening" || request.InjuriesReported
 }
 
 func reportedByFor(request models.CreateIncidentRequest) *models.ReporterRef {
