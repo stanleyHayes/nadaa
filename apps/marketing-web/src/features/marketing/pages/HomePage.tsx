@@ -15,6 +15,7 @@ import { marketingLinks } from "@/app/config";
 import { CursorSpotlight } from "../components/CursorSpotlight";
 import { Magnetic } from "../components/Magnetic";
 import { Marquee } from "../components/Marquee";
+import { ProductShowcase } from "../components/ProductShowcase";
 import { Reveal } from "../components/Reveal";
 import { RotatingWords } from "../components/RotatingWords";
 import { ScrambleText } from "../components/ScrambleText";
@@ -128,6 +129,8 @@ export function HomePage() {
           <ArrowRight aria-hidden="true" size={16} />
         </Link>
       </section>
+
+      <ProductShowcase />
 
       <section aria-labelledby="home-roles-title" className="content-section">
         <div className="section-heading">
