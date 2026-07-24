@@ -3574,3 +3574,12 @@ textarea {
     display: none;
   }
 }
+
+/* Mobile fix: the 3D reveal's pre-reveal perspective tilt inflated wide cards
+   (Platforms role cards) past the viewport, causing horizontal scroll until
+   they revealed. Use a flat vertical reveal on small screens. */
+@media (max-width: 760px) {
+  .reveal--3d {
+    transform: translateY(42px);
+  }
+}
