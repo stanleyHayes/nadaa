@@ -3414,6 +3414,48 @@ textarea {
   font-size: 1.2rem;
 }
 
+/* --- Neumorphic platform (role) cards ----------------------------- */
+.role-lane {
+  border: none;
+  border-radius: 22px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+}
+
+/* Drop the flat top accent hairline; the raised icon chip carries the tone. */
+.role-lane::before {
+  display: none;
+}
+
+.role-lane:hover {
+  border-color: transparent;
+  box-shadow: var(--neu-raise-hover);
+}
+
+.role-lane__chip {
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise-sm);
+  color: var(--role-accent, var(--nadaa-navy));
+}
+
+/* --- Neumorphic stat tiles ---------------------------------------- */
+.stats-band:not(.stats-band--plain) .stat-tile {
+  border: none;
+  border-radius: 22px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+}
+
+.stats-band:not(.stats-band--plain) .stat-tile::before {
+  display: none;
+}
+
+.stat-chip {
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise-sm);
+  color: color-mix(in srgb, var(--nadaa-gold) 82%, var(--nadaa-ink));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .showcase-card,
   .loop-card {
