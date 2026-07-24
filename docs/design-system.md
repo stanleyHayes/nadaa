@@ -15,16 +15,24 @@ Tokens live in `packages/brand/src/tokens.ts` and are mirrored as CSS custom pro
 
 ### Core palette
 
-| Token           | Hex       | Meaning              |
-| --------------- | --------- | -------------------- |
-| `--nadaa-navy`  | `#0D1B3D` | Trust & authority    |
-| `--nadaa-green` | `#118D4E` | Safety & growth      |
-| `--nadaa-red`   | `#E53935` | Alert & urgency      |
-| `--nadaa-gold`  | `#F4C20D` | Hope & optimism      |
-| `--nadaa-slate` | `#555B66` | Stability & strength |
-| `--nadaa-white` | `#FFFFFF` | Elevated surfaces    |
-| `--nadaa-mist`  | `#F5F8FC` | Page background      |
-| `--nadaa-ink`   | `#101828` | Primary text         |
+Black + Silver identity. `--nadaa-navy` is retained as the token name for the
+primary brand ink (now onyx, formerly navy `#0D1B3D`) so existing consumers
+resolve without a rename. Functional alert colors — green, red, gold, and the
+flood/info blue — are kept distinct for legibility and WCAG contrast.
+
+| Token                  | Hex       | Meaning              |
+| ---------------------- | --------- | -------------------- |
+| `--nadaa-navy`         | `#1A1A1A` | Authority & focus    |
+| `--nadaa-charcoal`     | `#2B2B2B` | Depth & structure    |
+| `--nadaa-silver`       | `#8E8E8E` | Clarity & precision  |
+| `--nadaa-light-silver` | `#E6E6E6` | Borders & separators |
+| `--nadaa-green`        | `#118D4E` | Safety & growth      |
+| `--nadaa-red`          | `#E53935` | Alert & urgency      |
+| `--nadaa-gold`         | `#F4C20D` | Hope & optimism      |
+| `--nadaa-slate`        | `#5A5A5A` | Stability & strength |
+| `--nadaa-white`        | `#FFFFFF` | Elevated surfaces    |
+| `--nadaa-mist`         | `#F4F4F5` | Page background      |
+| `--nadaa-ink`          | `#0D0D0D` | Primary text         |
 
 ### Semantic roles
 
@@ -32,10 +40,10 @@ Tokens live in `packages/brand/src/tokens.ts` and are mirrored as CSS custom pro
 | -------------------------- | --------- | ---------------------------- |
 | `--nadaa-surface`          | mist      | Page background              |
 | `--nadaa-surface-elevated` | white     | Cards, sheets, dialogs       |
-| `--nadaa-border`           | `#DFEAF2` | Dividers and borders         |
+| `--nadaa-border`           | `#E6E6E6` | Dividers and borders         |
 | `--nadaa-text-primary`     | ink       | Headings, body text          |
 | `--nadaa-text-secondary`   | slate     | Captions, metadata           |
-| `--nadaa-primary`          | navy      | Primary actions, topbars     |
+| `--nadaa-primary`          | onyx      | Primary actions, topbars     |
 | `--nadaa-secondary`        | green     | Success, operational accents |
 | `--nadaa-accent`           | gold      | Public/marketing accents     |
 | `--nadaa-danger`           | red       | Errors, severe alerts        |
@@ -63,10 +71,10 @@ The spacing scale is based on 4 px increments:
 
 | Token               | Shadow                               |
 | ------------------- | ------------------------------------ |
-| `--nadaa-shadow-sm` | `0 1px 2px rgba(13, 27, 61, 0.06)`   |
-| `--nadaa-shadow-md` | `0 4px 12px rgba(13, 27, 61, 0.08)`  |
-| `--nadaa-shadow-lg` | `0 8px 24px rgba(13, 27, 61, 0.10)`  |
-| `--nadaa-shadow-xl` | `0 18px 48px rgba(13, 27, 61, 0.12)` |
+| `--nadaa-shadow-sm` | `0 1px 2px rgba(13, 13, 13, 0.06)`   |
+| `--nadaa-shadow-md` | `0 4px 12px rgba(13, 13, 13, 0.08)`  |
+| `--nadaa-shadow-lg` | `0 8px 24px rgba(13, 13, 13, 0.10)`  |
+| `--nadaa-shadow-xl` | `0 18px 48px rgba(13, 13, 13, 0.12)` |
 
 ### Border radius
 
@@ -96,7 +104,7 @@ Options:
 The theme sets:
 
 - Outfit font family.
-- Navy primary, green secondary, red error, gold warning.
+- Onyx primary, green secondary, red error, gold warning.
 - Consistent heading weights and type scale.
 - `borderRadius: 8`.
 - Paper `backgroundImage: 'none'`.

@@ -1,4 +1,11 @@
-# NADAA Frontend Redesign Spec — "Navy Command"
+# NADAA Frontend Redesign Spec — "Onyx Command"
+
+> **Rebrand note (Black + Silver):** the brand anchor is now **onyx `#1A1A1A`**
+> with a **charcoal/silver** neutral ramp, superseding the original navy
+> `#0D1B3D`. The `--nadaa-navy` token name is retained for the primary brand ink
+> so existing consumers resolve unchanged; every "navy" region below (sidebar
+> rail, hero bands, topbar) now renders in onyx. Functional green/red/gold and
+> the flood/info blue are unchanged.
 
 Synthesised from UI/UX studies of two reference apps (AURA — Next + Tailwind +
 shadcn institutional booking console; UPOSA — React + Tailwind + DaisyUI +
@@ -11,7 +18,7 @@ consistency contract for the marketing site and all operational dashboards.
 One **"Navy Command"** identity, the way maroon anchors AURA and navy anchors
 UPOSA:
 
-- **Navy `#0D1B3D`** is the sole brand anchor (sidebar rail, hero bands, topbar).
+- **Onyx `#1A1A1A`** (token `--nadaa-navy`) is the sole brand anchor (sidebar rail, hero bands, topbar).
 - **Green `#118D4E`** = operational accent (dashboards, active/live states).
 - **Gold `#F4C20D`** = public/citizen accent + hairline top-strip.
 - **Red `#E53935`** = alert/severe only, via the AA-safe `severityRoles`/`hazardRoles`.

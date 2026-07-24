@@ -15,8 +15,8 @@ export const DARK_TINTS = [
   {
     value: "ink",
     label: "Ink",
-    description: "The default warm navy-black command screen.",
-    swatches: ["#0b1120", "#1a2440", "#8ea6dc"],
+    description: "The default neutral black-and-silver command screen.",
+    swatches: ["#0f0f0f", "#1e1e1e", "#d4d4d4"],
   },
   {
     value: "burgundy",

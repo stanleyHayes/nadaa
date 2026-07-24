@@ -8,21 +8,25 @@
 @import "./dark.css";
 
 :root {
-  /* Core palette */
-  --nadaa-navy: #0d1b3d;
+  /* Core palette — Black + Silver. --nadaa-navy is the primary brand ink
+     (formerly navy #0d1b3d); green/red/gold stay as functional alert colors. */
+  --nadaa-navy: #1a1a1a;
+  --nadaa-charcoal: #2b2b2b;
+  --nadaa-silver: #8e8e8e;
+  --nadaa-light-silver: #e6e6e6;
   --nadaa-green: #118d4e;
   --nadaa-red: #e53935;
   --nadaa-gold: #f4c20d;
-  --nadaa-slate: #555b66;
+  --nadaa-slate: #5a5a5a;
   --nadaa-white: #ffffff;
-  --nadaa-mist: #f5f8fc;
-  --nadaa-ink: #101828;
+  --nadaa-mist: #f4f4f5;
+  --nadaa-ink: #0d0d0d;
 
   /* Semantic roles */
   --nadaa-surface: var(--nadaa-mist);
   --nadaa-surface-elevated: var(--nadaa-white);
-  --nadaa-border: #dfeaf2;
-  --nadaa-divider: #e4e7ec;
+  --nadaa-border: #e6e6e6;
+  --nadaa-divider: #eaeaea;
   --nadaa-text-primary: var(--nadaa-ink);
   --nadaa-text-secondary: var(--nadaa-slate);
   --nadaa-text-inverse: var(--nadaa-white);
@@ -55,10 +59,10 @@
   --nadaa-radius-xl: 16px;
 
   /* Shadows */
-  --nadaa-shadow-sm: 0 1px 2px rgba(13, 27, 61, 0.06);
-  --nadaa-shadow-md: 0 4px 12px rgba(13, 27, 61, 0.08);
-  --nadaa-shadow-lg: 0 8px 24px rgba(13, 27, 61, 0.1);
-  --nadaa-shadow-xl: 0 18px 48px rgba(13, 27, 61, 0.12);
+  --nadaa-shadow-sm: 0 1px 2px rgba(13, 13, 13, 0.06);
+  --nadaa-shadow-md: 0 4px 12px rgba(13, 13, 13, 0.08);
+  --nadaa-shadow-lg: 0 8px 24px rgba(13, 13, 13, 0.1);
+  --nadaa-shadow-xl: 0 18px 48px rgba(13, 13, 13, 0.12);
 
   /* Focus */
   --nadaa-focus-color: var(--nadaa-gold);

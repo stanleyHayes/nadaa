@@ -2294,7 +2294,7 @@ body {
  * ================================================================== */
 
 :root[data-theme="dark"] {
-  --citizen-navy: #0d1b3d;
+  --citizen-navy: #1a1a1a;
 }
 
 /* Nav pill active change: lift the newly-active pill for a visible transition. */

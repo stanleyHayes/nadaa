@@ -6,14 +6,20 @@
  */
 
 export const colors = {
-  navy: "#0D1B3D",
+  // Primary brand ink. Black + Silver rebrand — this key was formerly navy
+  // (#0D1B3D). Kept named `navy` so the 78 importers and `--nadaa-navy`
+  // consumers keep resolving without a rename.
+  navy: "#1A1A1A",
+  charcoal: "#2B2B2B",
+  silver: "#8E8E8E",
+  lightSilver: "#E6E6E6",
   green: "#118D4E",
   red: "#E53935",
   gold: "#F4C20D",
-  slate: "#555B66",
+  slate: "#5A5A5A",
   white: "#FFFFFF",
-  mist: "#F5F8FC",
-  ink: "#101828",
+  mist: "#F4F4F5",
+  ink: "#0D0D0D",
 } as const;
 
 export type NadaaColor = keyof typeof colors;
@@ -21,12 +27,14 @@ export type NadaaColor = keyof typeof colors;
 export const semantic = {
   surface: colors.mist,
   surfaceElevated: colors.white,
-  border: "#DFEAF2",
-  divider: "#E4E7EC",
+  border: colors.lightSilver,
+  divider: "#EAEAEA",
   textPrimary: colors.ink,
   textSecondary: colors.slate,
   textInverse: colors.white,
   primary: colors.navy,
+  // Functional safety colors are preserved through the rebrand: green (safety),
+  // gold (warning/accent — pops on black+silver), red (danger), flood-blue info.
   secondary: colors.green,
   accent: colors.gold,
   info: "#0B6FB8",
@@ -80,10 +88,10 @@ export const typography = {
 
 export const shadows = {
   none: "none",
-  sm: "0 1px 2px rgba(13, 27, 61, 0.06)",
-  md: "0 4px 12px rgba(13, 27, 61, 0.08)",
-  lg: "0 8px 24px rgba(13, 27, 61, 0.10)",
-  xl: "0 18px 48px rgba(13, 27, 61, 0.12)",
+  sm: "0 1px 2px rgba(13, 13, 13, 0.06)",
+  md: "0 4px 12px rgba(13, 13, 13, 0.08)",
+  lg: "0 8px 24px rgba(13, 13, 13, 0.10)",
+  xl: "0 18px 48px rgba(13, 13, 13, 0.12)",
 } as const;
 
 export const breakpoints = {

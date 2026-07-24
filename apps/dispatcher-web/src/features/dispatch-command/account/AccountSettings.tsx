@@ -70,7 +70,7 @@ export function AccountSettings({
           borderRadius: "16px",
           color: "var(--nadaa-white, #ffffff)",
           background:
-            "linear-gradient(150deg, var(--nadaa-navy, #0d1b3d) 0%, #0a1531 100%)",
+            "linear-gradient(150deg, var(--nadaa-navy, #1a1a1a) 0%, #141414 100%)",
           boxShadow: "var(--nadaa-shadow-md)",
         }}
       >
@@ -134,9 +134,9 @@ export function AccountSettings({
         sx={{
           mt: 3,
           minHeight: 52,
-          borderBottom: "1px solid var(--nadaa-border, #dfeaf2)",
+          borderBottom: "1px solid var(--nadaa-border, #e6e6e6)",
           "& .MuiTabs-indicator": {
-            backgroundColor: "var(--nadaa-navy, #0d1b3d)",
+            backgroundColor: "var(--nadaa-navy, #1a1a1a)",
             height: 3,
             borderRadius: "3px 3px 0 0",
           },
@@ -147,10 +147,10 @@ export function AccountSettings({
             textTransform: "none",
             fontSize: "0.9rem",
             fontWeight: 600,
-            color: "var(--nadaa-text-secondary, #555b66)",
+            color: "var(--nadaa-text-secondary, #5a5a5a)",
           },
           "& .MuiTab-root.Mui-selected": {
-            color: "var(--nadaa-navy, #0d1b3d)",
+            color: "var(--nadaa-navy, #1a1a1a)",
             fontWeight: 700,
           },
           "& .MuiTab-root.Mui-focusVisible": {

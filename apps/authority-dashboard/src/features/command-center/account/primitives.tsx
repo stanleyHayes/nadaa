@@ -10,9 +10,9 @@ const TONE_STYLES: Record<
   { color: string; background: string; border: string }
 > = {
   navy: {
-    color: "var(--nadaa-navy, #0d1b3d)",
-    background: "color-mix(in srgb, var(--nadaa-navy, #0d1b3d) 8%, transparent)",
-    border: "color-mix(in srgb, var(--nadaa-navy, #0d1b3d) 22%, transparent)",
+    color: "var(--nadaa-navy, #1a1a1a)",
+    background: "color-mix(in srgb, var(--nadaa-navy, #1a1a1a) 8%, transparent)",
+    border: "color-mix(in srgb, var(--nadaa-navy, #1a1a1a) 22%, transparent)",
   },
   gold: {
     color: "var(--cc-gold-ink, #a97e00)",
@@ -99,7 +99,7 @@ export function SettingCard({
       elevation={0}
       sx={{
         p: { xs: 2.5, md: 3 },
-        border: "1px solid var(--nadaa-border, #dfeaf2)",
+        border: "1px solid var(--nadaa-border, #e6e6e6)",
         borderRadius: "14px",
         backgroundColor: "var(--nadaa-white, #ffffff)",
         boxShadow: "var(--nadaa-shadow-md)",
@@ -117,9 +117,9 @@ export function SettingCard({
             width: 40,
             height: 40,
             borderRadius: "10px",
-            color: "var(--nadaa-navy, #0d1b3d)",
+            color: "var(--nadaa-navy, #1a1a1a)",
             backgroundColor:
-              "color-mix(in srgb, var(--nadaa-navy, #0d1b3d) 8%, transparent)",
+              "color-mix(in srgb, var(--nadaa-navy, #1a1a1a) 8%, transparent)",
           }}
         >
           <Icon size={20} />
@@ -131,7 +131,7 @@ export function SettingCard({
               fontSize: "1.02rem",
               fontWeight: 800,
               lineHeight: 1.2,
-              color: "var(--nadaa-ink, #101828)",
+              color: "var(--nadaa-ink, #0d0d0d)",
             }}
           >
             {title}
@@ -140,7 +140,7 @@ export function SettingCard({
             sx={{
               mt: 0.25,
               fontSize: "0.85rem",
-              color: "var(--nadaa-text-secondary, #555b66)",
+              color: "var(--nadaa-text-secondary, #5a5a5a)",
             }}
           >
             {description}
@@ -169,9 +169,9 @@ export function InfoRow({
         gap: 1.5,
         alignItems: "flex-start",
         p: 1.5,
-        border: "1px solid var(--nadaa-border, #dfeaf2)",
+        border: "1px solid var(--nadaa-border, #e6e6e6)",
         borderRadius: "12px",
-        backgroundColor: "var(--nadaa-mist, #f5f8fc)",
+        backgroundColor: "var(--nadaa-mist, #f4f4f5)",
       }}
     >
       <Box
@@ -183,9 +183,9 @@ export function InfoRow({
           width: 36,
           height: 36,
           borderRadius: "9px",
-          color: "var(--nadaa-navy, #0d1b3d)",
+          color: "var(--nadaa-navy, #1a1a1a)",
           backgroundColor: "var(--nadaa-white, #ffffff)",
-          border: "1px solid var(--nadaa-border, #dfeaf2)",
+          border: "1px solid var(--nadaa-border, #e6e6e6)",
         }}
       >
         <Icon size={17} />
@@ -197,7 +197,7 @@ export function InfoRow({
             fontWeight: 700,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "var(--nadaa-text-secondary, #555b66)",
+            color: "var(--nadaa-text-secondary, #5a5a5a)",
           }}
         >
           {label}
@@ -207,7 +207,7 @@ export function InfoRow({
             mt: 0.5,
             fontSize: "0.9rem",
             fontWeight: 600,
-            color: "var(--nadaa-ink, #101828)",
+            color: "var(--nadaa-ink, #0d0d0d)",
           }}
         >
           {children}
@@ -240,9 +240,9 @@ export function PreferenceRow({
         gap: 1.5,
         alignItems: "flex-start",
         p: 1.75,
-        border: "1px solid var(--nadaa-border, #dfeaf2)",
+        border: "1px solid var(--nadaa-border, #e6e6e6)",
         borderRadius: "12px",
-        backgroundColor: "var(--nadaa-mist, #f5f8fc)",
+        backgroundColor: "var(--nadaa-mist, #f4f4f5)",
         transition: "border-color 150ms ease",
         "&:focus-within": {
           borderColor: "var(--nadaa-gold, #f4c20d)",
@@ -263,9 +263,9 @@ export function PreferenceRow({
             height: 34,
             mt: 0.25,
             borderRadius: "9px",
-            color: "var(--nadaa-navy, #0d1b3d)",
+            color: "var(--nadaa-navy, #1a1a1a)",
             backgroundColor:
-              "color-mix(in srgb, var(--nadaa-navy, #0d1b3d) 8%, transparent)",
+              "color-mix(in srgb, var(--nadaa-navy, #1a1a1a) 8%, transparent)",
           }}
         >
           <Icon size={17} />
@@ -279,7 +279,7 @@ export function PreferenceRow({
             display: "block",
             fontSize: "0.9rem",
             fontWeight: 700,
-            color: "var(--nadaa-ink, #101828)",
+            color: "var(--nadaa-ink, #0d0d0d)",
             cursor: "pointer",
           }}
         >
@@ -291,7 +291,7 @@ export function PreferenceRow({
             mt: 0.25,
             fontSize: "0.82rem",
             lineHeight: 1.45,
-            color: "var(--nadaa-text-secondary, #555b66)",
+            color: "var(--nadaa-text-secondary, #5a5a5a)",
           }}
         >
           {description}

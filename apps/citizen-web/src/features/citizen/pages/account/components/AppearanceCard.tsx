@@ -25,7 +25,7 @@ function SettingCard({
       elevation={0}
       sx={{
         p: { xs: 2.5, md: 3 },
-        border: "1px solid var(--nadaa-border, #dfeaf2)",
+        border: "1px solid var(--nadaa-border, #e6e6e6)",
         borderRadius: "14px",
         backgroundColor: "var(--nadaa-surface-elevated, #ffffff)",
         boxShadow: "var(--nadaa-shadow-md)",
@@ -43,9 +43,9 @@ function SettingCard({
             width: 40,
             height: 40,
             borderRadius: "10px",
-            color: "var(--nadaa-navy, #0d1b3d)",
+            color: "var(--nadaa-navy, #1a1a1a)",
             backgroundColor:
-              "color-mix(in srgb, var(--nadaa-navy, #0d1b3d) 8%, transparent)",
+              "color-mix(in srgb, var(--nadaa-navy, #1a1a1a) 8%, transparent)",
           }}
         >
           <Icon size={20} />
@@ -57,7 +57,7 @@ function SettingCard({
               fontSize: "1.02rem",
               fontWeight: 800,
               lineHeight: 1.2,
-              color: "var(--nadaa-ink, #101828)",
+              color: "var(--nadaa-ink, #0d0d0d)",
             }}
           >
             {title}
@@ -66,7 +66,7 @@ function SettingCard({
             sx={{
               mt: 0.25,
               fontSize: "0.85rem",
-              color: "var(--nadaa-text-secondary, #555b66)",
+              color: "var(--nadaa-text-secondary, #5a5a5a)",
             }}
           >
             {description}
@@ -99,14 +99,14 @@ function TintOption({
         borderRadius: "12px",
         border: "1px solid",
         borderColor: selected
-          ? "var(--nadaa-navy, #0d1b3d)"
-          : "var(--nadaa-border, #dfeaf2)",
-        backgroundColor: "var(--nadaa-mist, #f5f8fc)",
+          ? "var(--nadaa-navy, #1a1a1a)"
+          : "var(--nadaa-border, #e6e6e6)",
+        backgroundColor: "var(--nadaa-mist, #f4f4f5)",
         transition: "border-color 150ms ease, box-shadow 150ms ease",
         boxShadow: selected
-          ? "0 0 0 2px color-mix(in srgb, var(--nadaa-navy, #0d1b3d) 22%, transparent)"
+          ? "0 0 0 2px color-mix(in srgb, var(--nadaa-navy, #1a1a1a) 22%, transparent)"
           : "none",
-        "&:hover": { borderColor: "var(--nadaa-navy, #0d1b3d)" },
+        "&:hover": { borderColor: "var(--nadaa-navy, #1a1a1a)" },
         "&:focus-within": {
           borderColor: "var(--nadaa-gold, #f4c20d)",
           boxShadow:
@@ -146,7 +146,7 @@ function TintOption({
             sx={{
               fontSize: "0.9rem",
               fontWeight: 700,
-              color: "var(--nadaa-ink, #101828)",
+              color: "var(--nadaa-ink, #0d0d0d)",
             }}
           >
             {option.label}
@@ -156,7 +156,7 @@ function TintOption({
               mt: 0.25,
               fontSize: "0.78rem",
               lineHeight: 1.4,
-              color: "var(--nadaa-text-secondary, #555b66)",
+              color: "var(--nadaa-text-secondary, #5a5a5a)",
             }}
           >
             {option.description}
@@ -173,10 +173,10 @@ function TintOption({
             borderRadius: "999px",
             border: "1px solid",
             borderColor: selected
-              ? "var(--nadaa-navy, #0d1b3d)"
-              : "var(--nadaa-border, #dfeaf2)",
+              ? "var(--nadaa-navy, #1a1a1a)"
+              : "var(--nadaa-border, #e6e6e6)",
             backgroundColor: selected
-              ? "var(--nadaa-navy, #0d1b3d)"
+              ? "var(--nadaa-navy, #1a1a1a)"
               : "transparent",
             /* --nadaa-text-inverse is white in both modes, so the check reads on
                the navy/indigo fill regardless of light or dark. */
@@ -194,7 +194,7 @@ function TintOption({
           height: 34,
           borderRadius: "8px",
           overflow: "hidden",
-          border: "1px solid var(--nadaa-border, #dfeaf2)",
+          border: "1px solid var(--nadaa-border, #e6e6e6)",
         }}
       >
         {option.swatches.map((swatch) => (
@@ -234,8 +234,8 @@ export function AppearanceCard() {
             alignItems: "flex-start",
             p: 1.5,
             borderRadius: "12px",
-            border: "1px solid var(--nadaa-border, #dfeaf2)",
-            backgroundColor: "var(--nadaa-mist, #f5f8fc)",
+            border: "1px solid var(--nadaa-border, #e6e6e6)",
+            backgroundColor: "var(--nadaa-mist, #f4f4f5)",
           }}
         >
           <Box
@@ -244,7 +244,7 @@ export function AppearanceCard() {
               flex: "0 0 auto",
               display: "flex",
               gap: 0.5,
-              color: "var(--nadaa-navy, #0d1b3d)",
+              color: "var(--nadaa-navy, #1a1a1a)",
               mt: 0.25,
             }}
           >
@@ -255,7 +255,7 @@ export function AppearanceCard() {
             sx={{
               fontSize: "0.82rem",
               lineHeight: 1.5,
-              color: "var(--nadaa-text-secondary, #555b66)",
+              color: "var(--nadaa-text-secondary, #5a5a5a)",
             }}
           >
             Currently in <strong>{mode === "dark" ? "dark" : "light"}</strong>{" "}
@@ -272,7 +272,7 @@ export function AppearanceCard() {
               fontWeight: 700,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
-              color: "var(--nadaa-text-secondary, #555b66)",
+              color: "var(--nadaa-text-secondary, #5a5a5a)",
               mb: 1,
             }}
           >

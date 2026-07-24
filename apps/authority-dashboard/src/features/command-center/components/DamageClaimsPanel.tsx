@@ -690,7 +690,7 @@ export default function DamageClaimsPanel() {
                               height: 96,
                               objectFit: "cover",
                               borderRadius: 1,
-                              border: "1px solid rgba(13, 27, 61, 0.08)",
+                              border: "1px solid rgba(13, 13, 13, 0.08)",
                             }}
                           />
                         ))}

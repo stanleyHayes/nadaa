@@ -32,7 +32,7 @@ function MfaStatusChip({ enabled }: { enabled: boolean }) {
         // Gold tint reads best with navy text; green tone keeps its own colour.
         color: enabled
           ? "var(--nadaa-green, #1f8a4c)"
-          : "var(--nadaa-navy, #0d1b3d)",
+          : "var(--nadaa-navy, #1a1a1a)",
         backgroundColor: `color-mix(in srgb, var(--nadaa-${token}) 16%, transparent)`,
         border: `1px solid color-mix(in srgb, var(--nadaa-${token}) 42%, transparent)`,
       }}
@@ -59,7 +59,7 @@ function MutedNote({ children }: { children: ReactNode }) {
       sx={{
         fontSize: "0.85rem",
         lineHeight: 1.5,
-        color: "var(--nadaa-text-secondary, #555b66)",
+        color: "var(--nadaa-text-secondary, #5a5a5a)",
       }}
     >
       {children}
@@ -74,8 +74,8 @@ function FieldPanel({ children }: { children: ReactNode }) {
       sx={{
         p: 2,
         borderRadius: "12px",
-        border: "1px solid var(--nadaa-border, #dfeaf2)",
-        backgroundColor: "var(--nadaa-mist, #f5f8fc)",
+        border: "1px solid var(--nadaa-border, #e6e6e6)",
+        backgroundColor: "var(--nadaa-mist, #f4f4f5)",
       }}
     >
       {children}
@@ -138,9 +138,9 @@ export function MfaCard() {
             width: 40,
             height: 40,
             borderRadius: "10px",
-            color: "var(--nadaa-navy, #0d1b3d)",
+            color: "var(--nadaa-navy, #1a1a1a)",
             backgroundColor:
-              "color-mix(in srgb, var(--nadaa-navy, #0d1b3d) 8%, transparent)",
+              "color-mix(in srgb, var(--nadaa-navy, #1a1a1a) 8%, transparent)",
           }}
         >
           <ShieldCheck size={20} />
@@ -152,7 +152,7 @@ export function MfaCard() {
               fontSize: "1.02rem",
               fontWeight: 800,
               lineHeight: 1.2,
-              color: "var(--nadaa-ink, #101828)",
+              color: "var(--nadaa-ink, #0d0d0d)",
             }}
           >
             Multi-factor authentication
@@ -161,7 +161,7 @@ export function MfaCard() {
             sx={{
               mt: 0.25,
               fontSize: "0.85rem",
-              color: "var(--nadaa-text-secondary, #555b66)",
+              color: "var(--nadaa-text-secondary, #5a5a5a)",
             }}
           >
             Protect your account with a six-digit authenticator code.
@@ -230,7 +230,7 @@ export function MfaCard() {
                   sx={{
                     fontSize: "0.95rem",
                     fontWeight: 700,
-                    color: "var(--nadaa-ink, #101828)",
+                    color: "var(--nadaa-ink, #0d0d0d)",
                   }}
                 >
                   Confirm your authenticator code

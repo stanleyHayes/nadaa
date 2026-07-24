@@ -26,7 +26,7 @@ export function UserGuide({ onOpen }: { onOpen: (key: GuideKey) => void }) {
           borderRadius: "16px",
           color: "var(--nadaa-white, #ffffff)",
           background:
-            "linear-gradient(150deg, var(--nadaa-navy, #0d1b3d) 0%, #0a1531 100%)",
+            "linear-gradient(150deg, var(--nadaa-navy, #1a1a1a) 0%, #141414 100%)",
           boxShadow: "var(--nadaa-shadow-md)",
         }}
       >

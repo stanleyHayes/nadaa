@@ -15,6 +15,7 @@ import { marketingLinks } from "@/app/config";
 import { CursorSpotlight } from "../components/CursorSpotlight";
 import { Magnetic } from "../components/Magnetic";
 import { Marquee } from "../components/Marquee";
+import { ProductShowcase } from "../components/ProductShowcase";
 import { Reveal } from "../components/Reveal";
 import { RotatingWords } from "../components/RotatingWords";
 import { ScrambleText } from "../components/ScrambleText";
@@ -129,6 +130,8 @@ export function HomePage() {
         </Link>
       </section>
 
+      <ProductShowcase />
+
       <section aria-labelledby="home-roles-title" className="content-section">
         <div className="section-heading">
           <p className="eyebrow">Platforms</p>
@@ -178,25 +181,40 @@ export function HomePage() {
       <section className="cta-band" aria-labelledby="home-cta-title">
         <Reveal variant="scale">
           <div className="cta-card">
-            <div>
-              <p className="eyebrow">Get warnings where you are</p>
-              <h2 id="home-cta-title">Sign up and stay ahead of the water.</h2>
-              <p>
-                Create a free citizen account to check your area's risk, get
-                urgent warnings, and report incidents — online or offline.
-              </p>
+            <div className="cta-copy">
+              <div>
+                <p className="eyebrow">Get warnings where you are</p>
+                <h2 id="home-cta-title">
+                  Sign up and stay ahead of the water.
+                </h2>
+                <p>
+                  Create a free citizen account to check your area's risk, get
+                  urgent warnings, and report incidents — online or offline.
+                </p>
+              </div>
+              <div className="cta-actions">
+                <Magnetic>
+                  <Link className="primary-action" to="/signup">
+                    Sign up as a citizen
+                    <ChevronRight aria-hidden="true" size={18} />
+                  </Link>
+                </Magnetic>
+                <a className="ghost-action" href={marketingLinks.emergencyPhone}>
+                  <PhoneCall aria-hidden="true" size={17} />
+                  Emergency? Call <ScrambleText text="112" />
+                </a>
+              </div>
             </div>
-            <div className="cta-actions">
-              <Magnetic>
-                <Link className="primary-action" to="/signup">
-                  Sign up as a citizen
-                  <ChevronRight aria-hidden="true" size={18} />
-                </Link>
-              </Magnetic>
-              <a className="ghost-action" href={marketingLinks.emergencyPhone}>
-                <PhoneCall aria-hidden="true" size={17} />
-                Emergency? Call <ScrambleText text="112" />
-              </a>
+            <div aria-hidden="true" className="cta-phone">
+              <div className="phone-mock">
+                <img
+                  alt=""
+                  height={952}
+                  loading="lazy"
+                  src="/screens/phone-citizen.webp"
+                  width={560}
+                />
+              </div>
             </div>
           </div>
         </Reveal>

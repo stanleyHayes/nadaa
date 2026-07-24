@@ -720,13 +720,33 @@ textarea {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 2px;
+  height: 1px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--nadaa-navy) 55%, transparent) 0%,
-    var(--nadaa-green) 50%,
-    color-mix(in srgb, var(--nadaa-green) 0%, transparent) 100%
+    transparent 0%,
+    color-mix(in srgb, var(--nadaa-silver) 55%, transparent) 50%,
+    transparent 100%
   );
+}
+
+/* 4th-pattern: the logo sits in a dark onyx plaque with a curved right edge,
+   set against the light header bar. Uses a fixed onyx (not --nadaa-navy, which
+   flips to silver in dark mode) so the plaque stays permanently dark chrome. */
+.brand-mark {
+  gap: var(--nadaa-space-3);
+  padding: 8px 22px 8px 14px;
+  border-radius: 14px 30px 30px 14px;
+  background: #1a1a1a;
+  box-shadow: 0 6px 18px color-mix(in srgb, #000 22%, transparent);
+}
+
+.brand-mark img {
+  width: 40px;
+  height: 40px;
+}
+
+.brand-mark strong {
+  color: #ffffff;
 }
 
 .brand-mark small {
@@ -734,70 +754,63 @@ textarea {
   align-items: center;
   gap: 5px;
   font-weight: 700;
+  color: color-mix(in srgb, #ffffff 64%, transparent);
 }
 
 .brand-mark small svg {
-  color: var(--nadaa-green);
+  color: var(--nadaa-gold);
   flex-shrink: 0;
 }
 
-/* Segmented pill navigation rail. */
+/* 4th-pattern: uppercase inline nav with a sliding accent underline. */
 .site-nav {
   position: relative;
-  gap: 2px;
-  padding: 5px;
-  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
-  border-radius: var(--nadaa-radius-full, 999px);
-  background: color-mix(in srgb, var(--nadaa-white) 70%, transparent);
-  box-shadow: inset 0 1px 2px
-    color-mix(in srgb, var(--nadaa-navy) 5%, transparent);
+  gap: clamp(18px, 2.4vw, 30px);
+  padding: 0 4px;
 }
 
 .site-nav a {
   position: relative;
   z-index: 1;
   min-height: 40px;
-  padding: 0 16px;
+  padding: 0 2px;
   border-bottom: none;
-  border-radius: var(--nadaa-radius-full, 999px);
-  color: color-mix(in srgb, var(--nadaa-navy) 82%, transparent);
+  border-radius: 0;
+  color: color-mix(in srgb, var(--nadaa-navy) 74%, transparent);
+  font-size: 0.82rem;
   font-weight: 700;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease,
-    box-shadow 150ms ease;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 150ms ease;
 }
 
 .site-nav a:hover {
   color: var(--nadaa-navy);
   border-color: transparent;
-  background: color-mix(in srgb, var(--nadaa-navy) 7%, transparent);
+  background: transparent;
 }
 
 .site-nav a.is-active,
 .site-nav a.is-active:hover {
-  color: var(--nadaa-white);
+  color: var(--nadaa-navy);
   background: transparent;
   box-shadow: none;
-  /* Keep the white label legible while the navy pill slides in/out beneath it
-     (invisible over the settled navy pill, a halo over the light bar in transit). */
-  text-shadow: 0 1px 4px color-mix(in srgb, var(--nadaa-navy) 68%, transparent);
+  text-shadow: none;
 }
 
-/* The single navy highlight that slides between desktop pills. */
+/* The single accent bar that slides beneath the active nav item. */
 .nav-pill-indicator {
   position: absolute;
   left: 0;
   top: 0;
   z-index: 0;
-  border-radius: var(--nadaa-radius-full, 999px);
-  background: var(--nadaa-navy);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--nadaa-navy) 32%, transparent);
+  border-radius: 999px;
+  background: var(--nadaa-gold);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--nadaa-gold) 45%, transparent);
   pointer-events: none;
   transition:
     transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
     width 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    height 360ms ease,
     opacity 200ms ease;
 }
 
@@ -817,10 +830,10 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--nadaa-space-2);
+  gap: 10px;
   min-height: 44px;
-  padding: 0 var(--nadaa-space-4);
-  border-radius: var(--nadaa-radius-md);
+  padding: 0 6px 0 var(--nadaa-space-4);
+  border-radius: var(--nadaa-radius-full, 999px);
   color: var(--nadaa-navy);
   font-weight: 800;
   background: linear-gradient(
@@ -837,6 +850,33 @@ textarea {
 .cta-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 22px color-mix(in srgb, var(--nadaa-gold) 52%, transparent);
+}
+
+/* Circular arrow badge at the pill's trailing edge (4th-pattern). */
+.cta-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #1a1a1a;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cta-button:hover .cta-arrow {
+  transform: translateX(3px);
+}
+
+/* Vertical rule separating the nav from the action cluster (4th-pattern). */
+.action-divider {
+  width: 1px;
+  height: 26px;
+  flex-shrink: 0;
+  margin: 0 6px;
+  background: color-mix(in srgb, var(--nadaa-navy) 20%, transparent);
 }
 
 /* ------------------------------------------------------------------ *
@@ -992,6 +1032,21 @@ textarea {
     /* The backdrop-filter makes this header the containing block for the fixed
        dropdown; overflow:hidden was clipping the open menu. Let it escape. */
     overflow: visible;
+  }
+
+  /* Compact the onyx plaque on small screens. */
+  .brand-mark {
+    padding: 6px 14px 6px 10px;
+    border-radius: 12px 22px 22px 12px;
+  }
+
+  .brand-mark img {
+    width: 34px;
+    height: 34px;
+  }
+
+  .action-divider {
+    display: none;
   }
 
   .nav-scrim {
@@ -2512,8 +2567,6 @@ textarea {
 .sources-dock {
   width: min(1120px, calc(100% - var(--nadaa-space-8)));
   margin: 0 auto clamp(48px, 7vw, 88px);
-  border: 1px solid var(--nadaa-border-subtle);
-  border-top: 3px solid var(--nadaa-gold);
   border-radius: 16px;
   background: var(--nadaa-white);
   box-shadow: 0 24px 48px -34px
@@ -2741,10 +2794,17 @@ textarea {
 :root[data-theme="dark"] .skip-link,
 :root[data-theme="dark"] .footer-emergency-badge,
 :root[data-theme="dark"] .footer-emergency-call {
-  /* Deep navy that stays clearly above the dark page canvas (#0b1120/#111a30). */
-  --nadaa-navy: #12224a;
+  /* Deep navy that stays clearly above the dark page canvas (#0f0f0f/#161616). */
+  --nadaa-navy: #242424;
   /* Keep white-as-inverse-text + white-glass overlays actually light. */
   --nadaa-white: #ffffff;
+}
+
+/* Lift the onyx logo plaque off the graphite header in dark mode. */
+:root[data-theme="dark"] .brand-mark {
+  background: #242424;
+  border: 1px solid #2e2e2e;
+  box-shadow: 0 6px 18px color-mix(in srgb, #000 45%, transparent);
 }
 
 /* ------------------------------------------------------------------ *
@@ -2910,11 +2970,15 @@ textarea {
 
 /* Animated gradient on the hero wordmark */
 .hero-content .hero-title {
+  /* Wordmark sits on the permanently-dark hero, so the gradient must stay
+     light in both themes. The rebrand turned --nadaa-navy to near-black onyx,
+     which was invisible here (only the text-shadow showed) — so use gold with
+     white/silver highlights instead. */
   background: linear-gradient(
     100deg,
-    var(--nadaa-navy) 15%,
-    var(--nadaa-green) 52%,
-    var(--nadaa-gold) 88%
+    var(--nadaa-gold) 8%,
+    #ffffff 50%,
+    var(--nadaa-gold) 92%
   );
   background-size: 220% 100%;
   -webkit-background-clip: text;
@@ -2930,6 +2994,27 @@ textarea {
   to {
     background-position: 100% 50%;
   }
+}
+
+/* SplitReveal wraps each letter in a transformed span that becomes its own
+   composited layer, which breaks background-clip:text on the parent — the fill
+   vanishes and only the text-shadow renders ("showing as shadow"). Re-apply the
+   clipped gradient on the letter spans themselves so the wordmark paints.
+   (The rule above still covers the reduced-motion path, where SplitReveal
+   renders the text as a direct child of .hero-title.) */
+.hero-content .hero-title .split-reveal__part {
+  background: linear-gradient(
+    100deg,
+    var(--nadaa-gold) 8%,
+    #ffffff 50%,
+    var(--nadaa-gold) 92%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: hero-title-drift 14s ease-in-out infinite alternate;
 }
 
 /* Rotating hazard words under the subtitle */
@@ -3163,5 +3248,365 @@ textarea {
   }
   .marquee__track {
     animation: none;
+  }
+}
+
+/* ==================================================================
+ * Neumorphic (soft-UI) treatment
+ * Raised cards, numbered step pills, icon badges, and the
+ * "See it in action" product showcase. Shadows adapt per theme; the
+ * surface tracks the page ground so the extrusion reads.
+ * ================================================================== */
+:root {
+  --neu-surface: #eef1f4;
+  --neu-raise:
+    -7px -7px 16px rgba(255, 255, 255, 0.92),
+    9px 9px 22px rgba(13, 13, 13, 0.1);
+  --neu-raise-hover:
+    -9px -9px 20px rgba(255, 255, 255, 0.95),
+    12px 12px 28px rgba(13, 13, 13, 0.14);
+  --neu-raise-sm:
+    -4px -4px 9px rgba(255, 255, 255, 0.92),
+    5px 5px 12px rgba(13, 13, 13, 0.13);
+  --neu-inset:
+    inset 3px 3px 7px rgba(13, 13, 13, 0.14),
+    inset -3px -3px 7px rgba(255, 255, 255, 0.85);
+}
+
+:root[data-theme="dark"] {
+  --neu-surface: #191919;
+  --neu-raise:
+    -6px -6px 14px rgba(255, 255, 255, 0.045),
+    9px 9px 22px rgba(0, 0, 0, 0.62);
+  --neu-raise-hover:
+    -8px -8px 18px rgba(255, 255, 255, 0.06),
+    12px 12px 28px rgba(0, 0, 0, 0.7);
+  --neu-raise-sm:
+    -3px -3px 8px rgba(255, 255, 255, 0.05),
+    5px 5px 12px rgba(0, 0, 0, 0.6);
+  --neu-inset:
+    inset 3px 3px 7px rgba(0, 0, 0, 0.6),
+    inset -3px -3px 7px rgba(255, 255, 255, 0.045);
+}
+
+/* --- Product showcase --------------------------------------------- */
+.showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: clamp(20px, 2.4vw, 30px);
+  margin-top: var(--nadaa-space-8);
+}
+
+.showcase-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 16px 24px;
+  border-radius: 26px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 260ms ease;
+}
+
+.showcase-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--neu-raise-hover);
+}
+
+.showcase-frame {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0f0f0f;
+  box-shadow: var(--neu-inset);
+}
+
+.showcase-dots {
+  display: flex;
+  gap: 6px;
+  padding: 11px 14px;
+  background: #1a1a1a;
+}
+
+.showcase-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, #ffffff 22%, transparent);
+}
+
+.showcase-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.showcase-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 0 8px;
+}
+
+.showcase-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise-sm);
+  color: var(--nadaa-navy);
+}
+
+.showcase-body h3 {
+  margin: 3px 0 5px;
+  color: var(--nadaa-navy);
+  font-size: 1.12rem;
+}
+
+.showcase-body p {
+  margin: 0;
+  color: var(--nadaa-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.56;
+}
+
+/* --- Neumorphic "How it works" loop cards (a real 3-step sequence) - */
+.loop-card {
+  border: none;
+  border-radius: 24px;
+  padding: 28px 24px 24px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 260ms ease;
+}
+
+.loop-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--neu-raise-hover);
+}
+
+/* Replace the flat green side bar with a raised numbered pill. */
+.loop-card::before {
+  display: none;
+}
+
+.loop-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 15px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise-sm);
+  color: var(--nadaa-navy);
+  font-size: 1.2rem;
+}
+
+/* --- Neumorphic platform (role) cards ----------------------------- */
+.role-lane {
+  border: none;
+  border-radius: 22px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+}
+
+/* Drop the flat top accent hairline; the raised icon chip carries the tone. */
+.role-lane::before {
+  display: none;
+}
+
+.role-lane:hover {
+  border-color: transparent;
+  box-shadow: var(--neu-raise-hover);
+}
+
+.role-lane__chip {
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise-sm);
+  color: var(--role-accent, var(--nadaa-navy));
+}
+
+/* --- Neumorphic stat tiles ---------------------------------------- */
+.stats-band:not(.stats-band--plain) .stat-tile {
+  border: none;
+  border-radius: 22px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+}
+
+.stats-band:not(.stats-band--plain) .stat-tile::before {
+  display: none;
+}
+
+.stat-chip {
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise-sm);
+  color: color-mix(in srgb, var(--nadaa-gold) 82%, var(--nadaa-ink));
+}
+
+/* --- Neumorphic inner-page cards (Platforms / Trust / Contact / How it works)
+   Small colourful feature-card grid is intentionally left as-is for variety. --- */
+.role-card,
+.service-card,
+.compliance-card,
+.contact-card,
+.why-card {
+  border: none;
+  border-radius: 22px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 240ms ease;
+}
+
+.role-card:hover,
+.service-card:hover,
+.compliance-card:hover,
+.contact-card:hover,
+.why-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--neu-raise-hover);
+}
+
+/* Neumorphic plain stat tiles (Trust). */
+.stats-band--plain .stat-tile {
+  border: none;
+  border-radius: 22px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+}
+
+.stats-band--plain .stat-tile::before {
+  display: none;
+}
+
+/* Neumorphic evidence & sources dock (Trust) — also drops the flat gold
+   top-border that read as an accent-bar-on-rounded tell. */
+.sources-dock {
+  border: none;
+  border-radius: 20px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .showcase-card,
+  .loop-card,
+  .role-card,
+  .service-card,
+  .compliance-card,
+  .contact-card,
+  .why-card {
+    transition: none;
+  }
+}
+
+/* --- CTA phone mockup (shows the citizen app in context) ----------- */
+.cta-copy {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 3vw, 30px);
+}
+
+.cta-phone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phone-mock {
+  position: relative;
+  width: min(248px, 80%);
+  padding: 9px;
+  border-radius: 38px;
+  background: linear-gradient(160deg, #262626, #0d0d0d);
+  box-shadow:
+    0 34px 70px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Speaker slit. */
+.phone-mock::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 58px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  z-index: 2;
+}
+
+.phone-mock img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 30px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .phone-mock {
+    transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .cta-card:hover .phone-mock {
+    transform: translateY(-6px);
+  }
+}
+
+/* On small screens the copy carries the CTA; drop the mockup. */
+@media (max-width: 900px) {
+  .cta-phone {
+    display: none;
+  }
+}
+
+/* Mobile fix: the 3D reveal's pre-reveal perspective tilt inflated wide cards
+   (Platforms role cards) past the viewport, causing horizontal scroll until
+   they revealed. Use a flat vertical reveal on small screens. */
+@media (max-width: 760px) {
+  .reveal--3d {
+    transform: translateY(42px);
+  }
+}
+
+/* --- Motion polish: tactile neumorphic hover (reduced-motion safe) ---
+   Icon badges press IN (raised -> inset) when their card is hovered, and stat
+   tiles lift + deepen like the other neu cards. All gated on no-preference. */
+@media (prefers-reduced-motion: no-preference) {
+  .showcase-badge,
+  .role-lane__chip,
+  .stat-chip {
+    transition: box-shadow 260ms ease;
+  }
+
+  .stat-tile {
+    transition:
+      box-shadow 260ms ease,
+      transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .showcase-card:hover .showcase-badge,
+  .role-lane:hover .role-lane__chip,
+  .stat-tile:hover .stat-chip {
+    box-shadow: var(--neu-inset);
+  }
+
+  .stats-band:not(.stats-band--plain) .stat-tile:hover,
+  .stats-band--plain .stat-tile:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--neu-raise-hover);
   }
 }
