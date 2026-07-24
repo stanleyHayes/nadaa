@@ -2567,8 +2567,6 @@ textarea {
 .sources-dock {
   width: min(1120px, calc(100% - var(--nadaa-space-8)));
   margin: 0 auto clamp(48px, 7vw, 88px);
-  border: 1px solid var(--nadaa-border-subtle);
-  border-top: 3px solid var(--nadaa-gold);
   border-radius: 16px;
   background: var(--nadaa-white);
   box-shadow: 0 24px 48px -34px
@@ -3581,5 +3579,34 @@ textarea {
 @media (max-width: 760px) {
   .reveal--3d {
     transform: translateY(42px);
+  }
+}
+
+/* --- Motion polish: tactile neumorphic hover (reduced-motion safe) ---
+   Icon badges press IN (raised -> inset) when their card is hovered, and stat
+   tiles lift + deepen like the other neu cards. All gated on no-preference. */
+@media (prefers-reduced-motion: no-preference) {
+  .showcase-badge,
+  .role-lane__chip,
+  .stat-chip {
+    transition: box-shadow 260ms ease;
+  }
+
+  .stat-tile {
+    transition:
+      box-shadow 260ms ease,
+      transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .showcase-card:hover .showcase-badge,
+  .role-lane:hover .role-lane__chip,
+  .stat-tile:hover .stat-chip {
+    box-shadow: var(--neu-inset);
+  }
+
+  .stats-band:not(.stats-band--plain) .stat-tile:hover,
+  .stats-band--plain .stat-tile:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--neu-raise-hover);
   }
 }
