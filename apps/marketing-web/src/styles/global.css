@@ -3456,9 +3456,60 @@ textarea {
   color: color-mix(in srgb, var(--nadaa-gold) 82%, var(--nadaa-ink));
 }
 
+/* --- Neumorphic inner-page cards (Platforms / Trust / Contact / How it works)
+   Small colourful feature-card grid is intentionally left as-is for variety. --- */
+.role-card,
+.service-card,
+.compliance-card,
+.contact-card,
+.why-card {
+  border: none;
+  border-radius: 22px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 240ms ease;
+}
+
+.role-card:hover,
+.service-card:hover,
+.compliance-card:hover,
+.contact-card:hover,
+.why-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--neu-raise-hover);
+}
+
+/* Neumorphic plain stat tiles (Trust). */
+.stats-band--plain .stat-tile {
+  border: none;
+  border-radius: 22px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+}
+
+.stats-band--plain .stat-tile::before {
+  display: none;
+}
+
+/* Neumorphic evidence & sources dock (Trust) — also drops the flat gold
+   top-border that read as an accent-bar-on-rounded tell. */
+.sources-dock {
+  border: none;
+  border-radius: 20px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .showcase-card,
-  .loop-card {
+  .loop-card,
+  .role-card,
+  .service-card,
+  .compliance-card,
+  .contact-card,
+  .why-card {
     transition: none;
   }
 }
