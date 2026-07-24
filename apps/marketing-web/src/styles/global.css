@@ -3618,3 +3618,39 @@ textarea {
     box-shadow: var(--neu-raise-hover);
   }
 }
+
+/* --- Neumorphic hero metric cards + nav buttons ------------------- */
+/* Hero metrics sit on the permanently-dark hero, so use fixed dark-neumorphic
+   shadows (a light top-left highlight + a dark bottom-right drop) rather than
+   the theme-dependent --neu tokens. */
+.hero-metrics span {
+  border: none;
+  background: color-mix(in srgb, #0f0f0f 58%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    -5px -5px 14px rgba(255, 255, 255, 0.05),
+    7px 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Nav theme toggle + hamburger become raised soft-UI buttons that press in
+   on hover. Both grounds (near-white bar / graphite bar) suit the neu tokens. */
+.theme-toggle,
+.icon-button {
+  border: none;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise-sm);
+}
+
+.theme-toggle:hover,
+.icon-button:hover {
+  transform: none;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-inset);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .theme-toggle,
+  .icon-button {
+    transition: box-shadow 220ms ease;
+  }
+}
