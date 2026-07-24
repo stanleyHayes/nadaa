@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   ChevronRight,
   House,
   Languages,
@@ -9,7 +10,6 @@ import {
   PhoneCall,
   ShieldCheck,
   Sun,
-  UserPlus,
   Workflow,
   X,
 } from "lucide-react";
@@ -51,11 +51,12 @@ export function SiteHeader() {
         setPillStyle((prev) => ({ ...prev, opacity: 0 }));
         return;
       }
+      // Slide a thin underline bar to sit under the active item (4th-pattern).
       setPillStyle({
         opacity: 1,
         width: active.offsetWidth,
-        height: active.offsetHeight,
-        top: active.offsetTop,
+        height: 3,
+        top: active.offsetTop + active.offsetHeight - 3,
         transform: `translateX(${active.offsetLeft}px)`,
       });
     };
@@ -172,17 +173,13 @@ export function SiteHeader() {
               <Moon aria-hidden="true" size={18} />
             )}
           </button>
+          <span aria-hidden="true" className="action-divider" />
           <NavLink className="cta-button" to="/signup">
-            <UserPlus aria-hidden="true" size={16} />
             Sign up
+            <span aria-hidden="true" className="cta-arrow">
+              <ArrowRight size={16} />
+            </span>
           </NavLink>
-          <a
-            className="link-button emergency"
-            href={marketingLinks.emergencyPhone}
-          >
-            <PhoneCall aria-hidden="true" size={17} />
-            112
-          </a>
           <button
             aria-controls="primary-nav"
             aria-expanded={menuOpen}

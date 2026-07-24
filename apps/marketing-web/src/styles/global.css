@@ -720,13 +720,33 @@ textarea {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 2px;
+  height: 1px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--nadaa-navy) 55%, transparent) 0%,
-    var(--nadaa-green) 50%,
-    color-mix(in srgb, var(--nadaa-green) 0%, transparent) 100%
+    transparent 0%,
+    color-mix(in srgb, var(--nadaa-silver) 55%, transparent) 50%,
+    transparent 100%
   );
+}
+
+/* 4th-pattern: the logo sits in a dark onyx plaque with a curved right edge,
+   set against the light header bar. Uses a fixed onyx (not --nadaa-navy, which
+   flips to silver in dark mode) so the plaque stays permanently dark chrome. */
+.brand-mark {
+  gap: var(--nadaa-space-3);
+  padding: 8px 22px 8px 14px;
+  border-radius: 14px 30px 30px 14px;
+  background: #1a1a1a;
+  box-shadow: 0 6px 18px color-mix(in srgb, #000 22%, transparent);
+}
+
+.brand-mark img {
+  width: 40px;
+  height: 40px;
+}
+
+.brand-mark strong {
+  color: #ffffff;
 }
 
 .brand-mark small {
@@ -734,70 +754,63 @@ textarea {
   align-items: center;
   gap: 5px;
   font-weight: 700;
+  color: color-mix(in srgb, #ffffff 64%, transparent);
 }
 
 .brand-mark small svg {
-  color: var(--nadaa-green);
+  color: var(--nadaa-gold);
   flex-shrink: 0;
 }
 
-/* Segmented pill navigation rail. */
+/* 4th-pattern: uppercase inline nav with a sliding accent underline. */
 .site-nav {
   position: relative;
-  gap: 2px;
-  padding: 5px;
-  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 12%, transparent);
-  border-radius: var(--nadaa-radius-full, 999px);
-  background: color-mix(in srgb, var(--nadaa-white) 70%, transparent);
-  box-shadow: inset 0 1px 2px
-    color-mix(in srgb, var(--nadaa-navy) 5%, transparent);
+  gap: clamp(18px, 2.4vw, 30px);
+  padding: 0 4px;
 }
 
 .site-nav a {
   position: relative;
   z-index: 1;
   min-height: 40px;
-  padding: 0 16px;
+  padding: 0 2px;
   border-bottom: none;
-  border-radius: var(--nadaa-radius-full, 999px);
-  color: color-mix(in srgb, var(--nadaa-navy) 82%, transparent);
+  border-radius: 0;
+  color: color-mix(in srgb, var(--nadaa-navy) 74%, transparent);
+  font-size: 0.82rem;
   font-weight: 700;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease,
-    box-shadow 150ms ease;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 150ms ease;
 }
 
 .site-nav a:hover {
   color: var(--nadaa-navy);
   border-color: transparent;
-  background: color-mix(in srgb, var(--nadaa-navy) 7%, transparent);
+  background: transparent;
 }
 
 .site-nav a.is-active,
 .site-nav a.is-active:hover {
-  color: var(--nadaa-white);
+  color: var(--nadaa-navy);
   background: transparent;
   box-shadow: none;
-  /* Keep the white label legible while the navy pill slides in/out beneath it
-     (invisible over the settled navy pill, a halo over the light bar in transit). */
-  text-shadow: 0 1px 4px color-mix(in srgb, var(--nadaa-navy) 68%, transparent);
+  text-shadow: none;
 }
 
-/* The single navy highlight that slides between desktop pills. */
+/* The single accent bar that slides beneath the active nav item. */
 .nav-pill-indicator {
   position: absolute;
   left: 0;
   top: 0;
   z-index: 0;
-  border-radius: var(--nadaa-radius-full, 999px);
-  background: var(--nadaa-navy);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--nadaa-navy) 32%, transparent);
+  border-radius: 999px;
+  background: var(--nadaa-gold);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--nadaa-gold) 45%, transparent);
   pointer-events: none;
   transition:
     transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
     width 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    height 360ms ease,
     opacity 200ms ease;
 }
 
@@ -817,10 +830,10 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--nadaa-space-2);
+  gap: 10px;
   min-height: 44px;
-  padding: 0 var(--nadaa-space-4);
-  border-radius: var(--nadaa-radius-md);
+  padding: 0 6px 0 var(--nadaa-space-4);
+  border-radius: var(--nadaa-radius-full, 999px);
   color: var(--nadaa-navy);
   font-weight: 800;
   background: linear-gradient(
@@ -837,6 +850,33 @@ textarea {
 .cta-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 22px color-mix(in srgb, var(--nadaa-gold) 52%, transparent);
+}
+
+/* Circular arrow badge at the pill's trailing edge (4th-pattern). */
+.cta-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #1a1a1a;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cta-button:hover .cta-arrow {
+  transform: translateX(3px);
+}
+
+/* Vertical rule separating the nav from the action cluster (4th-pattern). */
+.action-divider {
+  width: 1px;
+  height: 26px;
+  flex-shrink: 0;
+  margin: 0 6px;
+  background: color-mix(in srgb, var(--nadaa-navy) 20%, transparent);
 }
 
 /* ------------------------------------------------------------------ *
@@ -992,6 +1032,21 @@ textarea {
     /* The backdrop-filter makes this header the containing block for the fixed
        dropdown; overflow:hidden was clipping the open menu. Let it escape. */
     overflow: visible;
+  }
+
+  /* Compact the onyx plaque on small screens. */
+  .brand-mark {
+    padding: 6px 14px 6px 10px;
+    border-radius: 12px 22px 22px 12px;
+  }
+
+  .brand-mark img {
+    width: 34px;
+    height: 34px;
+  }
+
+  .action-divider {
+    display: none;
   }
 
   .nav-scrim {
@@ -2745,6 +2800,13 @@ textarea {
   --nadaa-navy: #242424;
   /* Keep white-as-inverse-text + white-glass overlays actually light. */
   --nadaa-white: #ffffff;
+}
+
+/* Lift the onyx logo plaque off the graphite header in dark mode. */
+:root[data-theme="dark"] .brand-mark {
+  background: #242424;
+  border: 1px solid #2e2e2e;
+  box-shadow: 0 6px 18px color-mix(in srgb, #000 45%, transparent);
 }
 
 /* ------------------------------------------------------------------ *
