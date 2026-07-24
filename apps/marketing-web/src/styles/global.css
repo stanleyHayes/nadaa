@@ -3654,3 +3654,93 @@ textarea {
     transition: box-shadow 220ms ease;
   }
 }
+
+/* ==================================================================
+ * Neumorphic buttons (colored) + nav links
+ * Colored buttons keep their fill and gain a pillowy tonal shadow
+ * (light highlight top-left, darker same-hue drop bottom-right). Nav
+ * links become raised soft pills; the active one presses in (inset).
+ * ================================================================== */
+
+/* Nav links -> raised soft pills, active = pressed. */
+.site-nav {
+  gap: 8px;
+}
+
+.site-nav a {
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 12px;
+  background: var(--neu-surface);
+  box-shadow: var(--neu-raise-sm);
+  transition:
+    box-shadow 200ms ease,
+    color 150ms ease;
+}
+
+.site-nav a:hover {
+  color: var(--nadaa-navy);
+  box-shadow: var(--neu-raise);
+}
+
+.site-nav a.is-active,
+.site-nav a.is-active:hover {
+  color: var(--nadaa-navy);
+  box-shadow: var(--neu-inset);
+}
+
+/* The sliding underline is replaced by the inset active pill. */
+.nav-pill-indicator {
+  display: none;
+}
+
+/* Gold "Sign up" — solid gold, pillowy shadow. */
+.cta-button {
+  background: var(--nadaa-gold);
+  box-shadow:
+    -4px -4px 9px rgba(255, 255, 255, 0.6),
+    6px 7px 15px color-mix(in srgb, var(--nadaa-gold) 42%, #0d0d0d);
+}
+
+.cta-button:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    -3px -3px 7px rgba(255, 255, 255, 0.5),
+    5px 6px 13px color-mix(in srgb, var(--nadaa-gold) 50%, #0d0d0d);
+}
+
+/* Green "Partnership briefing". */
+.site-footer .footer-cta {
+  box-shadow:
+    -4px -4px 9px rgba(255, 255, 255, 0.55),
+    6px 7px 15px color-mix(in srgb, var(--nadaa-green) 42%, #0d0d0d);
+}
+
+/* Red "Call 112". */
+.footer-emergency-call {
+  box-shadow:
+    -4px -4px 9px rgba(255, 255, 255, 0.4),
+    6px 7px 15px color-mix(in srgb, var(--nadaa-red) 45%, #0d0d0d);
+}
+
+.footer-emergency-call:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    -3px -3px 7px rgba(255, 255, 255, 0.35),
+    5px 6px 13px color-mix(in srgb, var(--nadaa-red) 52%, #0d0d0d);
+}
+
+/* Hero + CTA-card buttons live on dark grounds -> dark-neumorphic soft. */
+.hero-actions .primary-action,
+.cta-actions .primary-action {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    6px 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.hero-actions .secondary-action,
+.cta-actions .ghost-action {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    6px 8px 18px rgba(0, 0, 0, 0.32);
+}
