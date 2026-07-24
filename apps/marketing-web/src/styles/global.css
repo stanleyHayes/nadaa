@@ -3460,7 +3460,8 @@ textarea {
 .service-card,
 .compliance-card,
 .contact-card,
-.why-card {
+.why-card,
+.feature-card {
   border: none;
   border-radius: 22px;
   background: var(--neu-surface);
@@ -3474,9 +3475,15 @@ textarea {
 .service-card:hover,
 .compliance-card:hover,
 .contact-card:hover,
-.why-card:hover {
+.why-card:hover,
+.feature-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--neu-raise-hover);
+}
+
+/* Keep the per-feature colour marker legible as a raised pill on the soft card. */
+.feature-card span {
+  box-shadow: 0 1px 3px color-mix(in srgb, #0d0d0d 22%, transparent);
 }
 
 /* Neumorphic plain stat tiles (Trust). */
@@ -3507,7 +3514,8 @@ textarea {
   .service-card,
   .compliance-card,
   .contact-card,
-  .why-card {
+  .why-card,
+  .feature-card {
     transition: none;
   }
 }
