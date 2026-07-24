@@ -6,12 +6,12 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "backgroundColor": "#0D1B3D",
+    "backgroundColor": "#1a1a1a",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0D1B3D"
+      "backgroundColor": "#1a1a1a"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -27,7 +27,7 @@
       "package": "com.nadaa.citizen",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0D1B3D"
+        "backgroundColor": "#1a1a1a"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",

@@ -27,10 +27,10 @@ const DigitBox = styled("input")({
   fontWeight: 700,
   lineHeight: 1,
   fontFamily: "inherit",
-  color: "var(--nadaa-navy, #0d1b3d)",
+  color: "var(--nadaa-navy, #1a1a1a)",
   background: "var(--nadaa-white, #ffffff)",
   border:
-    "1.5px solid color-mix(in srgb, var(--nadaa-navy, #0d1b3d) 24%, transparent)",
+    "1.5px solid color-mix(in srgb, var(--nadaa-navy, #1a1a1a) 24%, transparent)",
   borderRadius: 12,
   outline: "none",
   transition: "border-color 150ms ease, box-shadow 150ms ease",
@@ -40,7 +40,7 @@ const DigitBox = styled("input")({
     margin: 0,
   },
   "&:hover": {
-    borderColor: "color-mix(in srgb, var(--nadaa-navy, #0d1b3d) 40%, transparent)",
+    borderColor: "color-mix(in srgb, var(--nadaa-navy, #1a1a1a) 40%, transparent)",
   },
   "&:focus": {
     borderColor: "var(--nadaa-gold, #f4c20d)",

@@ -192,7 +192,7 @@ export const closureSeverityColors: Record<string, string> = {
   severe: "#dc2626",
   high: "#f97316",
   moderate: "#eab308",
-  low: "#64748b",
+  low: "#71717a",
 };
 
 const popupEscapeMap: Record<string, string> = {
@@ -297,7 +297,7 @@ export function IncidentMap({
         point[0],
       ]) as L.LatLngExpression[];
       const polyline = L.polyline(latlngs, {
-        color: closureSeverityColors[closure.severity] ?? "#64748b",
+        color: closureSeverityColors[closure.severity] ?? "#71717a",
         weight: 5,
         opacity: 0.85,
         dashArray: closure.status === "scheduled" ? "8,8" : undefined,
@@ -566,7 +566,7 @@ export function PredictionReviewMap({
           ([lng, lat]) => [lat, lng] as [number, number],
         );
         const polygon = L.polygon(polygonPoints, {
-          color: selected ? "#0D1B3D" : color,
+          color: selected ? "#1a1a1a" : color,
           fillColor: color,
           fillOpacity: selected ? 0.28 : 0.18,
           weight: selected ? 4 : 2,

@@ -44,7 +44,7 @@ function MutedNote({ children }: { children: ReactNode }) {
       sx={{
         fontSize: "0.85rem",
         lineHeight: 1.5,
-        color: "var(--nadaa-text-secondary, #555b66)",
+        color: "var(--nadaa-text-secondary, #5a5a5a)",
       }}
     >
       {children}
@@ -57,9 +57,9 @@ function FieldPanel({ children }: { children: ReactNode }) {
     <Box
       sx={{
         p: 2,
-        border: "1px solid var(--nadaa-border, #dfeaf2)",
+        border: "1px solid var(--nadaa-border, #e6e6e6)",
         borderRadius: "12px",
-        backgroundColor: "var(--nadaa-mist, #f5f8fc)",
+        backgroundColor: "var(--nadaa-mist, #f4f4f5)",
       }}
     >
       {children}
@@ -200,7 +200,7 @@ export function SecurityTab({
                   <Typography
                     sx={{
                       fontWeight: 700,
-                      color: "var(--nadaa-ink, #101828)",
+                      color: "var(--nadaa-ink, #0d0d0d)",
                     }}
                   >
                     Enter your authenticator code
@@ -247,7 +247,7 @@ export function SecurityTab({
                 fontWeight: 700,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: "var(--nadaa-text-secondary, #555b66)",
+                color: "var(--nadaa-text-secondary, #5a5a5a)",
               }}
             >
               Last sign in
@@ -256,7 +256,7 @@ export function SecurityTab({
               sx={{
                 mt: 0.5,
                 fontWeight: 700,
-                color: "var(--nadaa-ink, #101828)",
+                color: "var(--nadaa-ink, #0d0d0d)",
               }}
             >
               {formatDateTime(user.lastLoginAt)}

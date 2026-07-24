@@ -77,7 +77,7 @@ function MutedNote({ children }: { children: ReactNode }) {
       sx={{
         fontSize: "0.85rem",
         lineHeight: 1.5,
-        color: "var(--nadaa-text-secondary, #555b66)",
+        color: "var(--nadaa-text-secondary, #5a5a5a)",
       }}
     >
       {children}
@@ -90,9 +90,9 @@ function FieldPanel({ children }: { children: ReactNode }) {
     <Box
       sx={{
         p: 2,
-        border: "1px solid var(--nadaa-border, #dfeaf2)",
+        border: "1px solid var(--nadaa-border, #e6e6e6)",
         borderRadius: "12px",
-        backgroundColor: "var(--nadaa-mist, #f5f8fc)",
+        backgroundColor: "var(--nadaa-mist, #f4f4f5)",
       }}
     >
       {children}
@@ -280,7 +280,7 @@ export function SecurityTab({
                       <Typography
                         sx={{
                           fontWeight: 700,
-                          color: "var(--nadaa-ink, #101828)",
+                          color: "var(--nadaa-ink, #0d0d0d)",
                         }}
                       >
                         Confirm your password
@@ -328,7 +328,7 @@ export function SecurityTab({
                       <Typography
                         sx={{
                           fontWeight: 700,
-                          color: "var(--nadaa-ink, #101828)",
+                          color: "var(--nadaa-ink, #0d0d0d)",
                         }}
                       >
                         Add this key to your authenticator app
@@ -342,7 +342,7 @@ export function SecurityTab({
                     <Box
                       sx={{
                         p: 1.5,
-                        border: "1px solid var(--nadaa-border, #dfeaf2)",
+                        border: "1px solid var(--nadaa-border, #e6e6e6)",
                         borderRadius: "10px",
                         backgroundColor: "var(--nadaa-white, #ffffff)",
                         fontFamily: "monospace",
@@ -357,7 +357,7 @@ export function SecurityTab({
                       <Typography
                         sx={{
                           fontSize: "0.78rem",
-                          color: "var(--nadaa-text-secondary, #555b66)",
+                          color: "var(--nadaa-text-secondary, #5a5a5a)",
                           wordBreak: "break-all",
                         }}
                       >
@@ -404,7 +404,7 @@ export function SecurityTab({
                 fontWeight: 700,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: "var(--nadaa-text-secondary, #555b66)",
+                color: "var(--nadaa-text-secondary, #5a5a5a)",
               }}
             >
               Last sign in
@@ -413,7 +413,7 @@ export function SecurityTab({
               sx={{
                 mt: 0.5,
                 fontWeight: 700,
-                color: "var(--nadaa-ink, #101828)",
+                color: "var(--nadaa-ink, #0d0d0d)",
               }}
             >
               {formatDateTime(user.lastLoginAt)}

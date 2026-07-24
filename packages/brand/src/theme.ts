@@ -30,14 +30,14 @@ export interface NadaaThemeOptions {
  */
 const darkNeutrals = {
   /** Screen base. */
-  background: "#0b1120",
+  background: "#0f0f0f",
   /** Elevated card / paper (Menu, Dialog, Select popover). */
-  paper: "#1a2440",
-  textPrimary: "#eaf0fb",
-  textSecondary: "#9aa8c0",
-  divider: "#29324e",
-  /** Navy lightened to an indigo so it reads as an accent on dark. */
-  primary: "#8ea6dc",
+  paper: "#1e1e1e",
+  textPrimary: "#f5f5f5",
+  textSecondary: "#a8a8a8",
+  divider: "#2e2e2e",
+  /** Brand ink lightened to a silver so it reads as an accent on dark. */
+  primary: "#d4d4d4",
   green: "#2eba71",
   red: "#ff5f5a",
   gold: "#f6ca3d",
@@ -76,15 +76,15 @@ export function createNadaaTheme(options: NadaaThemeOptions = {}) {
       primary: {
         main: isDark ? darkNeutrals.primary : colors.navy,
         // On dark the indigo primary carries dark text; on light, navy carries white.
-        contrastText: isDark ? "#0b1120" : colors.white,
+        contrastText: isDark ? "#0f0f0f" : colors.white,
       },
       secondary: {
         main: isDark ? darkNeutrals.green : colors.green,
-        contrastText: isDark ? "#0b1120" : colors.white,
+        contrastText: isDark ? "#0f0f0f" : colors.white,
       },
       error: {
         main: isDark ? darkNeutrals.red : colors.red,
-        contrastText: isDark ? "#0b1120" : colors.white,
+        contrastText: isDark ? "#0f0f0f" : colors.white,
       },
       warning: {
         main: isDark ? darkNeutrals.gold : colors.gold,
@@ -92,11 +92,11 @@ export function createNadaaTheme(options: NadaaThemeOptions = {}) {
       },
       info: {
         main: isDark ? darkNeutrals.info : semantic.info,
-        contrastText: isDark ? "#0b1120" : colors.white,
+        contrastText: isDark ? "#0f0f0f" : colors.white,
       },
       success: {
         main: isDark ? darkNeutrals.green : colors.green,
-        contrastText: isDark ? "#0b1120" : colors.white,
+        contrastText: isDark ? "#0f0f0f" : colors.white,
       },
       background: {
         default: bg.default,

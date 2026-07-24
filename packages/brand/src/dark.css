@@ -5,37 +5,40 @@
    selector rather than rewriting every rule. Light mode (no `data-theme`
    attribute) is never touched.
 
-   Two roles of the navy token are reconciled here:
-   - navy as ACCENT (icon / heading / stripe on a surface) is lightened to an
-     indigo so it reads on dark cards. This is what `--nadaa-navy` becomes.
-   - navy as CHROME (the permanently-navy command rail, avatars, sign-in hero)
-     is kept dark. `--nadaa-primary` holds that darker navy, and apps pin their
-     local rail variable (e.g. `--cc-navy`) to a fixed navy.
+   Two roles of the brand-ink token are reconciled here (Black + Silver):
+   - ink as ACCENT (icon / heading / stripe on a surface) is lightened to a
+     silver so it reads on dark cards. This is what `--nadaa-navy` becomes.
+   - ink as CHROME (the permanently-dark command rail, avatars, sign-in hero)
+     is kept dark. `--nadaa-primary` holds that charcoal chrome, and apps pin
+     their local rail variable (e.g. `--cc-navy`) to a fixed dark.
 
    `--nadaa-text-inverse` stays white in both modes: it is the correct token for
    text sitting on those permanently-dark chrome surfaces. */
 
 :root[data-theme="dark"] {
-  /* Palette — accents stay vivid (nudged brighter for dark), navy lightens to
-     an indigo so navy-as-accent reads on dark surfaces. */
-  --nadaa-navy: #8ea6dc; /* accent / icon / heading indigo on dark */
+  /* Palette — functional accents stay vivid (nudged brighter for dark); the
+     brand ink lightens to a silver so ink-as-accent reads on dark surfaces. */
+  --nadaa-navy: #d4d4d4; /* accent / icon / heading silver on dark */
+  --nadaa-charcoal: #2b2b2b;
+  --nadaa-silver: #8e8e8e;
+  --nadaa-light-silver: #e6e6e6;
   --nadaa-green: #2eba71;
   --nadaa-red: #ff5f5a;
   --nadaa-gold: #f6ca3d;
-  --nadaa-slate: #9aa8c0; /* secondary text */
-  --nadaa-white: #1a2440; /* elevated card surface (near-navy) */
-  --nadaa-mist: #141d33; /* recessed inset well inside cards */
-  --nadaa-ink: #eaf0fb; /* primary text (near-white) */
+  --nadaa-slate: #a8a8a8; /* secondary text */
+  --nadaa-white: #1e1e1e; /* elevated card surface (graphite) */
+  --nadaa-mist: #161616; /* recessed inset well inside cards */
+  --nadaa-ink: #f5f5f5; /* primary text (near-white) */
 
   /* Screen (canvas) base — Ink default. Tints below shift this hue only. */
-  --nadaa-surface: #0b1120;
+  --nadaa-surface: #0f0f0f;
   --nadaa-surface-elevated: var(--nadaa-white);
-  --nadaa-border: #29324e;
-  --nadaa-divider: #212b46;
+  --nadaa-border: #2e2e2e;
+  --nadaa-divider: #242424;
   --nadaa-text-primary: var(--nadaa-ink);
   --nadaa-text-secondary: var(--nadaa-slate);
-  --nadaa-text-inverse: #ffffff; /* on permanently-navy chrome */
-  --nadaa-primary: #22345f; /* chrome navy (skip-link, legacy topbar) */
+  --nadaa-text-inverse: #ffffff; /* on permanently-dark chrome */
+  --nadaa-primary: #2b2b2b; /* charcoal chrome (skip-link, legacy topbar) */
   --nadaa-secondary: var(--nadaa-green);
   --nadaa-accent: var(--nadaa-gold);
   --nadaa-info: #3a9fe0;
@@ -63,9 +66,9 @@
    ============================================================ */
 
 :root[data-theme="dark"][data-dark-tint="ink"] {
-  --nadaa-surface: #0b1120;
-  --nadaa-mist: #141d33;
-  --nadaa-white: #1a2440;
+  --nadaa-surface: #0f0f0f;
+  --nadaa-mist: #161616;
+  --nadaa-white: #1e1e1e;
 }
 
 :root[data-theme="dark"][data-dark-tint="burgundy"] {

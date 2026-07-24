@@ -169,7 +169,7 @@ export function ProfileTab({
                     sx={{
                       minHeight: "auto",
                       px: 0.5,
-                      color: "var(--nadaa-navy, #0d1b3d)",
+                      color: "var(--nadaa-navy, #1a1a1a)",
                       fontWeight: 700,
                     }}
                   >
@@ -189,7 +189,7 @@ export function ProfileTab({
             sx={{
               mt: 2,
               fontSize: "0.78rem",
-              color: "var(--nadaa-text-secondary, #555b66)",
+              color: "var(--nadaa-text-secondary, #5a5a5a)",
             }}
           >
             Access is assigned from your role. Contact a system administrator to

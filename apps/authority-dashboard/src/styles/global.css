@@ -591,12 +591,12 @@ body {
   --cc-rail-width: 264px;
   --cc-rail-width-compact: 76px;
   --cc-navy: var(--nadaa-navy);
-  --cc-navy-deep: #0a1531;
-  --cc-navy-hover: #142650;
+  --cc-navy-deep: #141414;
+  --cc-navy-hover: #2b2b2b;
   --cc-navy-line: rgba(255, 255, 255, 0.08);
-  --cc-rail-text: #c3cfe4;
-  --cc-rail-muted: #7285a8;
-  --cc-canvas: #eaf0f7;
+  --cc-rail-text: #dcdcdc;
+  --cc-rail-muted: #9a9a9a;
+  --cc-canvas: #f0f0f0;
   --cc-content-max: 1440px;
   --cc-gold-ink: #a97e00;
 }
@@ -792,7 +792,7 @@ body {
   border-radius: 8px;
   background: color-mix(in srgb, var(--nadaa-white) 9%, transparent);
   border: 1px solid var(--cc-navy-line);
-  color: #a9bce0;
+  color: #c8c8c8;
 }
 
 .cc-nav__group--red .cc-nav__group-chip {
@@ -1125,7 +1125,7 @@ body {
 }
 
 .cc-user:hover {
-  border-color: #c3d3e6;
+  border-color: #dcdcdc;
 }
 
 .cc-user:focus-visible {
@@ -1507,7 +1507,7 @@ body {
 .cc-triage__track {
   height: 10px;
   border-radius: 999px;
-  background: rgba(13, 27, 61, 0.08);
+  background: rgba(13, 13, 13, 0.08);
   overflow: hidden;
 }
 
@@ -1663,7 +1663,7 @@ body {
 .cc-capacity {
   height: 8px;
   border-radius: 999px;
-  background: rgba(13, 27, 61, 0.08);
+  background: rgba(13, 13, 13, 0.08);
   overflow: hidden;
 }
 
@@ -2004,9 +2004,9 @@ body {
   /* Shell canvas follows the selected screen tint. */
   --cc-canvas: var(--nadaa-surface);
   /* Keep the rail navy (the navy token is now an accent indigo). */
-  --cc-navy: #0d1b3d;
-  --cc-navy-deep: #070f24;
-  --cc-navy-hover: #17274d;
+  --cc-navy: #1a1a1a;
+  --cc-navy-deep: #0a0a0a;
+  --cc-navy-hover: #2b2b2b;
   /* Gold chip text lightens for contrast on dark. */
   --cc-gold-ink: #f6ca3d;
 }
@@ -2023,7 +2023,7 @@ body {
 
 /* Avatar keeps a solid navy fill with white text. */
 :root[data-theme="dark"] .cc-user__avatar {
-  background: #26365f !important;
+  background: #3a3a3a !important;
 }
 
 /* Meter tracks: the navy wash is invisible on dark — use a light wash. */
@@ -2053,8 +2053,8 @@ body {
 
 /* Sign-in step chips keep readable fills in dark. */
 :root[data-theme="dark"] .cc-auth__step.is-active {
-  background: #26365f;
-  border-color: #26365f;
+  background: #3a3a3a;
+  border-color: #3a3a3a;
 }
 :root[data-theme="dark"] .cc-auth__step.is-done {
   background: color-mix(in srgb, var(--nadaa-green) 20%, transparent);
