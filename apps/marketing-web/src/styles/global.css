@@ -2141,7 +2141,13 @@ textarea {
   width: 100%;
   min-height: 46px;
   padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 18%, transparent);
+  /* A field's border is the only thing that says "type here", so it has to
+     clear the WCAG 1.4.11 3:1 bar for UI components. A tint of --nadaa-navy
+     cannot: that token is a near-black in light but a LIGHT silver on dark, so
+     18% of it over the field ground measured 1.53:1 light and 1.06:1 dark —
+     effectively invisible. --nadaa-silver is a fixed mid-grey that reads on
+     both grounds (3.28:1 on white, 5.09:1 on the #1e1e1e dark field). */
+  border: 1px solid var(--nadaa-silver);
   border-radius: var(--nadaa-radius-md);
   background: var(--nadaa-white);
   color: var(--nadaa-text-primary);
