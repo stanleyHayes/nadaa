@@ -3248,6 +3248,11 @@ textarea {
   --neu-inset:
     inset 3px 3px 7px rgba(13, 13, 13, 0.14),
     inset -3px -3px 7px rgba(255, 255, 255, 0.85);
+  /* Scales the top-left white highlight on the COLORED buttons (gold/green/red),
+     which can't use --neu-raise because they keep their own fill. Full strength
+     on the near-white ground; near-zero on dark, where an unscaled white
+     highlight reads as a glow halo instead of an extrusion. */
+  --neu-btn-hi-amt: 100%;
 }
 
 :root[data-theme="dark"] {
@@ -3264,6 +3269,9 @@ textarea {
   --neu-inset:
     inset 3px 3px 7px rgba(0, 0, 0, 0.6),
     inset -3px -3px 7px rgba(255, 255, 255, 0.045);
+  /* 8% of the light-mode alphas lands each button highlight at ~0.03-0.05,
+     matching the white component of --neu-raise above. */
+  --neu-btn-hi-amt: 8%;
 }
 
 /* --- Product showcase --------------------------------------------- */
@@ -3690,35 +3698,60 @@ textarea {
 .cta-button {
   background: var(--nadaa-gold);
   box-shadow:
-    -4px -4px 9px rgba(255, 255, 255, 0.6),
+    -4px -4px 9px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.6) var(--neu-btn-hi-amt),
+        transparent
+      ),
     6px 7px 15px color-mix(in srgb, var(--nadaa-gold) 42%, #0d0d0d);
 }
 
 .cta-button:hover {
   transform: translateY(-1px);
   box-shadow:
-    -3px -3px 7px rgba(255, 255, 255, 0.5),
+    -3px -3px 7px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.5) var(--neu-btn-hi-amt),
+        transparent
+      ),
     5px 6px 13px color-mix(in srgb, var(--nadaa-gold) 50%, #0d0d0d);
 }
 
 /* Green "Partnership briefing". */
 .site-footer .footer-cta {
   box-shadow:
-    -4px -4px 9px rgba(255, 255, 255, 0.55),
+    -4px -4px 9px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.55) var(--neu-btn-hi-amt),
+        transparent
+      ),
     6px 7px 15px color-mix(in srgb, var(--nadaa-green) 42%, #0d0d0d);
 }
 
 /* Red "Call 112". */
 .footer-emergency-call {
   box-shadow:
-    -4px -4px 9px rgba(255, 255, 255, 0.4),
+    -4px -4px 9px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.4) var(--neu-btn-hi-amt),
+        transparent
+      ),
     6px 7px 15px color-mix(in srgb, var(--nadaa-red) 45%, #0d0d0d);
 }
 
 .footer-emergency-call:hover {
   transform: translateY(-1px);
   box-shadow:
-    -3px -3px 7px rgba(255, 255, 255, 0.35),
+    -3px -3px 7px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.35) var(--neu-btn-hi-amt),
+        transparent
+      ),
     5px 6px 13px color-mix(in srgb, var(--nadaa-red) 52%, #0d0d0d);
 }
 
