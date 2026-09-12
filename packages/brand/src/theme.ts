@@ -75,7 +75,7 @@ export function createNadaaTheme(options: NadaaThemeOptions = {}) {
       mode,
       primary: {
         main: isDark ? darkNeutrals.primary : colors.navy,
-        // On dark the indigo primary carries dark text; on light, navy carries white.
+        // On dark the silver primary carries dark text; on light, the ink carries white.
         contrastText: isDark ? "#0f0f0f" : colors.white,
       },
       secondary: {

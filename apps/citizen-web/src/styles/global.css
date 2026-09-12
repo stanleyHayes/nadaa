@@ -4,7 +4,7 @@
   --nadaa-topbar-accent: var(--nadaa-gold);
   /* Chrome navy: navy used as a permanent dark BACKGROUND (utility bar, hero,
      sign-in brand panel, page banner, map). In dark mode `--nadaa-navy` becomes
-     a light accent indigo, so these chrome surfaces pin this variable to a fixed
+     a light accent silver, so these chrome surfaces pin this variable to a fixed
      deep navy instead (see the dark-mode block at the foot of this file). */
   --citizen-navy: var(--nadaa-navy);
   --nadaa-border-subtle: color-mix(in srgb, var(--nadaa-navy) 10%, transparent);
@@ -2289,7 +2289,7 @@ body {
  * permanent dark BACKGROUND (the utility bar, hero, sign-in brand panel, page
  * banner, and Leaflet map chrome). Those rules reference `--citizen-navy`, which
  * we pin to a fixed deep navy here so they stay dark instead of turning into the
- * light accent indigo that `--nadaa-navy` becomes on dark. Everything is gated
+ * light accent silver that `--nadaa-navy` becomes on dark. Everything is gated
  * by [data-theme="dark"], so light mode is untouched.
  * ================================================================== */
 

@@ -2707,7 +2707,7 @@ textarea {
 
 /* ==================================================================
  * Light/dark theme toggle button (header pill row).
- * Auto-adapts in dark: --nadaa-navy -> indigo icon, --nadaa-white -> dark
+ * Auto-adapts in dark: --nadaa-navy -> silver icon, --nadaa-white -> dark
  * surface, so no dark override is needed for the control itself.
  * ================================================================== */
 .theme-toggle {
@@ -2746,14 +2746,14 @@ textarea {
  * Brand's dark.css (imported via @nadaa/brand/brand.css) re-points the
  * --nadaa-* token VALUES under :root[data-theme="dark"], so most of this
  * light-built marketing site flips automatically: white-role card surfaces
- * darken, ink text lightens, navy-as-accent becomes a legible indigo, and the
+ * darken, ink text lightens, ink-as-accent becomes a legible silver, and the
  * derived tokens in this file (hero shade, card bg, emergency tints, subtle
  * borders) re-resolve from the dark base because var() substitution is lazy.
  *
- * The one thing brand cannot know is which navy is an ACCENT (icon/heading —
- * correctly lightened to indigo) versus a solid FILL. For the permanently-navy
- * CHROME surfaces (utility bar, hero scrim, trust/research/CTA bands, page
- * banners, and the navy buttons) we re-pin --nadaa-navy back to a deep navy
+ * The one thing brand cannot know is which use of the ink token is an ACCENT
+ * (icon/heading — correctly lightened to silver) versus a solid FILL. For the
+ * permanently-dark CHROME surfaces (utility bar, hero scrim, trust/research/CTA
+ * bands, page banners, and the filled buttons) we re-pin --nadaa-navy to a dark
  * that stays distinct on the dark canvas, and keep --nadaa-white as true white
  * so their inverse text and glass overlays read light.
  * ================================================================== */

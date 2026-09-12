@@ -109,7 +109,7 @@ function TintOption({
               ? "var(--nadaa-navy, #1a1a1a)"
               : "transparent",
             /* --nadaa-white is #fff in light and the dark card in dark, so the
-               check contrasts with the navy/indigo fill in both modes. */
+               check contrasts with the dark/silver fill in both modes. */
             color: selected ? "var(--nadaa-white, #fff)" : "transparent",
           }}
         >

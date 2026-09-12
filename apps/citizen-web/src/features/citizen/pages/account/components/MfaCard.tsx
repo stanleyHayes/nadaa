@@ -29,7 +29,7 @@ function MfaStatusChip({ enabled }: { enabled: boolean }) {
         letterSpacing: "0.04em",
         textTransform: "uppercase",
         whiteSpace: "nowrap",
-        // Gold tint reads best with navy text; green tone keeps its own colour.
+        // Gold tint reads best with the brand ink; green tone keeps its own colour.
         color: enabled
           ? "var(--nadaa-green, #1f8a4c)"
           : "var(--nadaa-navy, #1a1a1a)",

@@ -45,7 +45,7 @@ export const coreFeatures = [
     title: "Command Operations",
     description:
       "Dispatchers, agencies, and admins coordinate incidents from role-specific consoles.",
-    // CSS token (not a fixed hex) so navy flips to a legible indigo in dark mode.
+    // CSS token (not a fixed hex) so the ink flips to a legible silver in dark mode.
     accent: "var(--nadaa-navy)",
   },
   {
@@ -296,7 +296,7 @@ export const roleSurfaces = [
   {
     role: "Command center",
     icon: "authority",
-    // CSS token (not a fixed hex) so navy flips to a legible indigo in dark mode.
+    // CSS token (not a fixed hex) so the ink flips to a legible silver in dark mode.
     accent: "var(--nadaa-navy)",
     tagline: "Command Ghana's disaster response.",
     audience: "NADMO authority and command-center staff",

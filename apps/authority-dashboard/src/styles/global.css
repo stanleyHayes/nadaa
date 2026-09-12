@@ -1993,7 +1993,7 @@ body {
    `cc-*` surface automatically. This block handles only what the token flip
    cannot reach for THIS app:
    - the permanently-navy command rail / avatar / sign-in hero, which must stay
-     navy while the navy token is lightened to an accent indigo;
+     dark while the navy token is lightened to an accent silver;
    - a handful of hardcoded-light surfaces (topbar wash, meter tracks, feed
      chips) that never referenced a token.
 
@@ -2003,7 +2003,7 @@ body {
 :root[data-theme="dark"] {
   /* Shell canvas follows the selected screen tint. */
   --cc-canvas: var(--nadaa-surface);
-  /* Keep the rail navy (the navy token is now an accent indigo). */
+  /* Keep the rail dark (the navy token is now an accent silver). */
   --cc-navy: #1a1a1a;
   --cc-navy-deep: #0a0a0a;
   --cc-navy-hover: #2b2b2b;
@@ -2032,7 +2032,7 @@ body {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Metric watermark: the navy token lightens to indigo on dark, but at 0.08 the
+/* Metric watermark: the navy token lightens to silver on dark, but at 0.08 the
    oversized icon ghost is barely perceptible on a dark card — lift the opacity
    so it stays subtle yet readable. */
 :root[data-theme="dark"] .cc-metric__watermark {

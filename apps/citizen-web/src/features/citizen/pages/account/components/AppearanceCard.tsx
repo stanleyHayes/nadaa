@@ -179,7 +179,7 @@ function TintOption({
               ? "var(--nadaa-navy, #1a1a1a)"
               : "transparent",
             /* --nadaa-text-inverse is white in both modes, so the check reads on
-               the navy/indigo fill regardless of light or dark. */
+               the dark/silver fill regardless of light or dark. */
             color: selected ? "var(--nadaa-text-inverse, #fff)" : "transparent",
           }}
         >
