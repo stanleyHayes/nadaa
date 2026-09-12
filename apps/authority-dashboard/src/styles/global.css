@@ -1125,7 +1125,10 @@ body {
 }
 
 .cc-user:hover {
-  border-color: #dcdcdc;
+  /* --nadaa-silver (3.28:1 on the white pill) rather than a near-white
+     hairline: this is the only visual cue for the hover state, so it has
+     to clear the WCAG 1.4.11 3:1 bar for UI components. */
+  border-color: var(--nadaa-silver);
 }
 
 .cc-user:focus-visible {

@@ -3254,6 +3254,9 @@ textarea {
      on the near-white ground; near-zero on dark, where an unscaled white
      highlight reads as a glow halo instead of an extrusion. */
   --neu-btn-hi-amt: 100%;
+  /* Drop for the small colour-accent pills. A plain dark drop disappears on the
+     dark card, so dark mode deepens it and adds a top edge-light instead. */
+  --neu-pill-drop: 0 1px 3px color-mix(in srgb, #0d0d0d 22%, transparent);
 }
 
 :root[data-theme="dark"] {
@@ -3273,6 +3276,8 @@ textarea {
   /* 8% of the light-mode alphas lands each button highlight at ~0.03-0.05,
      matching the white component of --neu-raise above. */
   --neu-btn-hi-amt: 8%;
+  --neu-pill-drop:
+    0 1px 3px rgba(0, 0, 0, 0.6), 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* --- Product showcase --------------------------------------------- */
@@ -3479,7 +3484,7 @@ textarea {
 
 /* Keep the per-feature colour marker legible as a raised pill on the soft card. */
 .feature-card span {
-  box-shadow: 0 1px 3px color-mix(in srgb, #0d0d0d 22%, transparent);
+  box-shadow: var(--neu-pill-drop);
 }
 
 /* Neumorphic plain stat tiles (Trust). */
