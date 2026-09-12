@@ -23,6 +23,9 @@ coverage/
 /apps/*/trace.zip
 /*.png.tmp
 
+# Agent tooling state (never product code)
+.raven/
+
 # OS/editor
 .DS_Store
 .idea/
