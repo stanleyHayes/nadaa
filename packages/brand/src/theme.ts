@@ -26,7 +26,7 @@ export interface NadaaThemeOptions {
 /**
  * Dark-mode neutrals. These mirror the `--nadaa-*` dark token values in
  * `dark.css` (Ink default) so MUI-rendered surfaces — Dialog, Menu, TextField,
- * Table, Card — land on the same warm-navy palette as the `cc-*` surfaces.
+ * Table, Card — land on the same warm-black palette as the `cc-*` surfaces.
  */
 const darkNeutrals = {
   /** Screen base. */

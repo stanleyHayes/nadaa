@@ -2771,7 +2771,8 @@ textarea {
 :root[data-theme="dark"] .skip-link,
 :root[data-theme="dark"] .footer-emergency-badge,
 :root[data-theme="dark"] .footer-emergency-call {
-  /* Deep navy that stays clearly above the dark page canvas (#0f0f0f/#161616). */
+  /* A raised graphite that stays clearly above the dark page canvas
+     (#0f0f0f/#161616). */
   --nadaa-navy: #242424;
   /* Keep white-as-inverse-text + white-glass overlays actually light. */
   --nadaa-white: #ffffff;

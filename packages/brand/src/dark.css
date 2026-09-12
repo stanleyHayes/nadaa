@@ -62,7 +62,7 @@
 /* ============================================================
    Screen tints — shift the dark screen CAST only (surface / inset / card),
    leaving text and brand accents unchanged, per the AURA model. Ink is the
-   neutral warm-navy default and matches the base block above.
+   neutral warm-black default and matches the base block above.
    ============================================================ */
 
 :root[data-theme="dark"][data-dark-tint="ink"] {

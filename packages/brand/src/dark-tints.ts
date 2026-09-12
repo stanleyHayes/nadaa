@@ -70,7 +70,7 @@ export const DARK_TINTS = [
 /** The value-union of the eight tints. `DARK_TINTS` is the ordering authority. */
 export type DarkTint = (typeof DARK_TINTS)[number]["value"];
 
-/** Ink is the neutral warm-navy default screen. */
+/** Ink is the neutral warm-black default screen. */
 export const DEFAULT_TINT: DarkTint = "ink";
 
 /** All tint values, in catalogue order. */
