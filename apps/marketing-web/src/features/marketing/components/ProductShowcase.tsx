@@ -11,6 +11,10 @@ import { Reveal } from "./Reveal";
 
 type Capability = {
   img: string;
+  /** Intrinsic pixel height of `img` (width is 1280 for all six). Must match
+   *  the asset exactly — the browser reserves the box from width/height, so a
+   *  wrong value reflows the grid when the lazy image lands. */
+  h: number;
   icon: ComponentType<{ size?: number | string; "aria-hidden"?: boolean }>;
   title: string;
   desc: string;
@@ -19,36 +23,42 @@ type Capability = {
 const capabilities: Capability[] = [
   {
     img: "/screens/cap-risk.webp",
+    h: 424,
     icon: Radar,
     title: "Check your risk",
     desc: "Live flood and hazard scoring for any area in Ghana, with the nearest shelters on the map.",
   },
   {
     img: "/screens/cap-alerts.webp",
+    h: 424,
     icon: Siren,
     title: "Get live alerts",
     desc: "Approved flood and hazard warnings for your area — current and past, filtered by severity.",
   },
   {
     img: "/screens/cap-report.webp",
+    h: 424,
     icon: Megaphone,
     title: "Report an incident",
     desc: "Tell NADMO what you're seeing, with photos and location — online or offline.",
   },
   {
     img: "/screens/cap-shelters.webp",
+    h: 424,
     icon: LifeBuoy,
     title: "Find shelters & routes",
     desc: "Locate the nearest safe shelter, plan an evacuation route, and check road closures.",
   },
   {
     img: "/screens/cap-guides.webp",
+    h: 424,
     icon: BookOpen,
     title: "Prepare with guides",
     desc: "Step-by-step flood and hazard guidance in six Ghanaian languages — available offline.",
   },
   {
     img: "/screens/cap-command.webp",
+    h: 527,
     icon: ShieldCheck,
     title: "Coordinated command",
     desc: "Behind every alert: an MFA-secured command center where officers verify and dispatch.",
@@ -85,7 +95,7 @@ export function ProductShowcase() {
                 </span>
                 <img
                   alt={`NADAA ${cap.title} screen`}
-                  height={296}
+                  height={cap.h}
                   loading="lazy"
                   src={cap.img}
                   width={1280}
