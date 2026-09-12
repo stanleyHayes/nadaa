@@ -5,7 +5,7 @@ export { default as RoutePlanner } from "./RoutePlanner";
 export { default as PublicCampaignsPanel } from "./PublicCampaignsPanel";
 export { OpenDataPortal } from "./OpenDataPortal";
 
-// Public redesign primitives ("Navy Command" / gold public accent).
+// Public redesign primitives ("Onyx Command" / gold public accent).
 export {
   DataTable,
   type DataTableColumn,

@@ -1,6 +1,6 @@
 /**
  * NADAA dark-screen tint catalogue — the single source of truth for the eight
- * Navy Command dark tints.
+ * Onyx Command dark tints.
  *
  * A tint changes the dark screen CAST only (the surface / inset / card hue);
  * text and brand accents stay put. Each entry carries display copy plus a

@@ -15,7 +15,7 @@ consistency contract for the marketing site and all operational dashboards.
 
 ## Design direction
 
-One **"Navy Command"** identity, the way maroon anchors AURA and navy anchors
+One **"Onyx Command"** identity, the way maroon anchors AURA and navy anchors
 UPOSA:
 
 - **Onyx `#1A1A1A`** (token `--nadaa-navy`) is the sole brand anchor (sidebar rail, hero bands, topbar).

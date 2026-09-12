@@ -138,7 +138,7 @@ function TintOption({
 /**
  * Appearance settings — a light/dark note plus the dark screen-tint picker.
  * Mode is flipped from the top-bar Sun/Moon button; the tints here recolour the
- * dark screen cast only, mirroring the AURA DarkTintPicker in Navy Command MUI.
+ * dark screen cast only, mirroring the AURA DarkTintPicker in Onyx Command MUI.
  */
 export function AppearanceCard() {
   const mode = useThemeMode();

@@ -66,7 +66,7 @@ const ALERT_STATUS_COLOR: Record<
 /**
  * Column definitions for the public alert table. Kept at module scope since they
  * only depend on shared helpers, not component state. Severity and hazard reuse
- * the brand colour roles so the chips match the rest of the "Navy Command" set.
+ * the brand colour roles so the chips match the rest of the "Onyx Command" set.
  */
 const alertColumns: DataTableColumn<CitizenAlertFeedItem>[] = [
   {
