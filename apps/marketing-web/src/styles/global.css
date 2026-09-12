@@ -762,7 +762,10 @@ textarea {
   flex-shrink: 0;
 }
 
-/* 4th-pattern: uppercase inline nav with a sliding accent underline. */
+/* Uppercase inline desktop nav. The sliding accent underline this was built
+   for is gone (replaced by the pressed/inset active pill further down), so
+   the `position: relative` here and the `z-index: 1` below no longer layer
+   anything — they are kept only as a harmless positioning baseline. */
 .site-nav {
   position: relative;
   gap: clamp(18px, 2.4vw, 30px);
@@ -796,28 +799,6 @@ textarea {
   background: transparent;
   box-shadow: none;
   text-shadow: none;
-}
-
-/* The single accent bar that slides beneath the active nav item. */
-.nav-pill-indicator {
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 0;
-  border-radius: 999px;
-  background: var(--nadaa-gold);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--nadaa-gold) 45%, transparent);
-  pointer-events: none;
-  transition:
-    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    width 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .nav-pill-indicator {
-    transition: opacity 200ms ease;
-  }
 }
 
 /* Row icon + chevron belong to the mobile menu; the desktop nav is a pill bar. */
@@ -1079,10 +1060,6 @@ textarea {
   .site-nav.is-open {
     display: grid;
     animation: nav-menu-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  .nav-pill-indicator {
-    display: none;
   }
 
   .site-nav a {
@@ -3662,36 +3639,41 @@ textarea {
  * links become raised soft pills; the active one presses in (inset).
  * ================================================================== */
 
-/* Nav links -> raised soft pills, active = pressed. */
-.site-nav {
-  gap: 8px;
-}
+/* Nav links -> raised soft pills, active = pressed.
+   DESKTOP ONLY. At the drawer breakpoint the nav becomes the full-width mobile
+   drawer styled in the `max-width: 760px` block far above; these rules have the
+   same specificity and sit later in the file, so unscoped they would win there
+   too and shrink the drawer rows under the 44px touch target while replacing
+   the gold active marker.
+   `not all and (max-width: 760px)` is the EXACT complement of that query rather
+   than `min-width: 761px`, which would leave fractional widths (760.5px, common
+   under browser zoom) matching neither block. Keep it in sync with the drawer. */
+@media not all and (max-width: 760px) {
+  .site-nav {
+    gap: 8px;
+  }
 
-.site-nav a {
-  min-height: 38px;
-  padding: 0 15px;
-  border-radius: 12px;
-  background: var(--neu-surface);
-  box-shadow: var(--neu-raise-sm);
-  transition:
-    box-shadow 200ms ease,
-    color 150ms ease;
-}
+  .site-nav a {
+    min-height: 38px;
+    padding: 0 15px;
+    border-radius: 12px;
+    background: var(--neu-surface);
+    box-shadow: var(--neu-raise-sm);
+    transition:
+      box-shadow 200ms ease,
+      color 150ms ease;
+  }
 
-.site-nav a:hover {
-  color: var(--nadaa-navy);
-  box-shadow: var(--neu-raise);
-}
+  .site-nav a:hover {
+    color: var(--nadaa-navy);
+    box-shadow: var(--neu-raise);
+  }
 
-.site-nav a.is-active,
-.site-nav a.is-active:hover {
-  color: var(--nadaa-navy);
-  box-shadow: var(--neu-inset);
-}
-
-/* The sliding underline is replaced by the inset active pill. */
-.nav-pill-indicator {
-  display: none;
+  .site-nav a.is-active,
+  .site-nav a.is-active:hover {
+    color: var(--nadaa-navy);
+    box-shadow: var(--neu-inset);
+  }
 }
 
 /* Gold "Sign up" — solid gold, pillowy shadow. */
