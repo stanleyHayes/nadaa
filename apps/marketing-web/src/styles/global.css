@@ -3282,9 +3282,14 @@ textarea {
   border-radius: 26px;
   background: var(--neu-surface);
   box-shadow: var(--neu-raise);
+  /* This element is also the `.reveal` root, and this shorthand wins over
+     `.reveal`'s (same specificity, later in the file). `opacity` must stay in
+     the list or the scroll-in fade is silently dropped and cards pop in at
+     full opacity. Keep the duration in sync with `.reveal`. */
   transition:
     transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 260ms ease;
+    box-shadow 260ms ease,
+    opacity 0.65s ease;
 }
 
 .showcase-card:hover {
@@ -3360,9 +3365,14 @@ textarea {
   padding: 28px 24px 24px;
   background: var(--neu-surface);
   box-shadow: var(--neu-raise);
+  /* This element is also the `.reveal` root, and this shorthand wins over
+     `.reveal`'s (same specificity, later in the file). `opacity` must stay in
+     the list or the scroll-in fade is silently dropped and cards pop in at
+     full opacity. Keep the duration in sync with `.reveal`. */
   transition:
     transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 260ms ease;
+    box-shadow 260ms ease,
+    opacity 0.65s ease;
 }
 
 .loop-card:hover {
