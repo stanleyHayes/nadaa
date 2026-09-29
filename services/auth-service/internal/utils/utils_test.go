@@ -94,10 +94,13 @@ func TestTOTPAuthURLCarriesSecretAndIssuer(t *testing.T) {
 	if !strings.HasPrefix(url, "otpauth://totp/") {
 		t.Fatalf("expected otpauth URL, got %q", url)
 	}
-	if !strings.Contains(url, "secret=JBSWY3DPEHPK3PXP") || !strings.Contains(url, "issuer=NADAA") {
+	// Assert against the constant, not a brand literal: the issuer is product
+	// naming and moves with a rebrand, while the contract under test is that it
+	// reaches both the query parameter and the account label.
+	if !strings.Contains(url, "secret=JBSWY3DPEHPK3PXP") || !strings.Contains(url, "issuer="+totpIssuer) {
 		t.Fatalf("expected secret and issuer parameters, got %q", url)
 	}
-	if !strings.Contains(url, "NADAA:admin@nadaa.local") {
+	if !strings.Contains(url, totpIssuer+":admin@nadaa.local") {
 		t.Fatalf("expected account label, got %q", url)
 	}
 }

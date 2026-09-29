@@ -134,7 +134,7 @@ func parseCampaignFilters(r *http.Request, includeAll bool) (models.CampaignFilt
 	}
 
 	if filters.HazardType != "" && !allowedHazards[filters.HazardType] {
-		return models.CampaignFilters{}, "invalid_hazard", "hazard must be a supported NADAA hazard type"
+		return models.CampaignFilters{}, "invalid_hazard", "hazard must be a supported hazard type"
 	}
 	if filters.Status != "" && !allowedCampaignStatuses[filters.Status] {
 		return models.CampaignFilters{}, "invalid_status", "status must be draft, published, or archived"
@@ -256,7 +256,7 @@ func validateHazardType(hazard string) (string, string) {
 		return "", ""
 	}
 	if !allowedHazards[hazard] {
-		return "invalid_hazard", "hazardType must be a supported NADAA hazard type"
+		return "invalid_hazard", "hazardType must be a supported hazard type"
 	}
 	return "", ""
 }
