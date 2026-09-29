@@ -42,7 +42,7 @@ func TestArkeselSMSProviderDelivers(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewArkeselSMSProvider("secret-key", "NADAA", server.URL, server.Client())
+	provider := NewArkeselSMSProvider("secret-key", "NADAA", server.URL, "SUBVENIO", server.Client())
 	result := provider.Send(context.Background(), testMessage(false, "233200000000", ""))
 
 	if result.Status != "delivered" {
@@ -87,7 +87,7 @@ func TestArkeselSMSProviderReportsFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewArkeselSMSProvider("secret-key", "NADAA", server.URL, server.Client())
+	provider := NewArkeselSMSProvider("secret-key", "NADAA", server.URL, "SUBVENIO", server.Client())
 	result := provider.Send(context.Background(), testMessage(false, "233200000000", ""))
 
 	if result.Status != "failed" {
@@ -104,7 +104,7 @@ func TestArkeselSMSProviderDryRunSkipsNetwork(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewArkeselSMSProvider("secret-key", "NADAA", server.URL, server.Client())
+	provider := NewArkeselSMSProvider("secret-key", "NADAA", server.URL, "SUBVENIO", server.Client())
 	result := provider.Send(context.Background(), testMessage(true, "233200000000", ""))
 
 	if result.Status != "simulated" {
@@ -118,7 +118,7 @@ func TestArkeselSMSProviderSkipsMissingPhone(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewArkeselSMSProvider("secret-key", "NADAA", server.URL, server.Client())
+	provider := NewArkeselSMSProvider("secret-key", "NADAA", server.URL, "SUBVENIO", server.Client())
 	result := provider.Send(context.Background(), testMessage(false, "", ""))
 
 	if result.Status != "skipped" {
@@ -138,7 +138,7 @@ func TestExpoPushProviderRecordsSentNotDelivered(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewExpoPushProvider("push-token-secret", server.URL, server.Client())
+	provider := NewExpoPushProvider("push-token-secret", server.URL, "SUBVENIO", server.Client())
 	result := provider.Send(context.Background(), testMessage(false, "", "ExponentPushToken[abc]"))
 
 	if result.Status != "sent" {
@@ -168,7 +168,7 @@ func TestExpoPushProviderReportsError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewExpoPushProvider("", server.URL, server.Client())
+	provider := NewExpoPushProvider("", server.URL, "SUBVENIO", server.Client())
 	result := provider.Send(context.Background(), testMessage(false, "", "ExponentPushToken[abc]"))
 
 	if result.Status != "failed" {
@@ -185,7 +185,7 @@ func TestExpoPushProviderSkipsMissingToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewExpoPushProvider("", server.URL, server.Client())
+	provider := NewExpoPushProvider("", server.URL, "SUBVENIO", server.Client())
 	result := provider.Send(context.Background(), testMessage(false, "", ""))
 
 	if result.Status != "skipped" {
@@ -202,7 +202,7 @@ func TestExpoPushProviderOmitsAuthWhenNoToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewExpoPushProvider("", server.URL, server.Client())
+	provider := NewExpoPushProvider("", server.URL, "SUBVENIO", server.Client())
 	_ = provider.Send(context.Background(), testMessage(false, "", "ExponentPushToken[abc]"))
 
 	if gotAuth != "" {
