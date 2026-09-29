@@ -49,7 +49,7 @@ export default function DispatcherMobileApp() {
       <View style={styles.header}>
         <View style={styles.brandRow}>
           <Image
-            accessibilityLabel="NADAA shield"
+            accessibilityLabel="SUBVENIO shield"
             source={require("../../assets/subvenio-logo.png")}
             style={styles.logo}
           />

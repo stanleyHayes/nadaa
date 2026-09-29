@@ -104,7 +104,7 @@ export function HomePage() {
           <p className="eyebrow">How it works</p>
           <h2 id="home-loop-title">From risk signal to recovery.</h2>
           <p>
-            NADAA carries a flood or fire through one accountable loop — every
+            SUBVENIO carries a flood or fire through one accountable loop — every
             public-safety decision stays in human hands.
           </p>
         </div>

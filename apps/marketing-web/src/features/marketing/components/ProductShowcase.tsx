@@ -94,7 +94,7 @@ export function ProductShowcase() {
                   <i />
                 </span>
                 <img
-                  alt={`NADAA ${cap.title} screen`}
+                  alt={`SUBVENIO ${cap.title} screen`}
                   height={cap.h}
                   loading="lazy"
                   src={cap.img}

@@ -189,7 +189,7 @@ export function SignInScreen() {
             />
           </span>
           <div>
-            <p className="cc-auth__wordmark">NADAA Agency</p>
+            <p className="cc-auth__wordmark">SUBVENIO Agency</p>
             <p className="cc-auth__org">
               National Disaster Alert &amp; Response Platform
             </p>

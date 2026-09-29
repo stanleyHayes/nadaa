@@ -42,7 +42,7 @@ export const permissionCopy: Record<
     denied:
       "Notifications were not allowed. You can still check alerts in the app.",
     granted: "Push alerts ready for urgent warnings.",
-    prompt: "Allow urgent warning notifications from NADAA.",
+    prompt: "Allow urgent warning notifications from SUBVENIO.",
     title: "Push alerts",
   },
 };

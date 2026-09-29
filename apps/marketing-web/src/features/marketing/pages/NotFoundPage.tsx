@@ -12,7 +12,7 @@ export function NotFoundPage() {
       <PageBanner
         eyebrow="404"
         title="This page could not be found."
-        subtitle="The page may have moved or the link may be incomplete. Every NADAA response still starts from the home page — let's get you back."
+        subtitle="The page may have moved or the link may be incomplete. Every SUBVENIO response still starts from the home page — let's get you back."
       />
 
       <section className="content-section" aria-label="Page not found">
@@ -35,7 +35,7 @@ export function NotFoundPage() {
             Explore platforms
           </Link>
           <Link className="link-button" to="/contact">
-            Contact NADAA
+            Contact SUBVENIO
           </Link>
         </div>
         <p style={{ marginTop: "20px", color: "var(--nadaa-text-secondary)" }}>

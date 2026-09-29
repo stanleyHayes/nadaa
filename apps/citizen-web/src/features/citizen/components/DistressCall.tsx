@@ -321,7 +321,7 @@ export function DistressCall() {
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Alert severity="error" icon={<PhoneCall size={20} />}>
               If you can call, dial <strong>112</strong> now. This SOS also
-              sends your GPS to the NADAA dispatch queue; it does not replace a
+              sends your GPS to the SUBVENIO dispatch queue; it does not replace a
               voice call.
             </Alert>
             <FormControl fullWidth>

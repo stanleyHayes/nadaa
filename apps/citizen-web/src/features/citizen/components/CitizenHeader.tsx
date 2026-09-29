@@ -100,7 +100,7 @@ export function CitizenHeader({
       </div>
 
       <header className="citizen-header">
-        <a className="citizen-brand" href="#risk" aria-label="NADAA home">
+        <a className="citizen-brand" href="#risk" aria-label="SUBVENIO home">
           <img alt="" src="/brand/subvenio-icon.png" />
           <span>
             <strong>{nadaaBrand.name}</strong>

@@ -207,7 +207,7 @@ export function SignInScreen() {
             className="cc-auth__logo"
           />
           <div>
-            <p className="cc-auth__wordmark">NADAA Dispatch</p>
+            <p className="cc-auth__wordmark">SUBVENIO Dispatch</p>
             <p className="cc-auth__org">
               National Disaster Alert &amp; Response Platform
             </p>

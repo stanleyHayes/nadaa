@@ -236,7 +236,7 @@ export function MfaCard() {
                   Confirm your authenticator code
                 </Typography>
                 <MutedNote>
-                  Add NADAA to an authenticator app (such as Google
+                  Add SUBVENIO to an authenticator app (such as Google
                   Authenticator or Authy), then type the current six-digit code
                   below to finish turning MFA on.
                 </MutedNote>

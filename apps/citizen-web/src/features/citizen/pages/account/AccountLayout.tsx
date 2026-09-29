@@ -25,7 +25,7 @@ export function AccountLayout() {
     <>
       <PageBanner
         eyebrow="Your account"
-        title={session ? `Welcome back, ${firstName}` : "Your NADAA account"}
+        title={session ? `Welcome back, ${firstName}` : "Your SUBVENIO account"}
         subtitle={
           session
             ? "Your dashboard, reports, notifications and settings — all in one place."

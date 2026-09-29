@@ -20,7 +20,7 @@ export function HomeScreen({ actions, state }: CitizenScreenProps) {
         title={`Hello, ${state.session.name}`}
       />
       <Card tone="navy">
-        <Text style={stylesHeroTitle}>NADAA is watching your area.</Text>
+        <Text style={stylesHeroTitle}>SUBVENIO is watching your area.</Text>
         <Text style={stylesHeroText}>
           {state.loadState.message ??
             "Check risk, get alerts, save reports, and keep guides offline."}

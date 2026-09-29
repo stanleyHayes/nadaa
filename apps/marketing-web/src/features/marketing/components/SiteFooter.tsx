@@ -139,7 +139,7 @@ export function SiteFooter() {
         <div className="footer-emergency-copy">
           <strong>In a life-threatening emergency, call 112 first.</strong>
           <span>
-            NADAA supports NADMO and Ghana's 112 service — it does not replace
+            SUBVENIO supports NADMO and Ghana's 112 service — it does not replace
             it.
           </span>
         </div>

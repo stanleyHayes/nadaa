@@ -158,7 +158,7 @@ function readStoredSession(): AdminSession | null {
       name: parsed.name ?? roleLabels[role] ?? "Administrator",
       role,
       agencyId: parsed.agencyId ?? DEFAULT_AGENCY_ID,
-      agency: parsed.agency ?? agencyByRole[role] ?? "NADAA",
+      agency: parsed.agency ?? agencyByRole[role] ?? "SUBVENIO",
       mfaCompleted: Boolean(parsed.mfaCompleted),
       accessToken: parsed.accessToken,
       tokenExpiresAt:

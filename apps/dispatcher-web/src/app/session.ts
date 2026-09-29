@@ -98,7 +98,7 @@ export type DispatcherSessionState = {
  * screen; a live deployment would resolve this from the directory service.
  */
 export const agencyByRole: Record<AgencyUserRole, string> = {
-  system_admin: "NADAA National Command",
+  system_admin: "SUBVENIO National Command",
   agency_admin: "NADMO National Dispatch",
   nadmo_officer: "NADMO Accra Metro",
   district_officer: "Accra Metropolitan Assembly",

@@ -94,7 +94,7 @@ export function useCitizenMobileState() {
     useState<MobilePermissionState>(initialPermissions);
   const [pushState, setPushState] = useState<PushRegistrationState>({
     status: "permission_needed",
-    message: "Allow notifications to receive urgent NADAA warnings.",
+    message: "Allow notifications to receive urgent SUBVENIO warnings.",
   });
   const [reportDraft, setReportDraft] =
     useState<ReportDraft>(initialReportDraft);

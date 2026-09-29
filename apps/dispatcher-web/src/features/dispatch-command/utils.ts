@@ -912,7 +912,7 @@ export function buildDefaultAlertForm(
     recommendedAction:
       incident?.severity === "emergency" || incident?.severity === "severe"
         ? "Prepare to evacuate if instructed by authorities."
-        : "Stay alert, avoid the affected area, and monitor NADAA updates.",
+        : "Stay alert, avoid the affected area, and monitor SUBVENIO updates.",
     evacuationRequired: incident?.severity === "emergency",
     shelterIds: "00000000-0000-0000-0000-000000000301",
   };

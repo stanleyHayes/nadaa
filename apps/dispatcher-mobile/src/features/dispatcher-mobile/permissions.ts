@@ -33,7 +33,7 @@ export const permissionCopy: Record<
     denied:
       "Notifications were not allowed. Critical escalations appear in the incident queue.",
     granted: "Push alerts ready for critical incident escalation.",
-    prompt: "Allow urgent escalation notifications from NADAA Dispatcher.",
+    prompt: "Allow urgent escalation notifications from SUBVENIO Dispatcher.",
     title: "Push alerts",
   },
 };

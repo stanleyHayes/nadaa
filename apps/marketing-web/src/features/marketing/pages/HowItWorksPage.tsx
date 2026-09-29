@@ -36,7 +36,7 @@ export function HowItWorksPage() {
         className="content-section why-section"
       >
         <div className="section-heading">
-          <p className="eyebrow">Why NADAA</p>
+          <p className="eyebrow">Why SUBVENIO</p>
           <h2 id="hiw-why">Designed for real emergencies, not demos.</h2>
         </div>
         <div className="why-grid">
