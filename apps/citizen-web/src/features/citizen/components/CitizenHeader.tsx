@@ -101,7 +101,7 @@ export function CitizenHeader({
 
       <header className="citizen-header">
         <a className="citizen-brand" href="#risk" aria-label="NADAA home">
-          <img alt="" src="/brand/nadaa-logo.png" />
+          <img alt="" src="/brand/subvenio-icon.png" />
           <span>
             <strong>{nadaaBrand.name}</strong>
             <small>

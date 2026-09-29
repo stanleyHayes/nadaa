@@ -1,11 +1,11 @@
 {
-  "name": "NADAA Dispatch Command",
-  "short_name": "NADAA Dispatch",
+  "name": "SUBVENIO Dispatch Command",
+  "short_name": "SUBVENIO Dispatch",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#1A1A1A",
-  "background_color": "#1A1A1A",
+  "theme_color": "#0A1F3D",
+  "background_color": "#0A1F3D",
   "icons": [
     {
       "src": "/icon-192.png",

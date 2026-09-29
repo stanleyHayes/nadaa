@@ -55,7 +55,7 @@ export function SiteHeader() {
 
       <header className="site-header">
         <NavLink className="brand-mark" to="/" aria-label="NADAA home">
-          <img alt="" src="/brand/nadaa-logo.png" />
+          <img alt="" src="/brand/subvenio-icon.png" />
           <span>
             <strong>{nadaaBrand.name}</strong>
             <small>

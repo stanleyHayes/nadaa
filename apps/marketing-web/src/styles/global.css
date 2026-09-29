@@ -217,9 +217,10 @@ textarea {
   display: flex;
   align-items: center;
   overflow: hidden;
-  background-image: url("/brand/nadaa-brand-sheet.png");
-  background-position: center;
-  background-size: cover;
+  /* No background image here: the parallax `.hero-media` layer carries it, and
+     the rule further down sets `background-image: none` on this element. The
+     NADAA brand sheet that used to be declared here was dead for that reason,
+     and would have been brand-wrong if anyone revived it. */
   border-bottom: 1px solid var(--nadaa-border-subtle);
 }
 
@@ -249,8 +250,15 @@ textarea {
 .hero-content h1 {
   margin: 0;
   color: var(--nadaa-navy);
-  font-size: clamp(4rem, 16vw, 10rem);
-  line-height: 0.86;
+  /* Sized so the wordmark holds one line. The previous clamp was tuned for a
+     five-letter mark and broke "SUBVENIO" across two lines; these values fit
+     eight letters at every width. `nowrap` makes a regression obvious — the
+     mark overflows visibly rather than silently re-wrapping — and the ch-based
+     ceiling keeps it from outgrowing its column on very wide screens. */
+  font-size: clamp(2.4rem, 9.2vw, 6.5rem);
+  max-width: 100%;
+  white-space: nowrap;
+  line-height: 0.92;
   letter-spacing: 0;
 }
 
@@ -3780,4 +3788,62 @@ textarea {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     6px 8px 18px rgba(0, 0, 0, 0.32);
+}
+
+/* ==================================================================
+ * Legal documents (privacy notice, and anything else long-form).
+ * Narrow measure, generous leading — these are read, not scanned.
+ * ================================================================== */
+.legal-doc {
+  max-width: 68ch;
+  margin: 0 auto;
+}
+
+.legal-lede {
+  font-size: 1.08rem;
+  line-height: 1.65;
+  color: var(--nadaa-text-primary);
+  padding-bottom: var(--nadaa-space-5);
+  border-bottom: 1px solid var(--nadaa-border);
+}
+
+.legal-doc section {
+  margin-top: var(--nadaa-space-8);
+}
+
+.legal-doc h3 {
+  margin: 0 0 var(--nadaa-space-3);
+  font-size: 1.12rem;
+  color: var(--nadaa-navy);
+}
+
+.legal-doc p {
+  margin: 0 0 var(--nadaa-space-3);
+  line-height: 1.65;
+  color: var(--nadaa-text-secondary);
+}
+
+.legal-list {
+  margin: var(--nadaa-space-4) 0 0;
+  display: grid;
+  gap: var(--nadaa-space-4);
+}
+
+.legal-list dt {
+  font-weight: 700;
+  color: var(--nadaa-text-primary);
+}
+
+.legal-list dd {
+  margin: var(--nadaa-space-1) 0 0;
+  line-height: 1.6;
+  color: var(--nadaa-text-secondary);
+}
+
+.legal-foot {
+  margin-top: var(--nadaa-space-8);
+  padding-top: var(--nadaa-space-5);
+  border-top: 1px solid var(--nadaa-border);
+  font-weight: 600;
+  color: var(--nadaa-text-primary);
 }

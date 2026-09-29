@@ -1,23 +1,23 @@
 {
   "expo": {
-    "name": "NADAA Dispatcher",
-    "slug": "nadaa-dispatcher",
-    "scheme": "nadaa-dispatcher",
+    "name": "SUBVENIO Dispatcher",
+    "slug": "subvenio-dispatcher",
+    "scheme": "subvenio-dispatcher",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "backgroundColor": "#1a1a1a",
+    "backgroundColor": "#0A1F3D",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a1a1a"
+      "backgroundColor": "#0A1F3D"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "bundleIdentifier": "com.nadaa.dispatcher",
+      "bundleIdentifier": "com.subvenio.dispatcher",
       "supportsTablet": true,
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -51,10 +51,10 @@
       }
     },
     "android": {
-      "package": "com.nadaa.dispatcher",
+      "package": "com.subvenio.dispatcher",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1a1a1a"
+        "backgroundColor": "#0A1F3D"
       },
       "permissions": [
         "POST_NOTIFICATIONS"
@@ -68,7 +68,7 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#E53935"
+          "color": "#FF8A3D"
         }
       ]
     ]

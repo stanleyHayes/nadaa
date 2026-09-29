@@ -54,7 +54,7 @@ export default function CitizenMobileApp() {
         <View style={styles.brandRow}>
           <Image
             accessibilityLabel="NADAA shield"
-            source={require("../../assets/nadaa-logo.png")}
+            source={require("../../assets/subvenio-logo.png")}
             style={styles.logo}
           />
           <View style={styles.brandText}>

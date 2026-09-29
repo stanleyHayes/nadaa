@@ -183,7 +183,7 @@ export function SignInScreen() {
           <span className="cc-chip cc-auth__brand-chip" aria-hidden>
             <Box
               component="img"
-              src="/brand/nadaa-logo.png"
+              src="/brand/subvenio-icon.png"
               alt=""
               className="cc-auth__logo"
             />

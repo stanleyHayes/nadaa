@@ -8,6 +8,7 @@ import {
   type NavItem,
   type ViewId,
 } from "../navigation";
+import { nadaaBrand } from "@nadaa/brand";
 
 type SidebarProps = {
   /** Active section; "settings"/"guide" leave every rail item unhighlighted. */
@@ -176,7 +177,7 @@ export function Sidebar({
         <span className="cc-rail__brand-chip" aria-hidden>
           <Box
             component="img"
-            src="/brand/nadaa-logo.png"
+            src="/brand/subvenio-icon.png"
             alt=""
             className="cc-rail__logo"
           />
@@ -184,7 +185,7 @@ export function Sidebar({
         {!compact ? (
           <div className="cc-rail__brand-text">
             <Typography component="span" className="cc-rail__wordmark">
-              NADAA
+              {nadaaBrand.name}
             </Typography>
             <span className="cc-rail__brand-sub">Governance</span>
           </div>

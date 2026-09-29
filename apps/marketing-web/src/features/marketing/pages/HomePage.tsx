@@ -59,7 +59,7 @@ export function HomePage() {
             <SplitReveal
               delayMs={260}
               stepMs={34}
-              text="Ghana's National Disaster Alert and Response Platform — early warnings, risk checks, incident reporting, command coordination, and recovery, in six Ghanaian languages."
+              text="Ghana's emergency alert and response platform — early warnings, risk checks, incident reporting, coordinated dispatch, and safe return, in six Ghanaian languages."
             />
           </p>
           <p className="hero-hazards">

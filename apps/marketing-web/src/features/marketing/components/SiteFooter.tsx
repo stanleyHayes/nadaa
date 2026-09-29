@@ -3,6 +3,7 @@ import {
   HeartHandshake,
   House,
   Landmark,
+  Lock,
   LayoutGrid,
   type LucideIcon,
   Mail,
@@ -66,6 +67,9 @@ const footerColumns: { heading: string; links: FooterLink[] }[] = [
         external: true,
         icon: Landmark,
       },
+      // Both app stores require a reachable privacy policy URL before a build
+      // that collects location or camera data can be submitted.
+      { label: "Privacy", to: "/privacy", icon: Lock },
     ],
   },
 ];
@@ -98,15 +102,15 @@ export function SiteFooter() {
       <div className="footer-grid">
         <div className="footer-brand-col">
           <Link className="footer-brand" to="/">
-            <img alt="" src="/brand/nadaa-logo.png" />
+            <img alt="" src="/brand/subvenio-icon.png" />
             <span>
               <strong>{nadaaBrand.name}</strong>
               <small>{nadaaBrand.slogan}</small>
             </span>
           </Link>
           <p className="footer-mission">
-            Ghana's National Disaster Alert and Response Platform — early
-            warnings, reporting, and coordinated response, in six languages.
+            Ghana's emergency alert and response platform — early warnings,
+            reporting, and coordinated response, in six languages.
           </p>
           <a className="footer-cta" href={marketingLinks.partnerMail}>
             <HeartHandshake aria-hidden="true" size={18} />

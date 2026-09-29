@@ -92,7 +92,7 @@ export function CVEvidencePanel() {
         (result) =>
           ({
             id: result.imageId,
-            url: "/brand/nadaa-logo.png",
+            url: "/brand/subvenio-icon.png",
             name: result.imageId,
             incidentId: undefined,
             uploadedAt: result.createdAt,

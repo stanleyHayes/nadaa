@@ -1,13 +1,13 @@
 {
-  "name": "NADAA Citizen",
-  "short_name": "NADAA",
-  "description": "Check flood and fire risk, get early warnings, report incidents, and find shelters — NADAA citizen service for Ghana.",
+  "name": "SUBVENIO Citizen",
+  "short_name": "SUBVENIO",
+  "description": "Check flood and fire risk, get early warnings, report incidents, and find shelters \u2014 SUBVENIO citizen service for Ghana.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#1A1A1A",
-  "background_color": "#1A1A1A",
+  "theme_color": "#0A1F3D",
+  "background_color": "#0A1F3D",
   "icons": [
     {
       "src": "/icon-192.png",

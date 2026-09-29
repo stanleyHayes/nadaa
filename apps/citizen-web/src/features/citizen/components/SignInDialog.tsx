@@ -118,7 +118,7 @@ export function SignInDialog({
       <div className="signin-split">
         <aside className="signin-brand">
           <span className="signin-brand__mark">
-            <img alt="" src="/brand/nadaa-logo.png" />
+            <img alt="" src="/brand/subvenio-icon.png" />
             <strong>{nadaaBrand.name}</strong>
           </span>
           <h2 id="citizen-signin-title">

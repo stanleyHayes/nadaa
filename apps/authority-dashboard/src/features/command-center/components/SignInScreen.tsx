@@ -193,7 +193,7 @@ export function SignInScreen() {
         <div className="cc-auth__brand-top">
           <Box
             component="img"
-            src="/brand/nadaa-logo.png"
+            src="/brand/subvenio-icon.png"
             alt=""
             className="cc-auth__logo"
           />
