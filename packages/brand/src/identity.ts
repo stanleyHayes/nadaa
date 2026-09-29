@@ -53,6 +53,12 @@ const IDENTITIES: Record<BrandId, BrandIdentity> = {
     country: "Ghana",
     tagline: "Be Aware. Be Prepared. Be Safe.",
     supportLine: "112",
+    // These files are NOT on disk — they were removed in 7257e76 when the
+    // SUBVENIO system replaced them. Reverting the brand therefore needs the
+    // artwork back as well as the flag:
+    //     git checkout 7257e76^ -- 'apps/*/public/brand/nadaa-logo.png'
+    // Everything else about the revert is this one constant; the logos are the
+    // exception because they are binaries, not values.
     assets: {
       icon: "/brand/nadaa-logo.png",
       horizontalLight: "/brand/nadaa-logo.png",

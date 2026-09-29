@@ -69,11 +69,18 @@
   --nadaa-radius-lg: 12px;
   --nadaa-radius-xl: 16px;
 
-  /* Shadows */
-  --nadaa-shadow-sm: 0 1px 2px rgba(13, 13, 13, 0.06);
-  --nadaa-shadow-md: 0 4px 12px rgba(13, 13, 13, 0.08);
-  --nadaa-shadow-lg: 0 8px 24px rgba(13, 13, 13, 0.1);
-  --nadaa-shadow-xl: 0 18px 48px rgba(13, 13, 13, 0.12);
+  /* Shadows. Tinted with the brand ink rather than a fixed near-black, so they
+     sit in the active palette's family and track a brand change — the hex here
+     was the previous brand's ink and had stopped matching tokens.ts, which
+     already derives these from `palette.ink`. */
+  --nadaa-shadow-sm: 0 1px 2px
+    color-mix(in srgb, var(--nadaa-ink) 6%, transparent);
+  --nadaa-shadow-md: 0 4px 12px
+    color-mix(in srgb, var(--nadaa-ink) 8%, transparent);
+  --nadaa-shadow-lg: 0 8px 24px
+    color-mix(in srgb, var(--nadaa-ink) 10%, transparent);
+  --nadaa-shadow-xl: 0 18px 48px
+    color-mix(in srgb, var(--nadaa-ink) 12%, transparent);
 
   /* Focus */
   --nadaa-focus-color: var(--nadaa-gold);
