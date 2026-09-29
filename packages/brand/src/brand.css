@@ -118,6 +118,10 @@
   --nadaa-red: #e53935;
   --nadaa-gold: #f4c20d;
   --nadaa-slate: #5a5a5a;
+  /* Identical to the active palette's white today, but declared anyway: if
+     either palette's white ever moves, an omission here would silently leave
+     the reverted brand on the other one's value. */
+  --nadaa-white: #ffffff;
   --nadaa-mist: #f4f4f5;
   --nadaa-ink: #0d0d0d;
   --nadaa-border: #e6e6e6;
