@@ -51,6 +51,7 @@ export {
   readSavedTint,
   applyThemeMode,
   applyDarkTint,
+  applyBrand,
   saveMode,
   saveTint,
   initThemePreferences,

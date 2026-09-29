@@ -1,6 +1,6 @@
 {
-  "name": "SUBVENIO Admin Console",
-  "short_name": "SUBVENIO Admin",
+  "name": "SUBVENIO",
+  "short_name": "SUBVENIO",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

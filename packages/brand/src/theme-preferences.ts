@@ -16,6 +16,7 @@
  */
 
 import { DARK_TINTS, DEFAULT_TINT, type DarkTint } from "./dark-tints.js";
+import { ACTIVE_BRAND, type BrandId } from "./identity.js";
 
 export { DARK_TINTS, DEFAULT_TINT };
 export type { DarkTint };
@@ -88,6 +89,28 @@ export function applyDarkTint(tint: DarkTint): void {
   document.documentElement.dataset.darkTint = tint;
 }
 
+/**
+ * Reflect the active brand onto `<html data-brand>`, so the CSS palette follows
+ * the same switch the TypeScript side does.
+ *
+ * Without this the two halves disagree: flipping ACTIVE_BRAND changes every
+ * React-rendered string and the MUI theme, while brand.css keeps painting
+ * whichever palette is written at `:root`. `initThemePreferences` calls this,
+ * so an app that already initialises theming gets it for free.
+ *
+ * The attribute is only written for a NON-default brand — `:root` already holds
+ * the active palette, so stamping it every time would be noise.
+ */
+export function applyBrand(id: BrandId): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if (id === ACTIVE_BRAND) {
+    delete root.dataset.brand;
+  } else {
+    root.dataset.brand = id;
+  }
+}
+
 /** Persist + apply the mode, then broadcast the change. */
 export function saveMode(mode: ThemeMode): void {
   applyThemeMode(mode);
@@ -116,7 +139,12 @@ export function saveTint(tint: DarkTint): void {
  * Apply the saved mode + tint to the document. Call once during app boot,
  * before first render, to avoid a flash of the wrong theme.
  */
-export function initThemePreferences(): { mode: ThemeMode; tint: DarkTint } {
+export function initThemePreferences(): {
+  mode: ThemeMode;
+  tint: DarkTint;
+} {
+  // Keep the CSS palette on the same switch as the TypeScript identity.
+  applyBrand(ACTIVE_BRAND);
   const mode = readSavedMode();
   const tint = readSavedTint();
   applyThemeMode(mode);

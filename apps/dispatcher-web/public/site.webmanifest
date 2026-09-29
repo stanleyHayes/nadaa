@@ -1,6 +1,6 @@
 {
-  "name": "SUBVENIO Dispatch Command",
-  "short_name": "SUBVENIO Dispatch",
+  "name": "SUBVENIO",
+  "short_name": "SUBVENIO",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

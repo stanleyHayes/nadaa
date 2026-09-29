@@ -1,7 +1,7 @@
 {
-  "name": "SUBVENIO Citizen",
+  "name": "SUBVENIO",
   "short_name": "SUBVENIO",
-  "description": "Check flood and fire risk, get early warnings, report incidents, and find shelters \u2014 SUBVENIO citizen service for Ghana.",
+  "description": "Check flood and fire risk, get early warnings, report incidents, and find shelters — SUBVENIO citizen service for Ghana.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -1,6 +1,6 @@
 {
-  "name": "SUBVENIO Authority Dashboard",
-  "short_name": "SUBVENIO Authority",
+  "name": "SUBVENIO",
+  "short_name": "SUBVENIO",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

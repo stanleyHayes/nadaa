@@ -1,6 +1,6 @@
 {
-  "name": "SUBVENIO Agency Operations",
-  "short_name": "SUBVENIO Agency",
+  "name": "SUBVENIO",
+  "short_name": "SUBVENIO",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
