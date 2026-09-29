@@ -12,6 +12,9 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
+/** Injected by the React Native / Expo bundler: false in a release build. */
+declare const __DEV__: boolean;
+
 declare function require(path: string): unknown;
 
 declare module "react" {
