@@ -1,5 +1,15 @@
-/* NADAA brand CSS custom properties.
-   Import once at the root of each web app so utility classes can use tokens. */
+/* Brand CSS custom properties.
+   Import once at the root of each web app so utility classes can use tokens.
+
+   The `--nadaa-*` names are internal identifiers, not a claim about the active
+   brand: roughly 5,000 references resolve through them, so a rebrand re-points
+   the slots rather than renaming them (see packages/brand/src/identity.ts).
+   The active brand is SUBVENIO; `:root[data-brand="nadaa"]` below restores the
+   previous Onyx Command palette whole, and must stay in sync with
+   PALETTES.nadaa in palettes.ts.
+
+   `--sv-*` aliases follow the naming in the Brand & Motion guide §15 and point
+   at the same slots, so new code can say what it means. */
 
 /* Dark theme + screen tints. Gated by `:root[data-theme="dark"]`, so apps that
    never set the attribute stay in light mode unaffected. The dark rules win by
@@ -8,32 +18,33 @@
 @import "./dark.css";
 
 :root {
-  /* Core palette — Black + Silver. --nadaa-navy is the primary brand ink
-     (formerly navy #0d1b3d); green/red/gold stay as functional alert colors. */
-  --nadaa-navy: #1a1a1a;
-  --nadaa-charcoal: #2b2b2b;
-  --nadaa-silver: #8e8e8e;
-  --nadaa-light-silver: #e6e6e6;
-  --nadaa-green: #118d4e;
-  --nadaa-red: #e53935;
-  --nadaa-gold: #f4c20d;
-  --nadaa-slate: #5a5a5a;
+  /* Core palette — SUBVENIO. Slot names are historical; the comment after each
+     gives the role from the brand guide. Red stays semantic-only: the guide is
+     explicit that it is never the master brand colour. */
+  --nadaa-navy: #0a1f3d; /* deep-navy   — foundation, nav, hero surfaces */
+  --nadaa-charcoal: #132e52; /* raised navy — dense admin surfaces      */
+  --nadaa-silver: #22d3ce; /* soft-teal   — Halo, responder availability */
+  --nadaa-light-silver: #cbd5e1;
+  --nadaa-green: #16a36a; /* success     — confirmed-safe only          */
+  --nadaa-red: #e5484d; /* danger      — critical/destructive only    */
+  --nadaa-gold: #ff8a3d; /* hope-orange — urgency; punctuates          */
+  --nadaa-slate: #64748b; /* muted       — secondary text, metadata     */
   --nadaa-white: #ffffff;
-  --nadaa-mist: #f4f4f5;
-  --nadaa-ink: #0d0d0d;
+  --nadaa-mist: #f8fafc; /* warm-light  — primary light background     */
+  --nadaa-ink: #081522;
 
   /* Semantic roles */
   --nadaa-surface: var(--nadaa-mist);
   --nadaa-surface-elevated: var(--nadaa-white);
-  --nadaa-border: #e6e6e6;
-  --nadaa-divider: #eaeaea;
+  --nadaa-border: #e2e8f0;
+  --nadaa-divider: #eef2f6;
   --nadaa-text-primary: var(--nadaa-ink);
   --nadaa-text-secondary: var(--nadaa-slate);
   --nadaa-text-inverse: var(--nadaa-white);
   --nadaa-primary: var(--nadaa-navy);
   --nadaa-secondary: var(--nadaa-green);
   --nadaa-accent: var(--nadaa-gold);
-  --nadaa-info: #0b6fb8;
+  --nadaa-info: #0b6bff; /* safe-blue — primary action and trust */
   --nadaa-success: var(--nadaa-green);
   --nadaa-warning: var(--nadaa-gold);
   --nadaa-danger: var(--nadaa-red);
@@ -67,6 +78,51 @@
   /* Focus */
   --nadaa-focus-color: var(--nadaa-gold);
   --nadaa-focus-outline: 2px solid var(--nadaa-focus-color);
+
+  /* Motion — Brand & Motion guide §7. Centralised so components stop picking
+     their own durations. Emergency surfaces use the shorter end: during an
+     incident motion should resolve faster and flourish less. */
+  --sv-motion-instant: 120ms; /* press feedback, tiny state changes    */
+  --sv-motion-fast: 200ms; /* menus, chips, toggles, alerts entering   */
+  --sv-motion-standard: 300ms; /* cards, sheets, route-state changes   */
+  --sv-motion-slow: 650ms; /* hero/section reveals, context changes    */
+  --sv-motion-brand: 1200ms; /* logo reveal and brand moments ONLY     */
+  --sv-ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
+  --sv-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /* No spring overshoot: a confirmation that bounces reads as undecided. */
+  --sv-ease-confirm: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Role-named aliases (guide §15). Same slots, said plainly — new code should
+     prefer these; --nadaa-* stays for the existing references. */
+  --sv-safe-blue: var(--nadaa-info);
+  --sv-deep-navy: var(--nadaa-navy);
+  --sv-hope-orange: var(--nadaa-gold);
+  --sv-soft-teal: var(--nadaa-silver);
+  --sv-warm-light: var(--nadaa-mist);
+  --sv-ink: var(--nadaa-ink);
+  --sv-muted: var(--nadaa-slate);
+  --sv-success: var(--nadaa-green);
+  --sv-warning: var(--nadaa-gold);
+  --sv-danger: var(--nadaa-red);
+}
+
+/* Onyx Command (NADAA). Set data-brand="nadaa" on <html> to revert the palette
+   without touching a component. Mirrors PALETTES.nadaa in palettes.ts — the two
+   must change together. */
+:root[data-brand="nadaa"] {
+  --nadaa-navy: #1a1a1a;
+  --nadaa-charcoal: #2b2b2b;
+  --nadaa-silver: #8e8e8e;
+  --nadaa-light-silver: #e6e6e6;
+  --nadaa-green: #118d4e;
+  --nadaa-red: #e53935;
+  --nadaa-gold: #f4c20d;
+  --nadaa-slate: #5a5a5a;
+  --nadaa-mist: #f4f4f5;
+  --nadaa-ink: #0d0d0d;
+  --nadaa-border: #e6e6e6;
+  --nadaa-divider: #eaeaea;
+  --nadaa-info: #0b6fb8;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -85,10 +141,14 @@
    and wraps the flip in document.startViewTransition. */
 @keyframes nadaa-theme-reveal {
   from {
-    clip-path: circle(0% at var(--nadaa-reveal-x, 50%) var(--nadaa-reveal-y, 50%));
+    clip-path: circle(
+      0% at var(--nadaa-reveal-x, 50%) var(--nadaa-reveal-y, 50%)
+    );
   }
   to {
-    clip-path: circle(150% at var(--nadaa-reveal-x, 50%) var(--nadaa-reveal-y, 50%));
+    clip-path: circle(
+      150% at var(--nadaa-reveal-x, 50%) var(--nadaa-reveal-y, 50%)
+    );
   }
 }
 

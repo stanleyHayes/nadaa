@@ -1,23 +1,25 @@
-export const nadaaBrand = {
-  name: "NADAA",
-  fullName: "National Disaster Alert & Response Platform",
-  country: "Ghana",
-  slogan: "Be Aware. Be Prepared. Be Safe.",
-  supportLine: "112",
-  colors: {
-    navy: "#1A1A1A",
-    charcoal: "#2B2B2B",
-    silver: "#8E8E8E",
-    lightSilver: "#E6E6E6",
-    green: "#118D4E",
-    red: "#E53935",
-    gold: "#F4C20D",
-    slate: "#5A5A5A",
-    white: "#FFFFFF",
-    mist: "#F4F4F5",
-    ink: "#0D0D0D",
-  },
-  meanings: {
+import { ACTIVE_BRAND, brand, type BrandId } from "./identity.js";
+import { palette } from "./palettes.js";
+
+/**
+ * Legacy alias for the active brand identity.
+ *
+ * Kept under this name because 78 modules import it. New code should prefer
+ * `brand` from identity.js and `palette` from palettes.js, which say what they
+ * are; this object stays as the compatibility surface and now resolves through
+ * whichever identity ACTIVE_BRAND selects rather than hard-coding NADAA.
+ *
+ * `slogan` is retained as the historical key name; identity.ts calls the same
+ * value `tagline`.
+ */
+/**
+ * What each palette slot signifies, per brand. Rendered on the brand sheet, so
+ * it has to track whichever palette is active: the same `navy` slot means
+ * "Authority & Focus" as Onyx black and "Foundation & Security" as SUBVENIO's
+ * deep navy, and `gold` shifts from optimism to SUBVENIO's human urgency.
+ */
+const MEANINGS: Record<BrandId, Record<string, string>> = {
+  nadaa: {
     navy: "Authority & Focus",
     charcoal: "Depth & Structure",
     silver: "Clarity & Precision",
@@ -26,6 +28,40 @@ export const nadaaBrand = {
     gold: "Hope & Optimism",
     slate: "Stability & Strength",
   },
+  subvenio: {
+    navy: "Foundation & Security",
+    charcoal: "Depth & Structure",
+    silver: "Support & Calm",
+    green: "Confirmed Safe",
+    red: "Critical Danger",
+    gold: "Urgency & Human Action",
+    slate: "Clarity & Metadata",
+  },
+};
+
+const colourMeanings = MEANINGS[ACTIVE_BRAND];
+
+export const nadaaBrand = {
+  name: brand.name,
+  fullName: brand.fullName,
+  country: brand.country,
+  slogan: brand.tagline,
+  supportLine: brand.supportLine,
+  assets: brand.assets,
+  colors: {
+    navy: palette.navy,
+    charcoal: palette.charcoal,
+    silver: palette.silver,
+    lightSilver: palette.lightSilver,
+    green: palette.green,
+    red: palette.red,
+    gold: palette.gold,
+    slate: palette.slate,
+    white: palette.white,
+    mist: palette.mist,
+    ink: palette.ink,
+  },
+  meanings: colourMeanings,
 } as const;
 
 export const featurePillars = [

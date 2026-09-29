@@ -1,3 +1,21 @@
+export {
+  ACTIVE_BRAND,
+  brand,
+  identityFor,
+  type BrandId,
+  type BrandIdentity,
+} from "./identity.js";
+
+export { PALETTES, palette, roles, type BrandPalette } from "./palettes.js";
+
+export {
+  duration,
+  easing,
+  prefersReducedMotion,
+  type MotionDuration,
+  type MotionEasing,
+} from "./motion.js";
+
 export { nadaaBrand, featurePillars, hazardPalette } from "./brand.js";
 
 export {

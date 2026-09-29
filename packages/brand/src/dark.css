@@ -1,47 +1,52 @@
-/* NADAA dark theme — token-level dark mode + screen tints.
+/* Dark theme — token-level dark mode + screen tints.
 
    Strategy: the web apps style through `--nadaa-*` custom properties, so dark
    mode is achieved by re-pointing the token VALUES under a single attribute
    selector rather than rewriting every rule. Light mode (no `data-theme`
    attribute) is never touched.
 
-   Two roles of the brand-ink token are reconciled here (Black + Silver):
-   - ink as ACCENT (icon / heading / stripe on a surface) is lightened to a
-     silver so it reads on dark cards. This is what `--nadaa-navy` becomes.
+   Two roles of the brand-ink token are reconciled here:
+   - ink as ACCENT (icon / heading / stripe on a surface) is lightened so it
+     reads on dark cards. This is what `--nadaa-navy` becomes.
    - ink as CHROME (the permanently-dark command rail, avatars, sign-in hero)
-     is kept dark. `--nadaa-primary` holds that charcoal chrome, and apps pin
-     their local rail variable (e.g. `--cc-navy`) to a fixed dark.
+     is kept dark. `--nadaa-primary` holds that chrome, and apps pin their
+     local rail variable (e.g. `--cc-navy`) to a fixed dark.
+
+   SUBVENIO dark sits in the deep-navy family rather than neutral grey, per the
+   brand guide: dark mode is a first-class theme, not an inversion. Every text
+   and accent value below was contrast-checked against both the canvas and the
+   card; the weakest is 5.36:1, comfortably over the 4.5:1 AA bar.
 
    `--nadaa-text-inverse` stays white in both modes: it is the correct token for
    text sitting on those permanently-dark chrome surfaces. */
 
 :root[data-theme="dark"] {
-  /* Palette — functional accents stay vivid (nudged brighter for dark); the
-     brand ink lightens to a silver so ink-as-accent reads on dark surfaces. */
-  --nadaa-navy: #d4d4d4; /* accent / icon / heading silver on dark */
-  --nadaa-charcoal: #2b2b2b;
-  --nadaa-silver: #8e8e8e;
-  --nadaa-light-silver: #e6e6e6;
-  --nadaa-green: #2eba71;
-  --nadaa-red: #ff5f5a;
-  --nadaa-gold: #f6ca3d;
-  --nadaa-slate: #a8a8a8; /* secondary text */
-  --nadaa-white: #1e1e1e; /* elevated card surface (graphite) */
-  --nadaa-mist: #161616; /* recessed inset well inside cards */
-  --nadaa-ink: #f5f5f5; /* primary text (near-white) */
+  /* Palette — accents brightened for a dark ground; the brand ink lightens to
+     a safe-blue so ink-as-accent reads on dark surfaces (8.95:1 on canvas). */
+  --nadaa-navy: #7fb2ff; /* accent / icon / heading on dark */
+  --nadaa-charcoal: #132e52;
+  --nadaa-silver: #3fe3de; /* soft-teal, brightened */
+  --nadaa-light-silver: #cbd5e1;
+  --nadaa-green: #2ecc8f;
+  --nadaa-red: #ff6b70;
+  --nadaa-gold: #ffa062; /* hope-orange, brightened */
+  --nadaa-slate: #94a3b8; /* secondary text (6.33:1 on card) */
+  --nadaa-white: #0e2138; /* elevated card surface (raised navy) */
+  --nadaa-mist: #0a1a2e; /* recessed inset well inside cards */
+  --nadaa-ink: #f8fafc; /* primary text (warm-light) */
 
   /* Screen (canvas) base — Ink default. Tints below shift this hue only. */
-  --nadaa-surface: #0f0f0f;
+  --nadaa-surface: #050e1b;
   --nadaa-surface-elevated: var(--nadaa-white);
-  --nadaa-border: #2e2e2e;
-  --nadaa-divider: #242424;
+  --nadaa-border: #22406b;
+  --nadaa-divider: #16304f;
   --nadaa-text-primary: var(--nadaa-ink);
   --nadaa-text-secondary: var(--nadaa-slate);
   --nadaa-text-inverse: #ffffff; /* on permanently-dark chrome */
-  --nadaa-primary: #2b2b2b; /* charcoal chrome (skip-link, legacy topbar) */
+  --nadaa-primary: #132e52; /* navy chrome (skip-link, legacy topbar) */
   --nadaa-secondary: var(--nadaa-green);
   --nadaa-accent: var(--nadaa-gold);
-  --nadaa-info: #3a9fe0;
+  --nadaa-info: #4d93ff; /* safe-blue, brightened */
   --nadaa-success: var(--nadaa-green);
   --nadaa-warning: var(--nadaa-gold);
   --nadaa-danger: var(--nadaa-red);
@@ -66,9 +71,9 @@
    ============================================================ */
 
 :root[data-theme="dark"][data-dark-tint="ink"] {
-  --nadaa-surface: #0f0f0f;
-  --nadaa-mist: #161616;
-  --nadaa-white: #1e1e1e;
+  --nadaa-surface: #050e1b;
+  --nadaa-mist: #0a1a2e;
+  --nadaa-white: #0e2138;
 }
 
 :root[data-theme="dark"][data-dark-tint="burgundy"] {

@@ -26,22 +26,22 @@ export interface NadaaThemeOptions {
 /**
  * Dark-mode neutrals. These mirror the `--nadaa-*` dark token values in
  * `dark.css` (Ink default) so MUI-rendered surfaces — Dialog, Menu, TextField,
- * Table, Card — land on the same warm-black palette as the `cc-*` surfaces.
+ * Table, Card — land on the same deep-navy palette as the `cc-*` surfaces.
  */
 const darkNeutrals = {
   /** Screen base. */
-  background: "#0f0f0f",
+  background: "#050e1b",
   /** Elevated card / paper (Menu, Dialog, Select popover). */
-  paper: "#1e1e1e",
-  textPrimary: "#f5f5f5",
-  textSecondary: "#a8a8a8",
-  divider: "#2e2e2e",
-  /** Brand ink lightened to a silver so it reads as an accent on dark. */
-  primary: "#d4d4d4",
-  green: "#2eba71",
-  red: "#ff5f5a",
-  gold: "#f6ca3d",
-  info: "#3a9fe0",
+  paper: "#0e2138",
+  textPrimary: "#f8fafc",
+  textSecondary: "#94a3b8",
+  divider: "#22406b",
+  /** Brand ink lightened to a safe-blue so it reads as an accent on dark. */
+  primary: "#7fb2ff",
+  green: "#2ecc8f",
+  red: "#ff6b70",
+  gold: "#ffa062",
+  info: "#4d93ff",
 } as const;
 
 /**
@@ -51,8 +51,11 @@ const darkNeutrals = {
  * duplication. App-specific visual overrides should be rare and documented.
  */
 export function createNadaaTheme(options: NadaaThemeOptions = {}) {
-  const { reducedMotion = false, accent = "operational", mode = "light" } =
-    options;
+  const {
+    reducedMotion = false,
+    accent = "operational",
+    mode = "light",
+  } = options;
   const isDark = mode === "dark";
   const accentColor =
     accent === "public" ? appAccent.public : appAccent.operational;
@@ -63,7 +66,10 @@ export function createNadaaTheme(options: NadaaThemeOptions = {}) {
     ? { default: darkNeutrals.background, paper: darkNeutrals.paper }
     : { default: semantic.surface, paper: semantic.surfaceElevated };
   const text = isDark
-    ? { primary: darkNeutrals.textPrimary, secondary: darkNeutrals.textSecondary }
+    ? {
+        primary: darkNeutrals.textPrimary,
+        secondary: darkNeutrals.textSecondary,
+      }
     : { primary: semantic.textPrimary, secondary: semantic.textSecondary };
   const dividerColor = isDark ? darkNeutrals.divider : semantic.divider;
 
@@ -75,16 +81,16 @@ export function createNadaaTheme(options: NadaaThemeOptions = {}) {
       mode,
       primary: {
         main: isDark ? darkNeutrals.primary : colors.navy,
-        // On dark the silver primary carries dark text; on light, the ink carries white.
-        contrastText: isDark ? "#0f0f0f" : colors.white,
+        // On dark the light-blue primary carries dark text; on light, the ink carries white.
+        contrastText: isDark ? "#050e1b" : colors.white,
       },
       secondary: {
         main: isDark ? darkNeutrals.green : colors.green,
-        contrastText: isDark ? "#0f0f0f" : colors.white,
+        contrastText: isDark ? "#050e1b" : colors.white,
       },
       error: {
         main: isDark ? darkNeutrals.red : colors.red,
-        contrastText: isDark ? "#0f0f0f" : colors.white,
+        contrastText: isDark ? "#050e1b" : colors.white,
       },
       warning: {
         main: isDark ? darkNeutrals.gold : colors.gold,
@@ -92,11 +98,11 @@ export function createNadaaTheme(options: NadaaThemeOptions = {}) {
       },
       info: {
         main: isDark ? darkNeutrals.info : semantic.info,
-        contrastText: isDark ? "#0f0f0f" : colors.white,
+        contrastText: isDark ? "#050e1b" : colors.white,
       },
       success: {
         main: isDark ? darkNeutrals.green : colors.green,
-        contrastText: isDark ? "#0f0f0f" : colors.white,
+        contrastText: isDark ? "#050e1b" : colors.white,
       },
       background: {
         default: bg.default,
