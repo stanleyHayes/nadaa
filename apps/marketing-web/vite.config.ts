@@ -7,7 +7,12 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 // Canonical/OG/sitemap/robots origin: set VITE_SITE_ORIGIN per deployment
 // (e.g. a staging alias) and the built index.html, robots.txt, and
 // sitemap.xml follow; unset keeps the production origin.
-const defaultSiteOrigin = "https://nadaa.gov.gh";
+// Planned apex — see packages/brand/src/domains.ts. NOT yet registered, so this
+// is a default and a statement of intent; every deployment sets VITE_SITE_ORIGIN
+// and the build rewrites robots.txt and sitemap.xml to match. The previous
+// default was a .gov.gh domain, which would belong to NADMO rather than to the
+// registered operator of this product.
+const defaultSiteOrigin = "https://usesubvenio.com";
 
 function siteOriginPlugin(siteOrigin: string): Plugin {
   let outDir = "dist";

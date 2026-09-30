@@ -8,6 +8,8 @@ export {
 
 export { PALETTES, palette, roles, type BrandPalette } from "./palettes.js";
 
+export { APEX, domains, mailboxes, type DomainKey } from "./domains.js";
+
 export {
   duration,
   easing,

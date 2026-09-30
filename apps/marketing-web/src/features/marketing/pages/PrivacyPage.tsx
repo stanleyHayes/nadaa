@@ -24,6 +24,28 @@ import { PageBanner } from "../components/PageBanner";
 
 const PENDING = "[TO BE CONFIRMED — see PrivacyPage.tsx]";
 
+/**
+ * Registered operator, from the Certificate of Registration dated 29 September
+ * 2020.
+ *
+ * DEV TRACK is a BUSINESS NAME registered under the Registration of Business
+ * Names Act, 1962 (Act 151) — not a company incorporated under the Companies
+ * Act. A business name registration does not create a separate legal person,
+ * so the controller in law is the proprietor trading under it. The wording
+ * below says "operated by" rather than naming DEV TRACK as the controller,
+ * which would overstate what the certificate establishes. Counsel should
+ * confirm how the controller is named before this is published.
+ *
+ * The certificate also carries a TIN. It is deliberately NOT reproduced here:
+ * a tax identification number serves no purpose in a privacy notice and should
+ * not be published.
+ */
+const OPERATOR = {
+  name: "DEV TRACK",
+  act: "the Registration of Business Names Act, 1962 (Act 151)",
+  registrationNumber: "BN843072020",
+};
+
 type Section = {
   heading: string;
   body: string[];
@@ -34,7 +56,8 @@ const sections: Section[] = [
   {
     heading: "Who is responsible for your data",
     body: [
-      `${nadaaBrand.name} is operated by ${PENDING}, the data controller for the purposes of Ghana's Data Protection Act, 2012 (Act 843). Our Data Protection Commission registration number is ${PENDING}.`,
+      `${nadaaBrand.name} is operated by ${OPERATOR.name}, a business name registered in Ghana under ${OPERATOR.act}, registration number ${OPERATOR.registrationNumber}.`,
+      `Ghana's Data Protection Act, 2012 (Act 843) separately requires a data controller to register with the Data Protection Commission. That registration is ${PENDING} — it is not the business-name registration above, and this notice should not be published until it is complete.`,
       `You can reach our Data Protection Officer at ${PENDING}.`,
     ],
   },

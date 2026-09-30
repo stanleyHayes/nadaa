@@ -23,6 +23,15 @@ coverage/
 /apps/*/trace.zip
 /*.png.tmp
 
+# Registration certificates, IDs and other scanned corporate documents. These
+# carry TINs, signatures and registration numbers that do not belong in a
+# repository, and a public one would expose them permanently.
+/*.jpeg
+/*.jpg
+/WhatsApp*
+/certificate*
+/Certificate*
+
 # Agent tooling state (never product code)
 .raven/
 
