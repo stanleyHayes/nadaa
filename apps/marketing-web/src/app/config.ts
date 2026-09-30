@@ -42,5 +42,5 @@ export const marketingLinks = {
   ),
   emergencyPhone: "tel:112",
   partnerMail:
-    "mailto:partnerships@nadaa.gov.gh?subject=NADAA%20partnership%20request",
+    "mailto:partnerships@nadaa.gov.gh?subject=SUBVENIO%20partnership%20request",
 } as const;

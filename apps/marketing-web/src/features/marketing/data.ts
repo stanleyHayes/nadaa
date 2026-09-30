@@ -201,7 +201,7 @@ export const contactCards = [
     primary: "Request a platform briefing",
     detail:
       "For agency onboarding, donor briefings, district pilots, or technical partnerships.",
-    href: "mailto:partnerships@nadaa.gov.gh?subject=NADAA%20partnership%20request",
+    href: "mailto:partnerships@nadaa.gov.gh?subject=SUBVENIO%20partnership%20request",
   },
   {
     title: "Operational rollout",

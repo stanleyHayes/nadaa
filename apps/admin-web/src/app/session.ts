@@ -371,7 +371,7 @@ export function useAdminSession(): AdminSessionState {
 
 /**
  * Headers for governance API calls. The bearer token from agency login is the
- * credential every NADAA service now requires; the X-NADAA actor headers ride
+ * credential every service now requires; the X-NADAA actor headers ride
  * along only for local dev, where services may run with
  * NADAA_AUTH_ALLOW_MOCK_ACTORS=true. Without a signed-in session there is no
  * token and no identity to send.
