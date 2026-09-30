@@ -240,7 +240,10 @@ textarea {
 
 .eyebrow {
   margin: 0 0 var(--nadaa-space-3);
-  color: var(--nadaa-green);
+  /* Green measured 3.10:1 as 12px eyebrow text on warm-light; the on-light
+     variant keeps the hue and clears AA. Eyebrows on the dark bands are
+     re-coloured by the later rules and keep the brand accent. */
+  color: var(--sv-on-light-green);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -1865,10 +1868,12 @@ textarea {
 /* Accent-tinted title, mixed toward navy so lighter tones stay legible. */
 .role-lane__title {
   margin: 0 0 var(--nadaa-space-2);
+  /* 78% left the lighter accents at 3.32:1 as heading text; 55% into the ink
+     clears 4.5:1 for every role. */
   color: color-mix(
     in srgb,
-    var(--role-accent, var(--nadaa-navy)) 78%,
-    var(--nadaa-navy)
+    var(--role-accent, var(--nadaa-navy)) 55%,
+    var(--nadaa-ink)
   );
   font-size: 1.14rem;
   line-height: 1.15;
@@ -3250,16 +3255,17 @@ textarea {
  * surface tracks the page ground so the extrusion reads.
  * ================================================================== */
 :root {
-  --neu-surface: #eef1f4;
+  /* Warm-light family, and light enough that --nadaa-slate (muted, #64748B)
+     clears 4.5:1 on it — at the previous #eef1f4 every body and secondary
+     string on a soft card measured 4.20:1. */
+  --neu-surface: #f7f9fa;
   --neu-raise:
-    -7px -7px 16px rgba(255, 255, 255, 0.92),
-    9px 9px 22px rgba(13, 13, 13, 0.1);
+    -7px -7px 16px rgba(255, 255, 255, 0.92), 9px 9px 22px rgba(13, 13, 13, 0.1);
   --neu-raise-hover:
     -9px -9px 20px rgba(255, 255, 255, 0.95),
     12px 12px 28px rgba(13, 13, 13, 0.14);
   --neu-raise-sm:
-    -4px -4px 9px rgba(255, 255, 255, 0.92),
-    5px 5px 12px rgba(13, 13, 13, 0.13);
+    -4px -4px 9px rgba(255, 255, 255, 0.92), 5px 5px 12px rgba(13, 13, 13, 0.13);
   --neu-inset:
     inset 3px 3px 7px rgba(13, 13, 13, 0.14),
     inset -3px -3px 7px rgba(255, 255, 255, 0.85);
@@ -3274,16 +3280,15 @@ textarea {
 }
 
 :root[data-theme="dark"] {
-  --neu-surface: #191919;
+  /* Matches the dark card surface in dark.css (#0e2138); the previous #191919
+     was an Onyx grey left over from the earlier identity. */
+  --neu-surface: #0e2138;
   --neu-raise:
-    -6px -6px 14px rgba(255, 255, 255, 0.045),
-    9px 9px 22px rgba(0, 0, 0, 0.62);
+    -6px -6px 14px rgba(255, 255, 255, 0.045), 9px 9px 22px rgba(0, 0, 0, 0.62);
   --neu-raise-hover:
-    -8px -8px 18px rgba(255, 255, 255, 0.06),
-    12px 12px 28px rgba(0, 0, 0, 0.7);
+    -8px -8px 18px rgba(255, 255, 255, 0.06), 12px 12px 28px rgba(0, 0, 0, 0.7);
   --neu-raise-sm:
-    -3px -3px 8px rgba(255, 255, 255, 0.05),
-    5px 5px 12px rgba(0, 0, 0, 0.6);
+    -3px -3px 8px rgba(255, 255, 255, 0.05), 5px 5px 12px rgba(0, 0, 0, 0.6);
   --neu-inset:
     inset 3px 3px 7px rgba(0, 0, 0, 0.6),
     inset -3px -3px 7px rgba(255, 255, 255, 0.045);
@@ -3846,4 +3851,36 @@ textarea {
   border-top: 1px solid var(--nadaa-border);
   font-weight: 600;
   color: var(--nadaa-text-primary);
+}
+
+/* ==================================================================
+ * Accent copy on light grounds — measured fixes.
+ *
+ * The brand accents are specified for the dark chrome. As TEXT on a light
+ * surface they miss AA: hope-orange 2.24:1 and success green 3.10:1 on
+ * warm-light, muted 3.46:1 on the dark hero band. Each rule below re-points
+ * only the text colour and keeps the hue.
+ * ================================================================== */
+.content-section .eyebrow,
+.cta-card .eyebrow,
+.trust-section .eyebrow,
+.section-heading .eyebrow {
+  color: var(--sv-on-light-orange);
+}
+
+.section-link,
+/* Per-role accent as text on the light card. 55% accent into the ink keeps
+   each role's hue while putting the WORST accent (soft-teal) at 4.62:1; the
+   raw accents measure 2.22:1 (orange) and 3.07:1 (green) here. */
+.role-tagline {
+  color: color-mix(
+    in srgb,
+    var(--role-accent, var(--nadaa-green)) 55%,
+    var(--nadaa-ink)
+  );
+}
+
+/* Muted copy sitting on the permanently-dark hero band. */
+.hero-content .hero-hazards {
+  color: var(--sv-on-dark-muted);
 }

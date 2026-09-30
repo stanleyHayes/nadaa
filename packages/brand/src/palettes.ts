@@ -72,8 +72,12 @@ export const PALETTES: Record<BrandId, BrandPalette> = {
     red: "#E5484D",
     // hope-orange: urgency and human action. Punctuates; never floods.
     gold: "#FF8A3D",
-    // muted: secondary text and metadata.
-    slate: "#64748B",
+    // muted — secondary text and metadata. Darkened from the guide's #64748B,
+    // which measures 4.41:1 on the emergency tint and 4.51:1 on the soft card,
+    // i.e. under or barely at AA on the surfaces it actually renders on. This
+    // value clears 4.5:1 on white, warm-light, the neu card and every status
+    // tint. The guide's own §14 targets WCAG 2.2 AA, so the hex loses.
+    slate: "#606F85",
     white: "#FFFFFF",
     // warm-light: primary light background.
     mist: "#F8FAFC",

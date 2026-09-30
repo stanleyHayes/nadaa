@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import {
   BellRing,
   Building2,
@@ -57,7 +58,10 @@ export function PlatformsPage() {
                     <p className="role-audience">{surface.audience}</p>
                   </div>
                 </header>
-                <p className="role-tagline" style={{ color: surface.accent }}>
+                <p
+                  className="role-tagline"
+                  style={{ "--role-accent": surface.accent } as CSSProperties}
+                >
                   {surface.tagline}
                 </p>
                 <p className="role-oneliner">{surface.oneLiner}</p>

@@ -28,7 +28,10 @@
   --nadaa-green: #16a36a; /* success     — confirmed-safe only          */
   --nadaa-red: #e5484d; /* danger      — critical/destructive only    */
   --nadaa-gold: #ff8a3d; /* hope-orange — urgency; punctuates          */
-  --nadaa-slate: #64748b; /* muted       — secondary text, metadata     */
+  /* muted — secondary text. Darkened from the guide's #64748B, which fell
+     under AA on the surfaces it renders on (4.41:1 on the emergency tint).
+     Keep in step with palettes.ts. */
+  --nadaa-slate: #606f85;
   --nadaa-white: #ffffff;
   --nadaa-mist: #f8fafc; /* warm-light  — primary light background     */
   --nadaa-ink: #081522;
@@ -57,6 +60,11 @@
   --nadaa-space-4: 16px;
   --nadaa-space-5: 20px;
   --nadaa-space-6: 24px;
+  /* 7 was missing while admin-web and dispatcher-web both use it. A var() with
+     no fallback and no definition makes the whole declaration invalid, so those
+     `padding: var(--nadaa-space-7)` rules were resolving to 0. Matches the `7`
+     entry in tokens.ts. */
+  --nadaa-space-7: 28px;
   --nadaa-space-8: 32px;
   --nadaa-space-10: 40px;
   --nadaa-space-12: 48px;
@@ -68,6 +76,11 @@
   --nadaa-radius-md: 8px;
   --nadaa-radius-lg: 12px;
   --nadaa-radius-xl: 16px;
+  /* `full` was missing from the CSS while authority-dashboard and
+     dispatcher-web both use it for pill shapes. Same failure mode as space-7:
+     an undefined var() with no fallback invalidates the declaration, so those
+     elements were rendering square. Matches `radii.full` in tokens.ts. */
+  --nadaa-radius-full: 9999px;
 
   /* Shadows. Tinted with the brand ink rather than a fixed near-black, so they
      sit in the active palette's family and track a brand change — the hex here
@@ -98,6 +111,17 @@
   --sv-ease-exit: cubic-bezier(0.4, 0, 1, 1);
   /* No spring overshoot: a confirmation that bounces reads as undecided. */
   --sv-ease-confirm: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Accent copy on a LIGHT ground. The brand accents are tuned for the dark
+     chrome and fail as body text on light: hope-orange measures 2.24:1 and the
+     success green 3.10:1 on warm-light. These keep the hue and clear 4.5:1, so
+     accent-coloured TEXT on a light surface uses them; on deep-navy the brand
+     values are correct and used directly. */
+  --sv-on-light-orange: #c14d00;
+  --sv-on-light-green: #128255;
+  /* Muted text on permanently-dark chrome (hero band, utility bar, rails),
+     where the light-mode muted is only 3.46:1. */
+  --sv-on-dark-muted: #a9b6c9;
 
   /* Role-named aliases (guide §15). Same slots, said plainly — new code should
      prefer these; --nadaa-* stays for the existing references. */
