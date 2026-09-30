@@ -1,4 +1,4 @@
-package handlers
+package utils
 
 import (
 	"os"
@@ -19,7 +19,8 @@ import (
 // other with, and they must not move with the brand.
 //
 // Keep the default in step with ACTIVE_BRAND in packages/brand/src/identity.ts.
-func brandName() string {
+// BrandName is exported for the store and model layers.
+func BrandName() string {
 	if v := strings.TrimSpace(os.Getenv("SUBVENIO_BRAND_NAME")); v != "" {
 		return v
 	}

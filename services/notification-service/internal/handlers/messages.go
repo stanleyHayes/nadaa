@@ -3,6 +3,8 @@ package handlers
 import (
 	"fmt"
 
+	"github.com/stanleyHayes/nadaa/services/notification-service/internal/utils"
+
 	"github.com/stanleyHayes/nadaa/services/notification-service/internal/models"
 )
 
@@ -13,11 +15,11 @@ func languageMenu() string {
 func mainMenu(language string) string {
 	switch language {
 	case "tw":
-		return brandName() + " menu:\n1 Kɔkɔbɔ\n2 Bɔ amanneɛ\n3 Dwanekɔbea\n4 Frɛ 112"
+		return utils.BrandName() + " menu:\n1 Kɔkɔbɔ\n2 Bɔ amanneɛ\n3 Dwanekɔbea\n4 Frɛ 112"
 	case "ga":
-		return brandName() + " menu:\n1 Alerts\n2 Report emergency\n3 Shelter\n4 Call 112"
+		return utils.BrandName() + " menu:\n1 Alerts\n2 Report emergency\n3 Shelter\n4 Call 112"
 	default:
-		return brandName() + " menu:\n1 Current alerts\n2 Report emergency\n3 Find shelter\n4 112 guidance"
+		return utils.BrandName() + " menu:\n1 Current alerts\n2 Report emergency\n3 Find shelter\n4 112 guidance"
 	}
 }
 
@@ -56,7 +58,7 @@ func alertSummaryMessage(language string, alerts []models.CitizenAlert) string {
 		if language == "tw" {
 			return "Kɔkɔbɔ foforo biara nni hɔ seesei. Sɛ ɛyɛ asianeɛ a, frɛ 112."
 		}
-		return "No current " + brandName() + " alerts. If this is life-threatening, call 112."
+		return "No current " + utils.BrandName() + " alerts. If this is life-threatening, call 112."
 	}
 	alert := alerts[0]
 	return fmt.Sprintf("%s: %s. %s", alert.Title, alert.TargetLabel, alert.RecommendedAction)
@@ -88,11 +90,11 @@ func reportConfirmationMessage(language string, report models.InclusiveAccessRep
 	if language == "tw" {
 		return fmt.Sprintf("Yɛagye wo amanneɛ no: %s. Frɛ 112 sɛ nkwa wɔ asiane mu.", reference)
 	}
-	return fmt.Sprintf("%s report received: %s. Call 112 if life is in immediate danger.", brandName(), reference)
+	return fmt.Sprintf("%s report received: %s. Call 112 if life is in immediate danger.", utils.BrandName(), reference)
 }
 
 func smsHelpMessage() string {
-	return brandName() + " SMS commands: ALERTS, SHELTER, HELP, or REPORT FLOOD HIGH your location/details. Call 112 for immediate danger."
+	return utils.BrandName() + " SMS commands: ALERTS, SHELTER, HELP, or REPORT FLOOD HIGH your location/details. Call 112 for immediate danger."
 }
 
 func smsReportUsage() string {
@@ -100,7 +102,7 @@ func smsReportUsage() string {
 }
 
 func whatsappHelpMessage() string {
-	return brandName() + " WhatsApp commands: ALERTS, RISK, REPORT, SHELTER, GUIDE FLOOD, HELP, or 112. To report: REPORT FLOOD HIGH your location/details, or send REPORT and answer the prompts."
+	return utils.BrandName() + " WhatsApp commands: ALERTS, RISK, REPORT, SHELTER, GUIDE FLOOD, HELP, or 112. To report: REPORT FLOOD HIGH your location/details, or send REPORT and answer the prompts."
 }
 
 func whatsappReportUsage() string {
@@ -125,10 +127,10 @@ func riskCheckMessage(language string, hasLocation bool, alerts []models.Citizen
 		prefix = "Location received for this WhatsApp risk check. "
 	}
 	if len(alerts) == 0 {
-		return prefix + "No current " + brandName() + " alerts are active in the notification feed. Stay alert and call 112 for immediate danger."
+		return prefix + "No current " + utils.BrandName() + " alerts are active in the notification feed. Stay alert and call 112 for immediate danger."
 	}
 	alert := alerts[0]
-	return fmt.Sprintf("%sCurrent %s signal: %s for %s. %s", prefix, brandName(), alert.Title, alert.TargetLabel, alert.RecommendedAction)
+	return fmt.Sprintf("%sCurrent %s signal: %s for %s. %s", prefix, utils.BrandName(), alert.Title, alert.TargetLabel, alert.RecommendedAction)
 }
 
 func emergencyGuideMessage(language string, hazard string) string {
@@ -140,7 +142,7 @@ func emergencyGuideMessage(language string, hazard string) string {
 	case "road_crash":
 		return "Road crash guide: move away from traffic if safe, call 112, warn approaching vehicles, and do not move injured people unless there is immediate danger."
 	case "storm":
-		return "Storm guide: stay indoors, avoid trees and power lines, secure loose items if safe, and follow " + brandName() + " alerts."
+		return "Storm guide: stay indoors, avoid trees and power lines, secure loose items if safe, and follow " + utils.BrandName() + " alerts."
 	default:
 		if language == "tw" {
 			return "Nsuyiri akwankyerɛ: kɔ baabi a ɛkorɔn, kwati nsuo a ɛsen, sie nkrataa, na frɛ 112 sɛ nkwa wɔ asiane mu."
