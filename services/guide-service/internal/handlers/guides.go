@@ -60,7 +60,7 @@ func parseGuideFilters(r *http.Request) (models.GuideFilters, string, string) {
 	}
 
 	if filters.HazardType != "" && !allowedHazards[filters.HazardType] {
-		return models.GuideFilters{}, "invalid_hazard", "hazard must be a supported NADAA hazard type"
+		return models.GuideFilters{}, "invalid_hazard", "hazard must be a supported hazard type"
 	}
 	if filters.Stage != "" && !allowedStages[filters.Stage] {
 		return models.GuideFilters{}, "invalid_stage", "stage must be before, during, after, or recovery"

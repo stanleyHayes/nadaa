@@ -1,12 +1,12 @@
 {
-  "name": "NADAA",
-  "short_name": "NADAA",
-  "description": "Ghana National Disaster Alert and Response Platform: early flood and fire warnings, risk checks, and coordinated response.",
+  "name": "SUBVENIO",
+  "short_name": "SUBVENIO",
+  "description": "Ghana emergency alert and response platform: early flood and fire warnings, risk checks, and coordinated response.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#1A1A1A",
-  "background_color": "#1A1A1A",
+  "theme_color": "#0A1F3D",
+  "background_color": "#0A1F3D",
   "icons": [
     {
       "src": "/icon-192.png",

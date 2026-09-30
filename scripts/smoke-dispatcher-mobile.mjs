@@ -6,7 +6,7 @@ const requiredFiles = [
   "App.tsx",
   "app.json",
   "package.json",
-  "assets/nadaa-logo.png",
+  "assets/subvenio-logo.png",
   "src/app/DispatcherMobileApp.tsx",
   "src/app/config.ts",
   "src/app/navigation.ts",
@@ -43,8 +43,14 @@ for (const script of ["start", "typecheck", "build"]) {
 }
 
 const appJson = JSON.parse(readFileSync(join(appDir, "app.json"), "utf8"));
-if (appJson.expo?.slug !== "nadaa-dispatcher") {
-  throw new Error("dispatcher mobile Expo slug is incorrect");
+// Assert the SHAPE, not the brand: the slug moves with a rebrand (it is
+// "subvenio-dispatcher" today), while what matters is that it exists, is
+// lowercase-hyphenated as Expo requires, and identifies this app's role.
+if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(appJson.expo?.slug ?? "")) {
+  throw new Error("dispatcher mobile Expo slug is missing or not a valid slug");
+}
+if (!appJson.expo.slug.endsWith("-dispatcher")) {
+  throw new Error("dispatcher mobile Expo slug should identify the dispatcher app");
 }
 
 const shell = readFileSync(
@@ -57,7 +63,7 @@ for (const expected of [
   "ActionScreen",
   "CapacityScreen",
   "ProfileScreen",
-  "nadaa-logo.png",
+  "subvenio-logo.png",
 ]) {
   if (!shell.includes(expected)) {
     throw new Error(`dispatcher mobile shell missing ${expected}`);

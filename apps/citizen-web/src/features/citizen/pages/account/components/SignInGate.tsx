@@ -19,7 +19,7 @@ export function SignInGate({ onSignIn }: SignInGateProps) {
       <h2 className="account-gate__title">Sign in to access your account</h2>
       <p className="account-gate__lead">
         Your dashboard, report history, notifications and settings all live here.
-        Sign in to pick up where you left off — the rest of NADAA stays open to
+        Sign in to pick up where you left off — the rest of SUBVENIO stays open to
         everyone.
       </p>
       <Button

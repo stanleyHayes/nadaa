@@ -1,8 +1,8 @@
-# NADAA
+# SUBVENIO
 
-NADAA is the Ghana National Disaster Alert and Response Platform.
+SUBVENIO is the Ghana's emergency alert and response platform.
 
-Slogan: **Be Aware. Be Prepared. Be Safe.**
+Slogan: **Someone is coming.**
 
 The platform helps citizens, NADMO, district assemblies, dispatchers, and response agencies prepare for, report, monitor, respond to, and recover from disasters. The implementation covers flood risk, citizen reporting, authority incident command, approved alerts, emergency guidance, shelter visibility, hospital capacity, relief distribution points, and recovery logistics.
 
@@ -28,7 +28,7 @@ services/
   integration-service/
   ml-service/
 packages/
-  brand/                  NADAA colors, slogan, feature pillars, and brand constants
+  brand/                  SUBVENIO colors, slogan, feature pillars, and brand constants
   shared-types/           Shared TypeScript domain contracts
   config/                 Shared tool configuration
 infra/
@@ -52,7 +52,7 @@ Run the public marketing website:
 pnpm dev:marketing
 ```
 
-The marketing site runs on port `5172` and summarizes NADAA's about story, features, platform lanes, services, benefits, research context, and contact paths. It uses the real NADAA logo, brand sheet, and Outfit typography.
+The marketing site runs on port `5172` and summarizes SUBVENIO's about story, features, platform lanes, services, benefits, research context, and contact paths. It uses the real SUBVENIO logo, brand sheet, and Outfit typography.
 
 Run the citizen web app:
 
@@ -152,7 +152,7 @@ go run .
 The citizen app uses `VITE_NOTIFICATION_API_URL`, defaulting to `http://localhost:8090/api/v1`, for current/expired alert feed data. The notification service uses alert-service when available and fixture fallback in development. With notification-service running on `:8090`, verify feed delivery logs with `pnpm smoke:notification`.
 The notification service also exposes Phase 2 SMS/USSD and WhatsApp sandbox webhooks for inclusive access plus reviewed multilingual voice-alert delivery. Set `NADAA_INCIDENT_SERVICE_URL=http://127.0.0.1:8084/api/v1` when inbound SMS/USSD/WhatsApp reports should be submitted to incident-service; otherwise they remain queued in notification-service. Verify the SMS/USSD flow with `pnpm smoke:sms-ussd`, the WhatsApp chatbot with `pnpm smoke:whatsapp`, and voice assets/delivery logs with `pnpm smoke:voice-alerts`.
 
-The Phase 2 citizen mobile foundation lives in `apps/citizen-mobile`. It is an Expo/React Native app shell with NADAA brand assets, current alerts, risk lookup, incident report drafts, community volunteer assignments, offline guides, shelter/recovery support, session handling, permission copy, and push registration scaffolding. Run `pnpm --filter @nadaa/citizen-mobile typecheck` and `pnpm smoke:citizen-mobile`; use `pnpm dev:citizen-mobile` when running the Expo toolchain locally.
+The Phase 2 citizen mobile foundation lives in `apps/citizen-mobile`. It is an Expo/React Native app shell with SUBVENIO brand assets, current alerts, risk lookup, incident report drafts, community volunteer assignments, offline guides, shelter/recovery support, session handling, permission copy, and push registration scaffolding. Run `pnpm --filter @nadaa/citizen-mobile typecheck` and `pnpm smoke:citizen-mobile`; use `pnpm dev:citizen-mobile` when running the Expo toolchain locally.
 
 Run the Go guide service:
 

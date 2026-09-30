@@ -59,7 +59,7 @@ export function HomePage() {
             <SplitReveal
               delayMs={260}
               stepMs={34}
-              text="Ghana's National Disaster Alert and Response Platform — early warnings, risk checks, incident reporting, command coordination, and recovery, in six Ghanaian languages."
+              text="Ghana's emergency alert and response platform — early warnings, risk checks, incident reporting, coordinated dispatch, and safe return, in six Ghanaian languages."
             />
           </p>
           <p className="hero-hazards">
@@ -104,7 +104,7 @@ export function HomePage() {
           <p className="eyebrow">How it works</p>
           <h2 id="home-loop-title">From risk signal to recovery.</h2>
           <p>
-            NADAA carries a flood or fire through one accountable loop — every
+            SUBVENIO carries a flood or fire through one accountable loop — every
             public-safety decision stays in human hands.
           </p>
         </div>

@@ -243,7 +243,7 @@ func ValidateAlertRequest(request models.CreateAlertRequest) (string, string) {
 		return "invalid_title", "title must be 4 to 140 characters"
 	}
 	if !AllowedHazards[hazard] {
-		return "invalid_hazard", "hazardType must be a supported NADAA hazard type"
+		return "invalid_hazard", "hazardType must be a supported hazard type"
 	}
 	if !AllowedSeverities[severity] {
 		return "invalid_severity", "severity must be advisory, watch, warning, severe_warning, or emergency"

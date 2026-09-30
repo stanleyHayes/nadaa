@@ -12,7 +12,7 @@ export function TrustPage() {
     <>
       <PageBanner
         eyebrow="Trust & compliance"
-        subtitle="NADAA supports NADMO and Ghana's 112 service. Public-safety decisions stay in human hands, personal data is minimised, and every sensitive action is auditable."
+        subtitle="SUBVENIO supports NADMO and Ghana's 112 service. Public-safety decisions stay in human hands, personal data is minimised, and every sensitive action is auditable."
         title="Accountable, private, and built for Ghana."
       />
 

@@ -832,17 +832,17 @@ func voiceMessageForAlert(language string, alert models.CitizenAlert) string {
 	}
 	switch language {
 	case "tw":
-		return fmt.Sprintf("NADAA Twi alert. %s. Area: %s. %s Call 112 if life is in danger.", title, target, action)
+		return fmt.Sprintf("%s Twi alert. %s. Area: %s. %s Call 112 if life is in danger.", utils.BrandName(), title, target, action)
 	case "ga":
-		return fmt.Sprintf("NADAA Ga alert. %s. Area: %s. %s Call 112 if life is in danger.", title, target, action)
+		return fmt.Sprintf("%s Ga alert. %s. Area: %s. %s Call 112 if life is in danger.", utils.BrandName(), title, target, action)
 	case "ee":
-		return fmt.Sprintf("NADAA Ewe alert. %s. Area: %s. %s Call 112 if life is in danger.", title, target, action)
+		return fmt.Sprintf("%s Ewe alert. %s. Area: %s. %s Call 112 if life is in danger.", utils.BrandName(), title, target, action)
 	case "dag":
-		return fmt.Sprintf("NADAA Dagbani alert. %s. Area: %s. %s Call 112 if life is in danger.", title, target, action)
+		return fmt.Sprintf("%s Dagbani alert. %s. Area: %s. %s Call 112 if life is in danger.", utils.BrandName(), title, target, action)
 	case "ha":
-		return fmt.Sprintf("NADAA Hausa alert. %s. Area: %s. %s Call 112 if life is in danger.", title, target, action)
+		return fmt.Sprintf("%s Hausa alert. %s. Area: %s. %s Call 112 if life is in danger.", utils.BrandName(), title, target, action)
 	default:
-		return fmt.Sprintf("NADAA alert. %s. Area: %s. %s Call 112 if life is in danger.", title, target, action)
+		return fmt.Sprintf("%s alert. %s. Area: %s. %s Call 112 if life is in danger.", utils.BrandName(), title, target, action)
 	}
 }
 

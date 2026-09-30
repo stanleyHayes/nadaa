@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://nadaa.gov.gh/sitemap.xml
+Sitemap: https://usesubvenio.com/sitemap.xml

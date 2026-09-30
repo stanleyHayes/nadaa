@@ -1,6 +1,6 @@
 /**
  * NADAA dark-screen tint catalogue — the single source of truth for the eight
- * Navy Command dark tints.
+ * SUBVENIO dark tints.
  *
  * A tint changes the dark screen CAST only (the surface / inset / card hue);
  * text and brand accents stay put. Each entry carries display copy plus a
@@ -15,8 +15,8 @@ export const DARK_TINTS = [
   {
     value: "ink",
     label: "Ink",
-    description: "The default neutral black-and-silver command screen.",
-    swatches: ["#0f0f0f", "#1e1e1e", "#d4d4d4"],
+    description: "The default deep-navy command screen.",
+    swatches: ["#050e1b", "#0e2138", "#7fb2ff"],
   },
   {
     value: "burgundy",
@@ -70,7 +70,7 @@ export const DARK_TINTS = [
 /** The value-union of the eight tints. `DARK_TINTS` is the ordering authority. */
 export type DarkTint = (typeof DARK_TINTS)[number]["value"];
 
-/** Ink is the neutral warm-navy default screen. */
+/** Ink is the deep-navy default screen. */
 export const DEFAULT_TINT: DarkTint = "ink";
 
 /** All tint values, in catalogue order. */

@@ -21,22 +21,22 @@ const providerHTTPTimeout = 10 * time.Second
 // selects a real provider without its credentials is disabled with a clear
 // reason rather than silently mocking a live selection or crashing. This mirrors
 // the CellBroadcastAdapterFromMode fail-safe default.
-func BuildProviders(cfg config.ProviderConfig) map[string]models.NotificationProvider {
+func BuildProviders(cfg config.ProviderConfig, brandName string) map[string]models.NotificationProvider {
 	httpClient := &http.Client{Timeout: providerHTTPTimeout}
 	return map[string]models.NotificationProvider{
-		"push":  buildPushProvider(cfg, httpClient),
-		"sms":   buildSMSProvider(cfg, httpClient),
+		"push":  buildPushProvider(cfg, brandName, httpClient),
+		"sms":   buildSMSProvider(cfg, brandName, httpClient),
 		"voice": buildVoiceProvider(cfg),
 	}
 }
 
-func buildSMSProvider(cfg config.ProviderConfig, client *http.Client) models.NotificationProvider {
+func buildSMSProvider(cfg config.ProviderConfig, brandName string, client *http.Client) models.NotificationProvider {
 	switch normalizeProvider(cfg.SMSProvider) {
 	case "arkesel":
 		if strings.TrimSpace(cfg.ArkeselAPIKey) == "" {
 			return models.DisabledProvider{Channel: "sms", Reason: "sms provider 'arkesel' selected but NADAA_ARKESEL_API_KEY is not set"}
 		}
-		return models.NewArkeselSMSProvider(cfg.ArkeselAPIKey, cfg.ArkeselSender, cfg.ArkeselBaseURL, client)
+		return models.NewArkeselSMSProvider(cfg.ArkeselAPIKey, cfg.ArkeselSender, cfg.ArkeselBaseURL, brandName, client)
 	case "", "sandbox", "mock":
 		return models.MockProvider{Channel: "sms"}
 	case "disabled", "off", "none":
@@ -46,12 +46,12 @@ func buildSMSProvider(cfg config.ProviderConfig, client *http.Client) models.Not
 	}
 }
 
-func buildPushProvider(cfg config.ProviderConfig, client *http.Client) models.NotificationProvider {
+func buildPushProvider(cfg config.ProviderConfig, brandName string, client *http.Client) models.NotificationProvider {
 	switch normalizeProvider(cfg.PushProvider) {
 	case "expo":
 		// Expo push needs no API key (the access token is optional), so there is
 		// no credential guard here beyond the explicit selection.
-		return models.NewExpoPushProvider(cfg.ExpoAccessToken, cfg.ExpoBaseURL, client)
+		return models.NewExpoPushProvider(cfg.ExpoAccessToken, cfg.ExpoBaseURL, brandName, client)
 	case "", "sandbox", "mock":
 		return models.MockProvider{Channel: "push"}
 	case "disabled", "off", "none":

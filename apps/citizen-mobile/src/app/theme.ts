@@ -23,7 +23,7 @@ export function hexToRgba(hex: string, alpha: number): string {
 }
 
 /**
- * NADAA citizen-mobile theme.
+ * SUBVENIO citizen-mobile theme.
  *
  * Re-exports and extends the shared React Native theme from `@nadaa/brand/native`
  * so the mobile app consumes the same design tokens as the web apps. Legacy

@@ -252,7 +252,7 @@ func parseAlertFeedFilters(r *http.Request) (models.AlertFeedFilters, string, st
 	}
 
 	if filters.Hazard != "" && !allowedHazards[filters.Hazard] {
-		return models.AlertFeedFilters{}, "invalid_hazard", "hazard must be a supported NADAA hazard type"
+		return models.AlertFeedFilters{}, "invalid_hazard", "hazard must be a supported hazard type"
 	}
 	if filters.Severity != "" && !allowedSeverities[filters.Severity] {
 		return models.AlertFeedFilters{}, "invalid_severity", "severity must be advisory, watch, warning, severe_warning, or emergency"

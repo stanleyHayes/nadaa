@@ -1,8 +1,11 @@
 // Bump CACHE_VERSION on every change to the precached shell or strategy — the
 // activate handler deletes every cache that does not match the current name.
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE_NAME = `nadaa-citizen-${CACHE_VERSION}`;
-const APP_SHELL = ["/", "/brand/nadaa-logo.png"];
+// `cache.addAll` is atomic: one 404 rejects the whole promise, which rejects
+// the install and leaves the app with no offline support at all. Every entry
+// here must exist in public/ — check before renaming or deleting an asset.
+const APP_SHELL = ["/", "/brand/subvenio-icon.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -1,33 +1,89 @@
 {
   "expo": {
-    "name": "NADAA Citizen",
-    "slug": "nadaa-citizen",
-    "scheme": "nadaa-citizen",
+    "name": "SUBVENIO Citizen",
+    "slug": "subvenio-citizen",
+    "scheme": "subvenio-citizen",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "backgroundColor": "#1a1a1a",
-    "userInterfaceStyle": "light",
+    "backgroundColor": "#0A1F3D",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a1a1a"
+      "backgroundColor": "#0A1F3D"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "bundleIdentifier": "com.nadaa.citizen",
+      "bundleIdentifier": "com.subvenio.citizen",
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "NADAA lets you attach incident photos when reporting emergencies.",
-        "NSLocationWhenInUseUsageDescription": "NADAA uses your location to check risk, find shelters, and send accurate emergency reports.",
-        "NSPhotoLibraryUsageDescription": "NADAA lets you attach existing photos or videos to incident reports."
+        "NSCameraUsageDescription": "SUBVENIO lets you attach incident photos when reporting emergencies.",
+        "NSLocationWhenInUseUsageDescription": "SUBVENIO uses your location to check risk, find shelters, and send accurate emergency reports.",
+        "NSPhotoLibraryUsageDescription": "SUBVENIO lets you attach existing photos or videos to incident reports."
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          }
+        ],
+        "NSPrivacyCollectedDataTypes": [
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePreciseLocation",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePhotosorVideos",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePhoneNumber",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeName",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeUserID",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          }
+        ]
       }
     },
     "android": {
-      "package": "com.nadaa.citizen",
+      "package": "com.subvenio.citizen",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1a1a1a"
+        "backgroundColor": "#0A1F3D"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -46,17 +102,10 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#E53935"
+          "color": "#FF8A3D"
         }
       ],
       "expo-location"
-    ],
-    "extra": {
-      "incidentApiUrl": "http://localhost:8084/api/v1",
-      "riskApiUrl": "http://localhost:8081/api/v1",
-      "notificationApiUrl": "http://localhost:8090/api/v1",
-      "guideApiUrl": "http://localhost:8086/api/v1",
-      "shelterApiUrl": "http://localhost:8093/api/v1"
-    }
+    ]
   }
 }

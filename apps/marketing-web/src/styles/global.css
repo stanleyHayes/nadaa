@@ -217,9 +217,10 @@ textarea {
   display: flex;
   align-items: center;
   overflow: hidden;
-  background-image: url("/brand/nadaa-brand-sheet.png");
-  background-position: center;
-  background-size: cover;
+  /* No background image here: the parallax `.hero-media` layer carries it, and
+     the rule further down sets `background-image: none` on this element. The
+     NADAA brand sheet that used to be declared here was dead for that reason,
+     and would have been brand-wrong if anyone revived it. */
   border-bottom: 1px solid var(--nadaa-border-subtle);
 }
 
@@ -239,7 +240,10 @@ textarea {
 
 .eyebrow {
   margin: 0 0 var(--nadaa-space-3);
-  color: var(--nadaa-green);
+  /* Green measured 3.10:1 as 12px eyebrow text on warm-light; the on-light
+     variant keeps the hue and clears AA. Eyebrows on the dark bands are
+     re-coloured by the later rules and keep the brand accent. */
+  color: var(--sv-on-light-green);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -249,8 +253,15 @@ textarea {
 .hero-content h1 {
   margin: 0;
   color: var(--nadaa-navy);
-  font-size: clamp(4rem, 16vw, 10rem);
-  line-height: 0.86;
+  /* Sized so the wordmark holds one line. The previous clamp was tuned for a
+     five-letter mark and broke "SUBVENIO" across two lines; these values fit
+     eight letters at every width. `nowrap` makes a regression obvious — the
+     mark overflows visibly rather than silently re-wrapping — and the ch-based
+     ceiling keeps it from outgrowing its column on very wide screens. */
+  font-size: clamp(2.4rem, 9.2vw, 6.5rem);
+  max-width: 100%;
+  white-space: nowrap;
+  line-height: 0.92;
   letter-spacing: 0;
 }
 
@@ -762,7 +773,10 @@ textarea {
   flex-shrink: 0;
 }
 
-/* 4th-pattern: uppercase inline nav with a sliding accent underline. */
+/* Uppercase inline desktop nav. The sliding accent underline this was built
+   for is gone (replaced by the pressed/inset active pill further down), so
+   the `position: relative` here and the `z-index: 1` below no longer layer
+   anything — they are kept only as a harmless positioning baseline. */
 .site-nav {
   position: relative;
   gap: clamp(18px, 2.4vw, 30px);
@@ -796,28 +810,6 @@ textarea {
   background: transparent;
   box-shadow: none;
   text-shadow: none;
-}
-
-/* The single accent bar that slides beneath the active nav item. */
-.nav-pill-indicator {
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 0;
-  border-radius: 999px;
-  background: var(--nadaa-gold);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--nadaa-gold) 45%, transparent);
-  pointer-events: none;
-  transition:
-    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    width 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .nav-pill-indicator {
-    transition: opacity 200ms ease;
-  }
 }
 
 /* Row icon + chevron belong to the mobile menu; the desktop nav is a pill bar. */
@@ -1079,10 +1071,6 @@ textarea {
   .site-nav.is-open {
     display: grid;
     animation: nav-menu-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  .nav-pill-indicator {
-    display: none;
   }
 
   .site-nav a {
@@ -1880,10 +1868,12 @@ textarea {
 /* Accent-tinted title, mixed toward navy so lighter tones stay legible. */
 .role-lane__title {
   margin: 0 0 var(--nadaa-space-2);
+  /* 78% left the lighter accents at 3.32:1 as heading text; 55% into the ink
+     clears 4.5:1 for every role. */
   color: color-mix(
     in srgb,
-    var(--role-accent, var(--nadaa-navy)) 78%,
-    var(--nadaa-navy)
+    var(--role-accent, var(--nadaa-navy)) 55%,
+    var(--nadaa-ink)
   );
   font-size: 1.14rem;
   line-height: 1.15;
@@ -2164,7 +2154,13 @@ textarea {
   width: 100%;
   min-height: 46px;
   padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--nadaa-navy) 18%, transparent);
+  /* A field's border is the only thing that says "type here", so it has to
+     clear the WCAG 1.4.11 3:1 bar for UI components. A tint of --nadaa-navy
+     cannot: that token is a near-black in light but a LIGHT silver on dark, so
+     18% of it over the field ground measured 1.53:1 light and 1.06:1 dark —
+     effectively invisible. --nadaa-silver is a fixed mid-grey that reads on
+     both grounds (3.28:1 on white, 5.09:1 on the #1e1e1e dark field). */
+  border: 1px solid var(--nadaa-silver);
   border-radius: var(--nadaa-radius-md);
   background: var(--nadaa-white);
   color: var(--nadaa-text-primary);
@@ -2730,7 +2726,7 @@ textarea {
 
 /* ==================================================================
  * Light/dark theme toggle button (header pill row).
- * Auto-adapts in dark: --nadaa-navy -> indigo icon, --nadaa-white -> dark
+ * Auto-adapts in dark: --nadaa-navy -> silver icon, --nadaa-white -> dark
  * surface, so no dark override is needed for the control itself.
  * ================================================================== */
 .theme-toggle {
@@ -2769,14 +2765,14 @@ textarea {
  * Brand's dark.css (imported via @nadaa/brand/brand.css) re-points the
  * --nadaa-* token VALUES under :root[data-theme="dark"], so most of this
  * light-built marketing site flips automatically: white-role card surfaces
- * darken, ink text lightens, navy-as-accent becomes a legible indigo, and the
+ * darken, ink text lightens, ink-as-accent becomes a legible silver, and the
  * derived tokens in this file (hero shade, card bg, emergency tints, subtle
  * borders) re-resolve from the dark base because var() substitution is lazy.
  *
- * The one thing brand cannot know is which navy is an ACCENT (icon/heading —
- * correctly lightened to indigo) versus a solid FILL. For the permanently-navy
- * CHROME surfaces (utility bar, hero scrim, trust/research/CTA bands, page
- * banners, and the navy buttons) we re-pin --nadaa-navy back to a deep navy
+ * The one thing brand cannot know is which use of the ink token is an ACCENT
+ * (icon/heading — correctly lightened to silver) versus a solid FILL. For the
+ * permanently-dark CHROME surfaces (utility bar, hero scrim, trust/research/CTA
+ * bands, page banners, and the filled buttons) we re-pin --nadaa-navy to a dark
  * that stays distinct on the dark canvas, and keep --nadaa-white as true white
  * so their inverse text and glass overlays read light.
  * ================================================================== */
@@ -2794,7 +2790,8 @@ textarea {
 :root[data-theme="dark"] .skip-link,
 :root[data-theme="dark"] .footer-emergency-badge,
 :root[data-theme="dark"] .footer-emergency-call {
-  /* Deep navy that stays clearly above the dark page canvas (#0f0f0f/#161616). */
+  /* A raised graphite that stays clearly above the dark page canvas
+     (#0f0f0f/#161616). */
   --nadaa-navy: #242424;
   /* Keep white-as-inverse-text + white-glass overlays actually light. */
   --nadaa-white: #ffffff;
@@ -3258,35 +3255,48 @@ textarea {
  * surface tracks the page ground so the extrusion reads.
  * ================================================================== */
 :root {
-  --neu-surface: #eef1f4;
+  /* Warm-light family, and light enough that --nadaa-slate (muted, #64748B)
+     clears 4.5:1 on it — at the previous #eef1f4 every body and secondary
+     string on a soft card measured 4.20:1. */
+  --neu-surface: #f7f9fa;
   --neu-raise:
-    -7px -7px 16px rgba(255, 255, 255, 0.92),
-    9px 9px 22px rgba(13, 13, 13, 0.1);
+    -7px -7px 16px rgba(255, 255, 255, 0.92), 9px 9px 22px rgba(13, 13, 13, 0.1);
   --neu-raise-hover:
     -9px -9px 20px rgba(255, 255, 255, 0.95),
     12px 12px 28px rgba(13, 13, 13, 0.14);
   --neu-raise-sm:
-    -4px -4px 9px rgba(255, 255, 255, 0.92),
-    5px 5px 12px rgba(13, 13, 13, 0.13);
+    -4px -4px 9px rgba(255, 255, 255, 0.92), 5px 5px 12px rgba(13, 13, 13, 0.13);
   --neu-inset:
     inset 3px 3px 7px rgba(13, 13, 13, 0.14),
     inset -3px -3px 7px rgba(255, 255, 255, 0.85);
+  /* Scales the top-left white highlight on the COLORED buttons (gold/green/red),
+     which can't use --neu-raise because they keep their own fill. Full strength
+     on the near-white ground; near-zero on dark, where an unscaled white
+     highlight reads as a glow halo instead of an extrusion. */
+  --neu-btn-hi-amt: 100%;
+  /* Drop for the small colour-accent pills. A plain dark drop disappears on the
+     dark card, so dark mode deepens it and adds a top edge-light instead. */
+  --neu-pill-drop: 0 1px 3px color-mix(in srgb, #0d0d0d 22%, transparent);
 }
 
 :root[data-theme="dark"] {
-  --neu-surface: #191919;
+  /* Matches the dark card surface in dark.css (#0e2138); the previous #191919
+     was an Onyx grey left over from the earlier identity. */
+  --neu-surface: #0e2138;
   --neu-raise:
-    -6px -6px 14px rgba(255, 255, 255, 0.045),
-    9px 9px 22px rgba(0, 0, 0, 0.62);
+    -6px -6px 14px rgba(255, 255, 255, 0.045), 9px 9px 22px rgba(0, 0, 0, 0.62);
   --neu-raise-hover:
-    -8px -8px 18px rgba(255, 255, 255, 0.06),
-    12px 12px 28px rgba(0, 0, 0, 0.7);
+    -8px -8px 18px rgba(255, 255, 255, 0.06), 12px 12px 28px rgba(0, 0, 0, 0.7);
   --neu-raise-sm:
-    -3px -3px 8px rgba(255, 255, 255, 0.05),
-    5px 5px 12px rgba(0, 0, 0, 0.6);
+    -3px -3px 8px rgba(255, 255, 255, 0.05), 5px 5px 12px rgba(0, 0, 0, 0.6);
   --neu-inset:
     inset 3px 3px 7px rgba(0, 0, 0, 0.6),
     inset -3px -3px 7px rgba(255, 255, 255, 0.045);
+  /* 8% of the light-mode alphas lands each button highlight at ~0.03-0.05,
+     matching the white component of --neu-raise above. */
+  --neu-btn-hi-amt: 8%;
+  --neu-pill-drop:
+    0 1px 3px rgba(0, 0, 0, 0.6), 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* --- Product showcase --------------------------------------------- */
@@ -3305,9 +3315,14 @@ textarea {
   border-radius: 26px;
   background: var(--neu-surface);
   box-shadow: var(--neu-raise);
+  /* This element is also the `.reveal` root, and this shorthand wins over
+     `.reveal`'s (same specificity, later in the file). `opacity` must stay in
+     the list or the scroll-in fade is silently dropped and cards pop in at
+     full opacity. Keep the duration in sync with `.reveal`. */
   transition:
     transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 260ms ease;
+    box-shadow 260ms ease,
+    opacity 0.65s ease;
 }
 
 .showcase-card:hover {
@@ -3383,9 +3398,14 @@ textarea {
   padding: 28px 24px 24px;
   background: var(--neu-surface);
   box-shadow: var(--neu-raise);
+  /* This element is also the `.reveal` root, and this shorthand wins over
+     `.reveal`'s (same specificity, later in the file). `opacity` must stay in
+     the list or the scroll-in fade is silently dropped and cards pop in at
+     full opacity. Keep the duration in sync with `.reveal`. */
   transition:
     transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 260ms ease;
+    box-shadow 260ms ease,
+    opacity 0.65s ease;
 }
 
 .loop-card:hover {
@@ -3483,7 +3503,7 @@ textarea {
 
 /* Keep the per-feature colour marker legible as a raised pill on the soft card. */
 .feature-card span {
-  box-shadow: 0 1px 3px color-mix(in srgb, #0d0d0d 22%, transparent);
+  box-shadow: var(--neu-pill-drop);
 }
 
 /* Neumorphic plain stat tiles (Trust). */
@@ -3662,71 +3682,101 @@ textarea {
  * links become raised soft pills; the active one presses in (inset).
  * ================================================================== */
 
-/* Nav links -> raised soft pills, active = pressed. */
-.site-nav {
-  gap: 8px;
-}
+/* Nav links -> raised soft pills, active = pressed.
+   DESKTOP ONLY. At the drawer breakpoint the nav becomes the full-width mobile
+   drawer styled in the `max-width: 760px` block far above; these rules have the
+   same specificity and sit later in the file, so unscoped they would win there
+   too and shrink the drawer rows under the 44px touch target while replacing
+   the gold active marker.
+   `not all and (max-width: 760px)` is the EXACT complement of that query rather
+   than `min-width: 761px`, which would leave fractional widths (760.5px, common
+   under browser zoom) matching neither block. Keep it in sync with the drawer. */
+@media not all and (max-width: 760px) {
+  .site-nav {
+    gap: 8px;
+  }
 
-.site-nav a {
-  min-height: 38px;
-  padding: 0 15px;
-  border-radius: 12px;
-  background: var(--neu-surface);
-  box-shadow: var(--neu-raise-sm);
-  transition:
-    box-shadow 200ms ease,
-    color 150ms ease;
-}
+  .site-nav a {
+    min-height: 38px;
+    padding: 0 15px;
+    border-radius: 12px;
+    background: var(--neu-surface);
+    box-shadow: var(--neu-raise-sm);
+    transition:
+      box-shadow 200ms ease,
+      color 150ms ease;
+  }
 
-.site-nav a:hover {
-  color: var(--nadaa-navy);
-  box-shadow: var(--neu-raise);
-}
+  .site-nav a:hover {
+    color: var(--nadaa-navy);
+    box-shadow: var(--neu-raise);
+  }
 
-.site-nav a.is-active,
-.site-nav a.is-active:hover {
-  color: var(--nadaa-navy);
-  box-shadow: var(--neu-inset);
-}
-
-/* The sliding underline is replaced by the inset active pill. */
-.nav-pill-indicator {
-  display: none;
+  .site-nav a.is-active,
+  .site-nav a.is-active:hover {
+    color: var(--nadaa-navy);
+    box-shadow: var(--neu-inset);
+  }
 }
 
 /* Gold "Sign up" — solid gold, pillowy shadow. */
 .cta-button {
   background: var(--nadaa-gold);
   box-shadow:
-    -4px -4px 9px rgba(255, 255, 255, 0.6),
+    -4px -4px 9px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.6) var(--neu-btn-hi-amt),
+        transparent
+      ),
     6px 7px 15px color-mix(in srgb, var(--nadaa-gold) 42%, #0d0d0d);
 }
 
 .cta-button:hover {
   transform: translateY(-1px);
   box-shadow:
-    -3px -3px 7px rgba(255, 255, 255, 0.5),
+    -3px -3px 7px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.5) var(--neu-btn-hi-amt),
+        transparent
+      ),
     5px 6px 13px color-mix(in srgb, var(--nadaa-gold) 50%, #0d0d0d);
 }
 
 /* Green "Partnership briefing". */
 .site-footer .footer-cta {
   box-shadow:
-    -4px -4px 9px rgba(255, 255, 255, 0.55),
+    -4px -4px 9px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.55) var(--neu-btn-hi-amt),
+        transparent
+      ),
     6px 7px 15px color-mix(in srgb, var(--nadaa-green) 42%, #0d0d0d);
 }
 
 /* Red "Call 112". */
 .footer-emergency-call {
   box-shadow:
-    -4px -4px 9px rgba(255, 255, 255, 0.4),
+    -4px -4px 9px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.4) var(--neu-btn-hi-amt),
+        transparent
+      ),
     6px 7px 15px color-mix(in srgb, var(--nadaa-red) 45%, #0d0d0d);
 }
 
 .footer-emergency-call:hover {
   transform: translateY(-1px);
   box-shadow:
-    -3px -3px 7px rgba(255, 255, 255, 0.35),
+    -3px -3px 7px
+      color-mix(
+        in srgb,
+        rgba(255, 255, 255, 0.35) var(--neu-btn-hi-amt),
+        transparent
+      ),
     5px 6px 13px color-mix(in srgb, var(--nadaa-red) 52%, #0d0d0d);
 }
 
@@ -3743,4 +3793,94 @@ textarea {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     6px 8px 18px rgba(0, 0, 0, 0.32);
+}
+
+/* ==================================================================
+ * Legal documents (privacy notice, and anything else long-form).
+ * Narrow measure, generous leading — these are read, not scanned.
+ * ================================================================== */
+.legal-doc {
+  max-width: 68ch;
+  margin: 0 auto;
+}
+
+.legal-lede {
+  font-size: 1.08rem;
+  line-height: 1.65;
+  color: var(--nadaa-text-primary);
+  padding-bottom: var(--nadaa-space-5);
+  border-bottom: 1px solid var(--nadaa-border);
+}
+
+.legal-doc section {
+  margin-top: var(--nadaa-space-8);
+}
+
+.legal-doc h3 {
+  margin: 0 0 var(--nadaa-space-3);
+  font-size: 1.12rem;
+  color: var(--nadaa-navy);
+}
+
+.legal-doc p {
+  margin: 0 0 var(--nadaa-space-3);
+  line-height: 1.65;
+  color: var(--nadaa-text-secondary);
+}
+
+.legal-list {
+  margin: var(--nadaa-space-4) 0 0;
+  display: grid;
+  gap: var(--nadaa-space-4);
+}
+
+.legal-list dt {
+  font-weight: 700;
+  color: var(--nadaa-text-primary);
+}
+
+.legal-list dd {
+  margin: var(--nadaa-space-1) 0 0;
+  line-height: 1.6;
+  color: var(--nadaa-text-secondary);
+}
+
+.legal-foot {
+  margin-top: var(--nadaa-space-8);
+  padding-top: var(--nadaa-space-5);
+  border-top: 1px solid var(--nadaa-border);
+  font-weight: 600;
+  color: var(--nadaa-text-primary);
+}
+
+/* ==================================================================
+ * Accent copy on light grounds — measured fixes.
+ *
+ * The brand accents are specified for the dark chrome. As TEXT on a light
+ * surface they miss AA: hope-orange 2.24:1 and success green 3.10:1 on
+ * warm-light, muted 3.46:1 on the dark hero band. Each rule below re-points
+ * only the text colour and keeps the hue.
+ * ================================================================== */
+.content-section .eyebrow,
+.cta-card .eyebrow,
+.trust-section .eyebrow,
+.section-heading .eyebrow {
+  color: var(--sv-on-light-orange);
+}
+
+.section-link,
+/* Per-role accent as text on the light card. 55% accent into the ink keeps
+   each role's hue while putting the WORST accent (soft-teal) at 4.62:1; the
+   raw accents measure 2.22:1 (orange) and 3.07:1 (green) here. */
+.role-tagline {
+  color: color-mix(
+    in srgb,
+    var(--role-accent, var(--nadaa-green)) 55%,
+    var(--nadaa-ink)
+  );
+}
+
+/* Muted copy sitting on the permanently-dark hero band. */
+.hero-content .hero-hazards {
+  color: var(--sv-on-dark-muted);
 }

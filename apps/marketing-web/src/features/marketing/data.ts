@@ -4,7 +4,7 @@ export const navItems = [
   { href: "#about", label: "About" },
   { href: "#how", label: "How it works" },
   { href: "#platforms", label: "Platforms" },
-  { href: "#why", label: "Why NADAA" },
+  { href: "#why", label: "Why SUBVENIO" },
   { href: "#benefits", label: "Benefits" },
   { href: "#contact", label: "Contact" },
 ] as const;
@@ -45,7 +45,7 @@ export const coreFeatures = [
     title: "Command Operations",
     description:
       "Dispatchers, agencies, and admins coordinate incidents from role-specific consoles.",
-    // CSS token (not a fixed hex) so navy flips to a legible indigo in dark mode.
+    // CSS token (not a fixed hex) so the ink flips to a legible silver in dark mode.
     accent: "var(--nadaa-navy)",
   },
   {
@@ -201,7 +201,7 @@ export const contactCards = [
     primary: "Request a platform briefing",
     detail:
       "For agency onboarding, donor briefings, district pilots, or technical partnerships.",
-    href: "mailto:partnerships@nadaa.gov.gh?subject=NADAA%20partnership%20request",
+    href: "mailto:partnerships@nadaa.gov.gh?subject=SUBVENIO%20partnership%20request",
   },
   {
     title: "Operational rollout",
@@ -296,7 +296,7 @@ export const roleSurfaces = [
   {
     role: "Command center",
     icon: "authority",
-    // CSS token (not a fixed hex) so navy flips to a legible indigo in dark mode.
+    // CSS token (not a fixed hex) so the ink flips to a legible silver in dark mode.
     accent: "var(--nadaa-navy)",
     tagline: "Command Ghana's disaster response.",
     audience: "NADMO authority and command-center staff",
@@ -466,7 +466,7 @@ export const differentiators = [
   {
     title: "Inclusive access built for Ghana",
     description:
-      "NADAA reaches people with no smartphone or data — over SMS, USSD, WhatsApp, voice on 112, and cell broadcast — and the citizen app is offline-first, caching warnings and guides for when the network drops.",
+      "SUBVENIO reaches people with no smartphone or data — over SMS, USSD, WhatsApp, voice on 112, and cell broadcast — and the citizen app is offline-first, caching warnings and guides for when the network drops.",
   },
   {
     title: "One flood surge, one clear incident",
@@ -513,7 +513,7 @@ export const impactStats = [
 ] as const;
 
 export const trustPoints = [
-  "No public warning leaves NADAA without a person approving it — AI informs the decision, but never publishes on its own.",
+  "No public warning leaves SUBVENIO without a person approving it — AI informs the decision, but never publishes on its own.",
   "Offline-first and low-bandwidth by design: warnings and guides reach citizens over SMS, USSD, WhatsApp, voice, and cell broadcast, and keep working on a cached app when networks fail.",
   "Built for who Ghana actually is — emergency guidance and voice alerts in six Ghanaian languages, with anonymous reporting and accessibility-need capture.",
   "Accountable end to end: MFA-gated roles, a secret-redacted audit trail on every sensitive action, and governed partner feeds with documented manual fallbacks.",
@@ -523,12 +523,12 @@ export const complianceItems = [
   {
     title: "Data protection",
     description:
-      "Personal data is handled under Ghana's Data Protection Act, 2012 (Act 843). NADAA collects the minimum needed, supports anonymous reporting, and never exposes a reporter's identity to the public.",
+      "Personal data is handled under Ghana's Data Protection Act, 2012 (Act 843). SUBVENIO collects the minimum needed, supports anonymous reporting, and never exposes a reporter's identity to the public.",
   },
   {
     title: "Official emergency response",
     description:
-      "NADAA supports the National Disaster Management Organisation (NADMO) and Ghana's 112 emergency service. It complements official response and never replaces a call to 112.",
+      "SUBVENIO supports the National Disaster Management Organisation (NADMO) and Ghana's 112 emergency service. It complements official response and never replaces a call to 112.",
   },
   {
     title: "Human-approved warnings",

@@ -145,8 +145,8 @@ export function CitizenLayout() {
       </div>
 
       <header className="citizen-header">
-        <NavLink className="citizen-brand" to="/" aria-label="NADAA home">
-          <img alt="" src="/brand/nadaa-logo.png" />
+        <NavLink className="citizen-brand" to="/" aria-label="SUBVENIO home">
+          <img alt="" src="/brand/subvenio-icon.png" />
           <span>
             <strong>{nadaaBrand.name}</strong>
             <small>

@@ -596,7 +596,7 @@ export function ReportPage() {
         />
       </Stack>
       <Alert severity="info" className="warning-alert">
-        You're reporting as {session?.name}. NADAA uses your report and location
+        You're reporting as {session?.name}. SUBVENIO uses your report and location
         to route emergency response, detect duplicates, and coordinate verified
         authority actions. Turning off contact means responders cannot call you
         back about this report.

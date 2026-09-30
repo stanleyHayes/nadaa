@@ -4,8 +4,8 @@
   --nadaa-topbar-accent: var(--nadaa-gold);
   /* Chrome navy: navy used as a permanent dark BACKGROUND (utility bar, hero,
      sign-in brand panel, page banner, map). In dark mode `--nadaa-navy` becomes
-     a light accent indigo, so these chrome surfaces pin this variable to a fixed
-     deep navy instead (see the dark-mode block at the foot of this file). */
+     a light accent silver, so these chrome surfaces pin this variable to a fixed
+     dark instead (see the dark-mode block at the foot of this file). */
   --citizen-navy: var(--nadaa-navy);
   --nadaa-border-subtle: color-mix(in srgb, var(--nadaa-navy) 10%, transparent);
   --nadaa-border-gold: color-mix(in srgb, var(--nadaa-gold) 40%, transparent);
@@ -2176,7 +2176,7 @@ body {
 
 /* ================================================================== *
  * Citizen DataTable — the shared browse grid (missing persons, alerts,
- * aid, reports). Navy Command treatment: a full-bleed tinted header band
+ * aid, reports). Onyx Command treatment: a full-bleed tinted header band
  * seamed by a gold hairline (the signature), airy hairline-divided rows,
  * and a gold left-accent bar that lights up on clickable-row hover.
  * ================================================================== */
@@ -2288,8 +2288,8 @@ body {
  * This block handles the one thing the token flip cannot: navy used as a
  * permanent dark BACKGROUND (the utility bar, hero, sign-in brand panel, page
  * banner, and Leaflet map chrome). Those rules reference `--citizen-navy`, which
- * we pin to a fixed deep navy here so they stay dark instead of turning into the
- * light accent indigo that `--nadaa-navy` becomes on dark. Everything is gated
+ * we pin to a fixed dark here so they stay dark instead of turning into the
+ * light accent silver that `--nadaa-navy` becomes on dark. Everything is gated
  * by [data-theme="dark"], so light mode is untouched.
  * ================================================================== */
 

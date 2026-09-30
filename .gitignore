@@ -14,6 +14,27 @@ coverage/
 !.env.example
 *.log
 
+# Ad-hoc browser-verification artifacts. Playwright writes screenshots to the
+# process CWD, which lands them in an app directory when a check is run from
+# there; they must never be committed (1.3MB slipped into 53cd0ac this way).
+# Real product imagery lives under each app's public/, which this does not touch.
+/apps/*/*.png
+/apps/*/*.webp
+/apps/*/trace.zip
+/*.png.tmp
+
+# Registration certificates, IDs and other scanned corporate documents. These
+# carry TINs, signatures and registration numbers that do not belong in a
+# repository, and a public one would expose them permanently.
+/*.jpeg
+/*.jpg
+/WhatsApp*
+/certificate*
+/Certificate*
+
+# Agent tooling state (never product code)
+.raven/
+
 # OS/editor
 .DS_Store
 .idea/

@@ -1,6 +1,6 @@
-# NADAA Design System
+# SUBVENIO Design System
 
-This document describes the shared visual system for NADAA web apps. It covers design tokens, the canonical MUI theme, accessibility expectations, and per-app conventions.
+This document describes the shared visual system for SUBVENIO web apps. It covers design tokens, the canonical MUI theme, accessibility expectations, and per-app conventions.
 
 ## Goals
 
@@ -104,7 +104,7 @@ Options:
 The theme sets:
 
 - Outfit font family.
-- Onyx primary, green secondary, red error, gold warning.
+- Deep-navy primary, green secondary, red error, gold warning.
 - Consistent heading weights and type scale.
 - `borderRadius: 8`.
 - Paper `backgroundImage: 'none'`.

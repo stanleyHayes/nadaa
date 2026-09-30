@@ -1,13 +1,30 @@
 # CLAUDE.md
 
-This repository follows the NADAA delivery plan in `agent_plan.md`.
+This repository follows the delivery plan in `agent_plan.md`, now moving toward
+the product direction in `SUBVENIO_Product_Blueprint_v2.docx` and the identity
+in `SUBVENIO_Brand_Motion_Implementation_Guide.docx`.
 
 ## Core Context
 
-- Product: Ghana National Disaster Alert and Response Platform.
-- Slogan: Be Aware. Be Prepared. Be Safe.
+- Product: SUBVENIO, Ghana's emergency alert and response platform.
+- Tagline: Someone is coming.
 - Priority hazard: flood risk and flood response.
 - MVP: citizen risk checker, citizen reporting, authority dashboard, approved alerts, emergency guidance, shelters, and baseline flood risk scoring.
+- In progress: the blueprint's personal-safety modules — Beacon, Circle, Halo,
+  Watch, Vault — are not built yet. Incident, Alert, Dispatch and Responder are.
+
+## Brand
+
+- SUBVENIO is a WORKING identity, not a cleared trademark. Do not treat the
+  rebrand as final until clearance completes.
+- Everything user-facing resolves through `ACTIVE_BRAND` in
+  `packages/brand/src/identity.ts`. Changing brands is that one line plus the
+  `[data-brand]` block in `brand.css`.
+- `X-NADAA-*` headers, `NADAA_*` env vars, the `@nadaa/*` npm scope and the
+  `--nadaa-*` CSS properties are wire and internal identifiers. They do NOT
+  move with the brand; renaming them breaks service-to-service auth.
+- Go services read the name from `SUBVENIO_BRAND_NAME` (they cannot import the
+  TypeScript package); keep its default in step with `ACTIVE_BRAND`.
 
 ## Engineering Guidance
 

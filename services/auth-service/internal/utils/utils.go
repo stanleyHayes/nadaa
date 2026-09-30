@@ -427,8 +427,12 @@ const (
 	totpSecretBytes    = 20
 	totpMinSecretBytes = 10
 	totpVerifyWindow   = 1
-	totpIssuer         = "NADAA"
-	totpCodeModulus    = 1000000
+	// Shown as the account label in the user's authenticator app, so it is
+	// user-facing brand copy. Safe to change only because nothing has shipped:
+	// an existing enrollment keeps whatever label it was created with, since
+	// the issuer is baked into the otpauth URI at enrollment time.
+	totpIssuer      = "SUBVENIO"
+	totpCodeModulus = 1000000
 )
 
 // base32NoPadding is the authenticator-app secret encoding (RFC 4648 §3.2).

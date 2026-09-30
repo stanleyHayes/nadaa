@@ -118,7 +118,7 @@ export function SignInDialog({
       <div className="signin-split">
         <aside className="signin-brand">
           <span className="signin-brand__mark">
-            <img alt="" src="/brand/nadaa-logo.png" />
+            <img alt="" src="/brand/subvenio-icon.png" />
             <strong>{nadaaBrand.name}</strong>
           </span>
           <h2 id="citizen-signin-title">
@@ -127,7 +127,7 @@ export function SignInDialog({
           <p>
             {context
               ? `You need to sign in to ${context}. Browsing stays open to everyone — this quick step is stored on this device only.`
-              : "Optional. NADAA stays fully usable without signing in — this only keeps a copy of your reports and claims on this device."}
+              : "Optional. SUBVENIO stays fully usable without signing in — this only keeps a copy of your reports and claims on this device."}
           </p>
           <ul className="signin-points">
             <li>
@@ -211,7 +211,7 @@ export function SignInDialog({
                     onChange={(event) => setConsent(event.target.checked)}
                   />
                 }
-                label="I agree that NADAA can save my reports and claims on this device and contact me about them."
+                label="I agree that SUBVENIO can save my reports and claims on this device and contact me about them."
               />
               {errors.consent ? (
                 <FormHelperText>{errors.consent}</FormHelperText>

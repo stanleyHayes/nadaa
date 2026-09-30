@@ -9,7 +9,7 @@ import (
 )
 
 func TestBuildProvidersDefaultsToSandbox(t *testing.T) {
-	providers := BuildProviders(config.ProviderConfig{})
+	providers := BuildProviders(config.ProviderConfig{}, "SUBVENIO")
 
 	for _, channel := range []string{"push", "sms", "voice"} {
 		if _, ok := providers[channel].(models.MockProvider); !ok {
@@ -23,7 +23,7 @@ func TestBuildProvidersSelectsArkeselWithKey(t *testing.T) {
 		SMSProvider:   "arkesel",
 		ArkeselAPIKey: "secret-key",
 		ArkeselSender: "NADAA",
-	})
+	}, "SUBVENIO")
 
 	if _, ok := providers["sms"].(models.ArkeselSMSProvider); !ok {
 		t.Fatalf("sms provider = %T, want ArkeselSMSProvider", providers["sms"])
@@ -34,7 +34,7 @@ func TestBuildProvidersSelectsArkeselWithKey(t *testing.T) {
 }
 
 func TestBuildProvidersDisablesArkeselWithoutKey(t *testing.T) {
-	providers := BuildProviders(config.ProviderConfig{SMSProvider: "arkesel"})
+	providers := BuildProviders(config.ProviderConfig{SMSProvider: "arkesel"}, "SUBVENIO")
 
 	disabled, ok := providers["sms"].(models.DisabledProvider)
 	if !ok {
@@ -46,7 +46,7 @@ func TestBuildProvidersDisablesArkeselWithoutKey(t *testing.T) {
 }
 
 func TestBuildProvidersSelectsExpo(t *testing.T) {
-	providers := BuildProviders(config.ProviderConfig{PushProvider: "expo"})
+	providers := BuildProviders(config.ProviderConfig{PushProvider: "expo"}, "SUBVENIO")
 
 	if _, ok := providers["push"].(models.ExpoPushProvider); !ok {
 		t.Fatalf("push provider = %T, want ExpoPushProvider", providers["push"])
@@ -61,7 +61,7 @@ func TestBuildProvidersDisabledSelection(t *testing.T) {
 		SMSProvider:   "disabled",
 		PushProvider:  "disabled",
 		VoiceProvider: "disabled",
-	})
+	}, "SUBVENIO")
 
 	for _, channel := range []string{"push", "sms", "voice"} {
 		if _, ok := providers[channel].(models.DisabledProvider); !ok {
@@ -71,7 +71,7 @@ func TestBuildProvidersDisabledSelection(t *testing.T) {
 }
 
 func TestBuildProvidersUnknownSelectionFailsSafe(t *testing.T) {
-	providers := BuildProviders(config.ProviderConfig{SMSProvider: "twilio"})
+	providers := BuildProviders(config.ProviderConfig{SMSProvider: "twilio"}, "SUBVENIO")
 
 	if _, ok := providers["sms"].(models.DisabledProvider); !ok {
 		t.Fatalf("sms provider = %T, want DisabledProvider for an unknown selection", providers["sms"])
@@ -79,7 +79,7 @@ func TestBuildProvidersUnknownSelectionFailsSafe(t *testing.T) {
 }
 
 func TestBuildProvidersVoiceArkeselNotWiredYet(t *testing.T) {
-	providers := BuildProviders(config.ProviderConfig{VoiceProvider: "arkesel"})
+	providers := BuildProviders(config.ProviderConfig{VoiceProvider: "arkesel"}, "SUBVENIO")
 
 	if _, ok := providers["voice"].(models.DisabledProvider); !ok {
 		t.Fatalf("voice provider = %T, want DisabledProvider until arkesel voice is wired", providers["voice"])

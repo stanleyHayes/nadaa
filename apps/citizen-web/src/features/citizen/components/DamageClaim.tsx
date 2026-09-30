@@ -514,7 +514,7 @@ function DamageClaim() {
                       }
                     />
                   }
-                  label="I agree that NADAA may share this claim with insurers and relief agencies for verification and support."
+                  label="I agree that SUBVENIO may share this claim with insurers and relief agencies for verification and support."
                 />
 
                 {state.status === "error" ? (

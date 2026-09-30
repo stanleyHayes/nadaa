@@ -384,18 +384,18 @@ func cellBroadcastMessageText(language string, alert models.CitizenAlert, target
 	}
 	severity := strings.ToUpper(capSeverity(alert.Severity))
 	hazard := strings.TrimSpace(alert.HazardType)
-	prefix := "NADAA"
+	prefix := utils.BrandName()
 	switch language {
 	case "tw":
-		prefix = "NADAA (Twi)"
+		prefix = utils.BrandName() + " (Twi)"
 	case "ga":
-		prefix = "NADAA (Ga)"
+		prefix = utils.BrandName() + " (Ga)"
 	case "ee":
-		prefix = "NADAA (Ewe)"
+		prefix = utils.BrandName() + " (Ewe)"
 	case "dag":
-		prefix = "NADAA (Dagbani)"
+		prefix = utils.BrandName() + " (Dagbani)"
 	case "ha":
-		prefix = "NADAA (Hausa)"
+		prefix = utils.BrandName() + " (Hausa)"
 	}
 	return fmt.Sprintf("%s %s %s alert: %s. Area: %s. %s Call 112.", prefix, severity, hazard, title, targetLabel, action)
 }

@@ -16,6 +16,10 @@ type Config struct {
 	Env               string
 	TokenSecret       string
 	AllowMockActors   bool
+	// BrandName is the product brand name used in user-facing messaging
+	// (SMS/push notification prefixes, alert copy). Defaults to SUBVENIO
+	// but respects NADAA_BRAND_NAME environment variable for reversible rebranding.
+	BrandName string
 	// AllowFixtureAlerts re-enables serving seeded fixture alerts outside
 	// NADAA_ENV=development. Fixture alerts never went through the alert
 	// approval workflow, so production must leave this off.
@@ -68,6 +72,7 @@ func Load() *Config {
 		Env:                strings.TrimSpace(os.Getenv("NADAA_ENV")),
 		TokenSecret:        strings.TrimSpace(os.Getenv("NADAA_AUTH_TOKEN_SECRET")),
 		AllowMockActors:    strings.TrimSpace(os.Getenv("NADAA_AUTH_ALLOW_MOCK_ACTORS")) == "true",
+		BrandName:          utils.EnvOrDefault("NADAA_BRAND_NAME", "SUBVENIO"),
 		AllowFixtureAlerts: utils.EnvBool("NADAA_NOTIFICATION_ALLOW_FIXTURE_ALERTS", false),
 		WebhookSecrets: WebhookSecretConfig{
 			SMS:      strings.TrimSpace(os.Getenv("NADAA_SMS_WEBHOOK_SECRET")),
@@ -81,7 +86,7 @@ func Load() *Config {
 			VoiceProvider: providerSelection("NADAA_VOICE_PROVIDER", "NADAA_VOICE_ENABLED"),
 
 			ArkeselAPIKey:  utils.EnvOrDefault("NADAA_ARKESEL_API_KEY", ""),
-			ArkeselSender:  utils.EnvOrDefault("NADAA_ARKESEL_SENDER", "NADAA"),
+			ArkeselSender:  utils.EnvOrDefault("NADAA_ARKESEL_SENDER", "SUBVENIO"),
 			ArkeselBaseURL: utils.EnvOrDefault("NADAA_ARKESEL_BASE_URL", ""),
 
 			ExpoAccessToken: utils.EnvOrDefault("NADAA_EXPO_ACCESS_TOKEN", ""),

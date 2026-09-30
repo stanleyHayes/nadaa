@@ -1,41 +1,63 @@
 {
   "expo": {
-    "name": "NADAA Dispatcher",
-    "slug": "nadaa-dispatcher",
-    "scheme": "nadaa-dispatcher",
+    "name": "SUBVENIO Dispatcher",
+    "slug": "subvenio-dispatcher",
+    "scheme": "subvenio-dispatcher",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "backgroundColor": "#1a1a1a",
-    "userInterfaceStyle": "light",
+    "backgroundColor": "#0A1F3D",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a1a1a"
+      "backgroundColor": "#0A1F3D"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "bundleIdentifier": "com.nadaa.dispatcher",
+      "bundleIdentifier": "com.subvenio.dispatcher",
       "supportsTablet": true,
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "NADAA Dispatcher uses your location to show nearby incidents and hospital capacity.",
-        "NSCameraUsageDescription": "NADAA Dispatcher lets you attach scene photos to incident updates.",
-        "NSPhotoLibraryUsageDescription": "NADAA Dispatcher lets you attach existing photos to incident updates."
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          }
+        ],
+        "NSPrivacyCollectedDataTypes": [
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeName",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeUserID",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          }
+        ]
       }
     },
     "android": {
-      "package": "com.nadaa.dispatcher",
+      "package": "com.subvenio.dispatcher",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1a1a1a"
+        "backgroundColor": "#0A1F3D"
       },
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA",
-        "POST_NOTIFICATIONS",
-        "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO"
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -46,15 +68,9 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#E53935"
+          "color": "#FF8A3D"
         }
-      ],
-      "expo-location"
-    ],
-    "extra": {
-      "authApiUrl": "http://localhost:8080/api/v1",
-      "incidentApiUrl": "http://localhost:8084/api/v1",
-      "shelterApiUrl": "http://localhost:8093/api/v1"
-    }
+      ]
+    ]
   }
 }

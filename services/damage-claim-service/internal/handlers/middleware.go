@@ -87,7 +87,7 @@ func (s *Server) requireAuthority(w http.ResponseWriter, r *http.Request, allowe
 	if ctx.ActorUserID == "" || ctx.ActorAgencyID == "" || ctx.ActorRole == "" {
 		// #nosec G706 -- request id and path are sanitized with utils.SafeLogValue.
 		log.Printf("WARN damage-claim-service authority_context_missing requestId=%s path=%s", utils.SafeLogValue(ctx.RequestID), utils.SafeLogValue(r.URL.Path))
-		utils.WriteError(w, http.StatusUnauthorized, "missing_authority_context", "a valid NADAA bearer token with authority context is required")
+		utils.WriteError(w, http.StatusUnauthorized, "missing_authority_context", "a valid bearer token with authority context is required")
 		return models.AuthorityContext{}, false
 	}
 	if !ctx.MFACompleted {

@@ -183,13 +183,13 @@ export function SignInScreen() {
           <span className="cc-chip cc-auth__brand-chip" aria-hidden>
             <Box
               component="img"
-              src="/brand/nadaa-logo.png"
+              src="/brand/subvenio-icon.png"
               alt=""
               className="cc-auth__logo"
             />
           </span>
           <div>
-            <p className="cc-auth__wordmark">NADAA Agency</p>
+            <p className="cc-auth__wordmark">SUBVENIO Agency</p>
             <p className="cc-auth__org">
               National Disaster Alert &amp; Response Platform
             </p>

@@ -36,17 +36,21 @@ type ArkeselSMSProvider struct {
 	APIKey     string
 	Sender     string
 	BaseURL    string
+	BrandName  string
 	HTTPClient *http.Client
 }
 
 // NewArkeselSMSProvider builds an ArkeselSMSProvider with sane defaults for the
 // base URL, sender id, and HTTP client when they are not supplied.
-func NewArkeselSMSProvider(apiKey, sender, baseURL string, client *http.Client) ArkeselSMSProvider {
+func NewArkeselSMSProvider(apiKey, sender, baseURL, brandName string, client *http.Client) ArkeselSMSProvider {
 	if strings.TrimSpace(baseURL) == "" {
 		baseURL = "https://sms.arkesel.com"
 	}
 	if strings.TrimSpace(sender) == "" {
-		sender = "NADAA"
+		sender = "SUBVENIO"
+	}
+	if strings.TrimSpace(brandName) == "" {
+		brandName = "SUBVENIO"
 	}
 	if client == nil {
 		client = &http.Client{Timeout: defaultProviderTimeout}
@@ -55,6 +59,7 @@ func NewArkeselSMSProvider(apiKey, sender, baseURL string, client *http.Client) 
 		APIKey:     apiKey,
 		Sender:     sender,
 		BaseURL:    strings.TrimRight(baseURL, "/"),
+		BrandName:  brandName,
 		HTTPClient: client,
 	}
 }
@@ -76,7 +81,7 @@ func (p ArkeselSMSProvider) Send(ctx context.Context, message ProviderMessage) P
 
 	body, err := json.Marshal(map[string]any{
 		"sender":     p.Sender,
-		"message":    smsMessageText(message.Alert),
+		"message":    smsMessageText(message.Alert, p.BrandName),
 		"recipients": []string{phone},
 	})
 	if err != nil {
@@ -125,7 +130,7 @@ func (p ArkeselSMSProvider) Send(ctx context.Context, message ProviderMessage) P
 
 // ExpoPushProvider delivers push notifications through the Expo push service
 // (https://exp.host/--/api/v2/push/send). Expo is the value-for-money default
-// for the NADAA mobile apps because they are Expo apps: it is free, delivers to
+// for the Expo mobile apps because they are Expo apps: it is free, delivers to
 // both APNs and FCM behind one token, and honors the Android notification
 // channels and iOS critical-alert configuration the apps already declare. An
 // access token is optional (used for enhanced push security) and, when present,
@@ -133,14 +138,18 @@ func (p ArkeselSMSProvider) Send(ctx context.Context, message ProviderMessage) P
 type ExpoPushProvider struct {
 	AccessToken string
 	BaseURL     string
+	BrandName   string
 	HTTPClient  *http.Client
 }
 
 // NewExpoPushProvider builds an ExpoPushProvider with default base URL and HTTP
 // client when they are not supplied.
-func NewExpoPushProvider(accessToken, baseURL string, client *http.Client) ExpoPushProvider {
+func NewExpoPushProvider(accessToken, baseURL, brandName string, client *http.Client) ExpoPushProvider {
 	if strings.TrimSpace(baseURL) == "" {
 		baseURL = "https://exp.host"
+	}
+	if strings.TrimSpace(brandName) == "" {
+		brandName = "SUBVENIO"
 	}
 	if client == nil {
 		client = &http.Client{Timeout: defaultProviderTimeout}
@@ -148,6 +157,7 @@ func NewExpoPushProvider(accessToken, baseURL string, client *http.Client) ExpoP
 	return ExpoPushProvider{
 		AccessToken: accessToken,
 		BaseURL:     strings.TrimRight(baseURL, "/"),
+		BrandName:   brandName,
 		HTTPClient:  client,
 	}
 }
@@ -166,7 +176,7 @@ func (p ExpoPushProvider) Send(ctx context.Context, message ProviderMessage) Pro
 
 	body, err := json.Marshal(map[string]any{
 		"to":       token,
-		"title":    pushTitle(message.Alert),
+		"title":    pushTitle(message.Alert, p.BrandName),
 		"body":     pushBody(message.Alert),
 		"priority": "high",
 		"sound":    "default",
@@ -221,27 +231,33 @@ func (p ExpoPushProvider) Send(ctx context.Context, message ProviderMessage) Pro
 }
 
 // smsMessageText renders a concise, branded SMS body from an alert.
-func smsMessageText(alert CitizenAlert) string {
+func smsMessageText(alert CitizenAlert, brandName string) string {
+	if strings.TrimSpace(brandName) == "" {
+		brandName = "SUBVENIO"
+	}
 	title := strings.TrimSpace(alert.Title)
 	body := strings.TrimSpace(alert.Message)
 	switch {
 	case title != "" && body != "":
-		return fmt.Sprintf("NADAA %s: %s", title, body)
+		return fmt.Sprintf("%s %s: %s", brandName, title, body)
 	case title != "":
-		return "NADAA: " + title
+		return brandName + ": " + title
 	case body != "":
-		return "NADAA: " + body
+		return brandName + ": " + body
 	default:
-		return "NADAA emergency alert"
+		return brandName + " emergency alert"
 	}
 }
 
 // pushTitle renders the push notification title from an alert.
-func pushTitle(alert CitizenAlert) string {
+func pushTitle(alert CitizenAlert, brandName string) string {
+	if strings.TrimSpace(brandName) == "" {
+		brandName = "SUBVENIO"
+	}
 	if title := strings.TrimSpace(alert.Title); title != "" {
 		return title
 	}
-	return "NADAA alert"
+	return brandName + " alert"
 }
 
 // pushBody renders the push notification body from an alert.

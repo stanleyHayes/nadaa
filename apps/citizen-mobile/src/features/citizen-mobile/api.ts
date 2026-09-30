@@ -252,7 +252,7 @@ export async function registerPushToken(
   if (!granted) {
     return {
       status: "permission_needed",
-      message: "Allow notifications to receive urgent NADAA warnings.",
+      message: "Allow notifications to receive urgent SUBVENIO warnings.",
     };
   }
   try {
